@@ -344,19 +344,20 @@ void main() {
   group('a remote board', () {
     late LinksFixture f;
     late RegistryResponder session;
-    late RpcResponderEndpoint responder;
-    late RpcCallerEndpoint caller;
+    late RpcPeerEndpoint responder;
+    late RpcPeerEndpoint caller;
     late RegistryMirror mirror;
     late Client c;
 
     setUp(() async {
       f = LinksFixture();
       final (client, server) = RpcChannelTransport.pair();
-      session = RegistryResponder(f.r, principal: agent);
-      responder = RpcResponderEndpoint(transport: server)
+      responder = RpcPeerEndpoint(transport: server);
+      session = RegistryResponder(responder, f.r, principal: agent);
+      responder
         ..registerServiceContract(session)
         ..start();
-      caller = RpcCallerEndpoint(transport: client);
+      caller = RpcPeerEndpoint(transport: client)..start();
       final sc = SwitchboardClient(caller);
       mirror = RegistryMirror()..follow(sc);
       c = Client(RemoteBoard(sc, mirror));
@@ -432,11 +433,16 @@ void main() {
       // The mirror follows another registry: it never reaches the call.
       final other = LinksFixture();
       final (c2, s2) = RpcChannelTransport.pair();
-      final otherSession = RegistryResponder(other.r, principal: agent);
-      final otherResponder = RpcResponderEndpoint(transport: s2)
+      final otherResponder = RpcPeerEndpoint(transport: s2);
+      final otherSession = RegistryResponder(
+        otherResponder,
+        other.r,
+        principal: agent,
+      );
+      otherResponder
         ..registerServiceContract(otherSession)
         ..start();
-      final otherCaller = RpcCallerEndpoint(transport: c2);
+      final otherCaller = RpcPeerEndpoint(transport: c2)..start();
       final lagging = RegistryMirror()..follow(SwitchboardClient(otherCaller));
       addTearDown(() async {
         await lagging.dispose();

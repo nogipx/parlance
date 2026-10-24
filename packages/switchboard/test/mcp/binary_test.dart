@@ -26,8 +26,8 @@ void main() {
       final sessions = <RegistryResponder>[];
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
-        mode: RpcResponderMode((endpoint) {
-          final s = RegistryResponder(f.r, principal: agent);
+        mode: RpcPeerMode((endpoint) {
+          final s = RegistryResponder(endpoint, f.r, principal: agent);
           sessions.add(s);
           endpoint.registerServiceContract(s);
         }),

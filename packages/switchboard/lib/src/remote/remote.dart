@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../registry/cause.dart';
+import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
@@ -11,25 +12,65 @@ import 'contract.dart';
 
 // --- The registry's side -------------------------------------------------------
 
+/// What a session may own besides calling and holding layers (SPEC §14):
+/// the host's to say, for the principal it accepted. Each answers null when
+/// the session may, else why not; an absent one lets no session.
+final class SessionRights {
+  const SessionRights({this.define, this.produce, this.speakFor});
+
+  /// Define [d] (a state, a command or a fact) as the session's own.
+  final String? Function(Principal session, Descriptor d)? define;
+
+  /// Say [fact], an open fact another defined.
+  final String? Function(Principal session, String fact)? produce;
+
+  /// Say [fact] on behalf of [by]: its cause is theirs, and so are the
+  /// rights of what follows from it.
+  final String? Function(Principal session, Principal by, String fact)?
+  speakFor;
+
+  /// A session that only calls and holds layers.
+  static const none = SessionRights();
+}
+
 /// One session of a remote participant (SPEC §14): the registry as the
-/// principal the host accepted for this connection may see and use it.
+/// principal the host accepted for this connection may see and use it; and,
+/// as far as [rights] let it, an owner of words of its own, whose commands
+/// it serves over the same connection.
 ///
-/// Register it on the connection's responder endpoint; [close] it when the
-/// connection ends, so the layers the session holds go.
-final class RegistryResponder extends SwitchboardContractResponder {
-  RegistryResponder(this.registry, {required this.principal, String? session})
-    : session = session ?? newId();
+/// Register it on the connection's peer endpoint; [close] it when the
+/// connection ends, so its layers and its words go.
+final class RegistryResponder extends SwitchboardContractPeer {
+  RegistryResponder(
+    super.endpoint,
+    this.registry, {
+    required this.principal,
+    String? session,
+    this.rights = SessionRights.none,
+  }) : session = session ?? newId(),
+       _owner = SwitchboardOwnerContractPeerCaller(endpoint);
 
   final Registry registry;
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
   final String session;
+  final SessionRights rights;
+
+  /// The participant's side, serving the session's commands.
+  final SwitchboardOwnerContractPeerCaller _owner;
 
   /// The owner of the layers the session pushes.
   String get owner => 'remote:$session';
 
   final Map<String, LayerHandle> _layers = {};
+  final Map<String, StateWriter> _states = {};
+  final Map<String, FactEmitter> _facts = {};
+  final Map<String, Handle> _commands = {};
+  final Map<String, FactEmitter> _producers = {};
+
+  /// The calls of its commands it is serving now, by id.
+  final Map<String, CommandCall> _serving = {};
   bool _closed = false;
 
   void _open() {
@@ -38,8 +79,27 @@ final class RegistryResponder extends SwitchboardContractResponder {
     }
   }
 
+  static Never _deny(String why) =>
+      throw RpcStatusException(RpcStatus.permissionDenied, why);
+
+  /// The cause of what the session does: following from [parent] (a call
+  /// it serves, or a fact the registry still keeps), else a new chain.
+  Cause _cause({String? parent, bool test = false, Principal? by}) {
+    final who = by ?? principal;
+    if (parent != null) {
+      if (_serving[parent] case final c?) return c.causeFor(who);
+      if (registry.recentFact(parent) case final f?) {
+        return f.cause.child(f.id, by: who);
+      }
+    }
+    return Cause(who, test: test);
+  }
+
   @override
-  Future<SbDescription> describe(RpcNull request, {RpcContext? context}) async {
+  Future<SbDescription> onDescribe(
+    RpcNull request, {
+    RpcContext? context,
+  }) async {
     _open();
     // What this session may call: so its clients offer only that.
     return SbDescription({
@@ -49,7 +109,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Future<SbJson> why(SbWhyRequest request, {RpcContext? context}) async {
+  Future<SbJson> onWhy(SbWhyRequest request, {RpcContext? context}) async {
     _open();
     if (registry.stateDescriptor(request.state) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
@@ -58,7 +118,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Future<SbJson> layers(RpcNull request, {RpcContext? context}) async {
+  Future<SbJson> onLayers(RpcNull request, {RpcContext? context}) async {
     _open();
     return SbJson({
       'layers': [for (final l in registry.layers()) l.toJson()],
@@ -66,7 +126,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Stream<SbFeedItem> feed(SbFeedRequest request, {RpcContext? context}) {
+  Stream<SbFeedItem> onFeed(SbFeedRequest request, {RpcContext? context}) {
     _open();
     late StreamController<SbFeedItem> out;
     StreamSubscription<FeedItem>? items;
@@ -95,7 +155,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Future<SbCallReply> invoke(
+  Future<SbCallReply> onInvoke(
     SbCallRequest request, {
     RpcContext? context,
   }) async {
@@ -108,7 +168,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
       by: principal,
       id: '${principal.selector}/${request.id}',
       override: request.overriding,
-      cause: Cause(principal, test: request.test),
+      cause: _cause(parent: request.parent, test: request.test),
     );
     return SbCallReply(
       result.toJson(),
@@ -118,7 +178,10 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Future<SbJson> recent(SbRecentRequest request, {RpcContext? context}) async {
+  Future<SbJson> onRecent(
+    SbRecentRequest request, {
+    RpcContext? context,
+  }) async {
     _open();
     if (registry.factDescriptor(request.fact) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no fact ${request.fact}');
@@ -132,7 +195,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Future<SbLayerRef> pushLayer(
+  Future<SbLayerRef> onPushLayer(
     SbLayerRequest request, {
     RpcContext? context,
   }) async {
@@ -148,10 +211,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
       );
     }
     if (registry.commandDescriptor(setter)?.callers.allows(principal) != true) {
-      throw RpcStatusException(
-        RpcStatus.permissionDenied,
-        '$principal may not set ${request.state}',
-      );
+      _deny('$principal may not set ${request.state}');
     }
     try {
       final h = registry.pushLayer(
@@ -176,7 +236,7 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Future<RpcNull> popLayer(SbLayerRef request, {RpcContext? context}) async {
+  Future<RpcNull> onPopLayer(SbLayerRef request, {RpcContext? context}) async {
     _open();
     final h = _layers.remove(request.layer);
     if (h == null) {
@@ -187,20 +247,183 @@ final class RegistryResponder extends SwitchboardContractResponder {
   }
 
   @override
-  Stream<SbLayerEvent> layerEvents(RpcNull request, {RpcContext? context}) {
+  Stream<SbLayerEvent> onLayerEvents(RpcNull request, {RpcContext? context}) {
     _open();
     return registry.layerEvents
         .where((e) => e.owner == owner)
         .map((e) => SbLayerEvent(e.toJson()));
   }
 
-  /// Ends the session: its layers go, its calls are refused.
+  @override
+  Future<RpcNull> onDefine(SbDefine request, {RpcContext? context}) async {
+    _open();
+    final Descriptor d;
+    try {
+      d = Descriptor.fromJson(request.descriptor);
+    } on Object catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
+    }
+    final check = rights.define;
+    if ((check == null ? '$principal may define nothing' : check(principal, d))
+        case final why?) {
+      _deny(why);
+    }
+    try {
+      switch (d) {
+        case StateDescriptor():
+          _states[d.name] = registry.defineState(d, by: principal);
+        case FactDescriptor():
+          _facts[d.name] = registry.defineFact(d, by: principal);
+        case CommandDescriptor():
+          _commands[d.name] = registry.defineCommand(d, _serve);
+      }
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
+    }
+    return const RpcNull();
+  }
+
+  @override
+  Future<RpcNull> onUndefine(SbName request, {RpcContext? context}) async {
+    _open();
+    final h =
+        _states.remove(request.name) ??
+        _facts.remove(request.name) ??
+        _commands.remove(request.name);
+    if (h == null) {
+      throw RpcStatusException(
+        RpcStatus.notFound,
+        'the session defined no ${request.name}',
+      );
+    }
+    h.dispose();
+    return const RpcNull();
+  }
+
+  @override
+  Future<RpcNull> onWrite(SbSet request, {RpcContext? context}) async {
+    _open();
+    final w = _states[request.state];
+    if (w == null) {
+      if (registry.stateDescriptor(request.state) == null) {
+        throw RpcStatusException(
+          RpcStatus.notFound,
+          'no state ${request.state}',
+        );
+      }
+      _deny('${request.state} is not the session\'s own');
+    }
+    final cause = _cause(parent: request.parent, test: request.test);
+    try {
+      request.remove
+          ? w.remove(key: request.key, cause: cause)
+          : w.set(request.value, key: request.key, cause: cause);
+    } on TypeMismatch catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
+    } on ArgumentError catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
+    }
+    return const RpcNull();
+  }
+
+  @override
+  Future<SbTaken> onEmit(SbEmit request, {RpcContext? context}) async {
+    _open();
+    final fact = request.fact;
+    final by = request.by == null ? null : Principal.fromJson(request.by);
+    if (by != null && by != principal) {
+      final check = rights.speakFor;
+      if ((check == null
+              ? '$principal may speak for no one'
+              : check(principal, by, fact))
+          case final why?) {
+        _deny(why);
+      }
+    }
+    var e = _facts[fact];
+    if (e == null) {
+      final d = registry.factDescriptor(fact);
+      if (d == null) {
+        throw RpcStatusException(RpcStatus.notFound, 'no fact $fact');
+      }
+      if (!d.open) _deny('$fact is not open');
+      final check = rights.produce;
+      if ((check == null
+              ? '$principal may produce nothing'
+              : check(principal, fact))
+          case final why?) {
+        _deny(why);
+      }
+      e = _producers[fact] ??= registry.producer(fact, by: principal);
+    }
+    try {
+      return SbTaken(
+        e.emit(
+          request.payload,
+          id: request.id == null ? null : '${principal.selector}/${request.id}',
+          cause: _cause(parent: request.parent, test: request.test, by: by),
+        ),
+      );
+    } on TypeMismatch catch (x) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$x');
+    } on StateError catch (x) {
+      _producers.remove(fact);
+      throw RpcStatusException(RpcStatus.notFound, x.message);
+    }
+  }
+
+  /// Serves a call of a command of the session's: the participant does.
+  Future<Object?> _serve(CommandCall c) async {
+    _serving[c.id] = c;
+    try {
+      final deadline = registry.commandDescriptor(c.command)?.deadline;
+      final served = await _owner.serve(
+        SbServe(
+          id: c.id,
+          command: c.command,
+          params: c.params,
+          cause: c.cause.toJson(),
+        ),
+        context: deadline == null
+            ? null
+            : RpcContext.empty().withTimeout(deadline),
+      );
+      if (served.error case final why?) throw _Failed(why);
+      return served.value;
+    } on RpcStatusException catch (e) {
+      throw _Failed('its owner did not answer: ${e.message}');
+    } finally {
+      _serving.remove(c.id);
+    }
+  }
+
+  /// Ends the session: its layers and its words go, its calls are refused.
   void close() {
     if (_closed) return;
     _closed = true;
     _layers.clear();
     registry.dropLayersOf(owner);
+    for (final h in [
+      ..._commands.values,
+      ..._facts.values,
+      ..._states.values,
+    ]) {
+      h.dispose();
+    }
+    _commands.clear();
+    _facts.clear();
+    _states.clear();
+    _producers.clear();
   }
+}
+
+/// Why a remote owner's command failed, in its words.
+final class _Failed implements Exception {
+  const _Failed(this.why);
+  final String why;
+
+  @override
+  String toString() => why;
 }
 
 // --- The participant's side ----------------------------------------------------
@@ -226,14 +449,15 @@ final class RemoteTick extends RemoteFeed {
   final Tick tick;
 }
 
-/// The registry as a remote participant uses it, over a caller endpoint.
+/// The registry as a remote participant uses it, over its side of a peer
+/// connection.
 final class SwitchboardClient {
   SwitchboardClient(
-    RpcCallerEndpoint endpoint, {
+    RpcPeerEndpoint endpoint, {
     this.timeout = const Duration(seconds: 10),
-  }) : _caller = SwitchboardContractCaller(endpoint);
+  }) : _caller = SwitchboardContractPeerCaller(endpoint);
 
-  final SwitchboardContractCaller _caller;
+  final SwitchboardContractPeerCaller _caller;
 
   /// The deadline of a request the registry answers at once (describe,
   /// why, layers, pushing and popping one), without a context of its own.
@@ -266,12 +490,16 @@ final class SwitchboardClient {
   /// Calls [command]. When no answer comes back, the result is
   /// [CallLost] with the call's id: retry with it, and the registry answers
   /// the first result without running it again.
+  ///
+  /// [parent] is what the call follows from: a call the session serves
+  /// ([RemoteCall.id]) or a fact (its id).
   Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,
     bool override = false,
     bool test = false,
+    String? parent,
     RpcContext? context,
   }) async => (await callAt(
     command,
@@ -279,6 +507,7 @@ final class SwitchboardClient {
     id: id,
     override: override,
     test: test,
+    parent: parent,
     context: context,
   )).result;
 
@@ -291,6 +520,7 @@ final class SwitchboardClient {
     String? id,
     bool override = false,
     bool test = false,
+    String? parent,
     RpcContext? context,
   }) async {
     final callId = id ?? newId();
@@ -302,6 +532,7 @@ final class SwitchboardClient {
           params: params,
           overriding: override,
           test: test,
+          parent: parent,
         ),
         context: context,
       );
@@ -380,6 +611,126 @@ final class SwitchboardClient {
   Stream<LayerEvent> layerEvents({RpcContext? context}) => _caller
       .layerEvents(const RpcNull(), context: context)
       .map((e) => LayerEvent.fromJson(e.json));
+
+  /// Defines [d] as the session's own, as far as the host lets it. A
+  /// command's calls come to the session's [RemoteOwner].
+  Future<void> define(Descriptor d, {RpcContext? context}) =>
+      _caller.define(SbDefine(d.toJson()), context: _ctx(context));
+
+  Future<void> undefine(String name, {RpcContext? context}) =>
+      _caller.undefine(SbName(name), context: _ctx(context));
+
+  /// Writes [value] to the session's own [state] (of [key]), or [remove]s
+  /// it.
+  Future<void> write(
+    String state, {
+    String? key,
+    Object? value,
+    bool remove = false,
+    String? parent,
+    bool test = false,
+    RpcContext? context,
+  }) => _caller.write(
+    SbSet(
+      state: state,
+      key: key,
+      value: value,
+      remove: remove,
+      parent: parent,
+      test: test,
+    ),
+    context: _ctx(context),
+  );
+
+  /// Says [fact]: the session's own, or an open one it produces; [by] when
+  /// the host lets it say it for someone else. False when [id] was said
+  /// already.
+  Future<bool> emit(
+    String fact,
+    Object? payload, {
+    String? id,
+    Principal? by,
+    String? parent,
+    bool test = false,
+    RpcContext? context,
+  }) async => (await _caller.emit(
+    SbEmit(
+      fact: fact,
+      payload: payload,
+      id: id,
+      by: by?.toJson(),
+      parent: parent,
+      test: test,
+    ),
+    context: _ctx(context),
+  )).taken;
+}
+
+/// A call of a command the session owns, as its handler gets it.
+final class RemoteCall {
+  const RemoteCall(this.id, this.command, this.params, this.cause);
+
+  /// What the handler's own calls and writes follow from (`parent:`).
+  final String id;
+  final String command;
+
+  /// Checked by the registry, with defaults filled.
+  final Map<String, Object?> params;
+  final Cause cause;
+
+  Principal get by => cause.by;
+}
+
+/// Serves a call of the session's command: its answer, of the command's
+/// `returns`; a throw fails the call with its message.
+typedef RemoteHandler = FutureOr<Object?> Function(RemoteCall call);
+
+/// The participant's side of a session that owns words (SPEC §14): it
+/// defines them through [client] and serves their calls. Register it on the
+/// same peer endpoint as the client's.
+final class RemoteOwner extends SwitchboardOwnerContractPeer {
+  RemoteOwner(super.endpoint, this.client);
+
+  final SwitchboardClient client;
+  final Map<String, RemoteHandler> _handlers = {};
+
+  /// Defines command [d], served by [handler].
+  Future<void> defineCommand(CommandDescriptor d, RemoteHandler handler) async {
+    _handlers[d.name] = handler;
+    try {
+      await client.define(d);
+    } on Object {
+      _handlers.remove(d.name);
+      rethrow;
+    }
+  }
+
+  Future<void> undefine(String name) async {
+    await client.undefine(name);
+    _handlers.remove(name);
+  }
+
+  @override
+  Future<SbServed> onServe(SbServe request, {RpcContext? context}) async {
+    final handler = _handlers[request.command];
+    if (handler == null) {
+      return SbServed.failed('nothing serves ${request.command}');
+    }
+    try {
+      return SbServed.done(
+        await handler(
+          RemoteCall(
+            request.id,
+            request.command,
+            request.params,
+            Cause.fromJson(request.cause),
+          ),
+        ),
+      );
+    } on Object catch (e) {
+      return SbServed.failed('$e');
+    }
+  }
 }
 
 /// A remote participant's copy of the registry's states, kept by a feed and

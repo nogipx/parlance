@@ -759,6 +759,17 @@ final class Registry implements TypeContext {
     return n == null || n >= all.length ? all : all.sublist(all.length - n);
   }
 
+  /// The fact of id [id] among those kept, or null: what follows from it
+  /// (a remote participant's answer to it) takes its cause.
+  FactMessage? recentFact(String id) {
+    for (final q in _recent.values) {
+      for (final m in q) {
+        if (m.id == id) return m;
+      }
+    }
+    return null;
+  }
+
   /// The feed (SPEC §12): resumes after `since` of [epoch] when it is still
   /// retained, else starts with a snapshot.
   Stream<FeedItem> feed({String? epoch, int? since}) {

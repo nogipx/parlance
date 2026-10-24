@@ -9,18 +9,29 @@ import '../registry/fixture.dart';
 
 /// One connection: a session for [principal] on the registry, and a client.
 final class Link {
-  Link._(this.client, this.session, this._closers);
+  Link._(this.client, this.session, this.endpoint, this._closers);
 
-  static Link open(Registry r, Principal principal, {required bool wire}) {
+  static Link open(
+    Registry r,
+    Principal principal, {
+    required bool wire,
+    SessionRights rights = SessionRights.none,
+  }) {
     final (c, s) = wire
         ? RpcChannelTransport.pair()
         : RpcChannelTransport.memoryPair();
-    final session = RegistryResponder(r, principal: principal);
-    final responder = RpcResponderEndpoint(transport: s)
+    final responder = RpcPeerEndpoint(transport: s);
+    final session = RegistryResponder(
+      responder,
+      r,
+      principal: principal,
+      rights: rights,
+    );
+    responder
       ..registerServiceContract(session)
       ..start();
-    final caller = RpcCallerEndpoint(transport: c);
-    return Link._(SwitchboardClient(caller), session, [
+    final caller = RpcPeerEndpoint(transport: c)..start();
+    return Link._(SwitchboardClient(caller), session, caller, [
       caller.close,
       responder.close,
     ]);
@@ -28,6 +39,9 @@ final class Link {
 
   final SwitchboardClient client;
   final RegistryResponder session;
+
+  /// The participant's side of the connection.
+  final RpcPeerEndpoint endpoint;
   final List<Future<void> Function()> _closers;
 
   /// The connection drops: the host ends the session.
@@ -324,6 +338,196 @@ void main() {
           await status(v.client.pushLayer('audio.muted', value: true)),
           RpcStatus.permissionDenied,
         );
+      });
+
+      group('a session that owns words', () {
+        const plugin = Principal('plugin', 'kittens');
+        // The host's rights: words under its id, open facts it produces,
+        // a viewer it speaks for.
+        final rights = SessionRights(
+          define: (p, d) =>
+              d.name.startsWith('${p.id}.') ? null : 'only ${p.id}.*',
+          produce: (p, fact) => fact == 'platform.follow' ? null : 'not $fact',
+          speakFor: (p, by, fact) => by.kind == 'viewer' ? null : 'not $by',
+        );
+        late Link k;
+        late RemoteOwner o;
+
+        setUp(() {
+          k = Link.open(f.r, plugin, wire: wire, rights: rights);
+          o = RemoteOwner(k.endpoint, k.client);
+          k.endpoint.registerServiceContract(o);
+        });
+        tearDown(() => k.close());
+
+        Future<RpcStatus?> status(Future<Object?> f) async {
+          try {
+            await f;
+            return null;
+          } on RpcStatusException catch (e) {
+            return e.statusCode;
+          }
+        }
+
+        Future<void> lamps() async {
+          await k.client.define(
+            StateDescriptor('kittens.lights', type: const BoolType()),
+          );
+          await o.defineCommand(
+            CommandDescriptor(
+              'kittens.lights.set',
+              params: const ObjectType({'on': Field(BoolType())}),
+              callers: Callers.only(['user', 'plugin']),
+              sets: const Sets('kittens.lights', value: 'on'),
+            ),
+            (c) async {
+              await k.client.write(
+                'kittens.lights',
+                value: c.params['on'],
+                parent: c.id,
+              );
+              return null;
+            },
+          );
+        }
+
+        test('its words are the registry\'s: others call its command, '
+            'it serves it, and what it writes follows from the call', () async {
+          await lamps();
+          expect(f.r.setterOf('kittens.lights'), 'kittens.lights.set');
+          final r = await f.r.call('kittens.lights.set', {
+            'on': true,
+          }, by: user);
+          expect(r, isA<CallDone<Object?>>());
+          expect(f.r.read('kittens.lights'), true);
+          final change = f.r.lastChange('kittens.lights')!;
+          expect(change.cause.by, plugin);
+          expect(change.cause.parent, isNotNull);
+          expect(
+            f.r.callRecord(change.cause.parent!)?.command,
+            'kittens.lights.set',
+          );
+        });
+
+        test('a handler that throws fails the call with its words', () async {
+          await o.defineCommand(
+            CommandDescriptor('kittens.feed', callers: Callers.only(['user'])),
+            (c) => throw StateError('no fish'),
+          );
+          final r = await f.r.call('kittens.feed', {}, by: user);
+          expect(r.whyNot, contains('no fish'));
+        });
+
+        test('it defines only what the host lets it, writes only its own, '
+            'of their types', () async {
+          await lamps();
+          expect(
+            await status(
+              k.client.define(
+                StateDescriptor('studio.lights', type: const BoolType()),
+              ),
+            ),
+            RpcStatus.permissionDenied,
+          );
+          expect(
+            await status(
+              k.client.define(
+                StateDescriptor('kittens.lights', type: const BoolType()),
+              ),
+            ),
+            RpcStatus.alreadyExists,
+          );
+          expect(
+            await status(k.client.write('audio.muted', value: true)),
+            RpcStatus.permissionDenied,
+          );
+          expect(
+            await status(k.client.write('kittens.lights', value: 'yes')),
+            RpcStatus.invalidArgument,
+          );
+          final caller = Link.open(f.r, agent, wire: wire);
+          addTearDown(caller.close);
+          expect(
+            await status(
+              caller.client.define(
+                StateDescriptor('agent.x', type: const BoolType()),
+              ),
+            ),
+            RpcStatus.permissionDenied,
+          );
+        });
+
+        test("it says its facts, an open one it produces, for a viewer the "
+            "host lets it speak for; a repeat of an id is dropped", () async {
+          f.r.defineFact(
+            FactDescriptor(
+              'platform.follow',
+              type: const AnyType(),
+              open: true,
+            ),
+            by: owner,
+          );
+          f.r.defineFact(
+            FactDescriptor('platform.raid', type: const AnyType(), open: true),
+            by: owner,
+          );
+          await k.client.define(
+            FactDescriptor('kittens.adopted', type: const AnyType()),
+          );
+          expect(await k.client.emit('kittens.adopted', {'name': 'Tom'}), true);
+          expect(
+            await k.client.emit(
+              'platform.follow',
+              {'viewer': 'Bo'},
+              id: 'f1',
+              by: viewer,
+            ),
+            true,
+          );
+          expect(
+            await k.client.emit('platform.follow', {}, id: 'f1', by: viewer),
+            false,
+          );
+          expect(f.r.recent('platform.follow').single.cause.by, viewer);
+          expect(
+            await status(k.client.emit('platform.raid', {})),
+            RpcStatus.permissionDenied,
+          );
+          expect(
+            await status(k.client.emit('platform.follow', {}, by: user)),
+            RpcStatus.permissionDenied,
+          );
+          expect(
+            await status(k.client.emit('audio.nothing', {})),
+            RpcStatus.notFound,
+          );
+        });
+
+        test('what it does in answer to a fact follows from it', () async {
+          await k.client.define(
+            FactDescriptor('kittens.adopted', type: const AnyType()),
+          );
+          await k.client.emit('kittens.adopted', {});
+          final fact = f.r.recent('kittens.adopted').single;
+          await lamps();
+          await k.client.call('kittens.lights.set', {
+            'on': true,
+          }, parent: fact.id);
+          final r = f.r.callRecord(
+            f.r.lastChange('kittens.lights')!.cause.parent!,
+          );
+          expect(r?.cause.parent, fact.id);
+        });
+
+        test('its words go with the session', () async {
+          await lamps();
+          await k.close();
+          expect(f.r.stateDescriptor('kittens.lights'), isNull);
+          final r = await f.r.call('kittens.lights.set', {
+            'on': true,
+          }, by: user);
+          expect(r, isA<CallRefused>());
+        });
       });
     });
   }

@@ -58,7 +58,7 @@ Future<void> main(List<String> args) async {
         connectRpcSocket(address, cancellationToken: cancel),
   );
   connection.connect();
-  final endpoint = RpcCallerEndpoint(transport: connection.transport);
+  final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
   final client = SwitchboardClient(endpoint);
   final mirror = RegistryMirror()..follow(client);
   // The feed ends when the host goes; follow it again until it is back.

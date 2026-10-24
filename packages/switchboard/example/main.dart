@@ -192,11 +192,16 @@ final class Phone {
   static Phone connect(Registry registry, Principal principal) {
     final (c, s) = RpcChannelTransport.memoryPair();
     // The host decides who the connection is, when it accepts it.
-    final session = RegistryResponder(registry, principal: principal);
-    final responder = RpcResponderEndpoint(transport: s)
+    final responder = RpcPeerEndpoint(transport: s);
+    final session = RegistryResponder(
+      responder,
+      registry,
+      principal: principal,
+    );
+    responder
       ..registerServiceContract(session)
       ..start();
-    final caller = RpcCallerEndpoint(transport: c);
+    final caller = RpcPeerEndpoint(transport: c)..start();
     return Phone._(SwitchboardClient(caller), session, [
       caller.close,
       responder.close,
