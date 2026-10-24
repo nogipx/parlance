@@ -94,7 +94,10 @@ void main() {
         await f.r.call('my.away.set', {'value': true}, by: viewer),
         isA<CallRefused>(),
       );
-      expect(await f.r.call('my.greet', {}, by: user), isA<CallDone<Object?>>());
+      expect(
+        await f.r.call('my.greet', {}, by: user),
+        isA<CallDone<Object?>>(),
+      );
       expect(
         await f.r.call('my.away.set', {'value': true}, by: user),
         isA<CallDone<Object?>>(),
@@ -102,7 +105,10 @@ void main() {
     });
 
     test('a definition opens its own word to whom it names', () async {
-      expect(await f.r.call('my.open', {}, by: viewer), isA<CallDone<Object?>>());
+      expect(
+        await f.r.call('my.open', {}, by: viewer),
+        isA<CallDone<Object?>>(),
+      );
     });
 
     test('a layer still sets an own state', () async {

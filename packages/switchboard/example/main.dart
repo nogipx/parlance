@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:switchboard/links.dart';
 import 'package:switchboard/mcp.dart';
+import 'package:switchboard/owners.dart';
 import 'package:switchboard/registry.dart';
 import 'package:switchboard/remote.dart';
 
@@ -26,7 +27,9 @@ Future<void> main() async {
     onError: (e, st) => print('error: $e'),
   );
   final devices = Devices();
-  final house = House(registry, devices);
+  final house = House(devices);
+  // The house's words, and any other owner's, on one registry.
+  final owners = Owners(registry, [house]);
   // Residents press and change links; a run set off by anyone else (a guest
   // at the door) acts with that one's rights, never the link's.
   final links = Links(
@@ -178,7 +181,7 @@ Future<void> main() async {
   print('  the agent turns the hall light off: ${answer.text.trim()}');
 
   await links.dispose();
-  house.dispose();
+  owners.dispose();
   await registry.dispose();
 }
 

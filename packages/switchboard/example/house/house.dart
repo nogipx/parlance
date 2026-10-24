@@ -1,6 +1,7 @@
 /// The house itself: its devices, and the words it owns in the registry.
 library;
 
+import 'package:switchboard/owners.dart';
 import 'package:switchboard/registry.dart';
 
 import 'words.dart';
@@ -20,25 +21,32 @@ final class Devices {
 
 /// The owner of the house's words: it defines them, serves its commands
 /// from [devices], writes its states and emits what its sensors see.
-final class House {
-  House(this.registry, this.devices) {
-    final r = registry;
-    _handles.add(
-      r.registerKind(
-        EntityKind(
-          room,
-          list: () => [for (final id in devices.lights.keys) EntityRef(id)],
-        ),
-      ),
-    );
-    _light = _keep(r.state(HouseState.light).define(by: Who.house));
-    _heat = _keep(r.state(HouseState.heat).define(by: Who.house));
-    _mode = _keep(r.state(HouseState.mode).define(by: Who.house));
-    _locked = _keep(r.state(HouseState.locked).define(by: Who.house));
-    _rang = _keep(r.fact(HouseFact.rang).define(by: Who.house));
-    _motion = _keep(r.fact(HouseFact.motion).define(by: Who.house));
+final class House extends Owner {
+  House(this.devices);
 
-    _keep(
+  final Devices devices;
+  late final TrackedKind _rooms;
+  late final StateWriterOf<bool> _light;
+  late final StateWriterOf<num> _heat;
+  late final StateWriterOf<Mode> _mode;
+  late final StateWriterOf<bool> _locked;
+  late final FactEmitterOf<Ring> _rang;
+  late final FactEmitterOf<Motion> _motion;
+
+  @override
+  void define(Registry r) {
+    _rooms = trackKind(
+      room,
+      () => [for (final id in devices.lights.keys) EntityRef(id)],
+    );
+    _light = keep(r.state(HouseState.light).define(by: Who.house));
+    _heat = keep(r.state(HouseState.heat).define(by: Who.house));
+    _mode = keep(r.state(HouseState.mode).define(by: Who.house));
+    _locked = keep(r.state(HouseState.locked).define(by: Who.house));
+    _rang = keep(r.fact(HouseFact.rang).define(by: Who.house));
+    _motion = keep(r.fact(HouseFact.motion).define(by: Who.house));
+
+    keep(
       r
           .command(HouseCommand.setLight)
           .define(
@@ -54,7 +62,7 @@ final class House {
             sets: Sets(HouseState.light.name, key: 'room', value: 'on'),
           ),
     );
-    _keep(
+    keep(
       r
           .command(HouseCommand.setHeat)
           .define(
@@ -66,7 +74,7 @@ final class House {
             sets: Sets(HouseState.heat.name, value: 'target'),
           ),
     );
-    _keep(
+    keep(
       r
           .command(HouseCommand.setMode)
           .define(
@@ -78,7 +86,7 @@ final class House {
             sets: Sets(HouseState.mode.name, value: 'mode'),
           ),
     );
-    _keep(
+    keep(
       r
           .command(HouseCommand.lock)
           .define(
@@ -97,7 +105,7 @@ final class House {
 
     // A rule of the house's own: the door stays locked at night, unless a
     // resident says so (override).
-    _handles.add(
+    keep(
       r.addGuard('night-door', (call) {
         if (call.command.name != HouseCommand.lock.name) return null;
         final unlock = call.params['on'] == false;
@@ -105,33 +113,21 @@ final class House {
         return unlock && night ? 'the door stays locked at night' : null;
       }),
     );
-    sync();
   }
 
-  final Registry registry;
-  final Devices devices;
-  final List<Handle> _handles = [];
-  late final StateWriterOf<bool> _light;
-  late final StateWriterOf<num> _heat;
-  late final StateWriterOf<Mode> _mode;
-  late final StateWriterOf<bool> _locked;
-  late final FactEmitterOf<Ring> _rang;
-  late final FactEmitterOf<Motion> _motion;
-
-  H _keep<H extends Handle>(H h) {
-    _handles.add(h);
-    return h;
-  }
-
-  /// Writes what the devices say now, as one tick.
-  void sync() => registry.batch(() {
+  /// Writes what the devices say now; [Owners.sync] makes it one tick.
+  @override
+  void sync() {
+    for (final gone in _rooms.sync()) {
+      _light.remove(key: gone);
+    }
     for (final MapEntry(:key, :value) in devices.lights.entries) {
       _light.set(value, key: key);
     }
     _heat.set(devices.heat);
     _mode.set(devices.mode);
     _locked.set(devices.locked);
-  });
+  }
 
   /// The doorbell: [by] rang it, and the fact says so.
   void ring(Principal by, String who) =>
@@ -139,10 +135,4 @@ final class House {
 
   /// A sensor saw someone in [room].
   void motion(String room) => _motion.emit((room: room));
-
-  void dispose() {
-    for (final h in _handles.reversed) {
-      h.dispose();
-    }
-  }
 }

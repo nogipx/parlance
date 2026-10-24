@@ -12,6 +12,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | Library | What it is | Contract |
 |---|---|---|
 | `registry` | catalog, writes in ticks, calls, layers, guards, hooks, feed, format versions, typed words | [references/registry.md](references/registry.md): §1–12, §17, §18 |
+| `owners` | `Owner`, `Owners`, `Handles`, `TrackedKind`, `failCall`: defining, syncing and withdrawing a host's words | [references/owners.md](references/owners.md): §19 |
 | `links` | the engine of links and own words, on the registry's public API | [references/links.md](references/links.md): §13, §15 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
 | `mcp` | curated agent tools on a `Board` (local or remote); the binary `switchboard-mcp` | [references/mcp.md](references/mcp.md): §16 |
@@ -20,6 +21,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 
 A host names its words once, typed (SPEC §18), and never types a name or a param key elsewhere:
 - **Words:** an enum per owner, `enum XState<T> implements StateWord<T>`, `enum XCommand<P, R> implements CommandWord<P, R>`, `enum XFact<T> implements FactWord<T>`; each value its name and shape. Params and objects are records with a `RecordShape(fields, to:, from:)`; enums are `EnumShape(values)`; no params is `RecordShape.none`.
+- **Owner:** a class `extends Owner` (`package:switchboard/owners.dart`): words in `define(r)`, each handle through `keep(...)`, states written in `sync()`, entity kinds by `trackKind`; a port that says no ends the call with `failCall(why)`; `Owners(registry, [...])` attaches them and syncs them as one tick.
 - **State:** `r.state(XState.a).define(by: owner, meta:)` returns the only `StateWriterOf<T>`. A settable state has one command with `sets: Sets(XState.a.name, value: 'param', key:?)`.
 - **Command:** `r.command(XCommand.b).define((c) => ..., callers:, sets:?, interceptable:?, deadline:?, available:?)`; `c.params` is the record. `available` answers why it cannot run now (shown before anyone calls).
 - **Fact:** `r.fact(XFact.c).define(by: producer)`; `emit(record, cause:)`.
@@ -51,7 +53,7 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Rules of the package
 
-- Imports go one way: `links` and `remote` use `registry`; `mcp` may import only `link_words.dart` from links, and that file only the registry's types and words; only `remote` uses rpc_dart. `test/boundaries_test.dart` holds this.
+- Imports go one way: `links`, `remote` and `owners` use `registry`; `mcp` may import only `link_words.dart` from links, and that file only the registry's types and words; only `remote` uses rpc_dart. `test/boundaries_test.dart` holds this.
 - No words of any domain in `lib/` (the boundary test bans them); the host's vocabulary stays in the host.
 - Results are typed (`CallResult<R>`, `Explanation`, `LayerInfo`); serialize at the edges.
 - `contract.g.dart` is generated: change `contract.dart`, then `fvm dart run build_runner build`.

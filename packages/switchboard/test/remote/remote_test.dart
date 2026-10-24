@@ -252,7 +252,10 @@ void main() {
           expect((lost as CallLost).id, 'k2');
           final again = Link.open(f.r, user, wire: wire);
           addTearDown(again.close);
-          expect(await again.client.call('x.go', {}, id: 'k'), isA<CallDone<Object?>>());
+          expect(
+            await again.client.call('x.go', {}, id: 'k'),
+            isA<CallDone<Object?>>(),
+          );
           expect(runs, ['user:local/k'], reason: 'the retry did not run again');
         },
       );

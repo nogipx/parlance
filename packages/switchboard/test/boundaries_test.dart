@@ -51,6 +51,14 @@ void main() {
     });
   });
 
+  test('owners use the registry alone', () {
+    for (final f in dartIn('lib/src/owners')) {
+      for (final i in importsOf(f)) {
+        expect(i, startsWith('../registry/'), reason: f.path);
+      }
+    }
+  });
+
   test('the registry names nothing of links', () {
     for (final f in dartIn('lib/src/registry')) {
       expect(

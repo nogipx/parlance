@@ -9,7 +9,7 @@ fvm dart run example/main.dart
 | File | What it shows |
 |---|---|
 | `house/words.dart` | The vocabulary, typed: `HouseState`, `HouseCommand`, `HouseFact` as enums, params as records, `Mode` as a Dart enum; who acts (`Who`) and who may call what (`Callers`). Every name is written here once. |
-| `house/house.dart` | The owner: defines its words through `r.state()`, `r.command()`, `r.fact()`, serves the commands from its devices, writes states with the call's cause, emits facts, says when a command is unavailable, and adds a guard (`night-door`). |
+| `house/house.dart` | The owner, an `Owner` (`package:switchboard/owners.dart`): keeps its rooms as a tracked kind, defines its words through `r.state()`, `r.command()`, `r.fact()`, serves the commands from its devices, writes states with the call's cause, emits facts, says when a command is unavailable, and adds a guard (`night-door`). |
 | `house/links.dart` | Links built from the words (`trigger()`, `holds()`, `step()`): a reaction, a reaction with a temporary step, a binding, a constraint, an own command and an own state. |
 | `main.dart` | The tour, in eight parts. |
 
