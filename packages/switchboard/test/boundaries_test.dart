@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-/// The package's boundaries (SPEC, top): imports go one way and no domain
+/// The package's boundaries (skills/switchboard/SKILL.md, rules of the package): imports go one way and no domain
 /// word is in it.
 void main() {
   List<File> dartIn(String dir) => [

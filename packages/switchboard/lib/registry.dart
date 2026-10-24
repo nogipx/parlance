@@ -1,7 +1,7 @@
 /// The registry: states, commands and facts that participants share
 /// without knowing each other, layers, guards, before hooks and the feed.
 ///
-/// See SPEC.md, §§1–12.
+/// The contract: skills/switchboard/references/registry.md (§1–12).
 library;
 
 export 'src/registry/cause.dart' show Principal, Cause;
