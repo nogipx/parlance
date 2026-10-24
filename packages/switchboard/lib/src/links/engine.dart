@@ -150,6 +150,7 @@ final class Links {
       'ran': Field(BoolType(), optional: true),
       'denies': Field(BoolType(), optional: true),
       'reason': Field(TextType(), optional: true),
+      'failure': Field(TextType(), optional: true),
     });
     _handles.addAll([
       _status,
@@ -160,6 +161,7 @@ final class Links {
           params: const ObjectType({
             'link': Field(RefType('link')),
             'args': Field(AnyType(), optional: true),
+            'wait': Field(BoolType(), defaultValue: false),
           }),
           returns: answer,
           callers: pressers ?? anyone,
@@ -664,7 +666,13 @@ final class Links {
         from: call.cause,
         read: (s, k) => registry.read(s, key: k),
       );
-      return why == null ? {'ran': true} : {'ran': false, 'reason': why};
+      if (why != null) return {'ran': false, 'reason': why};
+      // With wait, the answer comes when the run has ended: a button shows
+      // that it works, then that it worked or why not.
+      final run = live.lastStarted;
+      if (call.params['wait'] != true || run == null) return {'ran': true};
+      final failure = await run.done.future;
+      return {'ran': true, 'failure': ?failure};
     }
     return {'ran': false, 'reason': 'not pressable'};
   }
@@ -789,14 +797,14 @@ final class Links {
         final failure = await _step(run, s);
         if (failure != null) {
           _note(run.link.id, failure);
-          return failure;
+          return run.failure = failure;
         }
       }
       return null;
     } catch (e, st) {
       _onError(e, st);
       _note(run.link.id, '$e');
-      return '$e';
+      return run.failure = '$e';
     } finally {
       run.stepsDone = true;
       run.maybeFinish();
@@ -1126,13 +1134,18 @@ final class _LiveReaction extends _Live {
       case RunMode.queue when running.isNotEmpty:
         if (queued.length >= link.queueLimit) return 'queue full';
         queued.add(run);
+        lastStarted = run;
         return null;
       default:
         break;
     }
+    lastStarted = run;
     _start(run);
     return null;
   }
+
+  /// The run the last firing started or queued.
+  _Run? lastStarted;
 
   void _start(_Run run) {
     running.add(run);
@@ -1179,6 +1192,12 @@ final class _Run {
   final Cause cause;
   final String id = newId();
   final Completer<void> cancelled = Completer();
+
+  /// Ends with why the run stopped early, or null.
+  final Completer<String?> done = Completer();
+
+  /// Why the steps stopped early, or null.
+  String? failure;
   final List<void Function()> onCancel = [];
   void Function(_Run)? onFinish;
 
@@ -1203,6 +1222,7 @@ final class _Run {
   void maybeFinish() {
     if (_finished || !(stepsDone || isCancelled) || open > 0) return;
     _finished = true;
+    done.complete(isCancelled ? (failure ?? 'stopped') : failure);
     onFinish?.call(this);
   }
 }

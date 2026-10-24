@@ -359,6 +359,10 @@ final class Registry implements TypeContext {
   final Map<String, FactDescriptor> _facts = {};
   final StreamController<CatalogChange> _catalog = StreamController.broadcast();
 
+  void _announce(CatalogChange c) {
+    if (!_catalog.isClosed) _catalog.add(c);
+  }
+
   /// Additions, removals and entity changes, in order.
   Stream<CatalogChange> get catalogChanges => _catalog.stream;
 
@@ -378,6 +382,15 @@ final class Registry implements TypeContext {
 
   FactDescriptor? factDescriptor(String name) => _facts[name];
 
+  /// Why [command] cannot run now (it is not there, or its owner says it
+  /// is unavailable), or null when it can. Guards are not asked: they judge
+  /// a call, not a command.
+  String? whyUnavailable(String command) {
+    final c = _commands[command];
+    if (c == null) return 'no command $command';
+    return c.available?.call();
+  }
+
   /// The command that sets [state], if there is one.
   String? setterOf(String state) => _states[state]?.setter;
 
@@ -396,17 +409,17 @@ final class Registry implements TypeContext {
       throw StateError('kind ${kind.name} exists');
     }
     _kinds[kind.name] = kind;
-    _catalog.add(KindChanged(kind.name));
+    _announce(KindChanged(kind.name));
     return _Disposer(() {
       if (_kinds[kind.name] == kind) {
         _kinds.remove(kind.name);
-        _catalog.add(KindChanged(kind.name));
+        _announce(KindChanged(kind.name));
       }
     });
   }
 
   /// The entities of [kind] changed.
-  void entitiesChanged(String kind) => _catalog.add(KindChanged(kind));
+  void entitiesChanged(String kind) => _announce(KindChanged(kind));
 
   /// Registers the host's type [name] with its checker (SPEC §2).
   Handle registerType(String name, String? Function(Object? value) check) {
@@ -445,7 +458,7 @@ final class Registry implements TypeContext {
       if (c.descriptor.sets?.state == d.name) e.setter = c.descriptor.name;
     }
     _states[d.name] = e;
-    _catalog.add(DescriptorAdded(d));
+    _announce(DescriptorAdded(d));
     return StateWriter._(this, d, by);
   }
 
@@ -469,7 +482,7 @@ final class Registry implements TypeContext {
       st?.setter = d.name;
     }
     _commands[d.name] = _CommandEntry(d, handler, available);
-    _catalog.add(DescriptorAdded(d));
+    _announce(DescriptorAdded(d));
     return _Disposer(() => _undefine(d.name));
   }
 
@@ -477,7 +490,7 @@ final class Registry implements TypeContext {
   FactEmitter defineFact(FactDescriptor d, {required Principal by}) {
     _checkFree(d.name);
     _facts[d.name] = d;
-    _catalog.add(DescriptorAdded(d));
+    _announce(DescriptorAdded(d));
     return FactEmitter._(this, d, by, definer: true);
   }
 
@@ -503,7 +516,7 @@ final class Registry implements TypeContext {
       for (final t in [..._stacks.keys]) {
         if (t.$1 == name) _orphan(t);
       }
-      _catalog.add(DescriptorRemoved(s.descriptor));
+      _announce(DescriptorRemoved(s.descriptor));
     } else if (_commands.remove(name) case final c?) {
       if (c.descriptor.sets case final s?) {
         _states[s.state]?.setter = null;
@@ -521,9 +534,9 @@ final class Registry implements TypeContext {
       }
       _waiting.remove(name);
       _hooks.remove(name);
-      _catalog.add(DescriptorRemoved(c.descriptor));
+      _announce(DescriptorRemoved(c.descriptor));
     } else if (_facts.remove(name) case final f?) {
-      _catalog.add(DescriptorRemoved(f));
+      _announce(DescriptorRemoved(f));
     }
   }
 

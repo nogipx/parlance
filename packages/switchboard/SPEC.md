@@ -94,7 +94,7 @@ CommandDescriptor {
 - `sets` says the command sets that state: the target key comes from param `key`, the value from param `value`. A state has at most one setter. Layers (§8) and `flip` need the setter, and call it with only those two params, so its other params must be optional.
 - `callers` selectors are a principal kind (`user`), a kind and id (`plugin:hydra`) or `*` for anyone; the most specific selector wins; a principal matched by none is denied. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
 - `deadline` bounds the handler; the default is 30 s.
-- The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason.
+- The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
 
 ### 6.3 Facts
 
@@ -207,7 +207,7 @@ Links are data. The engine validates them against the catalog; a link that names
 | `state` | a state (and key) `becomes` / `leaves` a value, or `changes` (optionally `from` → `to`); `for` — and stays so that long |
 | `every` | every interval, from when the link activates |
 | `at` | at a local time of day, on the given weekdays |
-| `manual` | `links.press { link }`; the presser is the principal |
+| `manual` | `links.press { link, args?, wait? }`; the presser is the principal. With `wait`, the answer comes when the run has ended, with its `failure` if it stopped early |
 
 Options on any trigger: `throttle` — at most once per interval, per key (a path into the trigger, e.g. the viewer); `once` — once until `links.reset { link }`. The host registers **trigger extensions**: a name, a translation to one of the kinds above, and a parse of the extension's own options; the package knows none.
 

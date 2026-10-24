@@ -216,4 +216,17 @@ void main() {
     expect(changes.single.cause.test, isTrue);
     expect(changes.single.cause.chain, ['link-a']);
   });
+
+  test('whyUnavailable tells without calling', () {
+    var why = 'offline';
+    f.r.defineCommand(
+      CommandDescriptor('x.go', callers: Callers.only(['user'])),
+      (_) {},
+      available: () => why.isEmpty ? null : why,
+    );
+    expect(f.r.whyUnavailable('x.go'), 'offline');
+    why = '';
+    expect(f.r.whyUnavailable('x.go'), isNull);
+    expect(f.r.whyUnavailable('nope'), 'no command nope');
+  });
 }

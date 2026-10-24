@@ -480,4 +480,51 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'press with wait answers when the run has ended, with its failure',
+    () async {
+      f.use([
+        {
+          'id': 'ok',
+          'when': [
+            {'manual': <String, Object?>{}},
+          ],
+          'do': [
+            {'wait': '10ms'},
+            {
+              'call': 'test.say',
+              'params': {'text': 'done'},
+            },
+          ],
+        },
+        {
+          'id': 'bad',
+          'when': [
+            {'manual': <String, Object?>{}},
+          ],
+          'do': [
+            {
+              'call': 'studio.show',
+              'params': {'scene': 'nowhere'},
+            },
+          ],
+        },
+      ]);
+      final ok = await f.r.call('links.press', {
+        'link': 'ok',
+        'wait': true,
+      }, by: user);
+      expect((ok as CallDone).value, {'ran': true});
+      expect(f.said, ['done'], reason: 'answered after the steps');
+      final bad = await f.r.call('links.press', {
+        'link': 'bad',
+        'wait': true,
+      }, by: user);
+      expect(
+        ((bad as CallDone).value as Map)['failure'],
+        contains('invalidParams'),
+      );
+    },
+  );
 }
