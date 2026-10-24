@@ -9,7 +9,8 @@ Two peer services over one connection (`RpcPeerEndpoint` on both sides), generat
 | Method | Kind | Does |
 |---|---|---|
 | `describe` | unary | the catalog as the session's principal sees it (`Registry.describeFor`: with what it may call and what cannot run now), and the protocol version |
-| `feed(epoch?, since?)` | server stream | the catalog first and on every catalog change, then the feed of §12 |
+| `feed(epoch?, since?)` | server stream | the catalog first and on every catalog change, then the feed of §12, as the session's subscription carries it |
+| `subscribe(states?, facts?)` | unary | what the session's feeds carry: these states and facts, or all of them (null); answers the subscription's number |
 | `call(id, command, params, override, test, parent?)` | unary | a call on behalf of the session's principal |
 | `pushLayer(state, key?, value, priority, ttl?)` | unary | a layer held by the session |
 | `popLayer(layer)` | unary | drops a layer of the session |
@@ -37,4 +38,5 @@ Two peer services over one connection (`RpcPeerEndpoint` on both sides), generat
 - **Ids are per principal.** The registry sees a call's id, and a fact's, as `<principal>/<id>`: a client that lost its connection retries with the same id and gets the first result; another principal reusing the id does not.
 - **`test`** is the only part of a cause a client may set; the chain and the parent are the registry's.
 - **Deadlines.** A call has no deadline of the client's: the registry bounds it itself (each hook its timeout, the handler the command's deadline) and answers `timedOut`. The other requests are answered at once and wait the client's `timeout` (10 s).
-- **The mirror** (`RegistryMirror`) keeps a participant's copy of the states from the feed and, given a new client after a lost connection, resumes after the seq it has; a gap sends it back to a snapshot. It keeps no facts: `recent` asks the registry, so the answer is the same here and there.
+- **A session's feeds carry what it subscribed to.** Until it subscribes, everything, as before protocol 4. After, a snapshot has only the states it names, a tick only their changes and the facts it names; a tick with nothing of them is not sent, and the next one sent starts right after the last one sent (`from`), so the ticks stay without gaps. Subscribing again replaces it: each open feed gets a `values` item with the values of the states it carries now and did not, and which it carries (`keep`), so a copy drops the others; that item and the snapshots after carry the subscription's number, so a participant knows when its feed follows it. The subscription is the session's, and so is what the host knows from it: `RegistryResponder.hears(test)` (whether its feeds carry a fact that matches, or it read the recent of one), for what a participant learns of viewers.
+- **The mirror** (`RegistryMirror`) keeps a participant's copy of the states from the feed and, given a new client after a lost connection, resumes after the seq it has; a gap sends it back to a snapshot. `subscribe(states, facts)` keeps only those (waiting until its feed has their values) and subscribes a new connection again before its feed; then its seq moves only with the ticks it carries, so `reach` does not wait for a write it does not keep. It keeps no facts: `recent` asks the registry, so the answer is the same here and there.

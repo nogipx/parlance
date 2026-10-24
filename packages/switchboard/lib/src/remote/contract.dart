@@ -3,7 +3,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 part 'contract.g.dart';
 
 /// The version of the remote protocol (SPEC §14).
-const switchboardProtocol = 3;
+const switchboardProtocol = 4;
 
 Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();
@@ -34,14 +34,32 @@ final class SbFeedRequest implements IRpcSerializable {
   Map<String, dynamic> toJson() => {'epoch': ?epoch, 'since': ?since};
 }
 
-/// One item of the feed: the catalog, a snapshot or a tick.
+/// What a session's feeds carry: these states and facts, or all of them
+/// (null).
+final class SbSubscribe implements IRpcSerializable {
+  const SbSubscribe({this.states, this.facts});
+
+  factory SbSubscribe.fromJson(Map<String, dynamic> m) => SbSubscribe(
+    states: (m['states'] as List?)?.cast<String>(),
+    facts: (m['facts'] as List?)?.cast<String>(),
+  );
+
+  final List<String>? states;
+  final List<String>? facts;
+
+  @override
+  Map<String, dynamic> toJson() => {'states': ?states, 'facts': ?facts};
+}
+
+/// One item of the feed: the catalog, a snapshot, a tick, or the values of
+/// states a subscription took in.
 final class SbFeedItem implements IRpcSerializable {
   const SbFeedItem(this.kind, this.json);
 
   factory SbFeedItem.fromJson(Map<String, dynamic> m) =>
       SbFeedItem(m['kind'] as String, _obj(m['item']));
 
-  /// `catalog`, `snapshot` or `tick`.
+  /// `catalog`, `snapshot`, `tick` or `values`.
   final String kind;
   final Map<String, Object?> json;
 
@@ -420,6 +438,11 @@ abstract class ISwitchboardContract {
 
   @RpcMethod.unary(name: 'recent')
   Future<SbJson> recent(SbRecentRequest request, {RpcContext? context});
+
+  /// Answers `{subscription}`: the number the feeds' `values` item (or
+  /// the next snapshot) carries once they follow it.
+  @RpcMethod.unary(name: 'subscribe')
+  Future<SbJson> subscribe(SbSubscribe request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'define')
   Future<RpcNull> define(SbDefine request, {RpcContext? context});

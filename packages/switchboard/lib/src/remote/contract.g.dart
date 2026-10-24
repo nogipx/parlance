@@ -21,6 +21,7 @@ class SwitchboardContractNames {
   static const why = 'why';
   static const layers = 'layers';
   static const recent = 'recent';
+  static const subscribe = 'subscribe';
   static const define = 'define';
   static const undefine = 'undefine';
   static const write = 'set';
@@ -56,6 +57,7 @@ class SwitchboardContractCodecs {
     SbRecentRequest.fromJson,
   );
   static const codecSbSet = RpcCodec<SbSet>(SbSet.fromJson);
+  static const codecSbSubscribe = RpcCodec<SbSubscribe>(SbSubscribe.fromJson);
   static const codecSbTaken = RpcCodec<SbTaken>(SbTaken.fromJson);
   static const codecSbWhyRequest = RpcCodec<SbWhyRequest>(
     SbWhyRequest.fromJson,
@@ -129,6 +131,12 @@ abstract class SwitchboardContractPeer extends RpcPeerContract
       methodName: SwitchboardContractNames.recent,
       handler: onRecent,
       requestCodec: SwitchboardContractCodecs.codecSbRecentRequest,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+    );
+    addUnaryMethod<SbSubscribe, SbJson>(
+      methodName: SwitchboardContractNames.subscribe,
+      handler: onSubscribe,
+      requestCodec: SwitchboardContractCodecs.codecSbSubscribe,
       responseCodec: SwitchboardContractCodecs.codecSbJson,
     );
     addUnaryMethod<SbDefine, RpcNull>(
@@ -257,6 +265,17 @@ abstract class SwitchboardContractPeer extends RpcPeerContract
   }
 
   @override
+  Future<SbJson> subscribe(SbSubscribe request, {RpcContext? context}) {
+    return callUnary<SbSubscribe, SbJson>(
+      methodName: SwitchboardContractNames.subscribe,
+      requestCodec: SwitchboardContractCodecs.codecSbSubscribe,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
   Future<RpcNull> define(SbDefine request, {RpcContext? context}) {
     return callUnary<SbDefine, RpcNull>(
       methodName: SwitchboardContractNames.define,
@@ -317,6 +336,8 @@ abstract class SwitchboardContractPeer extends RpcPeerContract
   Future<SbJson> onLayers(RpcNull request, {RpcContext? context});
 
   Future<SbJson> onRecent(SbRecentRequest request, {RpcContext? context});
+
+  Future<SbJson> onSubscribe(SbSubscribe request, {RpcContext? context});
 
   Future<RpcNull> onDefine(SbDefine request, {RpcContext? context});
 
@@ -436,6 +457,17 @@ class SwitchboardContractPeerCaller extends RpcPeerContract
     return callUnary<SbRecentRequest, SbJson>(
       methodName: SwitchboardContractNames.recent,
       requestCodec: SwitchboardContractCodecs.codecSbRecentRequest,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<SbJson> subscribe(SbSubscribe request, {RpcContext? context}) {
+    return callUnary<SbSubscribe, SbJson>(
+      methodName: SwitchboardContractNames.subscribe,
+      requestCodec: SwitchboardContractCodecs.codecSbSubscribe,
       responseCodec: SwitchboardContractCodecs.codecSbJson,
       request: request,
       context: context,

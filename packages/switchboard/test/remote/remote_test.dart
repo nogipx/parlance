@@ -224,6 +224,127 @@ void main() {
         },
       );
 
+      group('a subscription', () {
+        late FactEmitter raid;
+        late FactEmitter cheer;
+        late RegistryMirror mirror;
+        final seen = <Tick>[];
+
+        setUp(() {
+          raid = f.r.defineFact(
+            FactDescriptor('x.raid', type: const IntType()),
+            by: owner,
+          );
+          cheer = f.r.defineFact(
+            FactDescriptor('x.cheer', type: const IntType()),
+            by: owner,
+          );
+          seen.clear();
+          mirror = RegistryMirror()..ticks.listen(seen.add);
+        });
+        tearDown(() => mirror.dispose());
+
+        void noGaps() {
+          for (var i = 1; i < seen.length; i++) {
+            expect(
+              seen[i].from,
+              seen[i - 1].to + 1,
+              reason: 'no gap, no repeat',
+            );
+          }
+        }
+
+        test('the feed carries only the states and facts it names, and the '
+            'ticks it leaves out leave no gap', () async {
+          await mirror.subscribe(states: {'audio.muted'}, facts: {'x.raid'});
+          mirror.follow(link.client);
+          await settle();
+          // Each in a tick of its own.
+          for (final write in <void Function()>[
+            () => f.program.set('main'),
+            () => f.muted.set(true),
+            () => raid.emit(1),
+            () => cheer.emit(2),
+            () => f.gain.set(-6, key: 'mic'),
+            () => f.muted.set(false),
+            () => f.program.set('break'),
+          ]) {
+            write();
+            await Future<void>.delayed(Duration.zero);
+          }
+          await settle();
+          expect(mirror.read('audio.muted'), false);
+          expect(mirror.read('studio.program'), isNull);
+          expect(mirror.readAll('audio.gain'), isEmpty);
+          expect(
+            {for (final t in seen) ...t.changes.map((c) => c.state)},
+            {'audio.muted'},
+          );
+          expect([for (final t in seen) ...t.facts.map((x) => x.payload)], [1]);
+          expect(seen.length, 3);
+          noGaps();
+          expect(
+            mirror.seq,
+            lessThan(f.r.seq),
+            reason: 'the last tick had nothing it follows',
+          );
+        });
+
+        test('a state it takes in comes with its values at once; one it '
+            'leaves goes from the copy', () async {
+          f.program.set('main');
+          f.muted.set(true);
+          await mirror.subscribe(states: {'audio.muted'});
+          mirror.follow(link.client);
+          await settle();
+          expect(mirror.read('studio.program'), isNull);
+          await mirror.subscribe(states: {'audio.muted', 'studio.program'});
+          expect(mirror.read('studio.program'), 'main');
+          await mirror.subscribe(states: {'studio.program'});
+          expect(mirror.read('audio.muted'), isNull);
+          f.program.set('break');
+          f.muted.set(false);
+          await settle();
+          expect(mirror.read('studio.program'), 'break');
+          expect(mirror.read('audio.muted'), isNull);
+          await mirror.subscribe();
+          expect(mirror.read('audio.muted'), false);
+          noGaps();
+        });
+
+        test('a new connection subscribes again before its feed', () async {
+          await mirror.subscribe(states: {'audio.muted'}, facts: const {});
+          mirror.follow(link.client);
+          await settle();
+          await link.close();
+          await settle();
+          f.muted.set(true);
+          f.program.set('main');
+          link = Link.open(f.r, user, wire: wire);
+          mirror.follow(link.client);
+          await settle();
+          expect(mirror.read('audio.muted'), true);
+          expect(mirror.read('studio.program'), isNull);
+          expect(link.session.states, {'audio.muted'});
+          expect(link.session.facts, isEmpty);
+          raid.emit(1);
+          await settle();
+          expect(seen.expand((t) => t.facts), isEmpty);
+          noGaps();
+        });
+
+        test('the host knows what the session hears: the facts its feeds '
+            'carry, and those it read the recent of', () async {
+          bool raids(String fact) => fact == 'x.raid';
+          expect(link.session.hears(raids), isTrue, reason: 'all, at first');
+          await link.client.subscribe(states: const [], facts: ['x.cheer']);
+          expect(link.session.hears(raids), isFalse);
+          expect(link.session.hears((x) => x.startsWith('x.')), isTrue);
+          await link.client.recent('x.raid', 1);
+          expect(link.session.hears(raids), isTrue);
+        });
+      });
+
       test('a layer holds while the session lasts', () async {
         f.muted.set(false);
         final events = <LayerEvent>[];

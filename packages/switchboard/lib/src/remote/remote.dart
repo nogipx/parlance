@@ -125,34 +125,162 @@ final class RegistryResponder extends SwitchboardContractPeer {
     });
   }
 
+  /// What the session's feeds carry ([onSubscribe]): these states and
+  /// facts; null for all of them.
+  Set<String>? _stateFilter;
+  Set<String>? _factFilter;
+
+  /// How many times the session subscribed; a feed's `values` item and its
+  /// snapshot carry the number it follows.
+  int _subscription = 0;
+
+  /// The facts the session read the recent of.
+  final Set<String> _read = {};
+
+  /// The feeds open now.
+  final Set<StreamController<SbFeedItem>> _feeds = {};
+
+  /// The states the session's feeds carry; null for all.
+  Set<String>? get states =>
+      _stateFilter == null ? null : Set.unmodifiable(_stateFilter!);
+
+  /// The facts the session's feeds carry; null for all.
+  Set<String>? get facts =>
+      _factFilter == null ? null : Set.unmodifiable(_factFilter!);
+
+  /// Whether the session hears a fact that [fact] matches: its feeds carry
+  /// it, or it read the recent of it.
+  bool hears(bool Function(String fact) fact) =>
+      _factFilter == null || _factFilter!.any(fact) || _read.any(fact);
+
+  bool _carries(String state) => _stateFilter?.contains(state) ?? true;
+
   @override
   Stream<SbFeedItem> onFeed(SbFeedRequest request, {RpcContext? context}) {
     _open();
     late StreamController<SbFeedItem> out;
     StreamSubscription<FeedItem>? items;
     StreamSubscription<CatalogChange>? catalog;
+    // The last seq the feed sent: a tick it sends starts after it, so a
+    // tick left out (nothing in it the session follows) leaves no gap.
+    var last = request.since;
     out = StreamController<SbFeedItem>(
       onListen: () {
+        _feeds.add(out);
         out.add(SbFeedItem('catalog', registry.describe()));
         catalog = registry.catalogChanges.listen(
           (_) => out.add(SbFeedItem('catalog', registry.describe())),
         );
         items = registry
             .feed(epoch: request.epoch, since: request.since)
-            .listen(
-              (i) => out.add(switch (i) {
-                Snapshot() => SbFeedItem('snapshot', i.toJson()),
-                Tick() => SbFeedItem('tick', i.toJson()),
-              }),
-            );
+            .listen((i) {
+              switch (i) {
+                case Snapshot():
+                  last = i.seq;
+                  out.add(
+                    SbFeedItem('snapshot', {
+                      ...Snapshot(
+                        epoch: i.epoch,
+                        seq: i.seq,
+                        states: {
+                          for (final e in i.states.entries)
+                            if (_carries(e.key)) e.key: e.value,
+                        },
+                        factsLost: i.factsLost,
+                      ).toJson(),
+                      'subscription': _subscription,
+                    }),
+                  );
+                case Tick():
+                  final t = _tickOf(i, last == null ? i.from : last! + 1);
+                  if (t == null) return;
+                  last = i.to;
+                  out.add(SbFeedItem('tick', t.toJson()));
+              }
+            });
       },
       onCancel: () async {
+        _feeds.remove(out);
         await items?.cancel();
         await catalog?.cancel();
       },
     );
     return out.stream;
   }
+
+  /// [t] as the session follows it, from [from]; null when it has nothing
+  /// the session follows.
+  Tick? _tickOf(Tick t, int from) {
+    final states = _stateFilter;
+    final facts = _factFilter;
+    if (states == null && facts == null) {
+      return from == t.from
+          ? t
+          : Tick(
+              epoch: t.epoch,
+              from: from,
+              to: t.to,
+              changes: t.changes,
+              facts: t.facts,
+            );
+    }
+    final changes = [
+      for (final c in t.changes)
+        if (states?.contains(c.state) ?? true) c,
+    ];
+    final said = [
+      for (final f in t.facts)
+        if (facts?.contains(f.fact) ?? true) f,
+    ];
+    if (changes.isEmpty && said.isEmpty) return null;
+    return Tick(
+      epoch: t.epoch,
+      from: from,
+      to: t.to,
+      changes: changes,
+      facts: said,
+    );
+  }
+
+  @override
+  Future<SbJson> onSubscribe(SbSubscribe request, {RpcContext? context}) async {
+    _open();
+    final n = ++_subscription;
+    final before = _stateFilter;
+    final now = request.states?.toSet();
+    _stateFilter = now;
+    _factFilter = request.facts?.toSet();
+    // The states the feeds carry now and did not: their values, so a copy
+    // has them from here on, as the ticks after keep them.
+    final added = before == null
+        ? const <String>[]
+        : [
+            for (final name in now ?? _stateNames())
+              if (!before.contains(name) &&
+                  registry.stateDescriptor(name) != null)
+                name,
+          ];
+    final item = SbFeedItem('values', {
+      'subscription': n,
+      'states': {
+        for (final name in added)
+          name: [
+            for (final v in registry.readAll(name).entries)
+              {'key': ?v.key, 'value': v.value},
+          ],
+      },
+      'keep': ?now?.toList(),
+    });
+    for (final f in _feeds) {
+      f.add(item);
+    }
+    return SbJson({'subscription': n});
+  }
+
+  Iterable<String> _stateNames() => [
+    for (final d in registry.catalog)
+      if (d is StateDescriptor) d.name,
+  ];
 
   @override
   Future<SbCallReply> onInvoke(
@@ -186,6 +314,7 @@ final class RegistryResponder extends SwitchboardContractPeer {
     if (registry.factDescriptor(request.fact) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no fact ${request.fact}');
     }
+    _read.add(request.fact);
     return SbJson({
       'facts': [
         for (final f in registry.recent(request.fact, request.count))
@@ -440,13 +569,38 @@ final class RemoteCatalog extends RemoteFeed {
 }
 
 final class RemoteSnapshot extends RemoteFeed {
-  const RemoteSnapshot(this.snapshot);
+  const RemoteSnapshot(this.snapshot, {this.subscription = 0});
   final Snapshot snapshot;
+
+  /// The session's subscription it follows ([SwitchboardClient.subscribe]).
+  final int subscription;
 }
 
 final class RemoteTick extends RemoteFeed {
   const RemoteTick(this.tick);
   final Tick tick;
+}
+
+/// The session subscribed ([SwitchboardClient.subscribe]): the values of the
+/// states its feed carries now and did not, and which it carries ([keep];
+/// null for all). The ticks after keep them.
+final class RemoteValues extends RemoteFeed {
+  const RemoteValues(this.subscription, this.states, this.keep);
+
+  factory RemoteValues.fromJson(Map<String, Object?> m) =>
+      RemoteValues(m['subscription'] as int, {
+        for (final e in (m['states'] as Map).entries)
+          e.key as String: {
+            for (final v in e.value as List)
+              (v as Map)['key'] as String?: v['value'],
+          },
+      }, (m['keep'] as List?)?.cast<String>().toSet());
+
+  final int subscription;
+
+  /// State name → key (null for an unkeyed state) → value.
+  final Map<String, Map<String?, Object?>> states;
+  final Set<String>? keep;
 }
 
 /// The registry as a remote participant uses it, over its side of a peer
@@ -482,10 +636,30 @@ final class SwitchboardClient {
           .map(
             (i) => switch (i.kind) {
               'catalog' => RemoteCatalog(i.json),
-              'snapshot' => RemoteSnapshot(Snapshot.fromJson(i.json)),
+              'snapshot' => RemoteSnapshot(
+                Snapshot.fromJson(i.json),
+                subscription: i.json['subscription'] as int? ?? 0,
+              ),
+              'values' => RemoteValues.fromJson(i.json),
               _ => RemoteTick(Tick.fromJson(i.json)),
             },
           );
+
+  /// Makes the session's feeds carry only [states] and [facts] (null: all
+  /// of them, as before the first subscription). A feed open now gets the
+  /// values of the states it carries now and did not ([RemoteValues]).
+  /// Answers the subscription's number, which that item and the snapshots
+  /// after carry.
+  Future<int> subscribe({
+    Iterable<String>? states,
+    Iterable<String>? facts,
+    RpcContext? context,
+  }) async =>
+      (await _caller.subscribe(
+            SbSubscribe(states: states?.toList(), facts: facts?.toList()),
+            context: _ctx(context),
+          )).json['subscription']
+          as int;
 
   /// Calls [command]. When no answer comes back, the result is
   /// [CallLost] with the call's id: retry with it, and the registry answers
@@ -738,6 +912,10 @@ final class RemoteOwner extends SwitchboardOwnerContractPeer {
 final class RegistryMirror {
   String? _epoch;
   int _seq = 0;
+
+  /// The session's subscription the copy follows, and what it asked for.
+  int _subscription = 0;
+  ({Set<String>? states, Set<String>? facts})? _wanted;
   Map<String, Object?> _catalog = const {};
   final Map<String, Map<String?, Object?>> _states = {};
   SwitchboardClient? _client;
@@ -770,7 +948,9 @@ final class RegistryMirror {
 
   /// Completes when the copy has the seq [seq] of [epoch] (what a call
   /// answered at it wrote), or after [timeout]; answers whether it got
-  /// there.
+  /// there. With a subscription the copy's seq moves only with the ticks
+  /// its feed carries: a write to a state it does not keep is not waited
+  /// for.
   Future<bool> reach(
     String epoch,
     int seq, {
@@ -791,10 +971,49 @@ final class RegistryMirror {
   Map<String?, Object?> readAll(String state) =>
       Map.unmodifiable(_states[state] ?? const {});
 
+  /// The states the copy keeps, and the facts its ticks carry; null for
+  /// all.
+  Set<String>? get states => _wanted?.states;
+  Set<String>? get facts => _wanted?.facts;
+
+  /// Keeps only [states] and hears only [facts] (null: all of them);
+  /// completes when the copy has the values of the states it keeps now, or
+  /// after [timeout]. Kept over a new connection ([follow]).
+  Future<void> subscribe({
+    Set<String>? states,
+    Set<String>? facts,
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    _wanted = (states: states, facts: facts);
+    final client = _client;
+    if (client == null) return;
+    final n = await client.subscribe(states: states, facts: facts);
+    if (_subscription >= n || _client != client) return;
+    try {
+      await changes
+          .firstWhere((_) => _subscription >= n || _client != client)
+          .timeout(timeout);
+    } on TimeoutException {
+      return;
+    } on StateError {
+      return;
+    }
+  }
+
   /// Follows [client]'s feed, resuming after what the copy already has.
   /// Call again with a new client after the connection was lost.
   void follow(SwitchboardClient client) {
     _client = client;
+    _subscription = 0;
+    if (_wanted case (:final states, :final facts)) {
+      // A new session carries everything until it subscribes: before the
+      // feed, so its snapshot has only what the copy keeps.
+      unawaited(
+        client
+            .subscribe(states: states, facts: facts)
+            .then((_) {}, onError: (Object _) {}),
+      );
+    }
     unawaited(_sub?.cancel());
     _sub = client
         .feed(epoch: _epoch, since: _epoch == null ? null : _seq)
@@ -816,7 +1035,8 @@ final class RegistryMirror {
       case RemoteCatalog(:final json):
         _catalog = json;
         _catalogChanges.add(null);
-      case RemoteSnapshot(:final snapshot):
+      case RemoteSnapshot(:final snapshot, :final subscription):
+        _subscription = subscription;
         _epoch = snapshot.epoch;
         _seq = snapshot.seq;
         _states
@@ -842,6 +1062,12 @@ final class RegistryMirror {
         _seq = tick.to;
         _synced = true;
         _ticks.add(tick);
+      case RemoteValues(:final subscription, :final states, :final keep):
+        _subscription = subscription;
+        if (keep != null) _states.removeWhere((k, _) => !keep.contains(k));
+        for (final e in states.entries) {
+          _states[e.key] = {...e.value};
+        }
     }
     _changes.add(null);
   }
