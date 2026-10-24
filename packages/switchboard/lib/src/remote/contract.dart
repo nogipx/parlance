@@ -158,6 +158,32 @@ final class SbLayerEvent implements IRpcSerializable {
   Map<String, dynamic> toJson() => json;
 }
 
+/// Any JSON object: what `why` and `layers` answer.
+final class SbJson implements IRpcSerializable {
+  const SbJson(this.json);
+
+  factory SbJson.fromJson(Map<String, dynamic> m) => SbJson(m);
+
+  final Map<String, Object?> json;
+
+  @override
+  Map<String, dynamic> toJson() => json;
+}
+
+/// Asks why a state (of a key) is as it is.
+final class SbWhyRequest implements IRpcSerializable {
+  const SbWhyRequest(this.state, {this.key});
+
+  factory SbWhyRequest.fromJson(Map<String, dynamic> m) =>
+      SbWhyRequest(m['state'] as String, key: m['key'] as String?);
+
+  final String state;
+  final String? key;
+
+  @override
+  Map<String, dynamic> toJson() => {'state': state, 'key': ?key};
+}
+
 /// The registry over rpc_dart (SPEC §14). One responder per session: the
 /// host makes it for a connection, with the principal it accepted.
 @RpcService(name: 'Switchboard')
@@ -179,4 +205,10 @@ abstract class ISwitchboardContract {
 
   @RpcMethod.serverStream(name: 'layerEvents')
   Stream<SbLayerEvent> layerEvents(RpcNull request, {RpcContext? context});
+
+  @RpcMethod.unary(name: 'why')
+  Future<SbJson> why(SbWhyRequest request, {RpcContext? context});
+
+  @RpcMethod.unary(name: 'layers')
+  Future<SbJson> layers(RpcNull request, {RpcContext? context});
 }

@@ -816,6 +816,72 @@ final class Registry implements TypeContext {
   /// Every finished call (SPEC §9).
   Stream<CallRecord> get calls => _records.stream;
 
+  final LinkedHashMap<String, CallRecord> _recentCalls = LinkedHashMap();
+
+  void _remember(CallRecord record) {
+    _recentCalls[record.id] = record;
+    while (_recentCalls.length > retainTicks) {
+      _recentCalls.remove(_recentCalls.keys.first);
+    }
+    _records.add(record);
+  }
+
+  /// A finished call still remembered (as many as ticks are retained), by
+  /// its id: what a cause's parent leads to.
+  CallRecord? callRecord(String id) => _recentCalls[id];
+
+  /// Why [state] (of [key]) is as it is: its value, its last change still
+  /// retained (when, on whose behalf, through which links), and the calls
+  /// that led to it, nearest first, as far as they are remembered.
+  Map<String, Object?> explain(String state, {String? key}) {
+    final change = lastChange(state, key: key);
+    final trail = <Map<String, Object?>>[];
+    var parent = change?.cause.parent;
+    final seen = <String>{};
+    while (parent != null && seen.add(parent) && trail.length < 10) {
+      final call = callRecord(parent);
+      if (call == null) break;
+      trail.add({
+        'call': call.command,
+        'params': call.params,
+        'by': call.cause.by.selector,
+        if (call.cause.chain.isNotEmpty) 'through': call.cause.chain,
+        if (call.layerDispatch) 'layer': true,
+        if (call.overridden.isNotEmpty) 'overrode': call.overridden,
+      });
+      parent = call.cause.parent;
+    }
+    return {
+      'state': state,
+      'key': ?key,
+      'value': read(state, key: key),
+      if (change != null)
+        'changed': {
+          'at': change.at.toUtc().toIso8601String(),
+          'from': change.previous,
+          'by': change.cause.by.selector,
+          if (change.cause.chain.isNotEmpty) 'through': change.cause.chain,
+          if (change.cause.test) 'test': true,
+        },
+      if (trail.isNotEmpty) 'trail': trail,
+      'layers': [
+        for (final l in layers())
+          if (l['state'] == state && l['key'] == key) l,
+      ],
+    };
+  }
+
+  /// The last committed change of [state] (of [key]) still retained, or
+  /// null: with its cause, it says why the state is as it is.
+  StateChange? lastChange(String state, {String? key}) {
+    for (final t in _retained.toList().reversed) {
+      for (final c in t.changes.reversed) {
+        if (c.state == state && c.key == key) return c;
+      }
+    }
+    return null;
+  }
+
   /// Calls [command] on behalf of [by] (SPEC §9). A repeated [id] within
   /// the dedup window answers the first call's result without running it
   /// again. A call made by a handler or a hook passes [cause]; without it,
@@ -859,7 +925,7 @@ final class Registry implements TypeContext {
 
     CallResult finish(CallResult r) {
       if (!_records.isClosed) {
-        _records.add(
+        _remember(
           CallRecord(
             id: id,
             command: command,
@@ -1313,6 +1379,25 @@ final class Registry implements TypeContext {
     for (final l in _layerById.values)
       if (l.owner == owner && !l.claimed)
         LayerHandle._(this, (l..claimed = true).id, l.target.$1, l.target.$2),
+  ];
+
+  /// Every layer there is now: what holds which state at which value.
+  List<Map<String, Object?>> layers() => [
+    for (final MapEntry(key: t, value: s) in _stacks.entries)
+      for (final l in s.layers)
+        {
+          'id': l.id,
+          'state': t.$1,
+          'key': ?t.$2,
+          'value': l.value,
+          'owner': l.owner,
+          'by': l.by.selector,
+          'priority': l.priority,
+          'top': identical(s.top, l),
+          if (l.expiresAt case final at?)
+            'expiresAt': at.toUtc().toIso8601String(),
+          if (!l.claimed) 'claimed': false,
+        },
   ];
 
   /// The layers [owner] holds now.

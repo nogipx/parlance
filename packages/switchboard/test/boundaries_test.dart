@@ -34,6 +34,15 @@ void main() {
     }
   });
 
+  test('mcp imports neither links nor rpc_dart', () {
+    for (final f in dartIn('lib/src/mcp')) {
+      for (final i in importsOf(f)) {
+        expect(i, isNot(contains('links')), reason: f.path);
+        expect(i, isNot(startsWith('package:rpc_dart')), reason: f.path);
+      }
+    }
+  });
+
   test('remote does not import links', () {
     for (final f in dartIn('lib/src/remote')) {
       for (final i in importsOf(f)) {

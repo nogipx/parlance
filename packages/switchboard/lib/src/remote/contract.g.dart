@@ -18,6 +18,8 @@ class SwitchboardContractNames {
   static const pushLayer = 'pushLayer';
   static const popLayer = 'popLayer';
   static const layerEvents = 'layerEvents';
+  static const why = 'why';
+  static const layers = 'layers';
 }
 
 class SwitchboardContractCodecs {
@@ -34,12 +36,16 @@ class SwitchboardContractCodecs {
   static const codecSbFeedRequest = RpcCodec<SbFeedRequest>(
     SbFeedRequest.fromJson,
   );
+  static const codecSbJson = RpcCodec<SbJson>(SbJson.fromJson);
   static const codecSbLayerEvent = RpcCodec<SbLayerEvent>(
     SbLayerEvent.fromJson,
   );
   static const codecSbLayerRef = RpcCodec<SbLayerRef>(SbLayerRef.fromJson);
   static const codecSbLayerRequest = RpcCodec<SbLayerRequest>(
     SbLayerRequest.fromJson,
+  );
+  static const codecSbWhyRequest = RpcCodec<SbWhyRequest>(
+    SbWhyRequest.fromJson,
   );
 }
 
@@ -120,6 +126,28 @@ class SwitchboardContractCaller extends RpcCallerContract
       context: context,
     );
   }
+
+  @override
+  Future<SbJson> why(SbWhyRequest request, {RpcContext? context}) {
+    return callUnary<SbWhyRequest, SbJson>(
+      methodName: SwitchboardContractNames.why,
+      requestCodec: SwitchboardContractCodecs.codecSbWhyRequest,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<SbJson> layers(RpcNull request, {RpcContext? context}) {
+    return callUnary<RpcNull, SbJson>(
+      methodName: SwitchboardContractNames.layers,
+      requestCodec: SwitchboardContractCodecs.codecRpcNull,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
 }
 
 abstract class SwitchboardContractResponder extends RpcResponderContract
@@ -169,6 +197,18 @@ abstract class SwitchboardContractResponder extends RpcResponderContract
       handler: layerEvents,
       requestCodec: SwitchboardContractCodecs.codecRpcNull,
       responseCodec: SwitchboardContractCodecs.codecSbLayerEvent,
+    );
+    addUnaryMethod<SbWhyRequest, SbJson>(
+      methodName: SwitchboardContractNames.why,
+      handler: why,
+      requestCodec: SwitchboardContractCodecs.codecSbWhyRequest,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+    );
+    addUnaryMethod<RpcNull, SbJson>(
+      methodName: SwitchboardContractNames.layers,
+      handler: layers,
+      requestCodec: SwitchboardContractCodecs.codecRpcNull,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
     );
   }
 }

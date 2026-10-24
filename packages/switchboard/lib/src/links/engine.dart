@@ -97,6 +97,14 @@ final class LinkProblem {
   String toString() => 'LinkProblem(${id ?? '?'}: $message)';
 }
 
+/// Where the user's own links are kept (SPEC §13): the host's file, a
+/// project. The engine loads them once, saves them on every change made
+/// through its commands, and loads them again on [Links.reloadOwn].
+abstract interface class LinksStore {
+  List<Map<String, Object?>> load();
+  void save(List<Map<String, Object?>> links);
+}
+
 const _engine = Principal('link');
 
 /// The links engine (SPEC §13): own words and the four relations, on the
@@ -109,6 +117,7 @@ final class Links {
     Callers? pressers,
     Callers? managers,
     Map<String, Object?> ownStates = const {},
+    this.store,
     ErrorSink? onError,
   }) : _onError = onError ?? Zone.current.handleUncaughtError,
        _ownValues = {...ownStates} {
@@ -219,6 +228,82 @@ final class Links {
         },
       ),
     ]);
+    _ownState = registry.defineState(
+      StateDescriptor(
+        'links.own',
+        type: const ListType(AnyType()),
+        meta: const {'label': "The user's own links"},
+      ),
+      by: _engine,
+    );
+    const definition = ObjectType({'link': Field(AnyType())});
+    final manage = managers ?? anyone;
+    _handles.addAll([
+      _ownState,
+      registry.defineCommand(
+        CommandDescriptor(
+          'links.check',
+          params: definition,
+          returns: const ObjectType({
+            'ok': Field(BoolType()),
+            'problems': Field(ListType(TextType())),
+            'missing': Field(ListType(TextType())),
+          }),
+          callers: manage,
+          meta: const {'label': 'Check a link without applying it'},
+        ),
+        (c) => check(c.params['link']),
+      ),
+      registry.defineCommand(
+        CommandDescriptor(
+          'links.set',
+          params: const ObjectType({'links': Field(ListType(AnyType()))}),
+          callers: manage,
+          meta: const {'label': "Replace the user's own links"},
+        ),
+        (c) => _setOwn([for (final l in c.params['links'] as List) l]),
+      ),
+      registry.defineCommand(
+        CommandDescriptor(
+          'links.upsert',
+          params: definition,
+          callers: manage,
+          meta: const {'label': 'Add or replace one own link'},
+        ),
+        (c) {
+          final link = c.params['link'];
+          final id = link is Map ? link['id'] : null;
+          _setOwn([
+            for (final l in _own)
+              if (l['id'] != id) l,
+            link,
+          ], keepOrderOf: id);
+        },
+      ),
+      registry.defineCommand(
+        CommandDescriptor(
+          'links.remove',
+          params: const ObjectType({'id': Field(TextType())}),
+          callers: manage,
+          meta: const {'label': 'Remove one own link'},
+        ),
+        (c) {
+          final id = c.params['id'];
+          if (!_own.any((l) => l['id'] == id)) {
+            throw StateError(
+              '$id is not an own link; turn a link of the host off with an '
+              'own link of the same id and enabled: false',
+            );
+          }
+          _setOwn([
+            for (final l in _own)
+              if (l['id'] != id) l,
+          ]);
+        },
+      ),
+    ]);
+    _own = [...?store?.load()];
+    _ownState.set(_own);
     for (final d in registry.catalog.whereType<StateDescriptor>()) {
       for (final e in registry.readAll(d.name).entries) {
         _view[(d.name, e.key)] = e.value;
@@ -229,9 +314,25 @@ final class Links {
       registry.catalogChanges.listen((_) => _reconcile()),
       registry.layerEvents.listen(_onLayer),
     ]);
+    if (_own.isNotEmpty) _compose();
   }
 
   final Registry registry;
+
+  /// Where the user's own links are kept; null — in memory only.
+  final LinksStore? store;
+
+  /// The host's sets of links, by name, in the order they came: read-only
+  /// to the user, who changes one by an own link of the same id.
+  final Map<String, List<Map<String, Object?>>> _sources = {};
+  List<Map<String, Object?>> _own = const [];
+  late final StateWriter _ownState;
+
+  /// What the last composition could not take.
+  List<LinkProblem> problems = const [];
+
+  /// The user's own links, as kept.
+  List<Map<String, Object?>> get own => List.unmodifiable(_own);
 
   /// How many runs a link may have per [rateWindow] before it is disabled.
   final int rateLimit;
@@ -288,10 +389,95 @@ final class Links {
     _reconcile();
   }
 
-  /// Takes [definitions] as the whole set of links: new ones start, gone
-  /// ones stop, changed ones restart, the same ones go on. Answers the
-  /// definitions it could not take.
-  List<LinkProblem> apply(List<Object?> definitions) {
+  /// Sets the host's links named [name]: its own, an extension's. The
+  /// user's own links come after every source; one with the id of a
+  /// source's link replaces it. Answers what could not be taken.
+  List<LinkProblem> source(String name, List<Object?> definitions) {
+    _sources[name] = [
+      for (final d in definitions)
+        if (d is Map) d.cast<String, Object?>(),
+    ];
+    return _compose();
+  }
+
+  /// Loads the user's own links from [store] again, when the host changed
+  /// them (an undo).
+  List<LinkProblem> reloadOwn() {
+    final next = [...?store?.load()];
+    if (jsonEquals(next, _own)) return problems;
+    _own = next;
+    _ownState.set(_own);
+    return _compose();
+  }
+
+  /// Takes [definitions] as the only source: the whole set of links but the
+  /// user's own.
+  List<LinkProblem> apply(List<Object?> definitions) =>
+      source('main', definitions);
+
+  /// Whether [definition] is a link the engine can take, and what of the
+  /// catalog it lacks; nothing is applied.
+  Map<String, Object?> check(Object? definition) {
+    try {
+      final link = Link.parse(definition);
+      final missing = _missing(link);
+      return {
+        'ok': missing.isEmpty,
+        'problems': <String>[],
+        'missing': missing,
+      };
+    } on FormatException catch (e) {
+      return {
+        'ok': false,
+        'problems': [e.message],
+        'missing': <String>[],
+      };
+    }
+  }
+
+  void _setOwn(List<Object?> definitions, {Object? keepOrderOf}) {
+    final next = <Map<String, Object?>>[];
+    final problems = <String>[];
+    final ids = <Object?>{};
+    for (final d in definitions) {
+      if (d is! Map) {
+        problems.add('a link is an object');
+        continue;
+      }
+      final m = freezeJson(d) as Map<String, Object?>;
+      try {
+        Link.parse(m);
+      } on FormatException catch (e) {
+        problems.add('${m['id'] ?? '?'}: ${e.message}');
+      }
+      if (!ids.add(m['id'])) problems.add('${m['id']}: id twice');
+      next.add(m);
+    }
+    if (problems.isNotEmpty) {
+      throw StateError('not taken: ${problems.join('; ')}');
+    }
+    if (keepOrderOf != null) {
+      // An upsert keeps a replaced link where it was.
+      final i = _own.indexWhere((l) => l['id'] == keepOrderOf);
+      if (i >= 0) next.insert(i, next.removeLast());
+    }
+    _own = next;
+    _ownState.set(_own);
+    store?.save(_own);
+    _compose();
+  }
+
+  List<LinkProblem> _compose() {
+    final own = {for (final l in _own) l['id']: l};
+    final defs = <Object?>[
+      for (final set in _sources.values)
+        for (final d in set) own.remove(d['id']) ?? d,
+      ...own.values,
+    ];
+    return problems = _apply(defs);
+  }
+
+  List<LinkProblem> _apply(List<Object?> definitions) {
     final problems = <LinkProblem>[];
     final next = <String, Link>{};
     final invalid = <String, String>{};

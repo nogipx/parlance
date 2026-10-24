@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../registry/cause.dart';
+import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
@@ -44,7 +45,31 @@ final class RegistryResponder extends SwitchboardContractResponder {
     return SbDescription({
       ...registry.describe(),
       'protocol': switchboardProtocol,
+      // What this session may call: so its clients offer only that.
+      'access': {
+        for (final d in registry.catalog.whereType<CommandDescriptor>())
+          d.name: d.callers.accessOf(principal).name,
+      },
+      'unavailable': {
+        for (final d in registry.catalog.whereType<CommandDescriptor>())
+          d.name: ?registry.whyUnavailable(d.name),
+      },
     });
+  }
+
+  @override
+  Future<SbJson> why(SbWhyRequest request, {RpcContext? context}) async {
+    _open();
+    if (registry.stateDescriptor(request.state) == null) {
+      throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
+    }
+    return SbJson(registry.explain(request.state, key: request.key));
+  }
+
+  @override
+  Future<SbJson> layers(RpcNull request, {RpcContext? context}) async {
+    _open();
+    return SbJson({'layers': registry.layers()});
   }
 
   @override
@@ -271,6 +296,27 @@ final class SwitchboardClient {
   Future<void> popLayer(String layer, {RpcContext? context}) =>
       _caller.popLayer(SbLayerRef(layer), context: _ctx(context));
 
+  /// Why [state] (of [key]) is as it is (Registry.explain).
+  Future<Map<String, Object?>> why(
+    String state, {
+    String? key,
+    RpcContext? context,
+  }) async => (await _caller.why(
+    SbWhyRequest(state, key: key),
+    context: _ctx(context),
+  )).json;
+
+  /// Every layer there is.
+  Future<List<Map<String, Object?>>> layers({RpcContext? context}) async => [
+    for (final l
+        in (await _caller.layers(
+              const RpcNull(),
+              context: _ctx(context),
+            )).json['layers']
+            as List)
+      (l as Map).cast<String, Object?>(),
+  ];
+
   /// What happens to the session's layers.
   Stream<LayerEvent> layerEvents({RpcContext? context}) => _caller
       .layerEvents(const RpcNull(), context: context)
@@ -289,6 +335,16 @@ final class RegistryMirror {
   bool _synced = false;
   final StreamController<Tick> _ticks = StreamController.broadcast();
   final StreamController<void> _changes = StreamController.broadcast();
+  final Map<String, List<FactMessage>> _facts = {};
+
+  /// How many facts of each name [recent] keeps.
+  static const recentPerFact = 100;
+
+  /// The last [n] facts of [fact] the copy has seen, oldest first.
+  List<FactMessage> recent(String fact, [int n = recentPerFact]) {
+    final all = _facts[fact] ?? const [];
+    return n >= all.length ? List.of(all) : all.sublist(all.length - n);
+  }
 
   String? get epoch => _epoch;
   int get seq => _seq;
@@ -356,6 +412,11 @@ final class RegistryMirror {
           } else {
             (_states[c.state] ??= {})[c.key] = c.value;
           }
+        }
+        for (final f in tick.facts) {
+          final q = _facts.putIfAbsent(f.fact, () => []);
+          q.add(f);
+          if (q.length > recentPerFact) q.removeAt(0);
         }
         _seq = tick.to;
         _synced = true;
