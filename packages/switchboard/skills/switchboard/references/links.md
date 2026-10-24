@@ -47,7 +47,7 @@ A firing that does not run (conditions, mode, a full queue, a throttle, `once`) 
 
 ### 13.6 Bindings
 
-While the conditions hold, push one layer per held call (only commands with `sets`), owner `link:<id>`, with the link's priority; when they stop, drop them. A binding whose layer was dropped as `overridden` does not push it again until its conditions turn false and then true. An **anchor** gives a binding its condition and its home: the host registers anchor kinds (an entity kind and the condition an entity makes); the binding names the entity.
+While the conditions hold, push one layer per held call (only commands with `sets`), owner `link:<id>`, with the link's priority; when they stop, drop them. A binding whose layer was dropped as `overridden` does not push it again until its conditions turn false and then true. A binding changed while it holds pushes its new layers before it lets go of the old ones, so a held value moves straight to the new one, never through the value under it. After a restart (the registry's layers imported), a binding takes back its own layers when it starts: held on by the ones it pushes, or let go at once when its conditions are false, so the base from before the restart comes back. Layers imported after the engine started are taken back by `takeBackLayers()`, the same way. An **anchor** gives a binding its condition and its home: the host registers anchor kinds (an entity kind and the condition an entity makes); the binding names the entity.
 
 ### 13.7 Constraints
 

@@ -65,6 +65,41 @@ enum TestCommand<P, R> implements CommandWord<P, R> {
   final Shape<R>? returns;
 }
 
+typedef Only = ({List<String>? apps});
+
+const _only = RecordShape<Only>(
+  {'apps': Part(Nullable(ListShape(Plain(TextType()))))},
+  to: _onlyTo,
+  from: _onlyFrom,
+);
+Map<String, Object?> _onlyTo(Only o) => {'apps': o.apps};
+Only _onlyFrom(Map<String, Object?> m) => (apps: m['apps'] as List<String>?);
+
+/// None is a value of its own: every app, apart from none of them.
+enum NullableState<T> implements StateWord<T> {
+  only<List<String>?>('test.only', Nullable(ListShape(Plain(TextType()))));
+
+  const NullableState(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => null;
+}
+
+enum NullableCommand<P, R> implements CommandWord<P, R> {
+  setOnly<Only, void>('test.only.set', _only);
+
+  const NullableCommand(this.name, this.params);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  Shape<R>? get returns => null;
+}
+
 enum TestFact<T> implements FactWord<T> {
   tuned<Tune>('test.tuned', _tune);
 
@@ -160,5 +195,42 @@ void main() {
     expect(f.r.fact(TestFact.tuned).recent().single.payload.db, 3);
     expect(levels, [null]);
     expect(f.r.state(TestState.tune).readAll().keys, ['mic']);
+  });
+
+  test('a nullable state is held over none, and none comes back', () async {
+    final only = f.r.state(NullableState.only).define(by: owner);
+    only.set(null);
+    f.r
+        .command(NullableCommand.setOnly)
+        .define(
+          (c) => only.set(c.params.apps, cause: c.causeFor(owner)),
+          callers: Callers.only(['user', 'system']),
+          sets: const Sets('test.only', value: 'apps'),
+        );
+    expect(f.r.has('test.only'), isTrue);
+    f.r.pushLayer(
+      'test.only',
+      value: ['iina'],
+      owner: 'scene',
+      by: Principal.system,
+    );
+    await pumpEventQueue();
+    expect(f.r.state(NullableState.only).read(), ['iina']);
+    f.r.dropLayersOf('scene');
+    await pumpEventQueue();
+    expect(f.r.has('test.only'), isTrue);
+    expect(f.r.state(NullableState.only).read(), isNull);
+    expect(
+      await f.r.command(NullableCommand.setOnly).call((apps: []), by: user),
+      isA<CallDone<void>>(),
+    );
+    expect(f.r.state(NullableState.only).read(), isEmpty);
+    // A typed call says null: every app again.
+    expect(_only.toJson((apps: null)), {'apps': null});
+    expect(
+      await f.r.command(NullableCommand.setOnly).call((apps: null), by: user),
+      isA<CallDone<void>>(),
+    );
+    expect(f.r.state(NullableState.only).read(), isNull);
   });
 }

@@ -59,6 +59,13 @@ void main() {
     );
   });
 
+  test('a nullable type takes none, or what its type takes', () {
+    const t = NullableType(ListType(TextType()));
+    expect(ok(t, null), isNull);
+    expect(ok(t, ['a']), ['a']);
+    expect(() => ok(t, 'a'), fails('expected a list'));
+  });
+
   test('custom types ask the host', () {
     expect(ok(const CustomType('color'), '#fff'), '#fff');
     expect(() => ok(const CustomType('color'), 'red'), fails('not a color'));
@@ -72,6 +79,7 @@ void main() {
       'd': Field(DurationType(max: 1000), optional: true),
       'c': Field(CustomType('color')),
       'any': Field(AnyType()),
+      'maybe': Field(NullableType(ListType(TextType()))),
     });
     final back = ValueType.fromJson(t.toJson());
     expect(back.toJson(), t.toJson());

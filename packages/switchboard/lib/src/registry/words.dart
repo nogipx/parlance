@@ -71,6 +71,22 @@ final class ListShape<T> extends Shape<List<T>> {
   ];
 }
 
+/// [of], or null.
+final class Nullable<T> extends Shape<T?> {
+  const Nullable(this.of);
+
+  final Shape<T> of;
+
+  @override
+  NullableType get type => NullableType(of.type);
+
+  @override
+  Object? toJson(T? value) => value == null ? null : of.toJson(value);
+
+  @override
+  T? fromJson(Object? json) => json == null ? null : of.fromJson(json);
+}
+
 /// A map from text to [value]s.
 final class MapShape<T> extends Shape<Map<String, T>> {
   const MapShape(this.value, {this.maxEntries});
@@ -148,7 +164,9 @@ final class RecordShape<T> extends Shape<T> {
     }
     return {
       for (final MapEntry(:key, value: p) in fields.entries)
-        if (dart[key] != null) key: p.shape.toJson(dart[key]),
+        // A null a field may be is said: it is a value of its own.
+        if (dart[key] != null || (p.shape is Nullable && !p.optional))
+          key: p.shape.toJson(dart[key]),
     };
   }
 

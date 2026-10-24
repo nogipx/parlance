@@ -52,6 +52,12 @@ Map<String, Object?> jsonSchema(
         },
     ],
   },
+  NullableType(:final of) => {
+    'anyOf': [
+      jsonSchema(of, kinds: kinds),
+      {'type': 'null'},
+    ],
+  },
   CustomType() || AnyType() => const {},
 };
 

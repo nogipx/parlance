@@ -449,7 +449,15 @@ final class Links {
     for (final id in [..._links.keys]) {
       final now = next[id];
       if (now == null || !jsonEquals(now.json, _links[id]!.json)) {
-        _deactivate(id);
+        // A binding changed while it holds lets go of its layers only once
+        // the new one holds its own: a held value moves straight to the
+        // new one, not through the value under it.
+        if (_live[id] case final _LiveBinding old when now is Binding) {
+          _live.remove(id);
+          _replaced[id] = old;
+        } else {
+          _deactivate(id);
+        }
       }
     }
     final gone = {..._links.keys, ..._invalid.keys}
@@ -469,7 +477,32 @@ final class Links {
     }
     registry.entitiesChanged(LinkWords.kind);
     _reconcile();
+    for (final id in [..._replaced.keys]) {
+      _letGo(id);
+    }
     return problems;
+  }
+
+  /// Takes back the bindings' layers imported after they started (the
+  /// registry's, from before a restart): held on by the layers a binding
+  /// holds, or let go at once by one that holds none, so the base from
+  /// before comes back.
+  void takeBackLayers() {
+    for (final live in [..._live.values]) {
+      if (live is! _LiveBinding) continue;
+      for (final l in registry.claim(live.link.id)) {
+        l.dispose();
+      }
+    }
+  }
+
+  /// Bindings changed, holding until their new definitions do.
+  final Map<String, _LiveBinding> _replaced = {};
+
+  void _letGo(String id) {
+    for (final l in _replaced.remove(id)?.layers ?? const <LayerHandle>[]) {
+      l.dispose();
+    }
   }
 
   // --- Reconciling -----------------------------------------------------------
@@ -503,6 +536,14 @@ final class Links {
   }
 
   void _reconcileOne(Link link) {
+    try {
+      _reconcileLink(link);
+    } finally {
+      _letGo(link.id);
+    }
+  }
+
+  void _reconcileLink(Link link) {
     final id = link.id;
     if (!link.enabled) {
       _deactivate(id);
@@ -670,7 +711,13 @@ final class Links {
       case _LiveReaction r:
         r.start();
       case _LiveBinding b:
+        // Its layers from before a restart (imported, unclaimed) keep the
+        // base under them: held on by the new ones, or let go at once.
+        final before = registry.claim(b.link.id);
         _evalBinding(b);
+        for (final l in before) {
+          l.dispose();
+        }
       case _LiveHandles():
         break;
     }
@@ -684,7 +731,7 @@ final class Links {
         r.stop();
       case _LiveBinding b:
         b.active = false;
-        registry.dropLayersOf(id);
+        _drop(b);
       case _LiveHandles h:
         for (final x in h.handles) {
           x.dispose();
@@ -889,6 +936,13 @@ final class Links {
     }
   }
 
+  void _drop(_LiveBinding b) {
+    for (final l in b.layers) {
+      l.dispose();
+    }
+    b.layers.clear();
+  }
+
   void _evalBinding(_LiveBinding b) {
     if (_live[b.link.id] != b) return;
     final on = evaluateWith(b.condition, _readView);
@@ -904,14 +958,16 @@ final class Links {
             _note(b.link.id, '${hold.command} sets no state; not held');
             continue;
           }
-          registry.pushLayer(
-            sets.state,
-            key: sets.key == null ? null : params[sets.key] as String?,
-            value: params[sets.value],
-            owner: b.link.id,
-            by: linkPrincipal(b.link.id),
-            priority: b.link.priority,
-            chain: [b.link.id],
+          b.layers.add(
+            registry.pushLayer(
+              sets.state,
+              key: sets.key == null ? null : params[sets.key] as String?,
+              value: params[sets.value],
+              owner: b.link.id,
+              by: linkPrincipal(b.link.id),
+              priority: b.link.priority,
+              chain: [b.link.id],
+            ),
           );
         } catch (e) {
           _note(b.link.id, '${hold.command}: $e');
@@ -919,7 +975,7 @@ final class Links {
       }
     } else if (!on && b.active) {
       b.active = false;
-      registry.dropLayersOf(b.link.id);
+      _drop(b);
     }
   }
 
@@ -1082,6 +1138,9 @@ final class Links {
     for (final id in [..._live.keys]) {
       _deactivate(id);
     }
+    for (final id in [..._replaced.keys]) {
+      _letGo(id);
+    }
     for (final s in _subs) {
       await s.cancel();
     }
@@ -1110,6 +1169,9 @@ final class _LiveBinding extends _Live {
   /// Holding its layers. A layer dropped as overridden is not pushed again
   /// until the condition turns false and then true: it stays active.
   bool active = false;
+
+  /// The layers it pushed.
+  final List<LayerHandle> layers = [];
 
   @override
   Binding get link => super.link as Binding;

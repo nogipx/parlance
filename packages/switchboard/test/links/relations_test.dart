@@ -66,6 +66,82 @@ void main() {
       },
     );
 
+    test('a binding changed while it holds moves its value straight to the '
+        'new one', () async {
+      f.muted.set(false);
+      f.gain.set(-20, key: 'music');
+      f.use([breakHolds]);
+      f.program.set('break');
+      await pumpEventQueue();
+      final written = <Object?>[];
+      final sub = f.r.watch('audio.gain', key: 'music').listen(written.add);
+      f.use([
+        {
+          ...breakHolds,
+          'hold': [
+            {
+              'call': 'audio.gain.set',
+              'params': {'input': 'music', 'db': -6},
+            },
+          ],
+        },
+      ]);
+      await pumpEventQueue();
+      expect(f.r.read('audio.gain', key: 'music'), -6);
+      expect(written, isNot(contains(-20)), reason: 'not through the base');
+      expect(f.r.read('audio.muted'), false, reason: 'no longer held');
+      f.program.set('main');
+      await pumpEventQueue();
+      expect(f.r.read('audio.gain', key: 'music'), -20);
+      await sub.cancel();
+    });
+
+    test('after a restart, a binding takes its layers back, the base under '
+        'them kept', () async {
+      f.muted.set(false);
+      f.use([breakHolds]);
+      f.program.set('break');
+      await pumpEventQueue();
+      final kept = f.r.exportLayers();
+      // Started again on Break, with the held value kept as it was.
+      Future<LinksFixture> restart(String scene) async {
+        final g = LinksFixture();
+        addTearDown(g.r.dispose);
+        g.muted.set(true);
+        g.program.set(scene);
+        g.r.importLayers(kept);
+        g.use([breakHolds]);
+        await pumpEventQueue();
+        return g;
+      }
+
+      final again = await restart('break');
+      expect(again.r.read('audio.muted'), true);
+      again.program.set('main');
+      await pumpEventQueue();
+      expect(
+        again.r.read('audio.muted'),
+        false,
+        reason: 'the base from before',
+      );
+      // Started on another scene: let go at once, not after the grace.
+      final away = await restart('main');
+      expect(away.r.read('audio.muted'), false);
+      expect(away.r.layers(), isEmpty);
+      // Links started before the layers came: they take them back.
+      final late = LinksFixture();
+      addTearDown(late.r.dispose);
+      late.program.set('main');
+      late.muted.set(false);
+      late.use([breakHolds]);
+      late.muted.set(true);
+      late.r.importLayers(kept);
+      late.links.takeBackLayers();
+      await pumpEventQueue();
+      expect(late.r.read('audio.muted'), false);
+      expect(late.r.layers(), isEmpty);
+    });
+
     test('an anchor gives the condition and the home', () async {
       f.links.registerAnchor(
         AnchorKind(

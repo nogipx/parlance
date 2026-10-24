@@ -26,6 +26,7 @@ A type checks a value and fills defaults. Types are values themselves (they seri
 | `list` | `List` of one type | `item`, `maxItems` |
 | `object` | `Map` with named fields; unknown ones refused, an optional one given as null left out | fields: type, `optional`, `default`, `description` |
 | `map` | `Map` from any text to one type (files by path) | `value`, `maxEntries` |
+| `nullable` | null, or a value of `of`: "none" as a value of its own, apart from an empty list | `of` |
 | `oneOf` | one of several objects, told apart by the text in field `key` | `key`, `variants` (objects by tag), `descriptions` |
 | `custom` | anything the host's checker accepts | `name` |
 | `any` | any value | |
@@ -194,7 +195,7 @@ The registry keeps names and JSON, as links, remote and agents see it. A host na
 
 - **Words.** `StateWord<T>` (name, shape, key kind), `CommandWord<P, R>` (name, params as a `RecordShape<P>`, answer as a `Shape<R>` or none, then `R` is `void`), `FactWord<T>` (name, shape). A host's enum of its words implements them; each value carries its own types (`enum ScenesCommand<P, R> implements CommandWord<P, R> { show<({String scene}), void>(...) }`).
 - **Shapes** say how a JSON value is a Dart one, and give the registry its type: `Plain(BoolType())` is a `Shape<bool>` (the value type's own Dart type: `ValueType<T>`), `EnumShape(values)` a Dart enum kept as its name, `ListShape(item)`, `RecordShape(fields, to:, from:)` an object as a record, its field names written beside the fields and nowhere else. `RecordShape.none` is the params of a command that takes none.
-- **More shapes:** `MapShape(value)` for a map from text, and `UnionShape(key, {tag: RecordShape}, tagOf:, descriptions:)` for one of several objects as a sealed class. `Part(description:)` describes a field.
+- **More shapes:** `Nullable(shape)` for null or a value (a state whose "none" means something, such as every app), `MapShape(value)` for a map from text, and `UnionShape(key, {tag: RecordShape}, tagOf:, descriptions:)` for one of several objects as a sealed class. `Part(description:)` describes a field.
 - **Through the registry.** `state(word)` defines (`StateWriterOf<T>`), reads, watches; `command(word)` defines with a handler that gets typed params (`CommandCallOf<P>`) and returns `R`, and calls with `P`, answering `CallResult<R>`; `fact(word)` defines (`FactEmitterOf<T>`), streams and lists `Fact<T>`. Refusals, failures, `timedOut` and `lost` are `CallResult<Never>`, so they end a call of any answer type.
 - **The word fixes the types.** A call is made on what `command(word)` gives, never by a generic function taking a word and params together: Dart's generics are covariant, so such a function would infer a common supertype of two different records and compile a call with another command's params.
 - An answer that does not decode as the word says is `failed`. Names and keys of entity kinds stay strings, and so do references in link params (`$trigger.…`).

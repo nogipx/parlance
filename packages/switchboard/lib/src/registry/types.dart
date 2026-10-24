@@ -72,6 +72,7 @@ sealed class ValueType<T> {
             e.key as String: e.value as String,
         },
       ),
+      'nullable' => NullableType(ValueType.fromJson(json['of'])),
       'custom' => CustomType(json['name'] as String),
       'any' => const AnyType(),
       final t => throw FormatException('unknown type $t'),
@@ -377,6 +378,21 @@ final class OneOfType extends ValueType<Map<String, Object?>> {
     'variants': {for (final e in variants.entries) e.key: e.value.toJson()},
     if (descriptions.isNotEmpty) 'descriptions': descriptions,
   };
+}
+
+/// [of], or null: "none" as a value of its own, apart from an empty list
+/// or a zero.
+final class NullableType extends ValueType<Object?> {
+  const NullableType(this.of);
+
+  final ValueType<Object?> of;
+
+  @override
+  Object? check(Object? value, TypeContext ctx, [String path = '']) =>
+      value == null ? null : of.check(value, ctx, path);
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'nullable', 'of': of.toJson()};
 }
 
 /// A type of the host's: the registry asks the host's checker.
