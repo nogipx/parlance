@@ -214,11 +214,14 @@ enum Refusal {
   idConflict,
 }
 
-/// How a call ended.
-sealed class CallResult {
+/// How a call ended; a typed call ([CommandOf.call]) answers [R].
+///
+/// Only [CallDone] carries an answer; the other ends are `CallResult<Never>`,
+/// so they end a call of any answer type.
+sealed class CallResult<R> {
   const CallResult();
 
-  factory CallResult.fromJson(Object? json) {
+  static CallResult<Object?> fromJson(Object? json) {
     final m = json as Map;
     if (m.containsKey('done')) return CallDone(m['value']);
     if (m['refused'] case final String code) {
@@ -253,16 +256,16 @@ sealed class CallResult {
   };
 }
 
-final class CallDone extends CallResult {
-  const CallDone([this.value]);
+final class CallDone<R> extends CallResult<R> {
+  const CallDone(this.value);
 
-  final Object? value;
+  final R value;
 
   @override
   String toString() => 'done($value)';
 }
 
-final class CallRefused extends CallResult {
+final class CallRefused extends CallResult<Never> {
   const CallRefused(
     this.code,
     this.reason, {
@@ -284,7 +287,7 @@ final class CallRefused extends CallResult {
       'refused(${code.name}${guard == null ? '' : ' by $guard'}: $reason)';
 }
 
-final class CallFailed extends CallResult {
+final class CallFailed extends CallResult<Never> {
   const CallFailed(this.error);
 
   final Object error;
@@ -296,7 +299,7 @@ final class CallFailed extends CallResult {
 /// No answer within the deadline. It is not a failure: the handler may
 /// still finish, and what it does stands. Its end is recorded as a late
 /// call record, and a retry with the same id answers it.
-final class CallTimedOut extends CallResult {
+final class CallTimedOut extends CallResult<Never> {
   const CallTimedOut();
 
   @override
@@ -305,7 +308,7 @@ final class CallTimedOut extends CallResult {
 
 /// No answer came back: the way to the registry broke. Whether the call
 /// ran is unknown; a retry with [id] runs it at most once.
-final class CallLost extends CallResult {
+final class CallLost extends CallResult<Never> {
   const CallLost(this.id, this.reason);
   final String id;
   final String reason;
@@ -334,7 +337,7 @@ final class CallRecord {
   final String command;
   final Map<String, Object?> params;
   final Cause cause;
-  final CallResult result;
+  final CallResult<Object?> result;
 
   /// The guards that denied it and that the caller overrode.
   final List<String> overridden;

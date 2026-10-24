@@ -44,8 +44,11 @@ void main() {
     }
   });
 
-  test('the words of links import nothing', () {
-    expect(importsOf(File('lib/src/link_words.dart')), isEmpty);
+  test('the words of links import only the registry\'s types and words', () {
+    expect(importsOf(File('lib/src/link_words.dart')), {
+      'registry/types.dart',
+      'registry/words.dart',
+    });
   });
 
   test('the registry names nothing of links', () {

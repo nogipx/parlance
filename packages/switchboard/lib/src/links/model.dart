@@ -549,7 +549,7 @@ sealed class Link {
     }
     if (m.containsKey('state') && !m.containsKey('when')) {
       final values = m['values'];
-      final ValueType type = values == null
+      final ValueType<Object?> type = values == null
           ? const BoolType()
           : EnumType([for (final x in values as List) x as String]);
       final def =
@@ -731,7 +731,7 @@ final class OwnState extends Link {
   });
 
   final String state;
-  final ValueType type;
+  final ValueType<Object?> type;
   final Object? defaultValue;
 
   String get setter => '$state.set';

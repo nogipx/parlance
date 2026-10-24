@@ -44,7 +44,7 @@ final class RemoteBoard implements Board {
   /// [catchUp]: then reads throw [BoardBehind] until the copy catches up,
   /// so a read after a call never answers what came before it.
   @override
-  Future<CallResult> call(
+  Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,

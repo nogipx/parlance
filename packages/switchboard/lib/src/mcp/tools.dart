@@ -68,9 +68,11 @@ Future<List<McpTool>> switchboardTools(
   ];
 
   bool may(String command) => commands.any((c) => c['name'] == command);
-  final hasLinks = states.any((s) => s['name'] == LinkWords.status);
+  final hasLinks = states.any((s) => s['name'] == LinkWords.status.name);
   final writesLinks =
-      may(LinkWords.check) || may(LinkWords.upsert) || may(LinkWords.set);
+      may(LinkWords.check.name) ||
+      may(LinkWords.upsert.name) ||
+      may(LinkWords.set.name);
 
   Map<String, Object?> schema(Object? type) =>
       _schema(ValueType.fromJson(type), kinds);
@@ -249,8 +251,8 @@ Future<List<McpTool>> switchboardTools(
             "tools write) and every link's state (active, unresolved and "
             'what it lacks, off, disabled, invalid).',
         run: (_) async => McpResult.json({
-          'own': (await board.readAll(LinkWords.own))[null] ?? const [],
-          'statuses': await board.readAll(LinkWords.status),
+          'own': (await board.readAll(LinkWords.own.name))[null] ?? const [],
+          'statuses': await board.readAll(LinkWords.status.name),
         }),
       ),
     if (writesLinks)
@@ -259,7 +261,7 @@ Future<List<McpTool>> switchboardTools(
         description: 'How links are written: their shapes, triggers, steps.',
         run: (_) async => const McpResult(linkGuide),
       ),
-    if (may(LinkWords.check))
+    if (may(LinkWords.check.name))
       McpTool(
         name: 'link_check',
         description:
@@ -269,9 +271,9 @@ Future<List<McpTool>> switchboardTools(
           'link': {'type': 'object'},
         },
         required: ['link'],
-        run: (a) => callCommand(LinkWords.check, {'link': a['link']}),
+        run: (a) => callCommand(LinkWords.check.name, {'link': a['link']}),
       ),
-    if (may(LinkWords.upsert))
+    if (may(LinkWords.upsert.name))
       McpTool(
         name: 'link_upsert',
         description:
@@ -281,9 +283,9 @@ Future<List<McpTool>> switchboardTools(
           'link': {'type': 'object'},
         },
         required: ['link'],
-        run: (a) => callCommand(LinkWords.upsert, {'link': a['link']}),
+        run: (a) => callCommand(LinkWords.upsert.name, {'link': a['link']}),
       ),
-    if (may(LinkWords.remove))
+    if (may(LinkWords.remove.name))
       McpTool(
         name: 'link_remove',
         description: "Removes one of the user's own links by id.",
@@ -291,9 +293,9 @@ Future<List<McpTool>> switchboardTools(
           'id': {'type': 'string'},
         },
         required: ['id'],
-        run: (a) => callCommand(LinkWords.remove, {'id': a['id']}),
+        run: (a) => callCommand(LinkWords.remove.name, {'id': a['id']}),
       ),
-    if (may(LinkWords.set))
+    if (may(LinkWords.set.name))
       McpTool(
         name: 'links_set',
         description:
@@ -306,9 +308,9 @@ Future<List<McpTool>> switchboardTools(
           },
         },
         required: ['links'],
-        run: (a) => callCommand(LinkWords.set, {'links': a['links']}),
+        run: (a) => callCommand(LinkWords.set.name, {'links': a['links']}),
       ),
-    if (may(LinkWords.tryOut))
+    if (may(LinkWords.tryOut.name))
       McpTool(
         name: 'link_try',
         description:
@@ -318,9 +320,9 @@ Future<List<McpTool>> switchboardTools(
           'id': {'type': 'string'},
         },
         required: ['id'],
-        run: (a) => callCommand(LinkWords.tryOut, {'link': a['id']}),
+        run: (a) => callCommand(LinkWords.tryOut.name, {'link': a['id']}),
       ),
-    if (may(LinkWords.press))
+    if (may(LinkWords.press.name))
       McpTool(
         name: 'link_press',
         description:
@@ -331,7 +333,7 @@ Future<List<McpTool>> switchboardTools(
           'args': {'type': 'object'},
         },
         required: ['id'],
-        run: (a) => callCommand(LinkWords.press, {
+        run: (a) => callCommand(LinkWords.press.name, {
           'link': a['id'],
           'wait': true,
           if (a['args'] != null) 'args': a['args'],
@@ -414,7 +416,7 @@ Map<String, Object?> _layer(LayerInfo l) => {
   if (!l.claimed) 'claimed': false,
 };
 
-McpResult _answer(CallResult r, String id) => switch (r) {
+McpResult _answer(CallResult<Object?> r, String id) => switch (r) {
   CallDone(:final value) =>
     value == null ? const McpResult('Done.') : McpResult.json(value),
   CallRefused(:final code, :final reason, :final guard, :final overridable) =>
@@ -446,7 +448,7 @@ Future<Object?> _values(
 
 /// The JSON Schema of a value of [t]; a ref lists the entities there are.
 Map<String, Object?> _schema(
-  ValueType t,
+  ValueType<Object?> t,
   Map<String, List<Map<String, Object?>>> kinds,
 ) => switch (t) {
   BoolType() => {'type': 'boolean'},

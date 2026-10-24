@@ -17,7 +17,7 @@ final class _Ctx implements TypeContext {
 
 void main() {
   final ctx = _Ctx();
-  Object? ok(ValueType t, Object? v) => t.check(v, ctx);
+  Object? ok(ValueType<Object?> t, Object? v) => t.check(v, ctx);
   Matcher fails(String text) =>
       throwsA(isA<TypeMismatch>().having((e) => '$e', 'text', contains(text)));
 

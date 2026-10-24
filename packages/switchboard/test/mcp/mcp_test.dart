@@ -493,7 +493,7 @@ final class _Counting implements Board {
   Future<Map<String?, Object?>> readAll(String state) => inner.readAll(state);
 
   @override
-  Future<CallResult> call(
+  Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,

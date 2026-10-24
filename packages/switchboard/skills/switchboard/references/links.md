@@ -70,6 +70,12 @@ The engine takes names in the registry: the states `links.status` and `links.own
 
 These names are `LinkWords` (`lib/src/link_words.dart`, with `linkGuide`, how links are written). It imports nothing: a client of the engine (the agent's tools, a host's buttons) calls the engine by them without importing the engine. A test holds `linkGuide` to the keys the parser reads.
 
+### 13.11 Typed words of links
+
+The engine's own words are typed (§18): `LinkWords.status`, `own` and `disabled`, and its commands `press`, `tryOut`, `reset`, `stop`, `enabledSet`, `check`, `set`, `upsert`, `remove`, with their params and answers as records (`PressLink`, `LinkOutcome`, `LinkCheck`, ...). The engine defines them through these words, and clients call them so: `registry.command(LinkWords.press).call((link: id, args: null, wait: true), by: ...)`. Over a board or remote, their `.name`.
+
+A host's links built in Dart take their steps and conditions from typed words: `word.step(params)` is a call step (`{call, params}`), `boolState.flip(key:)` a flip step (bool states only), `state.holds(value, key:)` a condition. The JSON they give is the links' own; references such as `$trigger.…` are written as JSON.
+
 ## 15. Links the user keeps
 
 The engine composes the links it runs from the host's **sources** (named sets, read-only to the user: `source(name, definitions)`) and the user's **own** links, in that order. An own link with the id of a source's link replaces it in its place; with `enabled: false` it turns it off.

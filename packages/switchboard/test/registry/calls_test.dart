@@ -30,7 +30,7 @@ void main() {
     );
     expect(
       await f.r.call('studio.show', {'scene': 'main'}, by: viewer),
-      isA<CallDone>(),
+      isA<CallDone<Object?>>(),
       reason: 'warn allows',
     );
   });
@@ -126,7 +126,7 @@ void main() {
         by: user,
         id: 'same',
       );
-      expect(await a, isA<CallDone>());
+      expect(await a, isA<CallDone<Object?>>());
       expect(identical(await a, await b), isTrue);
       expect(f.shown, ['main']);
     },
@@ -173,7 +173,7 @@ void main() {
         ),
         (_) => 'text',
       );
-      CallResult? slow, bad, wrong;
+      CallResult<Object?>? slow, bad, wrong;
       r.call('x.slow', {}, by: user).then((v) => slow = v);
       r.call('x.bad', {}, by: user).then((v) => bad = v);
       r.call('x.wrong', {}, by: user).then((v) => wrong = v);
@@ -207,7 +207,7 @@ void main() {
       );
       final records = <CallRecord>[];
       r.calls.listen(records.add);
-      CallResult? first, again;
+      CallResult<Object?>? first, again;
       r.call('x.slow', {}, by: user, id: 's').then((v) => first = v);
       t.elapse(const Duration(seconds: 2));
       expect(first, isA<CallTimedOut>());
@@ -216,11 +216,11 @@ void main() {
       t.elapse(const Duration(seconds: 2));
       expect(r.read('x.done'), isTrue, reason: 'what it did stands');
       expect(records.last.late, isTrue);
-      expect(records.last.result, isA<CallDone>());
+      expect(records.last.result, isA<CallDone<Object?>>());
       expect(r.callRecord('s')!.late, isTrue);
       r.call('x.slow', {}, by: user, id: 's').then((v) => again = v);
       t.flushMicrotasks();
-      expect(again, isA<CallDone>());
+      expect(again, isA<CallDone<Object?>>());
     });
   });
 
@@ -254,10 +254,10 @@ void main() {
         by: user,
         id: 'x',
       );
-      expect(first, isA<CallDone>());
+      expect(first, isA<CallDone<Object?>>());
       expect(
         await f.r.call('audio.mute', {'on': true}, by: user, id: 'x'),
-        isA<CallDone>(),
+        isA<CallDone<Object?>>(),
         reason: 'the same call answers the first result',
       );
       for (final other in [

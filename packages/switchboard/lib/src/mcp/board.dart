@@ -16,7 +16,7 @@ abstract interface class Board {
 
   /// Calls [command]; a read after it reads what it wrote. When the answer
   /// is lost on the way, [CallLost] with the id to retry with.
-  Future<CallResult> call(
+  Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,
@@ -80,7 +80,7 @@ final class LocalBoard implements Board {
       registry.readAll(state);
 
   @override
-  Future<CallResult> call(
+  Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,

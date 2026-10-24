@@ -88,12 +88,12 @@ void main() {
         (_, _) async => throw StateError('x'),
         timeout: const Duration(seconds: 2),
       );
-      CallResult? r;
+      CallResult<Object?>? r;
       f.r.call('studio.show', {'scene': 'main'}, by: user).then((v) => r = v);
       t.elapse(const Duration(seconds: 1));
       expect(r, isNull);
       t.elapse(const Duration(seconds: 2));
-      expect(r, isA<CallDone>());
+      expect(r, isA<CallDone<Object?>>());
       expect(f.shown, ['main']);
     });
   });
@@ -120,7 +120,7 @@ void main() {
           (_, _) async => ran.add('next'),
           timeout: const Duration(seconds: 60),
         );
-        CallResult? first, second;
+        CallResult<Object?>? first, second;
         f.r
             .call('studio.show', {'scene': 'main'}, by: user)
             .then((v) => first = v);
@@ -129,7 +129,7 @@ void main() {
             .call('studio.show', {'scene': 'main'}, by: user)
             .then((v) => second = v);
         t.flushMicrotasks();
-        expect(first, isA<CallDone>());
+        expect(first, isA<CallDone<Object?>>());
         expect(identical(first, second), isTrue);
         expect(ran, ['outro']);
         expect(f.shown, ['main'], reason: 'run once');
@@ -146,7 +146,7 @@ void main() {
         (_, _) => Future<void>.delayed(const Duration(seconds: 10)),
         timeout: const Duration(seconds: 60),
       );
-      CallResult? a;
+      CallResult<Object?>? a;
       f.r.call('studio.show', {'scene': 'main'}, by: user).then((v) => a = v);
       t.elapse(const Duration(seconds: 1));
       f.r.call('studio.show', {'scene': 'main'}, by: agent);
@@ -154,7 +154,7 @@ void main() {
       t.elapse(const Duration(seconds: 2));
       expect(a, isNull);
       t.elapse(const Duration(seconds: 10));
-      expect(a, isA<CallDone>());
+      expect(a, isA<CallDone<Object?>>());
     });
   });
 
@@ -175,7 +175,7 @@ void main() {
         (_, _) => Future<void>.delayed(const Duration(seconds: 10)),
         timeout: const Duration(seconds: 60),
       );
-      CallResult? res;
+      CallResult<Object?>? res;
       r.call('x.stop', {}, by: user).then((v) => res = v);
       t.elapse(const Duration(seconds: 1));
       h.dispose();

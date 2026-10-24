@@ -11,16 +11,20 @@ The contract the code and its tests follow is in `references/`, one file per lib
 
 | Library | What it is | Contract |
 |---|---|---|
-| `registry` | catalog, writes in ticks, calls, layers, guards, hooks, feed, format versions | [references/registry.md](references/registry.md): §1–12, §17 |
+| `registry` | catalog, writes in ticks, calls, layers, guards, hooks, feed, format versions, typed words | [references/registry.md](references/registry.md): §1–12, §17, §18 |
 | `links` | the engine of links and own words, on the registry's public API | [references/links.md](references/links.md): §13, §15 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
 | `mcp` | curated agent tools on a `Board` (local or remote); the binary `switchboard-mcp` | [references/mcp.md](references/mcp.md): §16 |
 
 ## Adding to the registry
 
-- **State:** `registry.defineState(StateDescriptor(name, type:, key:?), by: owner)` returns the only `StateWriter`. A settable state has one command with `sets: Sets(state, value:, key:?)`.
-- **Command:** `defineCommand(CommandDescriptor(name, params:, callers:, sets:?, interceptable:?, deadline:?), handler, available:?)`. `available` answers why it cannot run now (shown before anyone calls).
-- **Fact:** `defineFact(FactDescriptor(name, type:, open:?), by: producer)`; `emit(payload, cause:)`.
+A host names its words once, typed (SPEC §18), and never types a name or a param key elsewhere:
+- **Words:** an enum per owner, `enum XState<T> implements StateWord<T>`, `enum XCommand<P, R> implements CommandWord<P, R>`, `enum XFact<T> implements FactWord<T>`; each value its name and shape. Params and objects are records with a `RecordShape(fields, to:, from:)`; enums are `EnumShape(values)`; no params is `RecordShape.none`.
+- **State:** `r.state(XState.a).define(by: owner, meta:)` returns the only `StateWriterOf<T>`. A settable state has one command with `sets: Sets(XState.a.name, value: 'param', key:?)`.
+- **Command:** `r.command(XCommand.b).define((c) => ..., callers:, sets:?, interceptable:?, deadline:?, available:?)`; `c.params` is the record. `available` answers why it cannot run now (shown before anyone calls).
+- **Fact:** `r.fact(XFact.c).define(by: producer)`; `emit(record, cause:)`.
+- **Call and read:** `r.command(XCommand.b).call(params, by:)` answers `CallResult<R>`; `r.state(XState.a).read()`, `.watch()`; `r.fact(XFact.c).stream`. Never a generic helper taking a word and params together: it loses the types (SPEC §18).
+- The string API (`defineState(StateDescriptor(...))`, `call(name, map)`) is for names known only at run time: own words, links, remote, MCP.
 - **Callers** decide who may call: selectors `kind:id`, `kind`, `*`; the most specific wins; unmatched is denied; `warn` allows but tells editors. In Tephra use `Who.crew`, `Who.crewAndViewers`, `Who.streamerAtTheMac`.
 - **Causes:** inside a handler, write and call with `cause: call.causeFor(owner)`, so the trail shows which call led to it. Never pass causes through zones.
 - Names are dotted lowercase (`audio.muted`); never two owners for one name.
@@ -31,7 +35,8 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Links
 
-- Shapes, triggers, steps: `linkGuide` in `lib/src/link_words.dart` (a test holds it to the parser). The engine's names are `LinkWords`; never type `'links.…'` elsewhere.
+- Shapes, triggers, steps: `linkGuide` in `lib/src/link_words.dart` (a test holds it to the parser). The engine's words are `LinkWords`, typed (`LinkWords.press` is a `CommandWord<PressLink, LinkOutcome>`); never type `'links.…'` elsewhere.
+- A host's links in Dart: `XCommand.b.step(params)`, `XState.a.flip()`, `XState.a.holds(value)` (SPEC §13.11).
 - **Who a run acts for:** a press acts for the presser; a fact or state change caused by someone *outside the engine's managers* acts for them (their rights, never the link's); anything else acts as `link:<id>`. So a viewer reaches only what names viewers in its callers.
 - **Own words** (`my.*`): callable by the managers; a definition's `callers` only add more. A viewer may call one only if it says so explicitly.
 - A firing that does not run spends no `once`, throttle or rate. Statuses (`links.status`) say why a link is unresolved, disabled or failing.
@@ -45,9 +50,9 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Rules of the package
 
-- Imports go one way: `links` and `remote` use `registry`; `mcp` may import only `link_words.dart` from links; only `remote` uses rpc_dart. `test/boundaries_test.dart` holds this.
+- Imports go one way: `links` and `remote` use `registry`; `mcp` may import only `link_words.dart` from links, and that file only the registry's types and words; only `remote` uses rpc_dart. `test/boundaries_test.dart` holds this.
 - No words of any domain in `lib/` (the boundary test bans them); the host's vocabulary stays in the host.
-- Results are typed (`CallResult`, `Explanation`, `LayerInfo`); serialize at the edges.
+- Results are typed (`CallResult<R>`, `Explanation`, `LayerInfo`); serialize at the edges.
 - `contract.g.dart` is generated: change `contract.dart`, then `fvm dart run build_runner build`.
 - A behavior change updates the contract in `references/` in the same change.
 

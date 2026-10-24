@@ -266,7 +266,7 @@ final class SwitchboardClient {
   /// Calls [command]. When no answer comes back, the result is
   /// [CallLost] with the call's id: retry with it, and the registry answers
   /// the first result without running it again.
-  Future<CallResult> call(
+  Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,
@@ -285,7 +285,7 @@ final class SwitchboardClient {
   /// [call], with the seq of the epoch the registry had when it answered
   /// (null when the answer was lost): a mirror that reached it shows what
   /// the call wrote.
-  Future<({CallResult result, String? epoch, int? seq})> callAt(
+  Future<({CallResult<Object?> result, String? epoch, int? seq})> callAt(
     String command,
     Map<String, Object?> params, {
     String? id,

@@ -246,7 +246,7 @@ final class _Waiting {
   /// The ids of the hooks it may run, so their own calls do not join it.
   final List<String> hooks;
   final Completer<void> hurry = Completer();
-  final Completer<CallResult> result = Completer();
+  final Completer<CallResult<Object?>> result = Completer();
 }
 
 final class _Layer {
@@ -910,7 +910,7 @@ final class Registry implements TypeContext {
   /// the dedup window answers the first call's result without running it
   /// again. A call made by a handler or a hook passes [cause]; without it,
   /// the call starts a new chain.
-  Future<CallResult> call(
+  Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     required Principal by,
@@ -948,7 +948,7 @@ final class Registry implements TypeContext {
     return result;
   }
 
-  Future<CallResult> _run(
+  Future<CallResult<Object?>> _run(
     String id,
     String command,
     Map<String, Object?> rawParams,
@@ -961,7 +961,7 @@ final class Registry implements TypeContext {
     final hooksRan = <String>[];
     var params = rawParams;
 
-    CallResult finish(CallResult r, {bool late = false}) {
+    CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
       if (!_records.isClosed) {
         _remember(
           CallRecord(
@@ -1081,7 +1081,7 @@ final class Registry implements TypeContext {
       return finish(r);
     }
 
-    CallResult answered(Object? answer) {
+    CallResult<Object?> answered(Object? answer) {
       if (d.returns case final t?) {
         try {
           return CallDone(freezeJson(t.check(answer, this)));
@@ -1089,10 +1089,10 @@ final class Registry implements TypeContext {
           return CallFailed('returned a wrong value: $e');
         }
       }
-      return const CallDone();
+      return const CallDone(null);
     }
 
-    void explicit(CallResult r) {
+    void explicit(CallResult<Object?> r) {
       if (!r.ok || layer != null) return;
       if (d.sets case final s?) {
         final key = s.key == null ? null : params[s.key] as String?;
@@ -1107,7 +1107,7 @@ final class Registry implements TypeContext {
         CommandCall._(id, command, params, cause, expired.future),
       ),
     );
-    CallResult result;
+    CallResult<Object?> result;
     try {
       result = answered(await work.timeout(d.deadline));
     } on TimeoutException {
@@ -1498,5 +1498,5 @@ final class _Seen {
   final String command;
   final Object? params;
   final Principal by;
-  Future<CallResult> result;
+  Future<CallResult<Object?>> result;
 }

@@ -21,7 +21,7 @@ void main() {
   });
 
   test('the guide names the engine by its words', () {
-    expect(linkGuide, contains(LinkWords.press));
+    expect(linkGuide, contains(LinkWords.press.name));
     expect(linkGuide, contains('${LinkWords.ownPrefix}name'));
   });
 }

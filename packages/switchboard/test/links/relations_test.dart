@@ -252,10 +252,10 @@ void main() {
             'timeout': '30s',
           },
         ]);
-        CallResult? r;
+        CallResult<Object?>? r;
         x.r.call('studio.show', {'scene': 'main'}, by: user).then((v) => r = v);
         t.elapse(const Duration(seconds: 31));
-        expect(r, isA<CallDone>());
+        expect(r, isA<CallDone<Object?>>());
       });
     });
 

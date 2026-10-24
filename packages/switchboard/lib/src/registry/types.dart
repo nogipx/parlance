@@ -28,8 +28,9 @@ final class TypeMismatch implements Exception {
 /// The type of a value: checks it and fills defaults (SPEC §2).
 ///
 /// Types are values themselves: [toJson] and [ValueType.fromJson] carry them
-/// to clients for `describe`.
-sealed class ValueType {
+/// to clients for `describe`. [T] is the Dart type of the values it passes,
+/// for typed words (`Plain(BoolType())` is a `Shape<bool>`).
+sealed class ValueType<T> {
   const ValueType();
 
   /// [value] with defaults filled, or a [TypeMismatch].
@@ -37,7 +38,7 @@ sealed class ValueType {
 
   Map<String, Object?> toJson();
 
-  static ValueType fromJson(Object? json) {
+  static ValueType<Object?> fromJson(Object? json) {
     if (json is! Map) throw FormatException('a type is an object: $json');
     num? n(String k) => json[k] as num?;
     return switch (json['type']) {
@@ -66,7 +67,7 @@ sealed class ValueType {
       throw TypeMismatch(path, message);
 }
 
-final class BoolType extends ValueType {
+final class BoolType extends ValueType<bool> {
   const BoolType();
 
   @override
@@ -77,7 +78,7 @@ final class BoolType extends ValueType {
   Map<String, Object?> toJson() => {'type': 'bool'};
 }
 
-final class IntType extends ValueType {
+final class IntType extends ValueType<int> {
   const IntType({this.min, this.max});
 
   final int? min;
@@ -100,7 +101,7 @@ final class IntType extends ValueType {
   Map<String, Object?> toJson() => {'type': 'int', 'min': ?min, 'max': ?max};
 }
 
-final class NumType extends ValueType {
+final class NumType extends ValueType<num> {
   const NumType({this.min, this.max});
 
   final num? min;
@@ -120,7 +121,7 @@ final class NumType extends ValueType {
   Map<String, Object?> toJson() => {'type': 'num', 'min': ?min, 'max': ?max};
 }
 
-final class TextType extends ValueType {
+final class TextType extends ValueType<String> {
   const TextType({this.maxLength});
 
   final int? maxLength;
@@ -138,7 +139,7 @@ final class TextType extends ValueType {
   Map<String, Object?> toJson() => {'type': 'text', 'maxLength': ?maxLength};
 }
 
-final class EnumType extends ValueType {
+final class EnumType extends ValueType<String> {
   const EnumType(this.values);
 
   final List<String> values;
@@ -154,7 +155,7 @@ final class EnumType extends ValueType {
 }
 
 /// A duration as whole milliseconds.
-final class DurationType extends ValueType {
+final class DurationType extends ValueType<int> {
   const DurationType({this.max});
 
   /// The longest, in milliseconds.
@@ -172,7 +173,7 @@ final class DurationType extends ValueType {
 }
 
 /// The id of an entity of [kind], which must exist when checked.
-final class RefType extends ValueType {
+final class RefType extends ValueType<String> {
   const RefType(this.kind);
 
   final String kind;
@@ -191,10 +192,10 @@ final class RefType extends ValueType {
   Map<String, Object?> toJson() => {'type': 'ref', 'kind': kind};
 }
 
-final class ListType extends ValueType {
+final class ListType extends ValueType<List<Object?>> {
   const ListType(this.item, {this.maxItems});
 
-  final ValueType item;
+  final ValueType<Object?> item;
   final int? maxItems;
 
   @override
@@ -231,7 +232,7 @@ final class Field {
     );
   }
 
-  final ValueType type;
+  final ValueType<Object?> type;
 
   /// May be left out; true whenever there is a [defaultValue].
   final bool optional;
@@ -248,7 +249,7 @@ final class Field {
 
 /// A map with named fields: unknown ones are refused, left-out optional
 /// ones get their default.
-final class ObjectType extends ValueType {
+final class ObjectType extends ValueType<Map<String, Object?>> {
   const ObjectType(this.fields);
 
   final Map<String, Field> fields;
@@ -283,7 +284,7 @@ final class ObjectType extends ValueType {
 }
 
 /// A type of the host's: the registry asks the host's checker.
-final class CustomType extends ValueType {
+final class CustomType extends ValueType<Object?> {
   const CustomType(this.name);
 
   final String name;
@@ -301,7 +302,7 @@ final class CustomType extends ValueType {
   Map<String, Object?> toJson() => {'type': 'custom', 'name': name};
 }
 
-final class AnyType extends ValueType {
+final class AnyType extends ValueType<Object?> {
   const AnyType();
 
   @override

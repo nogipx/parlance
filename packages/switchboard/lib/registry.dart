@@ -11,3 +11,4 @@ export 'src/registry/json.dart';
 export 'src/registry/messages.dart';
 export 'src/registry/registry.dart';
 export 'src/registry/types.dart';
+export 'src/registry/words.dart';

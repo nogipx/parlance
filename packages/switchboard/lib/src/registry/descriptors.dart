@@ -142,7 +142,7 @@ final class StateDescriptor extends Descriptor {
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 
-  final ValueType type;
+  final ValueType<Object?> type;
 
   /// The entity kind of its keys, when it holds one value per entity.
   final String? key;
@@ -196,7 +196,7 @@ final class CommandDescriptor extends Descriptor {
   final ObjectType params;
 
   /// The type of what a call answers; null — it answers nothing.
-  final ValueType? returns;
+  final ValueType<Object?>? returns;
   final Callers callers;
   final Sets? sets;
 
@@ -236,7 +236,7 @@ final class FactDescriptor extends Descriptor {
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 
-  final ValueType type;
+  final ValueType<Object?> type;
 
   /// More producers than the definer may emit it.
   final bool open;

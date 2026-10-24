@@ -9,6 +9,7 @@ import '../registry/json.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/types.dart';
+import '../registry/words.dart';
 import 'expr.dart';
 import 'model.dart';
 
@@ -47,24 +48,6 @@ final class AnchorKind {
   final String name;
   final String entityKind;
   final Condition Function(String entity) condition;
-}
-
-/// Where a link stands.
-enum LinkState {
-  /// Working.
-  active,
-
-  /// Names something the catalog lacks; waits for it.
-  unresolved,
-
-  /// Turned off in its definition.
-  off,
-
-  /// Turned off while running: too many runs, or by `links.enabled.set`.
-  disabled,
-
-  /// Its definition is wrong.
-  invalid,
 }
 
 /// A link's state, with what it lacks or why.
@@ -137,175 +120,83 @@ final class Links {
         ),
       ),
     );
-    _status = registry.defineState(
-      StateDescriptor(
-        LinkWords.status,
-        key: LinkWords.kind,
-        type: ObjectType({
-          'state': Field(EnumType([for (final s in LinkState.values) s.name])),
-          'missing': const Field(ListType(TextType()), optional: true),
-          'reason': const Field(TextType(), optional: true),
-        }),
-      ),
-      by: _engine,
-    );
-    _disabledFact = registry.defineFact(
-      FactDescriptor(
-        LinkWords.disabled,
-        type: const ObjectType({
-          'link': Field(TextType()),
-          'reason': Field(TextType()),
-        }),
-      ),
-      by: _engine,
-    );
-    const link = ObjectType({'link': Field(RefType(LinkWords.kind))});
-    const answer = ObjectType({
-      'ran': Field(BoolType(), optional: true),
-      'denies': Field(BoolType(), optional: true),
-      'reason': Field(TextType(), optional: true),
-      'failure': Field(TextType(), optional: true),
-    });
+    _status = registry.state(LinkWords.status).define(by: _engine);
+    _disabledFact = registry.fact(LinkWords.disabled).define(by: _engine);
+    final manage = managers ?? anyone;
+    _ownState = registry
+        .state(LinkWords.own)
+        .define(by: _engine, meta: const {'label': "The user's own links"});
     _handles.addAll([
       _status,
       _disabledFact,
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.press,
-          params: const ObjectType({
-            'link': Field(RefType(LinkWords.kind)),
-            'args': Field(AnyType(), optional: true),
-            'wait': Field(BoolType(), defaultValue: false),
-          }),
-          returns: answer,
-          callers: pressers ?? anyone,
-        ),
-        _press,
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.tryOut,
-          params: link,
-          returns: answer,
-          callers: managers ?? anyone,
-        ),
-        _try,
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.reset,
-          params: link,
-          callers: managers ?? anyone,
-        ),
-        (c) {
-          if (_live[c.params['link']] case final _LiveReaction r) {
-            r.fired.clear();
-          }
-        },
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.stop,
-          params: link,
-          callers: managers ?? anyone,
-        ),
-        (c) {
-          if (_live[c.params['link']] case final _LiveReaction r) r.stopAll();
-        },
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.enabledSet,
-          params: const ObjectType({
-            'link': Field(RefType(LinkWords.kind)),
-            'on': Field(BoolType()),
-          }),
-          callers: managers ?? anyone,
-        ),
-        (c) {
-          final id = c.params['link'] as String;
-          if (c.params['on'] == true) {
-            _disabled.remove(id);
-          } else {
-            _disabled[id] = 'turned off';
-          }
-          _reconcile();
-        },
-      ),
-    ]);
-    _ownState = registry.defineState(
-      StateDescriptor(
-        LinkWords.own,
-        type: const ListType(AnyType()),
-        meta: const {'label': "The user's own links"},
-      ),
-      by: _engine,
-    );
-    const definition = ObjectType({'link': Field(AnyType())});
-    final manage = managers ?? anyone;
-    _handles.addAll([
+      registry
+          .command(LinkWords.press)
+          .define(_press, callers: pressers ?? anyone),
+      registry.command(LinkWords.tryOut).define(_try, callers: manage),
+      registry.command(LinkWords.reset).define((c) {
+        if (_live[c.params.link] case final _LiveReaction r) r.fired.clear();
+      }, callers: manage),
+      registry.command(LinkWords.stop).define((c) {
+        if (_live[c.params.link] case final _LiveReaction r) r.stopAll();
+      }, callers: manage),
+      registry.command(LinkWords.enabledSet).define((c) {
+        final EnableLink(link: id, :on) = c.params;
+        if (on) {
+          _disabled.remove(id);
+        } else {
+          _disabled[id] = 'turned off';
+        }
+        _reconcile();
+      }, callers: manage),
       _ownState,
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.check,
-          params: definition,
-          returns: const ObjectType({
-            'ok': Field(BoolType()),
-            'problems': Field(ListType(TextType())),
-            'missing': Field(ListType(TextType())),
-          }),
-          callers: manage,
-          meta: const {'label': 'Check a link without applying it'},
-        ),
-        (c) => check(c.params['link']),
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.set,
-          params: const ObjectType({'links': Field(ListType(AnyType()))}),
-          callers: manage,
-          meta: const {'label': "Replace the user's own links"},
-        ),
-        (c) => _setOwn([for (final l in c.params['links'] as List) l]),
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.upsert,
-          params: definition,
-          callers: manage,
-          meta: const {'label': 'Add or replace one own link'},
-        ),
-        (c) {
-          final link = c.params['link'];
-          final id = link is Map ? link['id'] : null;
-          _setOwn([
-            for (final l in _own)
-              if (l['id'] != id) l,
-            link,
-          ], keepOrderOf: id);
-        },
-      ),
-      registry.defineCommand(
-        CommandDescriptor(
-          LinkWords.remove,
-          params: const ObjectType({'id': Field(TextType())}),
-          callers: manage,
-          meta: const {'label': 'Remove one own link'},
-        ),
-        (c) {
-          final id = c.params['id'];
-          if (!_own.any((l) => l['id'] == id)) {
-            throw StateError(
-              '$id is not an own link; turn a link of the host off with an '
-              'own link of the same id and enabled: false',
-            );
-          }
-          _setOwn([
-            for (final l in _own)
-              if (l['id'] != id) l,
-          ]);
-        },
-      ),
+      registry
+          .command(LinkWords.check)
+          .define(
+            (c) => check(c.params.link),
+            callers: manage,
+            meta: const {'label': 'Check a link without applying it'},
+          ),
+      registry
+          .command(LinkWords.set)
+          .define(
+            (c) => _setOwn(c.params.links),
+            callers: manage,
+            meta: const {'label': "Replace the user's own links"},
+          ),
+      registry
+          .command(LinkWords.upsert)
+          .define(
+            (c) {
+              final link = c.params.link;
+              final id = link is Map ? link['id'] : null;
+              _setOwn([
+                for (final l in _own)
+                  if (l['id'] != id) l,
+                link,
+              ], keepOrderOf: id);
+            },
+            callers: manage,
+            meta: const {'label': 'Add or replace one own link'},
+          ),
+      registry
+          .command(LinkWords.remove)
+          .define(
+            (c) {
+              final id = c.params.id;
+              if (!_own.any((l) => l['id'] == id)) {
+                throw StateError(
+                  '$id is not an own link; turn a link of the host off with '
+                  'an own link of the same id and enabled: false',
+                );
+              }
+              _setOwn([
+                for (final l in _own)
+                  if (l['id'] != id) l,
+              ]);
+            },
+            callers: manage,
+            meta: const {'label': 'Remove one own link'},
+          ),
     ]);
     _own = [...?store?.load()];
     _ownState.set(_own);
@@ -331,7 +222,7 @@ final class Links {
   /// to the user, who changes one by an own link of the same id.
   final Map<String, List<Map<String, Object?>>> _sources = {};
   List<Map<String, Object?>> _own = const [];
-  late final StateWriter _ownState;
+  late final StateWriterOf<List<Object?>> _ownState;
 
   /// What the last composition could not take.
   List<LinkProblem> problems = const [];
@@ -349,8 +240,8 @@ final class Links {
   /// Who may manage links; who may use own words unless their definition
   /// says otherwise.
   late final Callers _managers;
-  late final StateWriter _status;
-  late final FactEmitter _disabledFact;
+  late final StateWriterOf<LinkStanding> _status;
+  late final FactEmitterOf<LinkDisabled> _disabledFact;
   final List<Handle> _handles = [];
   final List<StreamSubscription<Object?>> _subs = [];
 
@@ -426,21 +317,13 @@ final class Links {
 
   /// Whether [definition] is a link the engine can take, and what of the
   /// catalog it lacks; nothing is applied.
-  Map<String, Object?> check(Object? definition) {
+  LinkCheck check(Object? definition) {
     try {
       final link = Link.parse(definition);
       final missing = _missing(link);
-      return {
-        'ok': missing.isEmpty,
-        'problems': <String>[],
-        'missing': missing,
-      };
+      return (ok: missing.isEmpty, problems: const [], missing: missing);
     } on FormatException catch (e) {
-      return {
-        'ok': false,
-        'problems': [e.message],
-        'missing': <String>[],
-      };
+      return (ok: false, problems: [e.message], missing: const []);
     }
   }
 
@@ -596,7 +479,11 @@ final class Links {
 
   void _setStatus(LinkStatus s) {
     _statuses[s.id] = s;
-    _status.set(s.toJson(), key: s.id);
+    _status.set((
+      state: s.state,
+      missing: s.missing,
+      reason: s.reason,
+    ), key: s.id);
   }
 
   void _clearNote(String id) {
@@ -856,32 +743,34 @@ final class Links {
 
   // --- Commands of the engine ------------------------------------------------
 
-  Future<Object?> _press(CommandCall call) async {
-    final live = _live[call.params['link']];
-    if (live is! _LiveReaction) return {'ran': false, 'reason': 'not active'};
+  static LinkOutcome _ran(bool ran, {String? reason, String? failure}) =>
+      (ran: ran, denies: null, reason: reason, failure: failure);
+
+  Future<LinkOutcome> _press(CommandCallOf<PressLink> call) async {
+    final live = _live[call.params.link];
+    if (live is! _LiveReaction) return _ran(false, reason: 'not active');
     for (final (i, t) in live.triggers.indexed) {
       if (t.base is! ManualTrigger) continue;
       final why = live.fire(
         i,
-        call.params['args'] ?? const <String, Object?>{},
+        call.params.args ?? const <String, Object?>{},
         by: call.by,
         parent: call.id,
         from: call.cause,
         read: (s, k) => registry.read(s, key: k),
       );
-      if (why != null) return {'ran': false, 'reason': why};
+      if (why != null) return _ran(false, reason: why);
       // With wait, the answer comes when the run has ended: a button shows
       // that it works, then that it worked or why not.
       final run = live.lastStarted;
-      if (call.params['wait'] != true || run == null) return {'ran': true};
-      final failure = await run.done.future;
-      return {'ran': true, 'failure': ?failure};
+      if (!call.params.wait || run == null) return _ran(true);
+      return _ran(true, failure: await run.done.future);
     }
-    return {'ran': false, 'reason': 'not pressable'};
+    return _ran(false, reason: 'not pressable');
   }
 
-  Future<Object?> _try(CommandCall call) async {
-    final id = call.params['link'] as String;
+  Future<LinkOutcome> _try(CommandCallOf<LinkRef> call) async {
+    final id = call.params.link;
     final live = _live[id];
     switch (live) {
       case _LiveReaction r:
@@ -896,14 +785,17 @@ final class Links {
           ),
         );
         final failure = await _runSteps(run, r.link.steps);
-        return failure == null
-            ? {'ran': true}
-            : {'ran': false, 'reason': failure};
+        return failure == null ? _ran(true) : _ran(false, reason: failure);
       case _LiveHandles(link: final Constraint c):
         final on = c.condition == null || evaluate(c.condition!, registry);
-        return {'denies': on, if (on) 'reason': c.reason};
+        return (
+          ran: null,
+          denies: on,
+          reason: on ? c.reason : null,
+          failure: null,
+        );
       default:
-        return {'ran': false, 'reason': 'nothing to try'};
+        return _ran(false, reason: 'nothing to try');
     }
   }
 
@@ -1048,7 +940,7 @@ final class Links {
     }
   }
 
-  Future<CallResult> _call(_Run run, CallStep s) {
+  Future<CallResult<Object?>> _call(_Run run, CallStep s) {
     final params = resolve(s.params, run.data, registry);
     return registry.call(
       s.command,
@@ -1122,7 +1014,7 @@ final class Links {
   void _disable(String id, String why) {
     if (_disabled.containsKey(id)) return;
     _disabled[id] = why;
-    _disabledFact.emit({'link': id, 'reason': why});
+    _disabledFact.emit((link: id, reason: why));
     _reconcile();
   }
 

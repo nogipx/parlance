@@ -147,7 +147,7 @@ A call goes through these stages, in order; the first refusal ends it:
 8. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id answers that end.
 9. **Sets.** A successful explicit setter call updates the base and clears layers (§8).
 
-`CallResult` is `done(value)` or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals.
+`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals.
 
 ## 10. Guards
 
@@ -185,3 +185,14 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 ## 17. Versions
 
 `describe` over remote carries the protocol version (now 2: calls answer their seq, `recent` was added); the registry's own `describe` does not. Exported layers, own states and link definitions carry a format version; the importer refuses a newer major version and migrates older ones.
+
+## 18. Typed words
+
+The registry keeps names and JSON, as links, remote and agents see it. A host names its words once, with their Dart types, and works through them; nothing else in its code types a name or a param key.
+
+- **Words.** `StateWord<T>` (name, shape, key kind), `CommandWord<P, R>` (name, params as a `RecordShape<P>`, answer as a `Shape<R>` or none, then `R` is `void`), `FactWord<T>` (name, shape). A host's enum of its words implements them; each value carries its own types (`enum ScenesCommand<P, R> implements CommandWord<P, R> { show<({String scene}), void>(...) }`).
+- **Shapes** say how a JSON value is a Dart one, and give the registry its type: `Plain(BoolType())` is a `Shape<bool>` (the value type's own Dart type: `ValueType<T>`), `EnumShape(values)` a Dart enum kept as its name, `ListShape(item)`, `RecordShape(fields, to:, from:)` an object as a record, its field names written beside the fields and nowhere else. `RecordShape.none` is the params of a command that takes none.
+- **Through the registry.** `state(word)` defines (`StateWriterOf<T>`), reads, watches; `command(word)` defines with a handler that gets typed params (`CommandCallOf<P>`) and returns `R`, and calls with `P`, answering `CallResult<R>`; `fact(word)` defines (`FactEmitterOf<T>`), streams and lists `Fact<T>`. Refusals, failures, `timedOut` and `lost` are `CallResult<Never>`, so they end a call of any answer type.
+- **The word fixes the types.** A call is made on what `command(word)` gives, never by a generic function taking a word and params together: Dart's generics are covariant, so such a function would infer a common supertype of two different records and compile a call with another command's params.
+- An answer that does not decode as the word says is `failed`. Names and keys of entity kinds stay strings, and so do references in link params (`$trigger.…`).
+

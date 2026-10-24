@@ -68,7 +68,7 @@ void main() {
 
       test('a call answers its result; a refusal is a result too', () async {
         final ok = await link.client.call('studio.show', {'scene': 'main'});
-        expect(ok, isA<CallDone>());
+        expect(ok, isA<CallDone<Object?>>());
         expect(f.r.read('studio.program'), 'main');
         final bad = await link.client.call('studio.show', {'scene': 'gone'});
         expect(
@@ -127,7 +127,7 @@ void main() {
           final again = await link.client.call('studio.show', {
             'scene': 'main',
           }, id: 'once');
-          expect(again, isA<CallDone>());
+          expect(again, isA<CallDone<Object?>>());
           expect(f.shown, ['main']);
           final other = Link.open(f.r, agent, wire: wire);
           addTearDown(other.close);
@@ -245,14 +245,14 @@ void main() {
             (c) => runs.add(c.id),
           );
           final first = await link.client.call('x.go', {}, id: 'k');
-          expect(first, isA<CallDone>());
+          expect(first, isA<CallDone<Object?>>());
           await link.close();
           final lost = await link.client.call('x.go', {}, id: 'k2');
           expect(lost, isA<CallLost>());
           expect((lost as CallLost).id, 'k2');
           final again = Link.open(f.r, user, wire: wire);
           addTearDown(again.close);
-          expect(await again.client.call('x.go', {}, id: 'k'), isA<CallDone>());
+          expect(await again.client.call('x.go', {}, id: 'k'), isA<CallDone<Object?>>());
           expect(runs, ['user:local/k'], reason: 'the retry did not run again');
         },
       );
