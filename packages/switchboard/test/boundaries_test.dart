@@ -51,10 +51,14 @@ void main() {
     });
   });
 
-  test('owners use the registry alone', () {
+  test('owners use the registry alone, and Dart', () {
     for (final f in dartIn('lib/src/owners')) {
       for (final i in importsOf(f)) {
-        expect(i, startsWith('../registry/'), reason: f.path);
+        expect(
+          i.startsWith('../registry/') || i.startsWith('dart:'),
+          isTrue,
+          reason: '${f.path}: $i',
+        );
       }
     }
   });

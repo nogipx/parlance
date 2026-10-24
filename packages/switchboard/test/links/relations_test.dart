@@ -605,6 +605,47 @@ void main() {
       });
     });
 
+    test(
+      "an extension's throttles are defaults: a link's own replace them",
+      () {
+        fakeAsync((t) {
+          final x = LinksFixture();
+          x.links.registerTrigger(
+            TriggerExtension(
+              'chat',
+              translate: (o) => const FactTrigger(
+                'platform.chat',
+                Filter({}),
+                throttles: [Throttle(Duration(minutes: 2))],
+              ),
+            ),
+          );
+          x.use([
+            {
+              'id': 'hi',
+              'when': [
+                {
+                  'chat': '!hi',
+                  'throttle': {'every': '1s'},
+                },
+              ],
+              'do': [
+                {
+                  'call': 'test.say',
+                  'params': {'text': 'hi'},
+                },
+              ],
+            },
+          ]);
+          x.chat.emit({'user': 'a', 'text': '!hi'});
+          t.elapse(const Duration(seconds: 2));
+          x.chat.emit({'user': 'a', 'text': '!hi'});
+          t.flushMicrotasks();
+          expect(x.said, ['hi', 'hi']);
+        });
+      },
+    );
+
     test('a button is a manual trigger the host draws', () async {
       f.use([
         {

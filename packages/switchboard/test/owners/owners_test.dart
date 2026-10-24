@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:switchboard/owners.dart';
 import 'package:switchboard/registry.dart';
 import 'package:test/test.dart';
@@ -39,6 +41,16 @@ final class Dials extends Owner {
       _level.set(value, key: key);
     }
   }
+}
+
+/// What turns come from on their own: a stream it listens to.
+final class Knob extends Owner {
+  Knob(this.turns);
+  final Stream<num> turns;
+  final List<num> heard = [];
+
+  @override
+  void define(Registry r) => listen(turns, heard.add);
 }
 
 final class Other extends Owner {
@@ -103,5 +115,18 @@ void main() {
     final h = Handles()..dispose();
     expect(() => h.keep(r.state(_Flag.on).define(by: me)), throwsStateError);
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'o still has it');
+  });
+
+  test('an owner listens while attached, and stops when it goes', () async {
+    final turns = StreamController<num>.broadcast();
+    final knob = Knob(turns.stream);
+    final owners = Owners(r, [knob]);
+    turns.add(1);
+    await pumpEventQueue();
+    expect(knob.heard, [1]);
+    owners.dispose();
+    await pumpEventQueue();
+    expect(turns.hasListener, isFalse);
+    await turns.close();
   });
 }

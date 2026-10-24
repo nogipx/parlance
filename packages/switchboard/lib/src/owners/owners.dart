@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 
@@ -57,6 +59,12 @@ abstract base class Owner implements Handle {
 
   /// Keeps [h] to withdraw when the owner goes, and gives it back.
   H keep<H extends Handle>(H h) => _handles.keep(h);
+
+  /// Listens to [stream] while it is attached: what its work reports on
+  /// its own (a switch flipped by hand, a message come in), for it to write or
+  /// emit.
+  void listen<T>(Stream<T> stream, void Function(T) onData) =>
+      keep(_Listening(stream.listen(onData)));
 
   /// Registers a kind of entities it keeps, [list] the ones there are now.
   TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {
@@ -141,3 +149,11 @@ final class Owners implements Handle {
 /// device or port said no. (A refusal with a code comes from the registry's
 /// own stages, never from a handler.)
 Never failCall(String why) => throw StateError(why);
+
+final class _Listening implements Handle {
+  _Listening(this._sub);
+  final StreamSubscription<Object?> _sub;
+
+  @override
+  void dispose() => unawaited(_sub.cancel());
+}

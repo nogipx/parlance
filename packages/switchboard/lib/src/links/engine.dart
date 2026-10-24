@@ -827,10 +827,15 @@ final class Links {
         ExtensionTrigger(:final raw) => () {
           final ext = _extensionOf(raw)!;
           final base = ext.translate(raw);
-          return _Resolved(base, ext, raw, [
-            ...base.throttles,
-            ...t.throttles,
-          ], base.once || t.once);
+          // The extension's throttles are defaults: the definition's own
+          // replace them.
+          return _Resolved(
+            base,
+            ext,
+            raw,
+            t.throttles.isNotEmpty ? t.throttles : base.throttles,
+            base.once || t.once,
+          );
         }(),
         _ => _Resolved(t, null, const {}, t.throttles, t.once),
       },

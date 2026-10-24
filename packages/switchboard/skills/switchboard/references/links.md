@@ -21,7 +21,7 @@ Links are data. The engine validates them against the catalog; a link that names
 | `at` | at a local time of day, on the given weekdays |
 | `manual` | `links.press { link, args?, wait? }`; the presser is the principal. With `wait`, the answer comes when the run has ended, with its `failure` if it stopped early |
 
-Options on any trigger: `throttle` — at most once per interval, per key (a path into the trigger, e.g. the viewer); `once` — once until `links.reset { link }`. The host registers **trigger extensions**: a name, a translation to one of the kinds above, and a parse of the extension's own options; the package knows none.
+Options on any trigger: `throttle` — at most once per interval, per key (a path into the trigger, e.g. the viewer); `once` — once until `links.reset { link }`. The host registers **trigger extensions**: a name, a translation to one of the kinds above, and a parse of the extension's own options; the package knows none. The throttles an extension's translation carries are defaults (a chat command's cooldown, so a busy chat cannot run a link past its rate): a `throttle` in the definition replaces them.
 
 The principal of a run is the presser for `manual`; the principal an extension gives (a viewer, for a chat command); for a fact or a state change, whoever caused it when the engine's managers do not count them in; else `link:<id>`: time, the managers' own actions, own commands and interceptions run on behalf of the link (§13.5).
 
