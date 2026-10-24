@@ -424,7 +424,7 @@ McpResult _answer(CallResult<Object?> r, String id) => switch (r) {
       '${code.name}${guard == null ? '' : ' by $guard'}: $reason'
       '${overridable ? ' (the user may override it)' : ''}',
     ),
-  CallFailed(:final error) => McpResult.error('$error'),
+  CallFailed() => McpResult.error(r.whyNot!),
   CallTimedOut() => McpResult.error(
     'no answer within its deadline; it may still happen. See with read or '
     'why; call again with id "$id" to learn how it ended (it does not run '

@@ -32,3 +32,6 @@ A board answers the same here and over remote, and says so where it cannot:
 The session asks for the tools once and again after `toolsChanged()` (or when asking failed), and answers each message when it is done: a long call holds no other back.
 
 `switchboard-mcp --connect unix:/path | tcp://host:port [--command-tools]` is the board over remote as a stdio server: it reconnects to the host and follows its feed again after a drop; while the host is away it lists no tools.
+
+**On this machine.** `package:switchboard/mcp_io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone, opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `mcp.dart` because it needs `dart:io`.
+

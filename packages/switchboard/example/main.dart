@@ -217,15 +217,14 @@ final class Phone {
 
 void section(String title) => print('\n$title');
 
-/// What a call came to, in a line.
+/// What a call came to, in a line: a refusal with its code and guard, any
+/// other end in the result's own words.
 void show(String what, CallResult<Object?> r) => print(
   '  $what: ${switch (r) {
     CallDone() => 'done',
-    CallRefused(:final code, :final reason, :final guard, :final overridable) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}'
-        '${overridable ? ', overridable' : ''}): $reason',
-    CallFailed(:final error) => 'failed: $error',
-    CallTimedOut() => 'no answer yet',
-    CallLost(:final reason) => 'lost: $reason',
+    CallRefused(:final code, :final guard, :final overridable) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}'
+        '${overridable ? ', overridable' : ''}): ${r.whyNot}',
+    _ => r.whyNot,
   }}',
 );
 

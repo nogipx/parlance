@@ -10,6 +10,7 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/types.dart';
 import '../registry/words.dart';
+import 'controls.dart';
 import 'expr.dart';
 import 'model.dart';
 
@@ -314,6 +315,64 @@ final class Links {
   /// user's own.
   List<LinkProblem> apply(List<Object?> definitions) =>
       source('main', definitions);
+
+  /// The reactions someone can press now, in the order of the links: those
+  /// active, with a manual trigger (or a host's that becomes one), whose
+  /// `only` holds (SPEC §13.12).
+  List<LinkControl> controls() => [
+    for (final link in _links.values)
+      if (_live[link.id] case final _LiveReaction live)
+        if (live.triggers
+                .map((t) => t.base)
+                .whereType<ManualTrigger>()
+                .firstOrNull
+            case final manual?)
+          if (live.link.only == null || evaluate(live.link.only!, registry))
+            LinkControl(
+              link: live.link,
+              look: manual.look,
+              lit: _lit(live.link, manual.look),
+              unavailable: _unavailable(live.link),
+            ),
+  ];
+
+  bool? _lit(Reaction link, Map<String, Object?> look) {
+    if (look['lit'] != null) {
+      try {
+        return evaluate(Condition.parse(look['lit'], 'lit'), registry);
+      } on FormatException {
+        return null;
+      }
+    }
+    if (link.steps.length != 1) return null;
+    switch (link.steps.single) {
+      case FlipStep(:final state, :final key):
+        return registry.read(state, key: key) == true;
+      case CallStep(:final command, :final params):
+        final sets = registry.commandDescriptor(command)?.sets;
+        if (sets == null || !params.containsKey(sets.value)) return null;
+        final key = sets.key == null ? null : params[sets.key] as String?;
+        return jsonEquals(
+          registry.read(sets.state, key: key),
+          params[sets.value],
+        );
+      default:
+        return null;
+    }
+  }
+
+  String? _unavailable(Reaction link) {
+    for (final s in link.steps) {
+      final command = switch (s) {
+        CallStep(:final command) => command,
+        FlipStep(:final state) => registry.setterOf(state),
+        _ => null,
+      };
+      if (command == null) continue;
+      return registry.whyUnavailable(command);
+    }
+    return null;
+  }
 
   /// Whether [definition] is a link the engine can take, and what of the
   /// catalog it lacks; nothing is applied.

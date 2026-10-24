@@ -241,6 +241,17 @@ sealed class CallResult<R> {
 
   bool get ok => this is CallDone;
 
+  /// Why it did not end done, in a few words for people: the refusal's
+  /// reason, the failure, or that no answer came; null when it is done.
+  String? get whyNot => switch (this) {
+    CallDone() => null,
+    CallRefused(:final reason) => reason,
+    CallFailed(:final error) => '$error',
+    CallTimedOut() => 'no answer within its deadline; it may still happen',
+    CallLost(:final reason) =>
+      'no answer came back ($reason); retry with its id',
+  };
+
   Map<String, Object?> toJson() => switch (this) {
     CallDone(:final value) => {'done': true, 'value': value},
     CallRefused(:final code, :final reason, :final guard, :final overridable) =>

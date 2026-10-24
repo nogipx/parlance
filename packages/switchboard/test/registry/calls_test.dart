@@ -318,4 +318,18 @@ void main() {
     expect(f.r.whyUnavailable('x.go'), isNull);
     expect(f.r.whyUnavailable('nope'), 'no command nope');
   });
+
+  test('a result says why not in words, and nothing when done', () async {
+    expect(
+      (await f.r.call('audio.mute', {'on': true}, by: user)).whyNot,
+      isNull,
+    );
+    expect(
+      (await f.r.call('audio.mute', {'on': true}, by: viewer)).whyNot,
+      contains('may not call audio.mute'),
+    );
+    expect(const CallFailed('disk full').whyNot, 'disk full');
+    expect(const CallTimedOut().whyNot, contains('may still happen'));
+    expect(const CallLost('c1', 'socket closed').whyNot, contains('retry'));
+  });
 }

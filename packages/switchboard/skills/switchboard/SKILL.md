@@ -15,7 +15,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | `owners` | `Owner`, `Owners`, `Handles`, `TrackedKind`, `failCall`: defining, syncing and withdrawing a host's words | [references/owners.md](references/owners.md): §19 |
 | `links` | the engine of links and own words, on the registry's public API | [references/links.md](references/links.md): §13, §15 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
-| `mcp` | curated agent tools on a `Board` (local or remote); the binary `switchboard-mcp` | [references/mcp.md](references/mcp.md): §16 |
+| `mcp` | curated agent tools on a `Board` (local or remote); `mcp_io`: the server on a Unix socket; the binary `switchboard-mcp` | [references/mcp.md](references/mcp.md): §16 |
 
 ## Adding to the registry
 
@@ -42,6 +42,7 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 - A whole host in miniature: `example/` (run `fvm dart run example/main.dart`).
 - **Who a run acts for:** a press acts for the presser; a fact or state change caused by someone *outside the engine's managers* acts for them (their rights, never the link's); anything else acts as `link:<id>`. So a viewer reaches only what names viewers in its callers.
 - **Own words** (`my.*`): callable by the managers; a definition's `callers` only add more. A viewer may call one only if it says so explicitly.
+- Buttons: `links.controls()` (shown, `lit`, `unavailable`) and `registry.pressLink(id, by:)` (SPEC §13.12); a call's end in words: `result.whyNot`.
 - A firing that does not run spends no `once`, throttle or rate. Statuses (`links.status`) say why a link is unresolved, disabled or failing.
 - The host's links come from `source(name, defs)`; the user's own from a `LinksStore`, saved before they apply.
 
@@ -64,4 +65,4 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 - Fixtures: `test/registry/fixture.dart` (`Fixture`, principals `user`, `agent`, `viewer`, `owner`), `test/links/fixture.dart` (`LinksFixture`, `use(defs)`, `stateOf(id)`).
 - Time: `fakeAsync(..., initialTime: DateTime(...))` whenever wall-clock triggers (`at`) are involved; the registry reads time from its `clock`.
 - Name tests after the promise they hold ("a firing that does not run spends no once"); `test/links/promises_test.dart` is the model.
-- Run: `fvm dart test` in `packages/switchboard`; `fvm dart analyze`.
+- Run: `fvm dart test` in `packages/switchboard` (four files at a time, `dart_test.yaml`), or only the files a change touches; `fvm dart analyze`.

@@ -76,6 +76,15 @@ The engine's own words are typed (§18): `LinkWords.status`, `own` and `disabled
 
 A host's links built in Dart take their steps and conditions from typed words: `word.step(params)` is a call step (`{call, params}`), `boolState.flip(key:)` a flip step (bool states only), `state.holds(value, key:)` a condition, `fact.trigger(where:, once:)` and `state.becomes(value, key:, holding:)` triggers. The JSON they give is the links' own; references such as `$trigger.…` are written as JSON.
 
+### 13.12 Controls
+
+A reaction someone can press is a control: a button on a desk, a phone, a deck. `Links.controls()` gives those there are now, in the order of the links: active, with a manual trigger (or a host's trigger that becomes one), whose `only` holds. Each has:
+- **`look`:** the manual trigger's options, the host's words for how to draw it.
+- **`lit`:** for a control that sets something. It is the condition in `look['lit']`, else the state its single flip step flips, else whether the state its single call sets already holds the call's value. It is null for a control that only does something.
+- **`unavailable`:** why the first command it would call cannot run now.
+
+`registry.pressLink(id, by:)` presses and waits for the run to end. It answers null when the run went through, else why not: the press was refused, the link did not run, or the run failed. Over remote, `client.command(LinkWords.press)` answers a `CallResult<LinkOutcome>` and `whyNotPressed` says the same.
+
 ## 15. Links the user keeps
 
 The engine composes the links it runs from the host's **sources** (named sets, read-only to the user: `source(name, definitions)`) and the user's **own** links, in that order. An own link with the id of a source's link replaces it in its place; with `enabled: false` it turns it off.

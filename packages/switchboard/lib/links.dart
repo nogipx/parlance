@@ -5,6 +5,7 @@
 library;
 
 export 'src/link_words.dart';
+export 'src/links/controls.dart';
 export 'src/links/engine.dart';
 export 'src/links/expr.dart' show StateReader, evaluate, evaluateWith, resolve;
 export 'src/links/model.dart';
