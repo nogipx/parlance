@@ -114,6 +114,7 @@ final class RegistryResponder extends SwitchboardContractPeer {
     if (registry.stateDescriptor(request.state) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
     }
+    if (!_reads(request.state)) _deny(_unreadable(request.state));
     return SbJson(registry.explain(request.state, key: request.key).toJson());
   }
 
@@ -121,7 +122,10 @@ final class RegistryResponder extends SwitchboardContractPeer {
   Future<SbJson> onLayers(RpcNull request, {RpcContext? context}) async {
     _open();
     return SbJson({
-      'layers': [for (final l in registry.layers()) l.toJson()],
+      'layers': [
+        for (final l in registry.layers())
+          if (_reads(l.state)) l.toJson(),
+      ],
     });
   }
 
@@ -153,7 +157,14 @@ final class RegistryResponder extends SwitchboardContractPeer {
   bool hears(bool Function(String fact) fact) =>
       _factFilter == null || _factFilter!.any(fact) || _read.any(fact);
 
-  bool _carries(String state) => _stateFilter?.contains(state) ?? true;
+  /// Whether the session may read [state]'s values (its `readers`).
+  bool _reads(String state) => registry.mayRead(principal, state);
+
+  String _unreadable(String state) =>
+      '${principal.selector} may not read $state';
+
+  bool _carries(String state) =>
+      (_stateFilter?.contains(state) ?? true) && _reads(state);
 
   @override
   Stream<SbFeedItem> onFeed(SbFeedRequest request, {RpcContext? context}) {
@@ -211,28 +222,21 @@ final class RegistryResponder extends SwitchboardContractPeer {
   /// [t] as the session follows it, from [from]; null when it has nothing
   /// the session follows.
   Tick? _tickOf(Tick t, int from) {
-    final states = _stateFilter;
     final facts = _factFilter;
-    if (states == null && facts == null) {
-      return from == t.from
-          ? t
-          : Tick(
-              epoch: t.epoch,
-              from: from,
-              to: t.to,
-              changes: t.changes,
-              facts: t.facts,
-            );
-    }
     final changes = [
       for (final c in t.changes)
-        if (states?.contains(c.state) ?? true) c,
+        if (_carries(c.state)) c,
     ];
     final said = [
       for (final f in t.facts)
         if (facts?.contains(f.fact) ?? true) f,
     ];
     if (changes.isEmpty && said.isEmpty) return null;
+    if (from == t.from &&
+        changes.length == t.changes.length &&
+        said.length == t.facts.length) {
+      return t;
+    }
     return Tick(
       epoch: t.epoch,
       from: from,
@@ -245,6 +249,9 @@ final class RegistryResponder extends SwitchboardContractPeer {
   @override
   Future<SbJson> onSubscribe(SbSubscribe request, {RpcContext? context}) async {
     _open();
+    for (final name in request.states ?? const <String>[]) {
+      if (!_reads(name)) _deny(_unreadable(name));
+    }
     final n = ++_subscription;
     final before = _stateFilter;
     final now = request.states?.toSet();
@@ -257,7 +264,8 @@ final class RegistryResponder extends SwitchboardContractPeer {
         : [
             for (final name in now ?? _stateNames())
               if (!before.contains(name) &&
-                  registry.stateDescriptor(name) != null)
+                  registry.stateDescriptor(name) != null &&
+                  _reads(name))
                 name,
           ];
     final item = SbFeedItem('values', {

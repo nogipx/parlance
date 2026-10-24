@@ -11,7 +11,7 @@ A **board** is what the tools work on: `LocalBoard(registry, by: principal)` in 
 | Tool | Does |
 |---|---|
 | `describe` | the commands this principal may call (params as JSON Schema, refs listing their entities, what each sets, whether it can run now), states, facts, entities |
-| `read` | states now: one, by prefix, or all |
+| `read` | states now: one, by prefix, or all; a state the principal may not read (§6.1 `readers`) is told as such, and left out of the others |
 | `call` | a command by name; an `id` makes a retry safe |
 | `recent_facts` | the last facts of a name |
 | `why` | a state's value, last change (when, on whose behalf, through which links), the calls that led to it, the layers holding it: `Registry.explain`, told without the wire's ids |

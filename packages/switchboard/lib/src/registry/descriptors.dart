@@ -132,6 +132,7 @@ final class StateDescriptor extends Descriptor {
     String name, {
     required this.type,
     this.key,
+    this.readers,
     Map<String, Object?> meta = const {},
   }) : super(name, meta);
 
@@ -139,6 +140,7 @@ final class StateDescriptor extends Descriptor {
     m['name'] as String,
     type: ValueType.fromJson(m['type']),
     key: m['key'] as String?,
+    readers: m['readers'] == null ? null : Callers.fromJson(m['readers']),
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 
@@ -146,6 +148,12 @@ final class StateDescriptor extends Descriptor {
 
   /// The entity kind of its keys, when it holds one value per entity.
   final String? key;
+
+  /// Who may read its values over remote and the MCP board, as callers
+  /// name who may call a command (SPEC §6.1); null for everyone. Its
+  /// descriptor is in the catalog for all. Code in the registry's own
+  /// process reads it anyway.
+  final Callers? readers;
 
   bool get keyed => key != null;
 
@@ -155,6 +163,7 @@ final class StateDescriptor extends Descriptor {
     'name': name,
     'type': type.toJson(),
     'key': ?key,
+    'readers': ?readers?.toJson(),
     if (meta.isNotEmpty) 'meta': meta,
   };
 }

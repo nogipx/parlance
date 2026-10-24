@@ -290,6 +290,7 @@ final class StateOf<T> {
   /// Defines it, with [by] its only writer.
   StateWriterOf<T> define({
     required Principal by,
+    Callers? readers,
     Map<String, Object?> meta = const {},
   }) => StateWriterOf._(
     registry.defineState(
@@ -297,6 +298,7 @@ final class StateOf<T> {
         word.name,
         type: word.shape.type,
         key: word.key,
+        readers: readers,
         meta: meta,
       ),
       by: by,

@@ -66,10 +66,11 @@ Cause { by: Principal, parent: message id?, chain: [link or hook ids], test: boo
 ### 6.1 States
 
 ```
-StateDescriptor { name, type, key: entity kind?, meta }
+StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | deny }?, meta }
 ```
 
 - A state has exactly one writer: whoever defined it holds the only write handle.
+- `readers` say who may read its values over remote and the MCP board, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states the principal may not read (`unreadable`), `mayRead(principal, state)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.
 - Removing a key or the whole state is a change like any other.

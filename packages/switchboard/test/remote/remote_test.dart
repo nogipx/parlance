@@ -345,6 +345,110 @@ void main() {
         });
       });
 
+      group('a state with readers', () {
+        late StateWriter secret;
+        const plugin = Principal('plugin', 'kittens');
+
+        setUp(() {
+          secret = f.r.defineState(
+            StateDescriptor(
+              'kittens.settings',
+              type: const MapType(AnyType()),
+              readers: const Callers({
+                'plugin:kittens': Access.allow,
+                'plugin': Access.deny,
+                '*': Access.allow,
+              }),
+            ),
+            by: owner,
+          )..set({'channel': 'kittens'});
+          // A setter, for a layer to hold it.
+          f.r.defineCommand(
+            CommandDescriptor(
+              'kittens.settings.set',
+              params: const ObjectType({'value': Field(MapType(AnyType()))}),
+              callers: Callers.only(['user']),
+              sets: const Sets('kittens.settings'),
+            ),
+            (c) => secret.set(c.params['value']),
+          );
+        });
+
+        Future<RpcStatus?> status(Future<Object?> f) async {
+          try {
+            await f;
+            return null;
+          } on RpcStatusException catch (e) {
+            return e.statusCode;
+          }
+        }
+
+        test('a session it does not name sees no value of it: not in a '
+            'snapshot, a tick, a subscription, why or the layers', () async {
+          final other = Link.open(
+            f.r,
+            const Principal('plugin', 'daycare'),
+            wire: wire,
+          );
+          addTearDown(other.close);
+          final mirror = RegistryMirror()..follow(other.client);
+          addTearDown(mirror.dispose);
+          final ticks = <Tick>[];
+          mirror.ticks.listen(ticks.add);
+          await settle();
+          expect(mirror.readAll('kittens.settings'), isEmpty);
+          f.muted.set(true);
+          await settle();
+          secret.set({'channel': 'puppies'});
+          await settle();
+          f.muted.set(false);
+          await settle();
+          expect(mirror.readAll('kittens.settings'), isEmpty);
+          expect(ticks.expand((t) => t.changes).map((c) => c.state).toSet(), {
+            'audio.muted',
+          });
+          for (var i = 1; i < ticks.length; i++) {
+            expect(ticks[i].from, ticks[i - 1].to + 1);
+          }
+          expect(
+            await status(other.client.subscribe(states: ['kittens.settings'])),
+            RpcStatus.permissionDenied,
+          );
+          expect(
+            await status(other.client.why('kittens.settings')),
+            RpcStatus.permissionDenied,
+          );
+          f.r.pushLayer(
+            'kittens.settings',
+            value: {'channel': 'held'},
+            owner: 'test',
+            by: user,
+          );
+          expect(
+            (await other.client.layers()).map((l) => l.state),
+            isNot(contains('kittens.settings')),
+          );
+          expect((await other.client.describe())['unreadable'], [
+            'kittens.settings',
+          ]);
+        });
+
+        test('the session it names reads it, and so does the crew', () async {
+          final own = Link.open(f.r, plugin, wire: wire);
+          addTearDown(own.close);
+          final mirror = RegistryMirror();
+          addTearDown(mirror.dispose);
+          await mirror.subscribe(states: {'kittens.settings'});
+          mirror.follow(own.client);
+          await settle();
+          expect(mirror.read('kittens.settings'), {'channel': 'kittens'});
+          final crew = RegistryMirror()..follow(link.client);
+          addTearDown(crew.dispose);
+          await settle();
+          expect(crew.read('kittens.settings'), {'channel': 'kittens'});
+        });
+      });
+
       test('a layer holds while the session lasts', () async {
         f.muted.set(false);
         final events = <LayerEvent>[];

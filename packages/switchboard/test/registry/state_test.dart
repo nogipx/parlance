@@ -158,6 +158,18 @@ void main() {
   });
 
   test('describe lists the catalog and the kinds', () {
+    f.r.defineState(
+      StateDescriptor(
+        'studio.secret',
+        type: const TextType(),
+        readers: const Callers({'agent': Access.deny, '*': Access.allow}),
+      ),
+      by: owner,
+    );
+    expect(f.r.mayRead(agent, 'studio.secret'), isFalse);
+    expect(f.r.mayRead(user, 'studio.secret'), isTrue);
+    expect(f.r.describeFor(agent)['unreadable'], ['studio.secret']);
+    expect(f.r.describeFor(user).containsKey('unreadable'), isFalse);
     final d = f.r.describe();
     expect(d['epoch'], f.r.epoch);
     final names = [

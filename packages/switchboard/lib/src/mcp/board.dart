@@ -75,9 +75,17 @@ final class LocalBoard implements Board {
   @override
   Future<Map<String, Object?>> describe() async => registry.describeFor(by);
 
+  void _mayRead(String state) {
+    if (!registry.mayRead(by, state)) {
+      throw StateError('${by.selector} may not read $state');
+    }
+  }
+
   @override
-  Future<Map<String?, Object?>> readAll(String state) async =>
-      registry.readAll(state);
+  Future<Map<String?, Object?>> readAll(String state) async {
+    _mayRead(state);
+    return registry.readAll(state);
+  }
 
   @override
   Future<CallResult<Object?>> call(
@@ -91,11 +99,16 @@ final class LocalBoard implements Board {
       registry.recent(fact, n);
 
   @override
-  Future<Explanation> why(String state, {String? key}) async =>
-      registry.explain(state, key: key);
+  Future<Explanation> why(String state, {String? key}) async {
+    _mayRead(state);
+    return registry.explain(state, key: key);
+  }
 
   @override
-  Future<List<LayerInfo>> layers() async => registry.layers();
+  Future<List<LayerInfo>> layers() async => [
+    for (final l in registry.layers())
+      if (registry.mayRead(by, l.state)) l,
+  ];
 
   @override
   Stream<void> get catalogChanges => registry.catalogChanges;

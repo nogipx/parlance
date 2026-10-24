@@ -185,6 +185,33 @@ void main() {
     });
     tearDown(() => c.close());
 
+    test('a state it may not read: no values, no why, not in a prefix '
+        'read', () async {
+      f.r
+          .defineState(
+            StateDescriptor(
+              'studio.secret',
+              type: const TextType(),
+              readers: const Callers({'agent': Access.deny, '*': Access.allow}),
+            ),
+            by: owner,
+          )
+          .set('hush');
+      final one = await c.call('read', {'state': 'studio.secret'});
+      expect((one.error, one.text), (true, 'you may not read studio.secret'));
+      final all = await c.call('read', {'prefix': 'studio.'});
+      expect(all.error, isFalse);
+      expect(all.text, isNot(contains('hush')));
+      expect((await c.call('why', {'state': 'studio.secret'})).error, isTrue);
+      await expectLater(
+        LocalBoard(f.r, by: agent).readAll('studio.secret'),
+        throwsStateError,
+      );
+      expect(await LocalBoard(f.r, by: user).readAll('studio.secret'), {
+        null: 'hush',
+      });
+    });
+
     test('initialize tells the server and how to work', () async {
       final r = await c.request('initialize', {
         'protocolVersion': '2025-06-18',

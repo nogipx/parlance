@@ -59,9 +59,12 @@ Future<List<McpTool>> switchboardTools(
     for (final c in descriptors)
       if (c['is'] == 'command' && (access[c['name']] ?? 'deny') != 'deny') c,
   ];
+  // The states whose values it may read: the others are in the catalog,
+  // their values not.
+  final unreadable = {...?(d['unreadable'] as List?)?.cast<String>()};
   final states = [
     for (final s in descriptors)
-      if (s['is'] == 'state') s,
+      if (s['is'] == 'state' && !unreadable.contains(s['name'])) s,
   ];
   final facts = [
     for (final f in descriptors)
@@ -159,6 +162,9 @@ Future<List<McpTool>> switchboardTools(
       },
       run: (a) async {
         if (a['state'] case final String name) {
+          if (unreadable.contains(name)) {
+            return McpResult.error('you may not read $name');
+          }
           if (!states.any((s) => s['name'] == name)) {
             return McpResult.error('no state $name');
           }
