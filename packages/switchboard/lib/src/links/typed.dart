@@ -31,3 +31,23 @@ extension FlipSteps on StateWord<bool> {
     if (orContinue) 'orContinue': true,
   };
 }
+
+extension FactTriggers<T> on FactWord<T> {
+  /// The trigger: each of its facts, those whose payload passes [where]
+  /// (path → a value, or `{op: value}`) when given; [once]: the first only.
+  Map<String, Object?> trigger({
+    Map<String, Object?>? where,
+    bool once = false,
+  }) => {'fact': name, 'where': ?where, if (once) 'once': true};
+}
+
+extension StateTriggers<T> on StateWord<T> {
+  /// The trigger: it (of [key]) becomes [value], and stays so [holding]
+  /// long when given.
+  Map<String, Object?> becomes(T value, {String? key, Duration? holding}) => {
+    'state': name,
+    'key': ?key,
+    'becomes': shape.toJson(value),
+    if (holding != null) 'for': '${holding.inMilliseconds}ms',
+  };
+}

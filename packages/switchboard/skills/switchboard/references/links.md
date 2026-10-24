@@ -74,7 +74,7 @@ These names are `LinkWords` (`lib/src/link_words.dart`, with `linkGuide`, how li
 
 The engine's own words are typed (§18): `LinkWords.status`, `own` and `disabled`, and its commands `press`, `tryOut`, `reset`, `stop`, `enabledSet`, `check`, `set`, `upsert`, `remove`, with their params and answers as records (`PressLink`, `LinkOutcome`, `LinkCheck`, ...). The engine defines them through these words, and clients call them so: `registry.command(LinkWords.press).call((link: id, args: null, wait: true), by: ...)`. Over a board or remote, their `.name`.
 
-A host's links built in Dart take their steps and conditions from typed words: `word.step(params)` is a call step (`{call, params}`), `boolState.flip(key:)` a flip step (bool states only), `state.holds(value, key:)` a condition. The JSON they give is the links' own; references such as `$trigger.…` are written as JSON.
+A host's links built in Dart take their steps and conditions from typed words: `word.step(params)` is a call step (`{call, params}`), `boolState.flip(key:)` a flip step (bool states only), `state.holds(value, key:)` a condition, `fact.trigger(where:, once:)` and `state.becomes(value, key:, holding:)` triggers. The JSON they give is the links' own; references such as `$trigger.…` are written as JSON.
 
 ## 15. Links the user keeps
 

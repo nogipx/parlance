@@ -157,6 +157,30 @@ abstract interface class FactWord<T> {
   Shape<T> get shape;
 }
 
+/// A state's value from its JSON, wherever it was read (a registry, a
+/// mirror).
+extension StateValues<T> on StateWord<T> {
+  T? decode(Object? json) => json == null ? null : shape.fromJson(json);
+}
+
+/// A command's answer from what a call ended with, wherever it was called
+/// (a registry, a client over remote).
+extension CommandAnswers<P, R> on CommandWord<P, R> {
+  /// A done call's value decoded as the word says (`failed` when it does
+  /// not decode); any other end as it is.
+  CallResult<R> answer(CallResult<Object?> raw) {
+    if (raw case CallDone(:final value)) {
+      try {
+        final r = returns;
+        return CallDone(r == null ? null as R : r.fromJson(value));
+      } on Object catch (e) {
+        return CallFailed('the answer is not what $name says: $e');
+      }
+    }
+    return raw as CallResult<R>;
+  }
+}
+
 /// The registry through typed words. The word fixes the types: a call is
 /// made on what `command(word)` gives, so its params can only be the
 /// word's.
@@ -191,7 +215,7 @@ final class StateOf<T> {
     word.shape,
   );
 
-  T? _decode(Object? json) => json == null ? null : word.shape.fromJson(json);
+  T? _decode(Object? json) => word.decode(json);
 
   /// Its value (of [key]); null when there is none.
   T? read({String? key}) => _decode(registry.read(word.name, key: key));
@@ -300,15 +324,7 @@ final class CommandOf<P, R> {
       override: override,
       cause: cause,
     );
-    if (r case CallDone(:final value)) {
-      try {
-        final returns = word.returns;
-        return CallDone(returns == null ? null as R : returns.fromJson(value));
-      } on Object catch (e) {
-        return CallFailed('the answer is not what ${word.name} says: $e');
-      }
-    }
-    return r as CallResult<R>;
+    return word.answer(r);
   }
 
   /// Why it cannot run now; null when it can.

@@ -36,7 +36,8 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 ## Links
 
 - Shapes, triggers, steps: `linkGuide` in `lib/src/link_words.dart` (a test holds it to the parser). The engine's words are `LinkWords`, typed (`LinkWords.press` is a `CommandWord<PressLink, LinkOutcome>`); never type `'links.…'` elsewhere.
-- A host's links in Dart: `XCommand.b.step(params)`, `XState.a.flip()`, `XState.a.holds(value)` (SPEC §13.11).
+- A host's links in Dart: `XCommand.b.step(params)`, `XState.a.flip()`, `XState.a.holds(value)`, `XFact.c.trigger()`, `XState.a.becomes(value)` (SPEC §13.11). Over remote: `client.command(word).call(...)`, `mirror.state(word).read()`.
+- A whole host in miniature: `example/` (run `fvm dart run example/main.dart`).
 - **Who a run acts for:** a press acts for the presser; a fact or state change caused by someone *outside the engine's managers* acts for them (their rights, never the link's); anything else acts as `link:<id>`. So a viewer reaches only what names viewers in its callers.
 - **Own words** (`my.*`): callable by the managers; a definition's `callers` only add more. A viewer may call one only if it says so explicitly.
 - A firing that does not run spends no `once`, throttle or rate. Statuses (`links.status`) say why a link is unresolved, disabled or failing.
