@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../registry/cause.dart';
-import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
@@ -42,18 +41,10 @@ final class RegistryResponder extends SwitchboardContractResponder {
   @override
   Future<SbDescription> describe(RpcNull request, {RpcContext? context}) async {
     _open();
+    // What this session may call: so its clients offer only that.
     return SbDescription({
-      ...registry.describe(),
+      ...registry.describeFor(principal),
       'protocol': switchboardProtocol,
-      // What this session may call: so its clients offer only that.
-      'access': {
-        for (final d in registry.catalog.whereType<CommandDescriptor>())
-          d.name: d.callers.accessOf(principal).name,
-      },
-      'unavailable': {
-        for (final d in registry.catalog.whereType<CommandDescriptor>())
-          d.name: ?registry.whyUnavailable(d.name),
-      },
     });
   }
 
@@ -63,13 +54,15 @@ final class RegistryResponder extends SwitchboardContractResponder {
     if (registry.stateDescriptor(request.state) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
     }
-    return SbJson(registry.explain(request.state, key: request.key));
+    return SbJson(registry.explain(request.state, key: request.key).toJson());
   }
 
   @override
   Future<SbJson> layers(RpcNull request, {RpcContext? context}) async {
     _open();
-    return SbJson({'layers': registry.layers()});
+    return SbJson({
+      'layers': [for (final l in registry.layers()) l.toJson()],
+    });
   }
 
   @override
@@ -117,7 +110,25 @@ final class RegistryResponder extends SwitchboardContractResponder {
       override: request.overriding,
       cause: Cause(principal, test: request.test),
     );
-    return SbCallReply(result.toJson());
+    return SbCallReply(
+      result.toJson(),
+      epoch: registry.epoch,
+      seq: registry.seq,
+    );
+  }
+
+  @override
+  Future<SbJson> recent(SbRecentRequest request, {RpcContext? context}) async {
+    _open();
+    if (registry.factDescriptor(request.fact) == null) {
+      throw RpcStatusException(RpcStatus.notFound, 'no fact ${request.fact}');
+    }
+    return SbJson({
+      'facts': [
+        for (final f in registry.recent(request.fact, request.count))
+          f.toJson(),
+      ],
+    });
   }
 
   @override
@@ -219,13 +230,15 @@ final class RemoteTick extends RemoteFeed {
 final class SwitchboardClient {
   SwitchboardClient(
     RpcCallerEndpoint endpoint, {
-    this.timeout = const Duration(seconds: 35),
+    this.timeout = const Duration(seconds: 10),
   }) : _caller = SwitchboardContractCaller(endpoint);
 
   final SwitchboardContractCaller _caller;
 
-  /// The deadline of a call without a context of its own; a little over a
-  /// command's default deadline.
+  /// The deadline of a request the registry answers at once (describe,
+  /// why, layers, pushing and popping one), without a context of its own.
+  /// A [call] has none: the registry bounds it itself, its hooks and its
+  /// handler, and answers a timeout.
   final Duration timeout;
 
   RpcContext _ctx(RpcContext? c) =>
@@ -250,8 +263,9 @@ final class SwitchboardClient {
             },
           );
 
-  /// Calls [command]. Retry with the same [id] after a lost connection: the
-  /// registry answers the first result without running it again.
+  /// Calls [command]. When no answer comes back, the result is
+  /// [CallLost] with the call's id: retry with it, and the registry answers
+  /// the first result without running it again.
   Future<CallResult> call(
     String command,
     Map<String, Object?> params, {
@@ -259,19 +273,62 @@ final class SwitchboardClient {
     bool override = false,
     bool test = false,
     RpcContext? context,
+  }) async => (await callAt(
+    command,
+    params,
+    id: id,
+    override: override,
+    test: test,
+    context: context,
+  )).result;
+
+  /// [call], with the seq of the epoch the registry had when it answered
+  /// (null when the answer was lost): a mirror that reached it shows what
+  /// the call wrote.
+  Future<({CallResult result, String? epoch, int? seq})> callAt(
+    String command,
+    Map<String, Object?> params, {
+    String? id,
+    bool override = false,
+    bool test = false,
+    RpcContext? context,
   }) async {
-    final reply = await _caller.invoke(
-      SbCallRequest(
-        id: id ?? newId(),
-        command: command,
-        params: params,
-        overriding: override,
-        test: test,
-      ),
-      context: _ctx(context),
-    );
-    return CallResult.fromJson(reply.json);
+    final callId = id ?? newId();
+    try {
+      final reply = await _caller.invoke(
+        SbCallRequest(
+          id: callId,
+          command: command,
+          params: params,
+          overriding: override,
+          test: test,
+        ),
+        context: context,
+      );
+      return (
+        result: CallResult.fromJson(reply.result),
+        epoch: reply.epoch,
+        seq: reply.seq,
+      );
+    } on Object catch (e) {
+      return (result: CallLost(callId, '$e'), epoch: null, seq: null);
+    }
   }
+
+  /// The last [count] facts of [fact] the registry keeps, oldest first.
+  Future<List<FactMessage>> recent(
+    String fact,
+    int count, {
+    RpcContext? context,
+  }) async => [
+    for (final f
+        in (await _caller.recent(
+              SbRecentRequest(fact, count),
+              context: _ctx(context),
+            )).json['facts']
+            as List)
+      FactMessage.fromJson(f),
+  ];
 
   /// Holds [state] (of [key]) at [value] while the session lasts, or for
   /// [ttl]; answers the layer's id.
@@ -297,24 +354,26 @@ final class SwitchboardClient {
       _caller.popLayer(SbLayerRef(layer), context: _ctx(context));
 
   /// Why [state] (of [key]) is as it is (Registry.explain).
-  Future<Map<String, Object?>> why(
+  Future<Explanation> why(
     String state, {
     String? key,
     RpcContext? context,
-  }) async => (await _caller.why(
-    SbWhyRequest(state, key: key),
-    context: _ctx(context),
-  )).json;
+  }) async => Explanation.fromJson(
+    (await _caller.why(
+      SbWhyRequest(state, key: key),
+      context: _ctx(context),
+    )).json,
+  );
 
   /// Every layer there is.
-  Future<List<Map<String, Object?>>> layers({RpcContext? context}) async => [
+  Future<List<LayerInfo>> layers({RpcContext? context}) async => [
     for (final l
         in (await _caller.layers(
               const RpcNull(),
               context: _ctx(context),
             )).json['layers']
             as List)
-      (l as Map).cast<String, Object?>(),
+      LayerInfo.fromJson(l),
   ];
 
   /// What happens to the session's layers.
@@ -335,16 +394,7 @@ final class RegistryMirror {
   bool _synced = false;
   final StreamController<Tick> _ticks = StreamController.broadcast();
   final StreamController<void> _changes = StreamController.broadcast();
-  final Map<String, List<FactMessage>> _facts = {};
-
-  /// How many facts of each name [recent] keeps.
-  static const recentPerFact = 100;
-
-  /// The last [n] facts of [fact] the copy has seen, oldest first.
-  List<FactMessage> recent(String fact, [int n = recentPerFact]) {
-    final all = _facts[fact] ?? const [];
-    return n >= all.length ? List.of(all) : all.sublist(all.length - n);
-  }
+  final StreamController<void> _catalogChanges = StreamController.broadcast();
 
   String? get epoch => _epoch;
   int get seq => _seq;
@@ -361,7 +411,31 @@ final class RegistryMirror {
   /// Something changed: a snapshot, a tick, the catalog, the connection.
   Stream<void> get changes => _changes.stream;
 
+  /// The catalog came: first after following, and on every change of it
+  /// (descriptors or entities).
+  Stream<void> get catalogChanges => _catalogChanges.stream;
+
   Object? read(String state, {String? key}) => _states[state]?[key];
+
+  /// Completes when the copy has the seq [seq] of [epoch] (what a call
+  /// answered at it wrote), or after [timeout]; answers whether it got
+  /// there.
+  Future<bool> reach(
+    String epoch,
+    int seq, {
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    bool there() => _synced && _epoch == epoch && _seq >= seq;
+    if (there()) return true;
+    try {
+      await changes.firstWhere((_) => there()).timeout(timeout);
+      return true;
+    } on TimeoutException {
+      return false;
+    } on StateError {
+      return false;
+    }
+  }
 
   Map<String?, Object?> readAll(String state) =>
       Map.unmodifiable(_states[state] ?? const {});
@@ -390,6 +464,7 @@ final class RegistryMirror {
     switch (item) {
       case RemoteCatalog(:final json):
         _catalog = json;
+        _catalogChanges.add(null);
       case RemoteSnapshot(:final snapshot):
         _epoch = snapshot.epoch;
         _seq = snapshot.seq;
@@ -413,11 +488,6 @@ final class RegistryMirror {
             (_states[c.state] ??= {})[c.key] = c.value;
           }
         }
-        for (final f in tick.facts) {
-          final q = _facts.putIfAbsent(f.fact, () => []);
-          q.add(f);
-          if (q.length > recentPerFact) q.removeAt(0);
-        }
         _seq = tick.to;
         _synced = true;
         _ticks.add(tick);
@@ -429,5 +499,6 @@ final class RegistryMirror {
     await _sub?.cancel();
     await _ticks.close();
     await _changes.close();
+    await _catalogChanges.close();
   }
 }

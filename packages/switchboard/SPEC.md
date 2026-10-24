@@ -146,17 +146,17 @@ call(name, params, by: Principal, id?, override = false) → CallResult
 
 A call goes through these stages, in order; the first refusal ends it:
 
-1. **Dedup.** A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id.
+1. **Dedup.** A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result.
 2. **Lookup.** Unknown command → `unknownCommand`.
 3. **Params.** Checked and filled with defaults → `invalidParams`.
 4. **Policy.** `callers` for the principal → `notPermitted`.
 5. **Availability.** The owner's check → `unavailable`.
 6. **Guards.** Every guard (§10) is asked; the first denial → `denied` with the guard's id and reason. A denial marked overridable lets the call through when `override` is set and the principal's kind is one the host allows to override; the call record says it was overridden.
 7. **Before hooks.** For interceptable commands, the hooks (§11) run one by one.
-8. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`.
+8. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id answers that end.
 9. **Sets.** A successful explicit setter call updates the base and clears layers (§8).
 
-`CallResult` is `done(value)` or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals.
+`CallResult` is `done(value)` or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals.
 
 ## 10. Guards
 
@@ -189,7 +189,7 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 - Without `since`, or with another epoch, or with a seq older than the retained ticks: first a **snapshot** (every state value, the catalog, the epoch and seq), then live ticks. A snapshot after a gap says `factsLost: true`.
 - With a seq still retained: the retained ticks after it, then live ticks, with no gap and no repeat.
-- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)`.
+- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)`. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
 
 ## 13. Links
 
@@ -197,8 +197,8 @@ Links are data. The engine validates them against the catalog; a link that names
 
 ### 13.1 Own words
 
-- **Own command** `my.<name>`: params, steps, callers (default: every kind but `system`). Registered as a command whose handler runs the steps on behalf of `link:<id>`.
-- **Own state** `my.<name>`: `bool` or `enum`, with a default and a setter `my.<name>.set { value }`. Its values are the engine's to persist.
+- **Own command** `my.<name>`: params, steps, callers (the engine's managers always; a definition's `callers` open it to more, and only an explicit `callers` lets anyone outside the managers in). Registered as a command whose handler runs the steps on behalf of `link:<id>`.
+- **Own state** `my.<name>`: `bool` or `enum`, with a default and a setter `my.<name>.set { value }`, callable by the managers (and the registry, for layers). Its values are the engine's to persist.
 
 ### 13.2 Triggers
 
@@ -212,7 +212,7 @@ Links are data. The engine validates them against the catalog; a link that names
 
 Options on any trigger: `throttle` — at most once per interval, per key (a path into the trigger, e.g. the viewer); `once` — once until `links.reset { link }`. The host registers **trigger extensions**: a name, a translation to one of the kinds above, and a parse of the extension's own options; the package knows none.
 
-The principal of a run is the presser for `manual`, the principal an extension gives (a viewer, for a chat command), else `link:<id>`: facts, states, time, own commands and interceptions run on behalf of the link.
+The principal of a run is the presser for `manual`; the principal an extension gives (a viewer, for a chat command); for a fact or a state change, whoever caused it when the engine's managers do not count them in; else `link:<id>`: time, the managers' own actions, own commands and interceptions run on behalf of the link (§13.5).
 
 ### 13.3 Conditions
 
@@ -229,6 +229,10 @@ Params are values, references (`$trigger.<path>`, `$state.<name>[<key>]`) and st
 ### 13.5 Reactions
 
 Trigger(s) → conditions → steps. Mode when it fires while running: `single` (skip; default), `restart` (cancel the running one, its layers drop), `queue` (with a limit; default 10). A run lasts until its steps and its temporaries end. A refusal stops the run unless the step says `orContinue`.
+
+**On whose behalf a run acts.** A press acts for the presser. A fact or a state change acts for whoever caused it (its cause's principal) when the engine's managers do not count them in: their rights, never the link's, so they reach only what names them in its callers. Every other trigger (the managers' own actions, timers, the registry) runs as the link, `link:<id>`, with no more rights than the link has. An extension's `accept` may name the principal itself.
+
+A firing that does not run (conditions, mode, a full queue, a throttle, `once`) spends nothing: no throttle, no `once`, no count toward the rate limit. Runs dropped from a queue end as `stopped`, so a press that waits for one is answered. A run that ends well clears the failure its link's status showed.
 
 ### 13.6 Bindings
 
@@ -249,24 +253,36 @@ A before hook on an interceptable command: steps, a priority and a required time
 - Time: the registry reads time from its `clock` (given, or the zone's clock when it was made) and waits with `Timer`, so tests run time by hand with `fake_async`.
 - Trials: `links.try { link }` runs a reaction with a made-up trigger, or checks a constraint, with `test` set in the cause.
 
+### 13.10 What the engine takes
+
+The engine takes names in the registry: the states `links.status` and `links.own`, the fact `links.disabled`, the commands `links.*`, the entity kind `link`, the principal kind `link` (it acts as `link:<id>`, `linkPrincipal(id)`) and the prefix `my.` of own words. So one engine runs on one registry; a second one is refused by the registry as a name defined twice.
+
+These names are `LinkWords` (`lib/src/link_words.dart`, with `linkGuide`, how links are written). It imports nothing: a client of the engine (the agent's tools, a host's buttons) calls the engine by them without importing the engine. A test holds `linkGuide` to the keys the parser reads.
+
 ## 14. Remote
 
 The service `Switchboard`, generated by `rpc_dart_generator` from one annotated interface (`lib/src/remote/contract.dart`); every method has codecs, so it runs over any transport.
 
 | Method | Kind | Does |
 |---|---|---|
-| `describe` | unary | the catalog, epoch, seq and protocol version |
+| `describe` | unary | the catalog as the session's principal sees it (`Registry.describeFor`: with what it may call and what cannot run now), and the protocol version |
 | `feed(epoch?, since?)` | server stream | the catalog first and on every catalog change, then the feed of §12 |
 | `call(id, command, params, override, test)` | unary | a call on behalf of the session's principal |
 | `pushLayer(state, key?, value, priority, ttl?)` | unary | a layer held by the session |
 | `popLayer(layer)` | unary | drops a layer of the session |
 | `layerEvents` | server stream | what happens to the session's layers |
+| `why(state, key?)` | unary | `Registry.explain` as an `Explanation` |
+| `layers` | unary | every layer, as `LayerInfo` |
+| `recent(fact, count)` | unary | the last facts of a name the registry keeps |
 
 - **A session is one connection with one principal**, fixed by the host when it accepts the connection: the host makes a `RegistryResponder(registry, principal: …)` per connection and `close()`s it when the connection ends. The layers the session pushed go with it; its calls are refused after.
 - **A call's result is data, not an error.** `done`, `refused` (with the code, the reason, the guard and whether it is overridable), `failed`, `timedOut` travel as the reply, because a refusal is a normal answer and carries more than a status code. rpc_dart statuses are for the session's own errors: `notFound` (no such state or layer), `invalidArgument` (a value of the wrong type), `permissionDenied` (the principal may not set that state), `failedPrecondition` (a state without a setter), `unavailable` (the session ended).
+- **A call answers the epoch and seq** the registry had when it answered. A mirror that reached that seq (`RegistryMirror.reach`) shows what the call wrote: a read after a call reads its effect, as it does in the registry's own process.
+- **A lost answer is a result, `lost`.** When the connection breaks before the answer, `SwitchboardClient.call` answers `CallLost` with the call's id (it always sends one) rather than throwing: whether it ran is unknown, and a retry with the id runs it at most once.
 - **Ids are per principal.** The registry sees a call's id as `<principal>/<id>`: a client that lost its connection retries with the same id and gets the first result; another principal reusing the id does not.
 - **`test`** is the only part of a cause a client may set; the chain and the parent are the registry's.
-- **The mirror** (`RegistryMirror`) keeps a participant's copy of the states from the feed and, given a new client after a lost connection, resumes after the seq it has; a gap sends it back to a snapshot.
+- **Deadlines.** A call has no deadline of the client's: the registry bounds it itself (each hook its timeout, the handler the command's deadline) and answers `timedOut`. The other requests are answered at once and wait the client's `timeout` (10 s).
+- **The mirror** (`RegistryMirror`) keeps a participant's copy of the states from the feed and, given a new client after a lost connection, resumes after the seq it has; a gap sends it back to a snapshot. It keeps no facts: `recent` asks the registry, so the answer is the same here and there.
 
 ## 15. Links the user keeps
 
@@ -295,14 +311,25 @@ A **board** is what the tools work on: `LocalBoard(registry, by: principal)` in 
 | `read` | states now: one, by prefix, or all |
 | `call` | a command by name; an `id` makes a retry safe |
 | `recent_facts` | the last facts of a name |
-| `why` | a state's value, last change (when, on whose behalf, through which links), the calls that led to it (`Registry.explain`), the layers holding it |
+| `why` | a state's value, last change (when, on whose behalf, through which links), the calls that led to it, the layers holding it: `Registry.explain`, told without the wire's ids |
 | `layers` | every layer: owner, value, priority, the top one |
 | `links`, `link_guide`, `link_check`, `link_upsert`, `link_remove`, `links_set`, `link_try`, `link_press` | the links, how they are written, and the engine's commands |
 
+The links' tools are there only when a links engine is (§13.10): `links` with its state, each other tool when the principal may call its command, `link_guide` with any that writes. `mcp` does not import `links`; it knows the engine by `LinkWords` only.
+
 With `commandTools`, each command the principal may call is a tool of its own as well. A host adds its own tools beside these.
+
+A board answers the same here and over remote, and says so where it cannot:
+
+- A read after a call reads what it wrote: `RemoteBoard` waits for its mirror to reach the call's seq (`catchUp`, 2 s); if it does not, reads throw `BoardBehind` until it does.
+- While the registry cannot be reached, reads throw `BoardOffline` rather than answer what the mirror last had.
+- Every call the tools make has an id; a `timedOut` or `lost` answer tells the agent to call again with it, and that it does not run twice.
+- Tool descriptions hold only what changes with the catalog. Whether a command can run now is asked when `describe` runs, never written into a tool's description.
+
+The session asks for the tools once and again after `toolsChanged()` (or when asking failed), and answers each message when it is done: a long call holds no other back.
 
 `switchboard-mcp --connect unix:/path | tcp://host:port [--command-tools]` is the board over remote as a stdio server: it reconnects to the host and follows its feed again after a drop; while the host is away it lists no tools.
 
 ## 17. Versions
 
-`describe` carries the protocol version. Exported layers, own states and link definitions carry a format version; the importer refuses a newer major version and migrates older ones.
+`describe` over remote carries the protocol version (now 2: calls answer their seq, `recent` was added); the registry's own `describe` does not. Exported layers, own states and link definitions carry a format version; the importer refuses a newer major version and migrates older ones.

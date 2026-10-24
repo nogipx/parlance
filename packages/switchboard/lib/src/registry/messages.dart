@@ -208,6 +208,10 @@ enum Refusal {
   notPermitted,
   unavailable,
   denied,
+
+  /// The id was given to another call (another command, params or
+  /// principal) within the dedup window.
+  idConflict,
 }
 
 /// How a call ended.
@@ -226,6 +230,9 @@ sealed class CallResult {
       );
     }
     if (m.containsKey('failed')) return CallFailed(m['failed'] as String);
+    if (m['lost'] case final String id) {
+      return CallLost(id, m['reason'] as String? ?? '');
+    }
     return const CallTimedOut();
   }
 
@@ -242,6 +249,7 @@ sealed class CallResult {
       },
     CallFailed(:final error) => {'failed': '$error'},
     CallTimedOut() => {'timedOut': true},
+    CallLost(:final id, :final reason) => {'lost': id, 'reason': reason},
   };
 }
 
@@ -285,11 +293,25 @@ final class CallFailed extends CallResult {
   String toString() => 'failed($error)';
 }
 
+/// No answer within the deadline. It is not a failure: the handler may
+/// still finish, and what it does stands. Its end is recorded as a late
+/// call record, and a retry with the same id answers it.
 final class CallTimedOut extends CallResult {
   const CallTimedOut();
 
   @override
   String toString() => 'timedOut';
+}
+
+/// No answer came back: the way to the registry broke. Whether the call
+/// ran is unknown; a retry with [id] runs it at most once.
+final class CallLost extends CallResult {
+  const CallLost(this.id, this.reason);
+  final String id;
+  final String reason;
+
+  @override
+  String toString() => 'lost($reason)';
 }
 
 /// A finished call, for journals (SPEC §9).
@@ -305,6 +327,7 @@ final class CallRecord {
     required this.layerDispatch,
     required this.started,
     required this.finished,
+    this.late = false,
   });
 
   final String id;
@@ -324,8 +347,172 @@ final class CallRecord {
   final DateTime started;
   final DateTime finished;
 
+  /// The handler ended after the deadline: the caller was answered
+  /// `timedOut`, and this is how the call really ended.
+  final bool late;
+
+  factory CallRecord.fromJson(Object? json) {
+    final m = json as Map;
+    return CallRecord(
+      id: m['id'] as String,
+      command: m['command'] as String,
+      params: (m['params'] as Map? ?? const {}).cast<String, Object?>(),
+      cause: Cause.fromJson(m['cause']),
+      result: CallResult.fromJson(m['result']),
+      overridden: [for (final g in m['overridden'] as List? ?? const []) '$g'],
+      hooks: [for (final h in m['hooks'] as List? ?? const []) '$h'],
+      layerDispatch: m['layerDispatch'] == true,
+      started: _at(m['started']),
+      finished: _at(m['finished']),
+      late: m['late'] == true,
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'command': command,
+    'params': params,
+    'cause': cause.toJson(),
+    'result': result.toJson(),
+    if (overridden.isNotEmpty) 'overridden': overridden,
+    if (hooks.isNotEmpty) 'hooks': hooks,
+    if (layerDispatch) 'layerDispatch': true,
+    'started': started.toUtc().toIso8601String(),
+    'finished': finished.toUtc().toIso8601String(),
+    if (late) 'late': true,
+  };
+
   @override
   String toString() => 'Call $command $params -> $result ($cause)';
+}
+
+/// One layer as it stands (SPEC §8): what holds which state at which value.
+final class LayerInfo {
+  const LayerInfo({
+    required this.id,
+    required this.state,
+    required this.key,
+    required this.value,
+    required this.owner,
+    required this.by,
+    required this.priority,
+    required this.top,
+    this.expiresAt,
+    this.claimed = true,
+  });
+
+  factory LayerInfo.fromJson(Object? json) {
+    final m = json as Map;
+    return LayerInfo(
+      id: m['id'] as String,
+      state: m['state'] as String,
+      key: m['key'] as String?,
+      value: m['value'],
+      owner: m['owner'] as String,
+      by: Principal.fromJson(m['by']),
+      priority: m['priority'] as int? ?? 0,
+      top: m['top'] == true,
+      expiresAt: m['expiresAt'] == null ? null : _at(m['expiresAt']),
+      claimed: m['claimed'] != false,
+    );
+  }
+
+  final String id;
+  final String state;
+  final String? key;
+  final Object? value;
+  final String owner;
+  final Principal by;
+  final int priority;
+
+  /// Its value is the one in force.
+  final bool top;
+  final DateTime? expiresAt;
+
+  /// False for a layer restored after a restart that its owner has not
+  /// claimed yet.
+  final bool claimed;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'state': state,
+    'key': ?key,
+    'value': value,
+    'owner': owner,
+    'by': by.toJson(),
+    'priority': priority,
+    'top': top,
+    if (expiresAt case final at?) 'expiresAt': at.toUtc().toIso8601String(),
+    if (!claimed) 'claimed': false,
+  };
+
+  @override
+  String toString() =>
+      'Layer $id of $owner on $state${key == null ? '' : '[$key]'} = $value';
+}
+
+/// Why a state (of a key) is as it is (SPEC §9): its value, its last
+/// change still retained, the calls that led to it, nearest first, as far
+/// as they are remembered, and the layers holding it.
+final class Explanation {
+  const Explanation({
+    required this.state,
+    required this.key,
+    required this.value,
+    required this.change,
+    required this.trail,
+    required this.layers,
+    this.forgotten = false,
+    this.trailCut = false,
+  });
+
+  factory Explanation.fromJson(Object? json) {
+    final m = json as Map;
+    return Explanation(
+      state: m['state'] as String,
+      key: m['key'] as String?,
+      value: m['value'],
+      change: m['change'] == null ? null : StateChange.fromJson(m['change']),
+      trail: [
+        for (final c in m['trail'] as List? ?? const []) CallRecord.fromJson(c),
+      ],
+      layers: [
+        for (final l in m['layers'] as List? ?? const []) LayerInfo.fromJson(l),
+      ],
+      forgotten: m['forgotten'] == true,
+      trailCut: m['trailCut'] == true,
+    );
+  }
+
+  final String state;
+  final String? key;
+  final Object? value;
+
+  /// The last change still retained; null when it is older or there was
+  /// none.
+  final StateChange? change;
+
+  /// [change] is null, and the registry has forgotten ticks: the change
+  /// may be older than it retains, rather than none.
+  final bool forgotten;
+
+  /// The calls that led to [change], nearest first.
+  final List<CallRecord> trail;
+
+  /// The trail goes on further back than the registry remembers.
+  final bool trailCut;
+  final List<LayerInfo> layers;
+
+  Map<String, Object?> toJson() => {
+    'state': state,
+    'key': ?key,
+    'value': value,
+    if (change case final c?) 'change': c.toJson(),
+    if (forgotten) 'forgotten': true,
+    if (trail.isNotEmpty) 'trail': [for (final c in trail) c.toJson()],
+    if (trailCut) 'trailCut': true,
+    if (layers.isNotEmpty) 'layers': [for (final l in layers) l.toJson()],
+  };
 }
 
 /// Why a layer went away or did not apply (SPEC §8).

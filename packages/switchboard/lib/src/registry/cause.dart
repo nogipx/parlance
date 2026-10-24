@@ -10,9 +10,6 @@ final class Principal {
   /// The registry itself: layer dispatches, expiry.
   static const system = Principal('system');
 
-  /// The links engine, acting for the link [id].
-  const Principal.link(String id) : this('link', id);
-
   final String kind;
   final String id;
 

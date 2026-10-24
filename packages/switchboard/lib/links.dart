@@ -4,6 +4,7 @@
 /// See SPEC.md, §13.
 library;
 
+export 'src/link_words.dart';
 export 'src/links/engine.dart';
 export 'src/links/expr.dart' show StateReader, evaluate, evaluateWith, resolve;
 export 'src/links/model.dart';

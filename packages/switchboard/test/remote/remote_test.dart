@@ -236,6 +236,66 @@ void main() {
         link = Link.open(f.r, user, wire: wire);
       });
 
+      test(
+        'a lost answer is CallLost with the id; the retry runs once',
+        () async {
+          final runs = <String>[];
+          f.r.defineCommand(
+            CommandDescriptor('x.go', callers: Callers.only(['user'])),
+            (c) => runs.add(c.id),
+          );
+          final first = await link.client.call('x.go', {}, id: 'k');
+          expect(first, isA<CallDone>());
+          await link.close();
+          final lost = await link.client.call('x.go', {}, id: 'k2');
+          expect(lost, isA<CallLost>());
+          expect((lost as CallLost).id, 'k2');
+          final again = Link.open(f.r, user, wire: wire);
+          addTearDown(again.close);
+          expect(await again.client.call('x.go', {}, id: 'k'), isA<CallDone>());
+          expect(runs, ['user:local/k'], reason: 'the retry did not run again');
+        },
+      );
+
+      test(
+        'recent facts come from the registry, older than the session',
+        () async {
+          final raid = f.r.defineFact(
+            FactDescriptor('x.raid', type: const IntType()),
+            by: owner,
+          );
+          raid.emit(1);
+          raid.emit(2);
+          final late = Link.open(f.r, user, wire: wire);
+          addTearDown(late.close);
+          expect(
+            [for (final m in await late.client.recent('x.raid', 5)) m.payload],
+            [1, 2],
+          );
+        },
+      );
+
+      test(
+        'a call answers the seq a mirror reaches to show its writes',
+        () async {
+          final mirror = RegistryMirror()..follow(link.client);
+          addTearDown(mirror.dispose);
+          await settle();
+          final r = await link.client.callAt('studio.show', {'scene': 'break'});
+          expect(r.seq, f.r.seq);
+          expect(await mirror.reach(r.epoch!, r.seq!), isTrue);
+          expect(mirror.read('studio.program'), 'break');
+          expect(
+            await mirror.reach(
+              r.epoch!,
+              r.seq! + 5,
+              timeout: const Duration(milliseconds: 30),
+            ),
+            isFalse,
+          );
+        },
+      );
+
       test('layer errors carry rpc statuses', () async {
         Future<RpcStatus?> status(Future<Object?> f) async {
           try {

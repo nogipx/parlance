@@ -20,6 +20,7 @@ class SwitchboardContractNames {
   static const layerEvents = 'layerEvents';
   static const why = 'why';
   static const layers = 'layers';
+  static const recent = 'recent';
 }
 
 class SwitchboardContractCodecs {
@@ -43,6 +44,9 @@ class SwitchboardContractCodecs {
   static const codecSbLayerRef = RpcCodec<SbLayerRef>(SbLayerRef.fromJson);
   static const codecSbLayerRequest = RpcCodec<SbLayerRequest>(
     SbLayerRequest.fromJson,
+  );
+  static const codecSbRecentRequest = RpcCodec<SbRecentRequest>(
+    SbRecentRequest.fromJson,
   );
   static const codecSbWhyRequest = RpcCodec<SbWhyRequest>(
     SbWhyRequest.fromJson,
@@ -148,6 +152,17 @@ class SwitchboardContractCaller extends RpcCallerContract
       context: context,
     );
   }
+
+  @override
+  Future<SbJson> recent(SbRecentRequest request, {RpcContext? context}) {
+    return callUnary<SbRecentRequest, SbJson>(
+      methodName: SwitchboardContractNames.recent,
+      requestCodec: SwitchboardContractCodecs.codecSbRecentRequest,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
 }
 
 abstract class SwitchboardContractResponder extends RpcResponderContract
@@ -208,6 +223,12 @@ abstract class SwitchboardContractResponder extends RpcResponderContract
       methodName: SwitchboardContractNames.layers,
       handler: layers,
       requestCodec: SwitchboardContractCodecs.codecRpcNull,
+      responseCodec: SwitchboardContractCodecs.codecSbJson,
+    );
+    addUnaryMethod<SbRecentRequest, SbJson>(
+      methodName: SwitchboardContractNames.recent,
+      handler: recent,
+      requestCodec: SwitchboardContractCodecs.codecSbRecentRequest,
       responseCodec: SwitchboardContractCodecs.codecSbJson,
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import '../link_words.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
@@ -105,7 +106,10 @@ abstract interface class LinksStore {
   void save(List<Map<String, Object?>> links);
 }
 
-const _engine = Principal('link');
+const _engine = Principal(LinkWords.kind);
+
+/// The principal the engine acts as for the link [id].
+Principal linkPrincipal(String id) => Principal(LinkWords.kind, id);
 
 /// The links engine (SPEC §13): own words and the four relations, on the
 /// public API of a [Registry] only.
@@ -122,10 +126,11 @@ final class Links {
   }) : _onError = onError ?? Zone.current.handleUncaughtError,
        _ownValues = {...ownStates} {
     final anyone = Callers(const {'*': Access.allow, 'system': Access.deny});
+    _managers = managers ?? anyone;
     _handles.add(
       registry.registerKind(
         EntityKind(
-          'link',
+          LinkWords.kind,
           list: () => [
             for (final id in {..._links.keys, ..._invalid.keys}) EntityRef(id),
           ],
@@ -134,8 +139,8 @@ final class Links {
     );
     _status = registry.defineState(
       StateDescriptor(
-        'links.status',
-        key: 'link',
+        LinkWords.status,
+        key: LinkWords.kind,
         type: ObjectType({
           'state': Field(EnumType([for (final s in LinkState.values) s.name])),
           'missing': const Field(ListType(TextType()), optional: true),
@@ -146,7 +151,7 @@ final class Links {
     );
     _disabledFact = registry.defineFact(
       FactDescriptor(
-        'links.disabled',
+        LinkWords.disabled,
         type: const ObjectType({
           'link': Field(TextType()),
           'reason': Field(TextType()),
@@ -154,7 +159,7 @@ final class Links {
       ),
       by: _engine,
     );
-    const link = ObjectType({'link': Field(RefType('link'))});
+    const link = ObjectType({'link': Field(RefType(LinkWords.kind))});
     const answer = ObjectType({
       'ran': Field(BoolType(), optional: true),
       'denies': Field(BoolType(), optional: true),
@@ -166,9 +171,9 @@ final class Links {
       _disabledFact,
       registry.defineCommand(
         CommandDescriptor(
-          'links.press',
+          LinkWords.press,
           params: const ObjectType({
-            'link': Field(RefType('link')),
+            'link': Field(RefType(LinkWords.kind)),
             'args': Field(AnyType(), optional: true),
             'wait': Field(BoolType(), defaultValue: false),
           }),
@@ -179,7 +184,7 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.try',
+          LinkWords.tryOut,
           params: link,
           returns: answer,
           callers: managers ?? anyone,
@@ -188,7 +193,7 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.reset',
+          LinkWords.reset,
           params: link,
           callers: managers ?? anyone,
         ),
@@ -200,7 +205,7 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.stop',
+          LinkWords.stop,
           params: link,
           callers: managers ?? anyone,
         ),
@@ -210,9 +215,9 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.enabled.set',
+          LinkWords.enabledSet,
           params: const ObjectType({
-            'link': Field(RefType('link')),
+            'link': Field(RefType(LinkWords.kind)),
             'on': Field(BoolType()),
           }),
           callers: managers ?? anyone,
@@ -230,7 +235,7 @@ final class Links {
     ]);
     _ownState = registry.defineState(
       StateDescriptor(
-        'links.own',
+        LinkWords.own,
         type: const ListType(AnyType()),
         meta: const {'label': "The user's own links"},
       ),
@@ -242,7 +247,7 @@ final class Links {
       _ownState,
       registry.defineCommand(
         CommandDescriptor(
-          'links.check',
+          LinkWords.check,
           params: definition,
           returns: const ObjectType({
             'ok': Field(BoolType()),
@@ -256,7 +261,7 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.set',
+          LinkWords.set,
           params: const ObjectType({'links': Field(ListType(AnyType()))}),
           callers: manage,
           meta: const {'label': "Replace the user's own links"},
@@ -265,7 +270,7 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.upsert',
+          LinkWords.upsert,
           params: definition,
           callers: manage,
           meta: const {'label': 'Add or replace one own link'},
@@ -282,7 +287,7 @@ final class Links {
       ),
       registry.defineCommand(
         CommandDescriptor(
-          'links.remove',
+          LinkWords.remove,
           params: const ObjectType({'id': Field(TextType())}),
           callers: manage,
           meta: const {'label': 'Remove one own link'},
@@ -340,6 +345,10 @@ final class Links {
 
   final ErrorSink _onError;
   final Map<String, Object?> _ownValues;
+
+  /// Who may manage links; who may use own words unless their definition
+  /// says otherwise.
+  late final Callers _managers;
   late final StateWriter _status;
   late final FactEmitter _disabledFact;
   final List<Handle> _handles = [];
@@ -461,9 +470,10 @@ final class Links {
       final i = _own.indexWhere((l) => l['id'] == keepOrderOf);
       if (i >= 0) next.insert(i, next.removeLast());
     }
+    // Saved first: a store that fails leaves the links as they were.
+    store?.save(next);
     _own = next;
     _ownState.set(_own);
-    store?.save(_own);
     _compose();
   }
 
@@ -515,7 +525,7 @@ final class Links {
       _statuses.remove(id);
       _status.remove(key: id);
     }
-    registry.entitiesChanged('link');
+    registry.entitiesChanged(LinkWords.kind);
     _reconcile();
     return problems;
   }
@@ -587,6 +597,13 @@ final class Links {
   void _setStatus(LinkStatus s) {
     _statuses[s.id] = s;
     _status.set(s.toJson(), key: s.id);
+  }
+
+  void _clearNote(String id) {
+    if (_notes.remove(id) == null) return;
+    if (_statuses[id] case final s? when s.state == LinkState.active) {
+      _setStatus(LinkStatus(id, LinkState.active));
+    }
   }
 
   void _note(String id, String why) {
@@ -738,7 +755,7 @@ final class Links {
     }
     final writer = registry.defineState(
       StateDescriptor(s.state, type: s.type, meta: {'link': s.id}),
-      by: Principal.link(s.id),
+      by: linkPrincipal(s.id),
     );
     final Handle setter;
     try {
@@ -746,7 +763,8 @@ final class Links {
         CommandDescriptor(
           s.setter,
           params: ObjectType({'value': Field(s.type)}),
-          callers: const Callers({'*': Access.allow, 'system': Access.allow}),
+          // The registry sets it too, to apply a layer.
+          callers: Callers({..._managers.rules, 'system': Access.allow}),
           sets: Sets(s.state),
           meta: {'link': s.id},
         ),
@@ -769,9 +787,8 @@ final class Links {
       CommandDescriptor(
         c.command,
         params: c.params,
-        callers:
-            c.callers ??
-            const Callers({'*': Access.allow, 'system': Access.deny}),
+        // The managers may; a definition's callers open it to more.
+        callers: Callers({..._managers.rules, ...?c.callers?.rules}),
         meta: {'link': c.id},
       ),
       (call) async {
@@ -781,7 +798,7 @@ final class Links {
         final run = _Run(
           c,
           call.params,
-          call.cause.child(call.id, by: Principal.link(c.id), through: c.id),
+          call.cause.child(call.id, by: linkPrincipal(c.id), through: c.id),
         );
         final failure = await _runSteps(run, c.steps);
         if (failure != null) throw StateError(failure);
@@ -802,7 +819,7 @@ final class Links {
           final run = _Run(i, {
             'params': call.params,
             'by': call.by.toJson(),
-          }, cause.withBy(Principal.link(i.id)));
+          }, cause.withBy(linkPrincipal(i.id)));
           await _runSteps(run, i.steps);
         },
         priority: i.priority,
@@ -872,7 +889,7 @@ final class Links {
           r.link,
           const <String, Object?>{},
           Cause(
-            Principal.link(id),
+            linkPrincipal(id),
             parent: call.id,
             chain: [...call.cause.chain, id],
             test: true,
@@ -926,7 +943,6 @@ final class Links {
     final on = evaluateWith(b.condition, _readView);
     if (on && !b.active) {
       b.active = true;
-      b.overridden = false;
       for (final hold in b.link.holds) {
         try {
           final params =
@@ -942,7 +958,7 @@ final class Links {
             key: sets.key == null ? null : params[sets.key] as String?,
             value: params[sets.value],
             owner: b.link.id,
-            by: Principal.link(b.link.id),
+            by: linkPrincipal(b.link.id),
             priority: b.link.priority,
             chain: [b.link.id],
           );
@@ -952,7 +968,6 @@ final class Links {
       }
     } else if (!on && b.active) {
       b.active = false;
-      b.overridden = false;
       registry.dropLayersOf(b.link.id);
     }
   }
@@ -961,8 +976,6 @@ final class Links {
     final live = _live[e.owner];
     if (live is _LiveBinding) {
       switch (e.outcome) {
-        case LayerOutcome.overridden:
-          live.overridden = true;
         case LayerOutcome.refused:
           _note(e.owner, 'held value refused: ${e.reason}');
         case LayerOutcome.orphaned:
@@ -986,6 +999,7 @@ final class Links {
           return run.failure = failure;
         }
       }
+      _clearNote(run.link.id);
       return null;
     } catch (e, st) {
       _onError(e, st);
@@ -1141,11 +1155,10 @@ final class _LiveHandles extends _Live {
 final class _LiveBinding extends _Live {
   _LiveBinding(Binding super.link, this.condition);
   final Condition condition;
-  bool active = false;
 
-  /// A held value was overridden: not held again until the condition turns
-  /// false and then true.
-  bool overridden = false;
+  /// Holding its layers. A layer dropped as overridden is not pushed again
+  /// until the condition turns false and then true: it stays active.
+  bool active = false;
 
   @override
   Binding get link => super.link as Binding;
@@ -1235,10 +1248,10 @@ final class _LiveReaction extends _Live {
         holding[slot]?.cancel();
         holding[slot] = Timer(d, () {
           holding.remove(slot);
-          fire(i, data, parent: c.id, from: c.cause);
+          fire(i, data, parent: c.id, from: c.cause, origin: c.cause.by);
         });
       } else {
-        fire(i, data, parent: c.id, from: c.cause);
+        fire(i, data, parent: c.id, from: c.cause, origin: c.cause.by);
       }
     }
   }
@@ -1248,7 +1261,7 @@ final class _LiveReaction extends _Live {
       final base = t.base;
       if (base is! FactTrigger || base.fact != f.fact) continue;
       if (!base.where.matches(f.payload)) continue;
-      fire(i, f.payload, parent: f.id, from: f.cause);
+      fire(i, f.payload, parent: f.id, from: f.cause, origin: f.cause.by);
     }
   }
 
@@ -1256,12 +1269,18 @@ final class _LiveReaction extends _Live {
   ///
   /// Conditions read [read]: the engine's view by default; a press reads
   /// the registry now.
+  ///
+  /// The run acts for [by] when given (a press); else for [origin], the one
+  /// who caused the trigger, when the managers do not count them in (an
+  /// audience's message): their rights, never the link's. Anyone else's
+  /// trigger runs as the link, with no more rights than the link has.
   String? fire(
     int i,
     Object? data, {
     Principal? by,
     String? parent,
     Cause? from,
+    Principal? origin,
     StateReader? read,
   }) {
     if (stopped) return 'stopped';
@@ -1269,7 +1288,13 @@ final class _LiveReaction extends _Live {
     if (from != null && from.came(id)) return 'loop';
     final t = triggers[i];
     var payload = data;
-    var principal = by;
+    var principal =
+        by ??
+        (origin != null &&
+                origin != Principal.system &&
+                !engine._managers.allows(origin)
+            ? origin
+            : null);
     if (t.ext?.accept case final accept?) {
       final hit = accept(data, t.options);
       if (hit == null) return 'not this trigger';
@@ -1280,6 +1305,17 @@ final class _LiveReaction extends _Live {
         when !evaluateWith(c, read ?? engine._readView)) {
       return 'conditions';
     }
+    // Everything that turns a firing away is asked first: a firing that
+    // does not run spends no once, no throttle and no rate.
+    switch (link.mode) {
+      case RunMode.single when running.isNotEmpty:
+        return 'running';
+      case RunMode.queue
+          when running.isNotEmpty && queued.length >= link.queueLimit:
+        return 'queue full';
+      default:
+        break;
+    }
     final now = engine.registry.clock.now();
     String budget(Throttle th) =>
         '${th.every.inMilliseconds}:${th.per == null ? '' : jsonAt(payload, th.per!)}';
@@ -1287,38 +1323,36 @@ final class _LiveReaction extends _Live {
       final last = t.lastBy[budget(th)];
       if (last != null && now.difference(last) < th.every) return 'throttled';
     }
-    for (final th in t.throttles) {
-      t.lastBy[budget(th)] = now;
-    }
-    if (t.once) {
-      if (fired.contains(i)) return 'once';
-      fired.add(i);
-    }
+    if (t.once && fired.contains(i)) return 'once';
     while (recentRuns.isNotEmpty &&
         now.difference(recentRuns.first) >= engine.rateWindow) {
       recentRuns.removeFirst();
     }
     if (recentRuns.length >= engine.rateLimit) {
-      engine._disable(id, 'more than ${engine.rateLimit} runs a minute');
+      engine._disable(
+        id,
+        'more than ${engine.rateLimit} runs in ${engine.rateWindow.inSeconds} s',
+      );
       return 'disabled';
     }
+    for (final th in t.throttles) {
+      t.lastBy[budget(th)] = now;
+    }
+    if (t.once) fired.add(i);
     recentRuns.add(now);
     final cause = Cause(
-      principal ?? Principal.link(id),
+      principal ?? linkPrincipal(id),
       parent: parent,
       chain: [...?from?.chain, id],
       test: from?.test ?? false,
     );
     final run = _Run(link, payload, cause)..onFinish = _finished;
     switch (link.mode) {
-      case RunMode.single when running.isNotEmpty:
-        return 'running';
       case RunMode.restart:
         for (final r in [...running]) {
           r.cancel();
         }
       case RunMode.queue when running.isNotEmpty:
-        if (queued.length >= link.queueLimit) return 'queue full';
         queued.add(run);
         lastStarted = run;
         return null;
@@ -1345,9 +1379,12 @@ final class _LiveReaction extends _Live {
     }
   }
 
+  /// Stops the runs, and ends the queued ones as stopped: a press waiting
+  /// for one is answered.
   void stopAll() {
+    final dropped = [...queued];
     queued.clear();
-    for (final r in [...running]) {
+    for (final r in [...dropped, ...running]) {
       r.cancel();
     }
   }

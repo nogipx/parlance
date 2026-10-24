@@ -3,7 +3,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 part 'contract.g.dart';
 
 /// The version of the remote protocol (SPEC §14).
-const switchboardProtocol = 1;
+const switchboardProtocol = 2;
 
 Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();
@@ -87,16 +87,42 @@ final class SbCallRequest implements IRpcSerializable {
   };
 }
 
-/// How a call ended, as `CallResult.toJson` gives it.
+/// How a call ended, as `CallResult.toJson` gives it, and the seq of
+/// [epoch] the registry had then: a feed that reached it shows what the
+/// call wrote.
 final class SbCallReply implements IRpcSerializable {
-  const SbCallReply(this.json);
+  const SbCallReply(this.result, {required this.epoch, required this.seq});
 
-  factory SbCallReply.fromJson(Map<String, dynamic> m) => SbCallReply(m);
+  factory SbCallReply.fromJson(Map<String, dynamic> m) => SbCallReply(
+    _obj(m['result']),
+    epoch: m['epoch'] as String,
+    seq: m['seq'] as int,
+  );
 
-  final Map<String, Object?> json;
+  final Map<String, Object?> result;
+  final String epoch;
+  final int seq;
 
   @override
-  Map<String, dynamic> toJson() => json;
+  Map<String, dynamic> toJson() => {
+    'result': result,
+    'epoch': epoch,
+    'seq': seq,
+  };
+}
+
+/// Asks for the last [count] facts of [fact].
+final class SbRecentRequest implements IRpcSerializable {
+  const SbRecentRequest(this.fact, this.count);
+
+  factory SbRecentRequest.fromJson(Map<String, dynamic> m) =>
+      SbRecentRequest(m['fact'] as String, m['count'] as int);
+
+  final String fact;
+  final int count;
+
+  @override
+  Map<String, dynamic> toJson() => {'fact': fact, 'count': count};
 }
 
 /// Holds a state at a value for the session (SPEC §8, §14).
@@ -158,7 +184,7 @@ final class SbLayerEvent implements IRpcSerializable {
   Map<String, dynamic> toJson() => json;
 }
 
-/// Any JSON object: what `why` and `layers` answer.
+/// Any JSON object: what `why`, `layers` and `recent` answer.
 final class SbJson implements IRpcSerializable {
   const SbJson(this.json);
 
@@ -211,4 +237,7 @@ abstract class ISwitchboardContract {
 
   @RpcMethod.unary(name: 'layers')
   Future<SbJson> layers(RpcNull request, {RpcContext? context});
+
+  @RpcMethod.unary(name: 'recent')
+  Future<SbJson> recent(SbRecentRequest request, {RpcContext? context});
 }

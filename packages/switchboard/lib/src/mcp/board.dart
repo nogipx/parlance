@@ -1,5 +1,4 @@
 import '../registry/cause.dart';
-import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 
@@ -7,14 +6,16 @@ import '../registry/registry.dart';
 /// reached over remote: the same words, read and called on behalf of one
 /// principal.
 abstract interface class Board {
-  /// The catalog as `describe` gives it, with `access` (what this board's
-  /// principal may call) and `unavailable` (commands that cannot run now,
-  /// and why).
+  /// The catalog as its principal sees it (Registry.describeFor).
   Future<Map<String, Object?>> describe();
 
-  /// Every value of [state], by key (null for an unkeyed state).
+  /// Every value of [state], by key (null for an unkeyed state); throws
+  /// [BoardOffline] when the registry cannot be reached, and [BoardBehind]
+  /// when what it holds is older than the board's last call.
   Future<Map<String?, Object?>> readAll(String state);
 
+  /// Calls [command]; a read after it reads what it wrote. When the answer
+  /// is lost on the way, [CallLost] with the id to retry with.
   Future<CallResult> call(
     String command,
     Map<String, Object?> params, {
@@ -25,13 +26,41 @@ abstract interface class Board {
   Future<List<FactMessage>> recentFacts(String fact, int n);
 
   /// Why [state] (of [key]) is as it is (Registry.explain).
-  Future<Map<String, Object?>> why(String state, {String? key});
+  Future<Explanation> why(String state, {String? key});
 
   /// Every layer there is.
-  Future<List<Map<String, Object?>>> layers();
+  Future<List<LayerInfo>> layers();
 
   /// The catalog changed: the tools may be others.
   Stream<void> get catalogChanges;
+}
+
+/// The registry cannot be reached now: what the board last had is not
+/// told as if it were now.
+final class BoardOffline implements Exception {
+  const BoardOffline(this.seq);
+
+  /// The last seq the board had.
+  final int seq;
+
+  @override
+  String toString() =>
+      'the registry is not reachable now (last seen at seq $seq)';
+}
+
+/// The board's copy has not caught up with the board's last call: what
+/// it would read may be older than that call's effect.
+final class BoardBehind implements Exception {
+  const BoardBehind(this.seq, this.needed);
+
+  /// The seq the copy has, and the one the last call answered at.
+  final int seq;
+  final int needed;
+
+  @override
+  String toString() =>
+      'the copy is behind your last call (at seq $seq, needs $needed); '
+      'try again in a moment';
 }
 
 /// A board on a registry in this process.
@@ -44,17 +73,7 @@ final class LocalBoard implements Board {
   final Principal by;
 
   @override
-  Future<Map<String, Object?>> describe() async => {
-    ...registry.describe(),
-    'access': {
-      for (final d in registry.catalog.whereType<CommandDescriptor>())
-        d.name: d.callers.accessOf(by).name,
-    },
-    'unavailable': {
-      for (final d in registry.catalog.whereType<CommandDescriptor>())
-        d.name: ?registry.whyUnavailable(d.name),
-    },
-  };
+  Future<Map<String, Object?>> describe() async => registry.describeFor(by);
 
   @override
   Future<Map<String?, Object?>> readAll(String state) async =>
@@ -72,11 +91,11 @@ final class LocalBoard implements Board {
       registry.recent(fact, n);
 
   @override
-  Future<Map<String, Object?>> why(String state, {String? key}) async =>
+  Future<Explanation> why(String state, {String? key}) async =>
       registry.explain(state, key: key);
 
   @override
-  Future<List<Map<String, Object?>>> layers() async => registry.layers();
+  Future<List<LayerInfo>> layers() async => registry.layers();
 
   @override
   Stream<void> get catalogChanges => registry.catalogChanges;

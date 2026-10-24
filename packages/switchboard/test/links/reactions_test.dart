@@ -43,7 +43,7 @@ void main() {
       f.raid.emit({'from': 'big', 'viewers': 12});
       await pumpEventQueue();
       expect(f.said, ['big raided with 12', 12]);
-      expect(f.sayers.first, const Principal.link('raid'));
+      expect(f.sayers.first, linkPrincipal('raid'));
       expect(f.r.read('studio.program'), 'break');
     },
   );
@@ -158,7 +158,8 @@ void main() {
       expect(x.said.where((s) => s == 'tick'), hasLength(3));
       t.elapse(const Duration(hours: 25));
       expect(x.said.where((s) => s == 'evening'), hasLength(1));
-    });
+      // At noon: the 25 hours hold one 20:00, whenever the test runs.
+    }, initialTime: DateTime(2026, 1, 1, 12));
   });
 
   test('throttle per key, once until reset', () {

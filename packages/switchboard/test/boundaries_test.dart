@@ -34,12 +34,37 @@ void main() {
     }
   });
 
-  test('mcp imports neither links nor rpc_dart', () {
+  test('mcp imports neither links nor rpc_dart, only their words', () {
     for (final f in dartIn('lib/src/mcp')) {
       for (final i in importsOf(f)) {
-        expect(i, isNot(contains('links')), reason: f.path);
+        if (i == '../link_words.dart') continue;
+        expect(i, isNot(contains('link')), reason: f.path);
         expect(i, isNot(startsWith('package:rpc_dart')), reason: f.path);
       }
+    }
+  });
+
+  test('the words of links import nothing', () {
+    expect(importsOf(File('lib/src/link_words.dart')), isEmpty);
+  });
+
+  test('the registry names nothing of links', () {
+    for (final f in dartIn('lib/src/registry')) {
+      expect(
+        RegExp(r"'links?[.']").firstMatch(f.readAsStringSync())?[0],
+        isNull,
+        reason: f.path,
+      );
+    }
+  });
+
+  test('mcp and remote name no link word but through LinkWords', () {
+    for (final f in [...dartIn('lib/src/mcp'), ...dartIn('lib/src/remote')]) {
+      expect(
+        RegExp(r"'links\.\w").firstMatch(f.readAsStringSync())?[0],
+        isNull,
+        reason: f.path,
+      );
     }
   });
 

@@ -122,7 +122,7 @@ void main() {
       );
       final b = f.r.call(
         'studio.show',
-        {'scene': 'break'},
+        {'scene': 'main'},
         by: user,
         id: 'same',
       );
@@ -183,6 +183,95 @@ void main() {
       expect(wrong, isA<CallFailed>());
     });
   });
+
+  test('timedOut is no end: the handler is told, its end is recorded late, '
+      'a retry with the id answers it', () {
+    fakeAsync((t) {
+      final r = Registry();
+      final w = r.defineState(
+        StateDescriptor('x.done', type: const BoolType()),
+        by: owner,
+      );
+      var told = false;
+      r.defineCommand(
+        CommandDescriptor(
+          'x.slow',
+          callers: Callers.only(['user']),
+          deadline: const Duration(seconds: 1),
+        ),
+        (c) async {
+          unawaited(c.expired.then((_) => told = true));
+          await Future<void>.delayed(const Duration(seconds: 3));
+          w.set(true, cause: c.causeFor(owner));
+        },
+      );
+      final records = <CallRecord>[];
+      r.calls.listen(records.add);
+      CallResult? first, again;
+      r.call('x.slow', {}, by: user, id: 's').then((v) => first = v);
+      t.elapse(const Duration(seconds: 2));
+      expect(first, isA<CallTimedOut>());
+      expect(told, isTrue);
+      expect(r.read('x.done'), isNull);
+      t.elapse(const Duration(seconds: 2));
+      expect(r.read('x.done'), isTrue, reason: 'what it did stands');
+      expect(records.last.late, isTrue);
+      expect(records.last.result, isA<CallDone>());
+      expect(r.callRecord('s')!.late, isTrue);
+      r.call('x.slow', {}, by: user, id: 's').then((v) => again = v);
+      t.flushMicrotasks();
+      expect(again, isA<CallDone>());
+    });
+  });
+
+  test('explain says when the change may be forgotten', () async {
+    final r = Registry(retainTicks: 2);
+    final a = r.defineState(
+      StateDescriptor('x.a', type: const IntType()),
+      by: owner,
+    );
+    final b = r.defineState(
+      StateDescriptor('x.b', type: const IntType()),
+      by: owner,
+    );
+    a.set(1);
+    expect(r.explain('x.a').forgotten, isFalse);
+    b.set(1);
+    b.set(2);
+    b.set(3);
+    final e = r.explain('x.a');
+    expect(e.change, isNull);
+    expect(e.forgotten, isTrue);
+    expect(Explanation.fromJson(e.toJson()).forgotten, isTrue);
+  });
+
+  test(
+    'an id is the call it was given for: another call with it is refused',
+    () async {
+      final first = await f.r.call(
+        'audio.mute',
+        {'on': true},
+        by: user,
+        id: 'x',
+      );
+      expect(first, isA<CallDone>());
+      expect(
+        await f.r.call('audio.mute', {'on': true}, by: user, id: 'x'),
+        isA<CallDone>(),
+        reason: 'the same call answers the first result',
+      );
+      for (final other in [
+        f.r.call('audio.mute', {'on': false}, by: user, id: 'x'),
+        f.r.call('studio.show', {'scene': 'break'}, by: user, id: 'x'),
+        f.r.call('audio.mute', {'on': true}, by: agent, id: 'x'),
+      ]) {
+        final r = await other;
+        expect(r, isA<CallRefused>());
+        expect((r as CallRefused).code, Refusal.idConflict);
+      }
+      expect(f.shown, isEmpty);
+    },
+  );
 
   test('a nested call is a child of the call that made it', () async {
     final records = <CallRecord>[];

@@ -127,6 +127,36 @@ void main() {
     expect(c.cause.by, owner);
   });
 
+  test('describeFor tells what a principal may call, and what cannot run', () {
+    final d = f.r.describeFor(viewer);
+    expect(d['descriptors'], f.r.describe()['descriptors']);
+    final access = d['access'] as Map;
+    expect(access['studio.show'], isIn(['allow', 'warn', 'deny']));
+    expect(access['audio.gain.set'], 'deny');
+    expect(d['unavailable'], isA<Map<String, Object?>>());
+    expect(d.containsKey('protocol'), isFalse, reason: "remote's to say");
+  });
+
+  test('explain, layers and call records go to JSON and back', () async {
+    await f.r.call('audio.mute', {'on': true}, by: user, id: 'c1');
+    await pumpEventQueue();
+    final e = f.r.explain('audio.muted');
+    expect(e.trail.single.id, 'c1');
+    final back = Explanation.fromJson(e.toJson());
+    expect(back.toJson(), e.toJson());
+    expect(back.trail.single.cause.by, user);
+    expect(back.change?.seq, e.change?.seq);
+
+    f.r.pushLayer('audio.muted', value: false, owner: 'quiet', by: user);
+    await pumpEventQueue();
+    final held = f.r.explain('audio.muted');
+    expect(held.layers.single.owner, 'quiet');
+    expect(held.layers.single.top, isTrue);
+    final layer = LayerInfo.fromJson(held.layers.single.toJson());
+    expect(layer.toJson(), held.layers.single.toJson());
+    expect(layer.by, user);
+  });
+
   test('describe lists the catalog and the kinds', () {
     final d = f.r.describe();
     expect(d['epoch'], f.r.epoch);

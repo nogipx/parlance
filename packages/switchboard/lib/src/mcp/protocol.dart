@@ -82,8 +82,20 @@ final class McpSession {
   /// Writes one line (no newline in it) to the client.
   final void Function(String line) output;
 
-  /// The tools there are now; asked on every list and call.
+  /// The tools there are now: asked once, and again after [toolsChanged]
+  /// or when asking failed.
   final FutureOr<List<McpTool>> Function() tools;
+
+  Future<List<McpTool>>? _tools;
+
+  Future<List<McpTool>> _current() {
+    final asked = _tools ??= Future.sync(tools);
+    return asked.catchError((Object e) {
+      if (identical(_tools, asked)) _tools = null;
+      throw e;
+    });
+  }
+
   final String name;
   final String version;
 
@@ -121,16 +133,32 @@ final class McpSession {
       _send(_error(null, -32700, 'not JSON'));
       return;
     }
+    // Each message is answered when it is done: a long tool call does not
+    // hold the others back (replies carry their ids).
     for (final m in message is List ? message : [message]) {
       if (m is! Map) continue;
-      final reply = await handle(m.cast<String, Object?>());
-      if (reply != null) _send(reply);
+      final request = m.cast<String, Object?>();
+      unawaited(
+        handle(request).then(
+          (reply) {
+            if (reply != null) _send(reply);
+          },
+          onError: (Object e) {
+            if (request['id'] case final Object id) {
+              _send(_error(id, -32603, '$e'));
+            }
+          },
+        ),
+      );
     }
   }
 
-  /// The tools are others now: the client lists them again.
-  void toolsChanged() =>
-      _send({'jsonrpc': '2.0', 'method': 'notifications/tools/list_changed'});
+  /// The tools are others now: they are asked again, and the client lists
+  /// them again.
+  void toolsChanged() {
+    _tools = null;
+    _send({'jsonrpc': '2.0', 'method': 'notifications/tools/list_changed'});
+  }
 
   /// The answer to one JSON-RPC message; null for a notification.
   Future<Map<String, Object?>?> handle(Map<String, Object?> m) async {
@@ -153,11 +181,13 @@ final class McpSession {
         return _result(id, const <String, Object?>{});
       case 'tools/list':
         return _result(id, {
-          'tools': [for (final t in await tools()) t.toMcp()],
+          'tools': [for (final t in await _current()) t.toMcp()],
         });
       case 'tools/call':
         final name = params['name'];
-        final tool = (await tools()).where((t) => t.name == name).firstOrNull;
+        final tool = (await _current())
+            .where((t) => t.name == name)
+            .firstOrNull;
         if (tool == null) return _error(id, -32602, 'no tool "$name"');
         final args =
             (params['arguments'] as Map?)?.cast<String, Object?>() ?? const {};

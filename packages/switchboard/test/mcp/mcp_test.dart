@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:rpc_dart/rpc_dart.dart';
+import 'package:switchboard/links.dart';
 import 'package:switchboard/mcp.dart';
 import 'package:switchboard/registry.dart';
 import 'package:switchboard/remote.dart';
@@ -95,6 +96,85 @@ const break_ = {
 };
 
 void main() {
+  group('the links tools follow the engine', () {
+    test('no links engine, no links tools', () async {
+      final f = Fixture();
+      final c = Client(LocalBoard(f.r, by: agent));
+      addTearDown(c.close);
+      expect(await c.tools(), [
+        'describe',
+        'read',
+        'call',
+        'recent_facts',
+        'why',
+        'layers',
+      ]);
+    });
+
+    test('a principal who may press but not write links', () async {
+      final f = Fixture();
+      final links = Links(f.r, managers: const Callers({'user': Access.allow}));
+      addTearDown(links.dispose);
+      final c = Client(LocalBoard(f.r, by: agent));
+      addTearDown(c.close);
+      final names = await c.tools();
+      expect(names, containsAll(['links', 'link_press']));
+      expect(
+        names,
+        isNot(anyOf(contains('link_upsert'), contains('link_guide'))),
+      );
+    });
+  });
+
+  test('whether a command can run is told now, not when the tools were '
+      'listed', () async {
+    final f = Fixture();
+    String? why = 'not yet';
+    f.r.defineCommand(
+      CommandDescriptor('x.go', callers: Callers.only(['agent'])),
+      (_) {},
+      available: () => why,
+    );
+    final c = Client(LocalBoard(f.r, by: agent), commandTools: true);
+    addTearDown(c.close);
+    final listed = await c.request('tools/list');
+    expect('$listed', isNot(contains('not yet')));
+    Future<Object?> now() async => [
+      for (final x
+          in (await c.json('describe', {'prefix': 'x.'}) as Map)['commands']
+              as List)
+        (x as Map)['unavailable'],
+    ].single;
+    expect(await now(), 'not yet');
+    why = null;
+    expect(await now(), isNull);
+  });
+
+  test(
+    'tools are asked once until they change; a slow call holds no other',
+    () async {
+      final f = Fixture();
+      final slow = Completer<void>();
+      f.r.defineCommand(
+        CommandDescriptor('x.slow', callers: Callers.only(['agent'])),
+        (_) => slow.future,
+      );
+      final board = _Counting(LocalBoard(f.r, by: agent));
+      final c = Client(board);
+      addTearDown(c.close);
+      await c.tools();
+      await c.tools();
+      expect(board.describes, 1);
+      c.session.toolsChanged();
+      await c.tools();
+      expect(board.describes, 2);
+      final pending = c.call('call', {'command': 'x.slow'});
+      await c.request('ping').timeout(const Duration(seconds: 1));
+      slow.complete();
+      expect((await pending).error, isFalse);
+    },
+  );
+
   group('a local board', () {
     late LinksFixture f;
     late Client c;
@@ -319,6 +399,64 @@ void main() {
       expect(await c.json('layers'), isEmpty);
     });
 
+    test('a read right after a call reads what it wrote', () async {
+      for (final scene in ['test', 'break', 'main']) {
+        await c.call('call', {
+          'command': 'studio.show',
+          'params': {'scene': scene},
+        });
+        expect(await c.json('read', {'state': 'studio.program'}), scene);
+      }
+    });
+
+    test(
+      'the connection gone: reads say so, a call is lost with its id',
+      () async {
+        await c.tools();
+        await responder.close();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final read = await c.call('read', {'state': 'studio.program'});
+        expect(read.error, isTrue);
+        expect(read.text, contains('not reachable'));
+        final call = await c.call('call', {
+          'command': 'studio.show',
+          'params': {'scene': 'test'},
+          'id': 'mine',
+        });
+        expect(call.error, isTrue);
+        expect(call.text, contains('id "mine"'));
+      },
+    );
+
+    test('a copy that cannot catch up with a call says so on read', () async {
+      // The mirror follows another registry: it never reaches the call.
+      final other = LinksFixture();
+      final (c2, s2) = RpcChannelTransport.pair();
+      final otherSession = RegistryResponder(other.r, principal: agent);
+      final otherResponder = RpcResponderEndpoint(transport: s2)
+        ..registerServiceContract(otherSession)
+        ..start();
+      final otherCaller = RpcCallerEndpoint(transport: c2);
+      final lagging = RegistryMirror()..follow(SwitchboardClient(otherCaller));
+      addTearDown(() async {
+        await lagging.dispose();
+        otherSession.close();
+        await otherCaller.close();
+        await otherResponder.close();
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final board = RemoteBoard(
+        SwitchboardClient(caller),
+        lagging,
+        catchUp: const Duration(milliseconds: 50),
+      );
+      await board.call('studio.show', {'scene': 'break'});
+      await expectLater(
+        board.readAll('studio.program'),
+        throwsA(isA<BoardBehind>()),
+      );
+    });
+
     test(
       'a link engine added later is a catalog change the tools follow',
       () async {
@@ -337,4 +475,41 @@ void main() {
       },
     );
   });
+}
+
+/// A board that counts how often its catalog is asked.
+final class _Counting implements Board {
+  _Counting(this.inner);
+  final Board inner;
+  int describes = 0;
+
+  @override
+  Future<Map<String, Object?>> describe() {
+    describes++;
+    return inner.describe();
+  }
+
+  @override
+  Future<Map<String?, Object?>> readAll(String state) => inner.readAll(state);
+
+  @override
+  Future<CallResult> call(
+    String command,
+    Map<String, Object?> params, {
+    String? id,
+  }) => inner.call(command, params, id: id);
+
+  @override
+  Future<List<FactMessage>> recentFacts(String fact, int n) =>
+      inner.recentFacts(fact, n);
+
+  @override
+  Future<Explanation> why(String state, {String? key}) =>
+      inner.why(state, key: key);
+
+  @override
+  Future<List<LayerInfo>> layers() => inner.layers();
+
+  @override
+  Stream<void> get catalogChanges => inner.catalogChanges;
 }

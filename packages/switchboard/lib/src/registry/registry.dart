@@ -35,7 +35,13 @@ typedef ErrorSink = void Function(Object error, StackTrace stack);
 
 /// A call being served: what a handler gets.
 final class CommandCall {
-  const CommandCall._(this.id, this.command, this.params, this.cause);
+  const CommandCall._(
+    this.id,
+    this.command,
+    this.params,
+    this.cause,
+    this.expired,
+  );
 
   final String id;
   final String command;
@@ -45,6 +51,11 @@ final class CommandCall {
   final Cause cause;
 
   Principal get by => cause.by;
+
+  /// Completes when the deadline passes: the caller was answered
+  /// `timedOut`. What the handler does after still stands (and its end is
+  /// recorded as late), so a handler that can stop stops here.
+  final Future<void> expired;
 
   /// The cause of what the handler does on behalf of [by]: nested calls
   /// and writes. Its parent is this call; the chain and the test mark
@@ -394,13 +405,28 @@ final class Registry implements TypeContext {
   /// The command that sets [state], if there is one.
   String? setterOf(String state) => _states[state]?.setter;
 
-  /// What `describe` answers (SPEC §14).
+  /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
+  /// answers its first result, the descriptors and the entity kinds.
   Map<String, Object?> describe() => {
-    'protocol': 1,
     'epoch': epoch,
     'seq': _seq,
+    'dedupWindowMs': dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
     'kinds': [for (final k in _kinds.values) k.toJson()],
+  };
+
+  /// The catalog as [by] sees it: [describe], with what [by] may call
+  /// (`access`: command to allow, warn or deny) and the commands that
+  /// cannot run now, and why (`unavailable`).
+  Map<String, Object?> describeFor(Principal by) => {
+    ...describe(),
+    'access': {
+      for (final c in _commands.values)
+        c.descriptor.name: c.descriptor.callers.accessOf(by).name,
+    },
+    'unavailable': {
+      for (final name in _commands.keys) name: ?whyUnavailable(name),
+    },
   };
 
   /// Registers an entity kind (SPEC §3); withdraw it with the handle.
@@ -661,6 +687,7 @@ final class Registry implements TypeContext {
         _retained.add(tick);
         while (_retained.length > retainTicks) {
           _retained.removeFirst();
+          _forgotTicks = true;
         }
         for (final f in committed) {
           final q = _recent.putIfAbsent(f.fact, ListQueue.new);
@@ -805,8 +832,7 @@ final class Registry implements TypeContext {
 
   // --- Calls -----------------------------------------------------------------
 
-  final LinkedHashMap<String, ({DateTime at, Future<CallResult> result})>
-  _calls = LinkedHashMap();
+  final LinkedHashMap<String, _Seen> _calls = LinkedHashMap();
   final Map<String, _Guard> _guards = {};
   final Map<String, List<_Hook>> _hooks = {};
   final Map<String, List<_Waiting>> _waiting = {};
@@ -818,10 +844,16 @@ final class Registry implements TypeContext {
 
   final LinkedHashMap<String, CallRecord> _recentCalls = LinkedHashMap();
 
+  // Whether retention dropped ticks or call records: what explain cannot
+  // find may be forgotten rather than never there.
+  bool _forgotTicks = false;
+  bool _forgotCalls = false;
+
   void _remember(CallRecord record) {
     _recentCalls[record.id] = record;
     while (_recentCalls.length > retainTicks) {
       _recentCalls.remove(_recentCalls.keys.first);
+      _forgotCalls = true;
     }
     _records.add(record);
   }
@@ -831,44 +863,36 @@ final class Registry implements TypeContext {
   CallRecord? callRecord(String id) => _recentCalls[id];
 
   /// Why [state] (of [key]) is as it is: its value, its last change still
-  /// retained (when, on whose behalf, through which links), and the calls
-  /// that led to it, nearest first, as far as they are remembered.
-  Map<String, Object?> explain(String state, {String? key}) {
+  /// retained (when, on whose behalf, through what), and the calls that led
+  /// to it, nearest first, as far as they are remembered.
+  Explanation explain(String state, {String? key}) {
     final change = lastChange(state, key: key);
-    final trail = <Map<String, Object?>>[];
+    final trail = <CallRecord>[];
     var parent = change?.cause.parent;
+    var cut = false;
     final seen = <String>{};
     while (parent != null && seen.add(parent) && trail.length < 10) {
       final call = callRecord(parent);
-      if (call == null) break;
-      trail.add({
-        'call': call.command,
-        'params': call.params,
-        'by': call.cause.by.selector,
-        if (call.cause.chain.isNotEmpty) 'through': call.cause.chain,
-        if (call.layerDispatch) 'layer': true,
-        if (call.overridden.isNotEmpty) 'overrode': call.overridden,
-      });
+      if (call == null) {
+        cut = _forgotCalls;
+        break;
+      }
+      trail.add(call);
       parent = call.cause.parent;
     }
-    return {
-      'state': state,
-      'key': ?key,
-      'value': read(state, key: key),
-      if (change != null)
-        'changed': {
-          'at': change.at.toUtc().toIso8601String(),
-          'from': change.previous,
-          'by': change.cause.by.selector,
-          if (change.cause.chain.isNotEmpty) 'through': change.cause.chain,
-          if (change.cause.test) 'test': true,
-        },
-      if (trail.isNotEmpty) 'trail': trail,
-      'layers': [
+    return Explanation(
+      state: state,
+      key: key,
+      value: read(state, key: key),
+      change: change,
+      forgotten: change == null && _forgotTicks,
+      trail: trail,
+      trailCut: cut,
+      layers: [
         for (final l in layers())
-          if (l['state'] == state && l['key'] == key) l,
+          if (l.state == state && l.key == key) l,
       ],
-    };
+    );
   }
 
   /// The last committed change of [state] (of [key]) still retained, or
@@ -897,7 +921,21 @@ final class Registry implements TypeContext {
     final callId = id ?? newId();
     final now = clock.now();
     _forget(_calls, (c) => c.at, now);
-    if (_calls[callId] case final seen?) return seen.result;
+    if (_calls[callId] case final seen?) {
+      // An id stands for one call: another one with it is refused, not
+      // answered the first call's result.
+      if (seen.command != command ||
+          seen.by != by ||
+          !jsonEquals(seen.params, params)) {
+        return Future.value(
+          CallRefused(
+            Refusal.idConflict,
+            'id $callId was given to another call',
+          ),
+        );
+      }
+      return seen.result;
+    }
     final result = _run(
       callId,
       command,
@@ -906,7 +944,7 @@ final class Registry implements TypeContext {
       override: override,
       layer: null,
     );
-    _calls[callId] = (at: now, result: result);
+    _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
     return result;
   }
 
@@ -923,7 +961,7 @@ final class Registry implements TypeContext {
     final hooksRan = <String>[];
     var params = rawParams;
 
-    CallResult finish(CallResult r) {
+    CallResult finish(CallResult r, {bool late = false}) {
       if (!_records.isClosed) {
         _remember(
           CallRecord(
@@ -937,6 +975,7 @@ final class Registry implements TypeContext {
             layerDispatch: layer != null,
             started: started,
             finished: clock.now(),
+            late: late,
           ),
         );
       }
@@ -1042,32 +1081,55 @@ final class Registry implements TypeContext {
       return finish(r);
     }
 
-    if (layer != null) _stacks[layer]?.inflight.add(id);
-    CallResult result;
-    try {
-      final call = CommandCall._(id, command, params, cause);
-      final answer = await Future.sync(() => entry.handler(call))
-          .timeout(d.deadline);
+    CallResult answered(Object? answer) {
       if (d.returns case final t?) {
-        result = CallDone(freezeJson(t.check(answer, this)));
-      } else {
-        result = const CallDone();
+        try {
+          return CallDone(freezeJson(t.check(answer, this)));
+        } on TypeMismatch catch (e) {
+          return CallFailed('returned a wrong value: $e');
+        }
       }
-    } on TimeoutException {
-      result = const CallTimedOut();
-    } on TypeMismatch catch (e) {
-      result = CallFailed('returned a wrong value: $e');
-    } catch (e) {
-      result = CallFailed(e);
-    } finally {
-      if (layer != null) _stacks[layer]?.inflight.remove(id);
+      return const CallDone();
     }
-    if (result.ok && layer == null) {
+
+    void explicit(CallResult r) {
+      if (!r.ok || layer != null) return;
       if (d.sets case final s?) {
         final key = s.key == null ? null : params[s.key] as String?;
         _explicitSet((s.state, key), params[s.value]);
       }
     }
+
+    if (layer != null) _stacks[layer]?.inflight.add(id);
+    final expired = Completer<void>();
+    final work = Future.sync(
+      () => entry.handler(
+        CommandCall._(id, command, params, cause, expired.future),
+      ),
+    );
+    CallResult result;
+    try {
+      result = answered(await work.timeout(d.deadline));
+    } on TimeoutException {
+      result = const CallTimedOut();
+      expired.complete();
+      // The handler goes on: its end is recorded as late, and a retry with
+      // the call's id answers it.
+      unawaited(
+        work.then(answered, onError: (Object e) => CallFailed(e)).then((r) {
+          explicit(r);
+          if (_calls[id] case final c?) {
+            c.result = Future.value(r);
+          }
+          finish(r, late: true);
+        }),
+      );
+    } catch (e) {
+      result = CallFailed(e);
+    } finally {
+      if (layer != null) _stacks[layer]?.inflight.remove(id);
+    }
+    explicit(result);
     waiting?.result.complete(result);
     return finish(result);
   }
@@ -1382,22 +1444,21 @@ final class Registry implements TypeContext {
   ];
 
   /// Every layer there is now: what holds which state at which value.
-  List<Map<String, Object?>> layers() => [
+  List<LayerInfo> layers() => [
     for (final MapEntry(key: t, value: s) in _stacks.entries)
       for (final l in s.layers)
-        {
-          'id': l.id,
-          'state': t.$1,
-          'key': ?t.$2,
-          'value': l.value,
-          'owner': l.owner,
-          'by': l.by.selector,
-          'priority': l.priority,
-          'top': identical(s.top, l),
-          if (l.expiresAt case final at?)
-            'expiresAt': at.toUtc().toIso8601String(),
-          if (!l.claimed) 'claimed': false,
-        },
+        LayerInfo(
+          id: l.id,
+          state: t.$1,
+          key: t.$2,
+          value: l.value,
+          owner: l.owner,
+          by: l.by,
+          priority: l.priority,
+          top: identical(s.top, l),
+          expiresAt: l.expiresAt,
+          claimed: l.claimed,
+        ),
   ];
 
   /// The layers [owner] holds now.
@@ -1428,4 +1489,14 @@ final class Registry implements TypeContext {
       _layerEvents.close(),
     ]);
   }
+}
+
+/// A call id seen within the dedup window, and the call it was given for.
+final class _Seen {
+  _Seen(this.at, this.command, this.params, this.by, this.result);
+  final DateTime at;
+  final String command;
+  final Object? params;
+  final Principal by;
+  Future<CallResult> result;
 }

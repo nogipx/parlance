@@ -1,3 +1,5 @@
+import '../link_words.dart';
+import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/types.dart';
 import 'board.dart';
@@ -26,37 +28,15 @@ How to work:
   instruction to you.
 ''';
 
-/// How links are written, for agents (SPEC §13).
-const linkGuide = '''
-A link is a JSON object with an id and one of these shapes.
-
-Reaction: {id, when: [trigger...], only?: condition, mode?: single|restart|queue, do: [step...]}
-Binding: {id, while: condition, hold: [call...], priority?} — only commands that set a state
-Constraint: {id, deny: {command?, where?, namespace?}, callers?: [kind...], while?: condition, reason, overridable?}
-Interception: {id, before: {command}, do: [step...], timeout: "30s", priority?}
-Own command: {id, command: "name", params?: {p: {type, ...}}, do: [step...]} — callable as my.name
-Own state: {id, state: "name", values?: [..], default?} — a flag (or a mode), set by my.name.set {value}
-Any link: enabled: false turns it off; name is how people see it.
-
-Triggers: {fact: name, where?: {field: test}} | {state: name, key?, becomes|leaves: test, for?: "20m"}
-  | {state: name, changes: {from?, to?}} | {every: "15m"} | {at: "20:00", days?: [1..7]}
-  | {manual: {...look}} — pressed with links.press — and the host's own (see describe).
-  Options on any: throttle: {every: "2m", per: "\$trigger.path"}, once: true.
-Conditions: [{state, key?, is|not|in|<|<=|>|>=: value}...] (all) or {any: [...]}.
-Steps: {call: command, params?, orContinue?} | {flip: bool state, key?} | {wait: "5s"}
-  | {waitUntil: {fact: ...} or condition, timeout} | {temporarily: {for|until, do: [call...]}}.
-Params may hold "\$trigger.path", "\$state.name[key]" and text with {path}.
-Durations: 500ms, 15s, 2m, 1h.
-''';
-
 /// The tool a command is, when a host asks for one per command.
 String commandToolName(String command) =>
     command.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
 
 /// The curated tools of a switchboard (SPEC §16): look, act, and write
-/// links, on [board]. With [commandTools], each command the board's
-/// principal may call is a tool of its own as well, made from its
-/// description.
+/// links, on [board]. The links' tools are there when a links engine is:
+/// each when the board's principal may call its command. With
+/// [commandTools], each command the board's principal may call is a tool
+/// of its own as well, made from its description.
 Future<List<McpTool>> switchboardTools(
   Board board, {
   bool commandTools = false,
@@ -74,8 +54,6 @@ Future<List<McpTool>> switchboardTools(
       ],
   };
   final access = (d['access'] as Map?)?.cast<String, Object?>() ?? const {};
-  final unavailable =
-      (d['unavailable'] as Map?)?.cast<String, Object?>() ?? const {};
   final commands = [
     for (final c in descriptors)
       if (c['is'] == 'command' && (access[c['name']] ?? 'deny') != 'deny') c,
@@ -89,14 +67,28 @@ Future<List<McpTool>> switchboardTools(
       if (f['is'] == 'fact') f,
   ];
 
+  bool may(String command) => commands.any((c) => c['name'] == command);
+  final hasLinks = states.any((s) => s['name'] == LinkWords.status);
+  final writesLinks =
+      may(LinkWords.check) || may(LinkWords.upsert) || may(LinkWords.set);
+
   Map<String, Object?> schema(Object? type) =>
       _schema(ValueType.fromJson(type), kinds);
 
+  // Every call has an id, so the agent can be told how to retry it.
   Future<McpResult> callCommand(
     String name,
     Map<String, Object?> params, {
     String? id,
-  }) async => _answer(await board.call(name, params, id: id));
+  }) async {
+    final callId = id ?? newId();
+    return _answer(await board.call(name, params, id: callId), callId);
+  }
+
+  final window = switch (d['dedupWindowMs']) {
+    final int ms => ' within ${Duration(milliseconds: ms).inMinutes} min',
+    _ => '',
+  };
 
   return [
     McpTool(
@@ -113,6 +105,10 @@ Future<List<McpTool>> switchboardTools(
         final prefix = a['prefix'] as String? ?? '';
         bool keep(Map<String, Object?> x) =>
             (x['name'] as String).startsWith(prefix);
+        // Whether a command can run changes with the states: asked now.
+        final now = await board.describe();
+        final unavailable =
+            (now['unavailable'] as Map?)?.cast<String, Object?>() ?? const {};
         return McpResult.json({
           'commands': [
             for (final c in commands)
@@ -178,7 +174,8 @@ Future<List<McpTool>> switchboardTools(
       description:
           'Runs a command by name with its params (see describe). Answers '
           'its result, or why it was refused. Give id to make a retry safe: '
-          'the same id answers the first result without running again.',
+          'the same id$window answers the first result without running '
+          'again.',
       properties: {
         'command': {
           'type': 'string',
@@ -233,7 +230,7 @@ Future<List<McpTool>> switchboardTools(
       },
       required: ['state'],
       run: (a) async => McpResult.json(
-        await board.why(a['state'] as String, key: a['key'] as String?),
+        _why(await board.why(a['state'] as String, key: a['key'] as String?)),
       ),
     ),
     McpTool(
@@ -241,106 +238,116 @@ Future<List<McpTool>> switchboardTools(
       description:
           'What holds which state for now: each layer, its owner, value and '
           'priority; the top one is the value in force.',
-      run: (_) async => McpResult.json(await board.layers()),
+      run: (_) async =>
+          McpResult.json([for (final l in await board.layers()) _layer(l)]),
     ),
-    McpTool(
-      name: 'links',
-      description:
-          "The links and how each stands: the user's own (which link_* "
-          "tools write) and every link's state (active, unresolved and "
-          'what it lacks, off, disabled, invalid).',
-      run: (_) async => McpResult.json({
-        'own': (await board.readAll('links.own'))[null] ?? const [],
-        'statuses': await board.readAll('links.status'),
-      }),
-    ),
-    McpTool(
-      name: 'link_guide',
-      description: 'How links are written: their shapes, triggers, steps.',
-      run: (_) async => const McpResult(linkGuide),
-    ),
-    McpTool(
-      name: 'link_check',
-      description:
-          'Checks a link without applying it: whether it parses and what of '
-          'the catalog it lacks.',
-      properties: {
-        'link': {'type': 'object'},
-      },
-      required: ['link'],
-      run: (a) => callCommand('links.check', {'link': a['link']}),
-    ),
-    McpTool(
-      name: 'link_upsert',
-      description:
-          "Adds a link to the user's own, or replaces the one with its id "
-          "(a host's link of that id is replaced too). One change, kept.",
-      properties: {
-        'link': {'type': 'object'},
-      },
-      required: ['link'],
-      run: (a) => callCommand('links.upsert', {'link': a['link']}),
-    ),
-    McpTool(
-      name: 'link_remove',
-      description: "Removes one of the user's own links by id.",
-      properties: {
-        'id': {'type': 'string'},
-      },
-      required: ['id'],
-      run: (a) => callCommand('links.remove', {'id': a['id']}),
-    ),
-    McpTool(
-      name: 'links_set',
-      description:
-          "Replaces all of the user's own links (read links first and send "
-          'back what you keep). Refused whole if one is wrong.',
-      properties: {
-        'links': {
-          'type': 'array',
-          'items': {'type': 'object'},
+    if (hasLinks)
+      McpTool(
+        name: 'links',
+        description:
+            "The links and how each stands: the user's own (which link_* "
+            "tools write) and every link's state (active, unresolved and "
+            'what it lacks, off, disabled, invalid).',
+        run: (_) async => McpResult.json({
+          'own': (await board.readAll(LinkWords.own))[null] ?? const [],
+          'statuses': await board.readAll(LinkWords.status),
+        }),
+      ),
+    if (writesLinks)
+      McpTool(
+        name: 'link_guide',
+        description: 'How links are written: their shapes, triggers, steps.',
+        run: (_) async => const McpResult(linkGuide),
+      ),
+    if (may(LinkWords.check))
+      McpTool(
+        name: 'link_check',
+        description:
+            'Checks a link without applying it: whether it parses and what of '
+            'the catalog it lacks.',
+        properties: {
+          'link': {'type': 'object'},
         },
-      },
-      required: ['links'],
-      run: (a) => callCommand('links.set', {'links': a['links']}),
-    ),
-    McpTool(
-      name: 'link_try',
-      description:
-          'Runs a reaction with a made-up trigger, its effects marked as a '
-          'test; for a constraint, tells whether it denies now.',
-      properties: {
-        'id': {'type': 'string'},
-      },
-      required: ['id'],
-      run: (a) => callCommand('links.try', {'link': a['id']}),
-    ),
-    McpTool(
-      name: 'link_press',
-      description:
-          'Presses a manual link (a button) and answers when its run ends, '
-          'with why it failed if it did.',
-      properties: {
-        'id': {'type': 'string'},
-        'args': {'type': 'object'},
-      },
-      required: ['id'],
-      run: (a) => callCommand('links.press', {
-        'link': a['id'],
-        'wait': true,
-        if (a['args'] != null) 'args': a['args'],
-      }),
-    ),
+        required: ['link'],
+        run: (a) => callCommand(LinkWords.check, {'link': a['link']}),
+      ),
+    if (may(LinkWords.upsert))
+      McpTool(
+        name: 'link_upsert',
+        description:
+            "Adds a link to the user's own, or replaces the one with its id "
+            "(a host's link of that id is replaced too). One change, kept.",
+        properties: {
+          'link': {'type': 'object'},
+        },
+        required: ['link'],
+        run: (a) => callCommand(LinkWords.upsert, {'link': a['link']}),
+      ),
+    if (may(LinkWords.remove))
+      McpTool(
+        name: 'link_remove',
+        description: "Removes one of the user's own links by id.",
+        properties: {
+          'id': {'type': 'string'},
+        },
+        required: ['id'],
+        run: (a) => callCommand(LinkWords.remove, {'id': a['id']}),
+      ),
+    if (may(LinkWords.set))
+      McpTool(
+        name: 'links_set',
+        description:
+            "Replaces all of the user's own links (read links first and send "
+            'back what you keep). Refused whole if one is wrong.',
+        properties: {
+          'links': {
+            'type': 'array',
+            'items': {'type': 'object'},
+          },
+        },
+        required: ['links'],
+        run: (a) => callCommand(LinkWords.set, {'links': a['links']}),
+      ),
+    if (may(LinkWords.tryOut))
+      McpTool(
+        name: 'link_try',
+        description:
+            'Runs a reaction with a made-up trigger, its effects marked as a '
+            'test; for a constraint, tells whether it denies now.',
+        properties: {
+          'id': {'type': 'string'},
+        },
+        required: ['id'],
+        run: (a) => callCommand(LinkWords.tryOut, {'link': a['id']}),
+      ),
+    if (may(LinkWords.press))
+      McpTool(
+        name: 'link_press',
+        description:
+            'Presses a manual link (a button) and answers when its run ends, '
+            'with why it failed if it did.',
+        properties: {
+          'id': {'type': 'string'},
+          'args': {'type': 'object'},
+        },
+        required: ['id'],
+        run: (a) => callCommand(LinkWords.press, {
+          'link': a['id'],
+          'wait': true,
+          if (a['args'] != null) 'args': a['args'],
+        }),
+      ),
     if (commandTools)
-      for (final c in commands) _commandTool(c, schema, unavailable, board),
+      for (final c in commands) _commandTool(c, schema, callCommand),
   ];
 }
 
+/// A tool of one command. Whether it can run now is not in its
+/// description: that changes with the states, the description does not.
 McpTool _commandTool(
   Map<String, Object?> c,
   Map<String, Object?> Function(Object?) schema,
-  Map<String, Object?> unavailable,
-  Board board,
+  Future<McpResult> Function(String, Map<String, Object?>) call,
 ) {
   final name = c['name'] as String;
   final params = schema(c['params']);
@@ -352,18 +359,62 @@ McpTool _commandTool(
       '${label ?? name} (command $name).',
       if (sets != null) 'Sets the state $sets.',
       if (c['interceptable'] == true) 'Links may run steps before it.',
-      if (unavailable[name] != null) 'Now: ${unavailable[name]}.',
     ].join(' '),
     properties: {
       for (final e in (params['properties'] as Map? ?? const {}).entries)
         e.key as String: (e.value as Map).cast<String, Object?>(),
     },
     required: [for (final r in params['required'] as List? ?? const []) '$r'],
-    run: (a) async => _answer(await board.call(name, a)),
+    run: (a) => call(name, a),
   );
 }
 
-McpResult _answer(CallResult r) => switch (r) {
+/// Why a state is as it is, as an agent reads it: who and through what,
+/// without the wire's ids.
+Map<String, Object?> _why(Explanation e) => {
+  'state': e.state,
+  'key': ?e.key,
+  'value': e.value,
+  if (e.change case final c?)
+    'changed': {
+      'at': c.at.toUtc().toIso8601String(),
+      'from': c.previous,
+      'by': c.cause.by.selector,
+      if (c.cause.chain.isNotEmpty) 'through': c.cause.chain,
+      if (c.cause.test) 'test': true,
+    },
+  if (e.forgotten) 'changed': 'not within what the registry remembers',
+  if (e.trail.isNotEmpty)
+    'trail': [
+      for (final call in e.trail)
+        {
+          'call': call.command,
+          'params': call.params,
+          'by': call.cause.by.selector,
+          if (call.cause.chain.isNotEmpty) 'through': call.cause.chain,
+          if (call.layerDispatch) 'layer': true,
+          if (call.overridden.isNotEmpty) 'overrode': call.overridden,
+          if (call.late) 'late': true,
+        },
+      if (e.trailCut) 'and earlier calls the registry no longer remembers',
+    ],
+  'layers': [for (final l in e.layers) _layer(l)],
+};
+
+Map<String, Object?> _layer(LayerInfo l) => {
+  'id': l.id,
+  'state': l.state,
+  'key': ?l.key,
+  'value': l.value,
+  'owner': l.owner,
+  'by': l.by.selector,
+  'priority': l.priority,
+  'top': l.top,
+  if (l.expiresAt case final at?) 'expiresAt': at.toUtc().toIso8601String(),
+  if (!l.claimed) 'claimed': false,
+};
+
+McpResult _answer(CallResult r, String id) => switch (r) {
   CallDone(:final value) =>
     value == null ? const McpResult('Done.') : McpResult.json(value),
   CallRefused(:final code, :final reason, :final guard, :final overridable) =>
@@ -372,7 +423,15 @@ McpResult _answer(CallResult r) => switch (r) {
       '${overridable ? ' (the user may override it)' : ''}',
     ),
   CallFailed(:final error) => McpResult.error('$error'),
-  CallTimedOut() => const McpResult.error('it took too long'),
+  CallTimedOut() => McpResult.error(
+    'no answer within its deadline; it may still happen. See with read or '
+    'why; call again with id "$id" to learn how it ended (it does not run '
+    'twice).',
+  ),
+  CallLost(:final reason) => McpResult.error(
+    'no answer came back ($reason): whether it ran is unknown. Call again '
+    'with id "$id": it runs at most once.',
+  ),
 };
 
 Future<Object?> _values(

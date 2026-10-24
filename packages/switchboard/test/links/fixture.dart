@@ -47,6 +47,9 @@ base class LinksFixture extends Fixture {
   late final FactEmitter raid;
   late final FactEmitter chat;
   late final Links links;
+
+  /// A second engine a test makes itself, after disposing [links].
+  Links? links2;
   final List<Object?> said = [];
   final List<Principal> sayers = [];
   final List<Object> errors = [];

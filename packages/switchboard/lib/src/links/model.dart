@@ -1,3 +1,4 @@
+import '../link_words.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
@@ -689,7 +690,7 @@ Field _field(Object? v, String what) {
 
 String _ownName(Object? v, String what) {
   final s = _name(v, what);
-  return s.startsWith('my.') ? s : 'my.$s';
+  return s.startsWith(LinkWords.ownPrefix) ? s : '${LinkWords.ownPrefix}$s';
 }
 
 List<Step> _steps(Object? v, String what) => [
