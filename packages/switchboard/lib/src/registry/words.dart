@@ -71,10 +71,39 @@ final class ListShape<T> extends Shape<List<T>> {
   ];
 }
 
+/// A map from text to [value]s.
+final class MapShape<T> extends Shape<Map<String, T>> {
+  const MapShape(this.value, {this.maxEntries});
+
+  final Shape<T> value;
+  final int? maxEntries;
+
+  @override
+  MapType get type => MapType(value.type, maxEntries: maxEntries);
+
+  @override
+  Object? toJson(Map<String, T> v) => {
+    for (final e in v.entries) e.key: value.toJson(e.value),
+  };
+
+  @override
+  Map<String, T> fromJson(Object? json) => {
+    for (final e in (json! as Map<Object?, Object?>).entries)
+      e.key! as String: value.fromJson(e.value),
+  };
+}
+
 /// A field of a [RecordShape].
 final class Part {
-  const Part(this.shape, {bool optional = false, this.defaultValue})
-    : optional = optional || defaultValue != null;
+  const Part(
+    this.shape, {
+    bool optional = false,
+    this.defaultValue,
+    this.description,
+  }) : optional = optional || defaultValue != null;
+
+  /// What it is, for people and agents (a tool's schema says it).
+  final String? description;
 
   final Shape<Object?> shape;
 
@@ -107,6 +136,7 @@ final class RecordShape<T> extends Shape<T> {
         p.shape.type,
         optional: p.optional,
         defaultValue: p.defaultValue,
+        description: p.description,
       ),
   });
 
@@ -133,6 +163,47 @@ final class RecordShape<T> extends Shape<T> {
 
   static Map<String, Object?> _noFields(() _) => const {};
   static () _unit(Map<String, Object?> _) => ();
+}
+
+/// One of several objects as the Dart type [T] (a sealed class, usually),
+/// told apart by the text in field [key]: each variant is a [RecordShape]
+/// of one subtype, named by its tag. [tagOf] names a value's variant.
+final class UnionShape<T> extends Shape<T> {
+  const UnionShape(
+    this.key,
+    this.variants, {
+    required this.tagOf,
+    this.descriptions = const {},
+  });
+
+  final String key;
+  final Map<String, RecordShape<T>> variants;
+  final String Function(T value) tagOf;
+
+  /// What each variant is for, by its tag (a tool's schema says it).
+  final Map<String, String> descriptions;
+
+  @override
+  OneOfType get type => OneOfType(key, {
+    for (final MapEntry(key: tag, value: v) in variants.entries) tag: v.type,
+  }, descriptions: descriptions);
+
+  @override
+  Map<String, Object?> toJson(T value) {
+    final tag = tagOf(value);
+    final v = variants[tag] ?? (throw ArgumentError('no variant $tag'));
+    return {key: tag, ...v.toJson(value)};
+  }
+
+  @override
+  T fromJson(Object? json) {
+    final m = json! as Map<Object?, Object?>;
+    final v = variants[m[key]] ?? (throw FormatException('$key: ${m[key]}'));
+    return v.fromJson({
+      for (final e in m.entries)
+        if (e.key != key) e.key: e.value,
+    });
+  }
 }
 
 /// A state's name, its value's shape and, for a keyed one, the entity kind

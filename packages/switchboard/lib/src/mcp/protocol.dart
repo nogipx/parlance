@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../registry/types.dart';
+import '../registry/words.dart';
+import 'schema.dart';
+
 /// What a tool gives back: text, and pictures (PNG, base64 in MCP).
 final class McpResult {
   const McpResult(this.text, {this.images = const [], this.error = false});
@@ -39,6 +43,40 @@ final class McpTool {
     this.properties = const {},
     this.required = const [],
   });
+
+  /// A tool whose arguments are [params] (SPEC §16): its schema is theirs,
+  /// with each field's description, and [run] gets them checked and typed.
+  /// What does not pass is the agent's error, by path ("ops.2.frame:
+  /// missing"); the tool's description says only what the schema cannot.
+  static McpTool typed<P>({
+    required String name,
+    required String description,
+    required RecordShape<P> params,
+    required Future<McpResult> Function(P args) run,
+  }) {
+    final type = params.type;
+    final schema = jsonSchema(type);
+    return McpTool(
+      name: name,
+      description: description,
+      properties: {
+        for (final e in (schema['properties']! as Map).entries)
+          e.key as String: (e.value as Map).cast<String, Object?>(),
+      },
+      required: [for (final r in schema['required']! as List) r as String],
+      run: (args) async {
+        final P typed;
+        try {
+          typed = params.fromJson(type.check(args, const _Free()));
+        } on TypeMismatch catch (e) {
+          return McpResult.error('$e');
+        } on Object catch (e) {
+          return McpResult.error('$e');
+        }
+        return run(typed);
+      },
+    );
+  }
 
   final String name;
   final String description;
@@ -219,4 +257,18 @@ final class McpSession {
     await _sub.cancel();
     _end();
   }
+}
+
+/// A tool's arguments are checked alone: no kinds or host types to ask.
+final class _Free implements TypeContext {
+  const _Free();
+
+  @override
+  bool hasKind(String kind) => true;
+
+  @override
+  bool hasEntity(String kind, String id) => true;
+
+  @override
+  String? checkCustom(String name, Object? value) => null;
 }

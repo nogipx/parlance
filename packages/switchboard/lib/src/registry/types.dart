@@ -57,6 +57,21 @@ sealed class ValueType<T> {
         for (final e in (json['fields'] as Map).entries)
           e.key as String: Field.fromJson(e.value),
       }),
+      'map' => MapType(
+        ValueType.fromJson(json['value']),
+        maxEntries: n('maxEntries')?.toInt(),
+      ),
+      'oneOf' => OneOfType(
+        json['key'] as String,
+        {
+          for (final e in (json['variants'] as Map).entries)
+            e.key as String: ValueType.fromJson(e.value) as ObjectType,
+        },
+        descriptions: {
+          for (final e in (json['descriptions'] as Map? ?? const {}).entries)
+            e.key as String: e.value as String,
+        },
+      ),
       'custom' => CustomType(json['name'] as String),
       'any' => const AnyType(),
       final t => throw FormatException('unknown type $t'),
@@ -220,8 +235,12 @@ final class ListType extends ValueType<List<Object?>> {
 
 /// A field of an [ObjectType].
 final class Field {
-  const Field(this.type, {bool optional = false, this.defaultValue})
-    : optional = optional || defaultValue != null;
+  const Field(
+    this.type, {
+    bool optional = false,
+    this.defaultValue,
+    this.description,
+  }) : optional = optional || defaultValue != null;
 
   factory Field.fromJson(Object? json) {
     final m = json as Map;
@@ -229,8 +248,12 @@ final class Field {
       ValueType.fromJson(m['type']),
       optional: m['optional'] == true,
       defaultValue: m['default'],
+      description: m['description'] as String?,
     );
   }
+
+  /// What it is, for people and agents.
+  final String? description;
 
   final ValueType<Object?> type;
 
@@ -244,11 +267,12 @@ final class Field {
     'type': type.toJson(),
     if (optional) 'optional': true,
     'default': ?defaultValue,
+    'description': ?description,
   };
 }
 
 /// A map with named fields: unknown ones are refused, left-out optional
-/// ones get their default.
+/// ones (or null) get their default.
 final class ObjectType extends ValueType<Map<String, Object?>> {
   const ObjectType(this.fields);
 
@@ -265,7 +289,9 @@ final class ObjectType extends ValueType<Map<String, Object?>> {
     }
     final out = <String, Object?>{};
     for (final MapEntry(key: k, value: f) in fields.entries) {
-      if (value.containsKey(k)) {
+      // An optional field given as null is left out, as JSON writers often
+      // say it.
+      if (value.containsKey(k) && !(value[k] == null && f.optional)) {
         out[k] = f.type.check(value[k], ctx, at(k));
       } else if (f.defaultValue != null) {
         out[k] = f.type.check(f.defaultValue, ctx, at(k));
@@ -280,6 +306,76 @@ final class ObjectType extends ValueType<Map<String, Object?>> {
   Map<String, Object?> toJson() => {
     'type': 'object',
     'fields': {for (final e in fields.entries) e.key: e.value.toJson()},
+  };
+}
+
+/// A map from any text to values of [value]: files by path, refs by name.
+final class MapType extends ValueType<Map<String, Object?>> {
+  const MapType(this.value, {this.maxEntries});
+
+  final ValueType<Object?> value;
+  final int? maxEntries;
+
+  @override
+  Object? check(Object? v, TypeContext ctx, [String path = '']) {
+    if (v is! Map) ValueType._fail(path, 'expected an object');
+    if (maxEntries case final m? when v.length > m) {
+      ValueType._fail(path, 'more than $m entries');
+    }
+    return {
+      for (final e in v.entries)
+        if (e.key is! String)
+          '${e.key}': ValueType._fail(path, 'keys are text')
+        else
+          e.key as String: value.check(
+            e.value,
+            ctx,
+            path.isEmpty ? '${e.key}' : '$path.${e.key}',
+          ),
+    };
+  }
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'map',
+    'value': value.toJson(),
+    'maxEntries': ?maxEntries,
+  };
+}
+
+/// One of several objects, told apart by the text in field [key]: its value
+/// names the variant, whose fields the rest must pass.
+final class OneOfType extends ValueType<Map<String, Object?>> {
+  const OneOfType(this.key, this.variants, {this.descriptions = const {}});
+
+  final String key;
+  final Map<String, ObjectType> variants;
+
+  /// What each variant is for, by its tag, for people and agents.
+  final Map<String, String> descriptions;
+
+  @override
+  Object? check(Object? value, TypeContext ctx, [String path = '']) {
+    if (value is! Map) ValueType._fail(path, 'expected an object');
+    final tag = value[key];
+    final at = path.isEmpty ? key : '$path.$key';
+    final variant = variants[tag];
+    if (variant == null) {
+      ValueType._fail(at, 'one of ${variants.keys.join(', ')}');
+    }
+    final rest = {
+      for (final e in value.entries)
+        if (e.key != key) e.key: e.value,
+    };
+    return {key: tag, ...variant.check(rest, ctx, path) as Map};
+  }
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'oneOf',
+    'key': key,
+    'variants': {for (final e in variants.entries) e.key: e.value.toJson()},
+    if (descriptions.isNotEmpty) 'descriptions': descriptions,
   };
 }
 

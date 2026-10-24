@@ -4,6 +4,7 @@ import '../registry/messages.dart';
 import '../registry/types.dart';
 import 'board.dart';
 import 'protocol.dart';
+import 'schema.dart';
 
 /// What an agent is told about a switchboard when it connects; a host puts
 /// its own words before it.
@@ -75,7 +76,7 @@ Future<List<McpTool>> switchboardTools(
       may(LinkWords.set.name);
 
   Map<String, Object?> schema(Object? type) =>
-      _schema(ValueType.fromJson(type), kinds);
+      jsonSchema(ValueType.fromJson(type), kinds: kinds);
 
   // Every call has an id, so the agent can be told how to retry it.
   Future<McpResult> callCommand(
@@ -447,49 +448,3 @@ Future<Object?> _values(
 }
 
 /// The JSON Schema of a value of [t]; a ref lists the entities there are.
-Map<String, Object?> _schema(
-  ValueType<Object?> t,
-  Map<String, List<Map<String, Object?>>> kinds,
-) => switch (t) {
-  BoolType() => {'type': 'boolean'},
-  IntType(:final min, :final max) => {
-    'type': 'integer',
-    'minimum': ?min,
-    'maximum': ?max,
-  },
-  NumType(:final min, :final max) => {
-    'type': 'number',
-    'minimum': ?min,
-    'maximum': ?max,
-  },
-  TextType(:final maxLength) => {'type': 'string', 'maxLength': ?maxLength},
-  EnumType(:final values) => {'type': 'string', 'enum': values},
-  DurationType(:final max) => {
-    'type': 'integer',
-    'minimum': 0,
-    'maximum': ?max,
-    'description': 'milliseconds',
-  },
-  RefType(:final kind) => {
-    'type': 'string',
-    'description': 'a $kind',
-    if (kinds[kind] case final e? when e.isNotEmpty)
-      'enum': [for (final x in e) x['id']],
-  },
-  ListType(:final item, :final maxItems) => {
-    'type': 'array',
-    'items': _schema(item, kinds),
-    'maxItems': ?maxItems,
-  },
-  ObjectType(:final fields) => {
-    'type': 'object',
-    'properties': {
-      for (final e in fields.entries) e.key: _schema(e.value.type, kinds),
-    },
-    'required': [
-      for (final e in fields.entries)
-        if (!e.value.optional) e.key,
-    ],
-  },
-  CustomType() || AnyType() => const {},
-};

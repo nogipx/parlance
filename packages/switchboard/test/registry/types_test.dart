@@ -101,4 +101,14 @@ void main() {
       3,
     );
   });
+
+  test('an optional field given as null is left out', () {
+    const t = ObjectType({
+      'a': Field(TextType(), optional: true),
+      'b': Field(IntType(), defaultValue: 3),
+      'c': Field(TextType()),
+    });
+    expect(t.check({'a': null, 'b': null, 'c': 'x'}, ctx), {'b': 3, 'c': 'x'});
+    expect(() => t.check({'c': null}, ctx), throwsA(isA<TypeMismatch>()));
+  });
 }
