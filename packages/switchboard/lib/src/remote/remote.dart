@@ -88,7 +88,7 @@ final class RegistryResponder extends SwitchboardContractPeer {
     final who = by ?? principal;
     if (parent != null) {
       if (_serving[parent] case final c?) return c.causeFor(who);
-      if (registry.recentFact(parent) case final f?) {
+      if (registry.recentFact(parent) case final f? when _reads(f.fact)) {
         return f.cause.child(f.id, by: who);
       }
     }
@@ -153,15 +153,22 @@ final class RegistryResponder extends SwitchboardContractPeer {
       _factFilter == null ? null : Set.unmodifiable(_factFilter!);
 
   /// Whether the session hears a fact that [fact] matches: its feeds carry
-  /// it, or it read the recent of it.
+  /// it (without a subscription, every fact it may hear), or it read the
+  /// recent of it.
   bool hears(bool Function(String fact) fact) =>
-      _factFilter == null || _factFilter!.any(fact) || _read.any(fact);
+      (_factFilter ??
+              [
+                for (final d in registry.catalog)
+                  if (d is FactDescriptor && _reads(d.name)) d.name,
+              ])
+          .any(fact) ||
+      _read.any(fact);
 
-  /// Whether the session may read [state]'s values (its `readers`).
-  bool _reads(String state) => registry.mayRead(principal, state);
+  /// Whether the session may read state [name]'s values, or hear fact
+  /// [name] (its `readers`).
+  bool _reads(String name) => registry.mayRead(principal, name);
 
-  String _unreadable(String state) =>
-      '${principal.selector} may not read $state';
+  String _unreadable(String name) => '${principal.selector} may not read $name';
 
   bool _carries(String state) =>
       (_stateFilter?.contains(state) ?? true) && _reads(state);
@@ -229,7 +236,7 @@ final class RegistryResponder extends SwitchboardContractPeer {
     ];
     final said = [
       for (final f in t.facts)
-        if (facts?.contains(f.fact) ?? true) f,
+        if ((facts?.contains(f.fact) ?? true) && _reads(f.fact)) f,
     ];
     if (changes.isEmpty && said.isEmpty) return null;
     if (from == t.from &&
@@ -249,7 +256,7 @@ final class RegistryResponder extends SwitchboardContractPeer {
   @override
   Future<SbJson> onSubscribe(SbSubscribe request, {RpcContext? context}) async {
     _open();
-    for (final name in request.states ?? const <String>[]) {
+    for (final name in [...?request.states, ...?request.facts]) {
       if (!_reads(name)) _deny(_unreadable(name));
     }
     final n = ++_subscription;
@@ -322,6 +329,7 @@ final class RegistryResponder extends SwitchboardContractPeer {
     if (registry.factDescriptor(request.fact) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no fact ${request.fact}');
     }
+    if (!_reads(request.fact)) _deny(_unreadable(request.fact));
     _read.add(request.fact);
     return SbJson({
       'facts': [

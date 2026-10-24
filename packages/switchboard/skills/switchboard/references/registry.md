@@ -70,7 +70,7 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 ```
 
 - A state has exactly one writer: whoever defined it holds the only write handle.
-- `readers` say who may read its values over remote and the MCP board, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states the principal may not read (`unreadable`), `mayRead(principal, state)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
+- `readers` say who may read its values over remote and the MCP board, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.
 - Removing a key or the whole state is a change like any other.
@@ -95,9 +95,10 @@ CommandDescriptor {
 ### 6.3 Facts
 
 ```
-FactDescriptor { name, type, open: bool, meta }
+FactDescriptor { name, type, open: bool, readers: { selector: allow | deny }?, meta }
 ```
 
+- `readers` say who may hear it over remote and the MCP board, as a state's (§6.1).
 - The definer holds an emit handle. When `open`, the host may hand more emit handles for the same fact to other producers (the chat of several platforms).
 - A fact has an id. A fact whose id was already seen within the dedup window is dropped: producers may retry.
 

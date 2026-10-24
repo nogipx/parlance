@@ -212,6 +212,27 @@ void main() {
       });
     });
 
+    test('a fact it may not hear: no recent of it', () async {
+      f.r
+          .defineFact(
+            FactDescriptor(
+              'studio.whisper',
+              type: const TextType(),
+              readers: const Callers({'agent': Access.deny, '*': Access.allow}),
+            ),
+            by: owner,
+          )
+          .emit('psst');
+      expect(
+        (await c.call('recent_facts', {'fact': 'studio.whisper'})).error,
+        isTrue,
+      );
+      await expectLater(
+        LocalBoard(f.r, by: agent).recentFacts('studio.whisper', 5),
+        throwsStateError,
+      );
+    });
+
     test('initialize tells the server and how to work', () async {
       final r = await c.request('initialize', {
         'protocolVersion': '2025-06-18',

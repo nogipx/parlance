@@ -445,10 +445,17 @@ final class FactOf<T> {
   FactEmitterOf<T> define({
     required Principal by,
     bool open = false,
+    Callers? readers,
     Map<String, Object?> meta = const {},
   }) => FactEmitterOf._(
     registry.defineFact(
-      FactDescriptor(word.name, type: word.shape.type, open: open, meta: meta),
+      FactDescriptor(
+        word.name,
+        type: word.shape.type,
+        open: open,
+        readers: readers,
+        meta: meta,
+      ),
       by: by,
     ),
     word.shape,

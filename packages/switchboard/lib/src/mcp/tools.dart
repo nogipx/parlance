@@ -59,8 +59,8 @@ Future<List<McpTool>> switchboardTools(
     for (final c in descriptors)
       if (c['is'] == 'command' && (access[c['name']] ?? 'deny') != 'deny') c,
   ];
-  // The states whose values it may read: the others are in the catalog,
-  // their values not.
+  // The states whose values it may read and the facts it may hear: the
+  // others are in the catalog, their values not.
   final unreadable = {...?(d['unreadable'] as List?)?.cast<String>()};
   final states = [
     for (final s in descriptors)
@@ -68,7 +68,7 @@ Future<List<McpTool>> switchboardTools(
   ];
   final facts = [
     for (final f in descriptors)
-      if (f['is'] == 'fact') f,
+      if (f['is'] == 'fact' && !unreadable.contains(f['name'])) f,
   ];
 
   bool may(String command) => commands.any((c) => c['name'] == command);

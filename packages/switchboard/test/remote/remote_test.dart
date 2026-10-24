@@ -433,6 +433,63 @@ void main() {
           ]);
         });
 
+        test('a fact with readers: a session it does not name hears it not, '
+            'nor its recent, nor follows from it', () async {
+          final whisper = f.r.defineFact(
+            FactDescriptor(
+              'kittens.whisper',
+              type: const TextType(),
+              readers: const Callers({
+                'plugin:kittens': Access.allow,
+                'plugin': Access.deny,
+                '*': Access.allow,
+              }),
+            ),
+            by: owner,
+          );
+          final other = Link.open(
+            f.r,
+            const Principal('plugin', 'daycare'),
+            wire: wire,
+          );
+          final own = Link.open(f.r, plugin, wire: wire);
+          addTearDown(other.close);
+          addTearDown(own.close);
+          final heard = <String, List<Object?>>{'other': [], 'own': []};
+          for (final (who, l) in [('other', other), ('own', own)]) {
+            final sub = l.client.feed().listen((i) {
+              if (i case RemoteTick(:final tick)) {
+                heard[who]!.addAll(tick.facts.map((m) => m.payload));
+              }
+            });
+            addTearDown(sub.cancel);
+          }
+          await settle();
+          whisper.emit('psst', id: 'w1');
+          await settle();
+          expect(heard, {
+            'other': <Object?>[],
+            'own': ['psst'],
+          });
+          expect(
+            await status(other.client.recent('kittens.whisper', 5)),
+            RpcStatus.permissionDenied,
+          );
+          expect(
+            await status(other.client.subscribe(facts: ['kittens.whisper'])),
+            RpcStatus.permissionDenied,
+          );
+          expect(other.session.hears((x) => x == 'kittens.whisper'), isFalse);
+          expect(own.session.hears((x) => x == 'kittens.whisper'), isTrue);
+          expect(
+            [
+              for (final m in await own.client.recent('kittens.whisper', 5))
+                m.payload,
+            ],
+            ['psst'],
+          );
+        });
+
         test('the session it names reads it, and so does the crew', () async {
           final own = Link.open(f.r, plugin, wire: wire);
           addTearDown(own.close);

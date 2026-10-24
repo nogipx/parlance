@@ -235,6 +235,7 @@ final class FactDescriptor extends Descriptor {
     String name, {
     required this.type,
     this.open = false,
+    this.readers,
     Map<String, Object?> meta = const {},
   }) : super(name, meta);
 
@@ -242,6 +243,7 @@ final class FactDescriptor extends Descriptor {
     m['name'] as String,
     type: ValueType.fromJson(m['type']),
     open: m['open'] == true,
+    readers: m['readers'] == null ? null : Callers.fromJson(m['readers']),
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 
@@ -250,12 +252,17 @@ final class FactDescriptor extends Descriptor {
   /// More producers than the definer may emit it.
   final bool open;
 
+  /// Who may hear it over remote and the MCP board, as a state's
+  /// [StateDescriptor.readers]; null for everyone.
+  final Callers? readers;
+
   @override
   Map<String, Object?> toJson() => {
     'is': 'fact',
     'name': name,
     'type': type.toJson(),
     if (open) 'open': true,
+    'readers': ?readers?.toJson(),
     if (meta.isNotEmpty) 'meta': meta,
   };
 }

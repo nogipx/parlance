@@ -415,15 +415,19 @@ final class Registry implements TypeContext {
     'kinds': [for (final k in _kinds.values) k.toJson()],
   };
 
-  /// Whether [by] may read [state]'s values over remote and the MCP board
-  /// (its `readers`); true for a state there is not.
-  bool mayRead(Principal by, String state) =>
-      _states[state]?.descriptor.readers?.allows(by) ?? true;
+  /// Whether [by] may read state [name]'s values, or hear fact [name], over
+  /// remote and the MCP board (its `readers`); true for a word there is
+  /// not.
+  bool mayRead(Principal by, String name) =>
+      (_states[name]?.descriptor.readers ?? _facts[name]?.readers)?.allows(
+        by,
+      ) ??
+      true;
 
   /// The catalog as [by] sees it: [describe], with what [by] may call
   /// (`access`: command to allow, warn or deny), the commands that cannot
   /// run now, and why (`unavailable`), and the states whose values it may
-  /// not read (`unreadable`).
+  /// not read and the facts it may not hear (`unreadable`).
   Map<String, Object?> describeFor(Principal by) => {
     ...describe(),
     if (_unreadable(by) case final u when u.isNotEmpty) 'unreadable': u,
@@ -439,6 +443,8 @@ final class Registry implements TypeContext {
   List<String> _unreadable(Principal by) => [
     for (final s in _states.values)
       if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
+    for (final f in _facts.values)
+      if (!(f.readers?.allows(by) ?? true)) f.name,
   ];
 
   /// Registers an entity kind (SPEC §3); withdraw it with the handle.

@@ -95,8 +95,10 @@ final class LocalBoard implements Board {
   }) => registry.call(command, params, by: by, id: id);
 
   @override
-  Future<List<FactMessage>> recentFacts(String fact, int n) async =>
-      registry.recent(fact, n);
+  Future<List<FactMessage>> recentFacts(String fact, int n) async {
+    _mayRead(fact);
+    return registry.recent(fact, n);
+  }
 
   @override
   Future<Explanation> why(String state, {String? key}) async {
