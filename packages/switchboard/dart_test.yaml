@@ -1,0 +1,2 @@
+# Pure Dart and quick: a few files at a time is enough.
+concurrency: 4
