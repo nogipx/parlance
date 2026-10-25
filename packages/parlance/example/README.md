@@ -1,3 +1,17 @@
+# Examples
+
+## Level by level
+
+One small domain, a player's volume, on every level. `levels/player.dart` holds its words and a `Knob`: a part of the app that knows only the five interfaces and so runs on every level unchanged.
+
+| Run | What it shows |
+|---|---|
+| `dart run example/levels/level0_core.dart` | The core: a `Cell`, a `Port` and a `Signal` in one process. One writer per state, a late listener still sees the value now. |
+| `dart run example/levels/level1_registry.dart` | The registry: the same knob on named, typed words. A guest is refused, a value out of range is refused, `explain` tells who called and who wrote. |
+| `dart run example/levels/level2_links.dart` | Links: a limiter kept as data turns the volume back when it clips; the cause names the link. |
+| `dart run example/levels/level3_remote.dart` | Over the network: a phone calls and reads the same words through rpc_dart, acting as the principal the host gave it. |
+| `dart run example/levels/level4_agent.dart` | An agent: the vocabulary as MCP tools; the agent learns the words from the catalog and calls one. |
+
 # A house on parlance
 
 A small host from start to end: a house with rooms, lights, heating, a door and a doorbell. Run it:

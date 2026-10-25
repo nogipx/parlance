@@ -1,5 +1,5 @@
 name: parlance
-description: "A registry of states, commands and facts that participants share without knowing each other, links between them (reactions, bindings, constraints, interceptions), and the registry over rpc_dart."
+description: "A shared language for app parts that do not know each other: owned states, commands and facts, with rights, causes and links."
 publish_to: none
 resolution: workspace
 
