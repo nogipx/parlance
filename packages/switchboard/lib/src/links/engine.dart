@@ -274,6 +274,16 @@ final class Links {
   late final Callers _managers;
   late final StateWriterOf<LinkStanding> _status;
   late final StateWriterOf<List<ControlView>> _controls;
+  var _stats = LinksStats._();
+
+  /// What the engine's work on ticks has cost since the last call, and
+  /// starts counting afresh: for a host to log, not to decide on.
+  LinksStats takeStats() {
+    final s = _stats;
+    _stats = LinksStats._();
+    return s;
+  }
+
   Object? _controlsJson;
   late final FactEmitterOf<LinkDisabled> _disabledFact;
   final List<Handle> _handles = [];
@@ -602,6 +612,7 @@ final class Links {
   /// Writes [controls] as `links.controls` when they changed: for clients
   /// that see only the registry (a phone over remote).
   void _publishControls() {
+    final sw = Stopwatch()..start();
     try {
       final now = [
         for (final c in controls())
@@ -619,6 +630,8 @@ final class Links {
       _controls.set(now);
     } on Object catch (e, st) {
       _onError(e, st);
+    } finally {
+      _stats.controls(sw.elapsedMicroseconds);
     }
   }
 
@@ -1000,6 +1013,15 @@ final class Links {
   // --- Evaluation ------------------------------------------------------------
 
   void _onTick(Tick t) {
+    final sw = Stopwatch()..start();
+    try {
+      _onTickTimed(t);
+    } finally {
+      _stats.tick(sw.elapsedMicroseconds);
+    }
+  }
+
+  void _onTickTimed(Tick t) {
     for (final c in t.changes) {
       if (c.removed) {
         _view.remove((c.state, c.key));
@@ -1572,5 +1594,52 @@ final class _Waiter {
     } else if (until.condition case final c? when evaluateWith(c, read)) {
       done.complete();
     }
+  }
+}
+
+/// What a links engine's work cost over a while ([Links.takeStats]): the
+/// ticks it handled and how long each took (the controls worked out again
+/// after one included), and the controls on their own, in microseconds.
+final class LinksStats {
+  LinksStats._();
+
+  final DateTime since = DateTime.now();
+  int ticks = 0;
+  int tickTotalUs = 0;
+  int tickMaxUs = 0;
+  int controlRuns = 0;
+  int controlTotalUs = 0;
+  int controlMaxUs = 0;
+
+  /// Ticks by how long they took: under 50, 100, 250, 500, 1000, 5000 us,
+  /// and longer.
+  final List<int> tickBuckets = List.filled(7, 0);
+  static const bucketLimitsUs = [50, 100, 250, 500, 1000, 5000];
+
+  void tick(int us) {
+    ticks++;
+    tickTotalUs += us;
+    if (us > tickMaxUs) tickMaxUs = us;
+    var b = 0;
+    while (b < bucketLimitsUs.length && us >= bucketLimitsUs[b]) {
+      b++;
+    }
+    tickBuckets[b]++;
+  }
+
+  void controls(int us) {
+    controlRuns++;
+    controlTotalUs += us;
+    if (us > controlMaxUs) controlMaxUs = us;
+  }
+
+  @override
+  String toString() {
+    String mean(int total, int n) =>
+        n == 0 ? '-' : (total / n).toStringAsFixed(1);
+    return '$ticks ticks, mean ${mean(tickTotalUs, ticks)} us, max '
+        '$tickMaxUs us, by us <50/<100/<250/<500/<1000/<5000/more: '
+        '${tickBuckets.join('/')}; controls worked out $controlRuns times, '
+        'mean ${mean(controlTotalUs, controlRuns)} us, max $controlMaxUs us';
   }
 }

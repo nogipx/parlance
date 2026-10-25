@@ -85,6 +85,8 @@ A reaction someone can press is a control: a button on a desk, a phone, a deck. 
 
 The engine keeps them as the state `links.controls` too (`LinkWords.controls`: a list of `{id, name, look, lit, unavailable}`), written whenever they change. A client that sees only the registry (a phone over remote, through a mirror) draws its buttons from it.
 
+`links.takeStats()` answers what the engine's work on ticks cost since the last call (ticks, their time in microseconds by bucket, the controls worked out again) and counts afresh: for a host to log.
+
 `registry.pressLink(id, by:)` presses and waits for the run to end. It answers null when the run went through, else why not: the press was refused, the link did not run, or the run failed. Over remote, `client.command(LinkWords.press)` answers a `CallResult<LinkOutcome>` and `whyNotPressed` says the same.
 
 ## 15. Links the user keeps

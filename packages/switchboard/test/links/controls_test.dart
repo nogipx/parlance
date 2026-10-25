@@ -152,6 +152,21 @@ void main() {
     expect(held()[1].lit, isTrue);
   });
 
+  test(
+    'the engine says what its work on ticks cost, and counts afresh',
+    () async {
+      f.links.takeStats();
+      f.muted.set(true);
+      f.muted.set(false);
+      await Future<void>.delayed(Duration.zero);
+      final s = f.links.takeStats();
+      expect(s.ticks, greaterThanOrEqualTo(2));
+      expect(s.tickBuckets.fold(0, (a, b) => a + b), s.ticks);
+      expect(s.controlRuns, greaterThanOrEqualTo(2));
+      expect(f.links.takeStats().ticks, 0);
+    },
+  );
+
   test('a press answers when its run ended, or why not', () async {
     expect(await f.r.pressLink('main', by: user), isNull);
     expect(f.r.read('studio.program'), 'main');
