@@ -345,6 +345,7 @@ final class Registry implements ITypeContext {
     this.dedupWindow = const Duration(minutes: 10),
     this.retainTicks = 1000,
     this.recentPerFact = 100,
+    this.retainBytes = 4 << 20,
     this.claimGrace = const Duration(seconds: 30),
     Set<String> overriders = const {},
     Clock? clock,
@@ -367,6 +368,13 @@ final class Registry implements ITypeContext {
 
   /// How many facts of each name [recent] keeps.
   final int recentPerFact;
+
+  /// About how many bytes of values each history keeps: the retained ticks,
+  /// the call records, the recent facts of each name. Whichever bound comes
+  /// first, this or the count, drops the oldest, and the newest is
+  /// always kept, however big; a feed behind what is kept
+  /// resumes from a snapshot. Values are weighed as their JSON, roughly.
+  final int retainBytes;
 
   /// How long imported layers wait to be claimed (SPEC §8).
   final Duration claimGrace;
@@ -670,7 +678,9 @@ final class Registry implements ITypeContext {
 
   final StreamController<Tick> _ticks = StreamController.broadcast();
   final ListQueue<Tick> _retained = ListQueue();
-  final Map<String, ListQueue<FactMessage>> _recent = {};
+  final ListQueue<int> _retainedWeights = ListQueue();
+  int _retainedBytes = 0;
+  final Map<String, _RecentFacts> _recent = {};
 
   /// Every commit, in seq order, delivered asynchronously.
   Stream<Tick> get ticks => _ticks.stream;
@@ -744,15 +754,27 @@ final class Registry implements ITypeContext {
       changes: List.unmodifiable(changes),
       facts: List.unmodifiable(committed),
     );
+    var weight = 0;
+    for (final c in changes) {
+      weight += jsonWeight(c.value) + jsonWeight(c.previous);
+    }
+    for (final f in committed) {
+      weight += jsonWeight(f.payload);
+    }
     _retained.add(tick);
-    while (_retained.length > retainTicks) {
+    _retainedWeights.add(weight);
+    _retainedBytes += weight;
+    while (_retained.length > retainTicks ||
+        (_retained.length > 1 && _retainedBytes > retainBytes)) {
       _retained.removeFirst();
+      _retainedBytes -= _retainedWeights.removeFirst();
       _forgotTicks = true;
     }
     for (final f in committed) {
-      final q = _recent.putIfAbsent(f.fact, ListQueue.new);
+      final q = _recent.putIfAbsent(f.fact, _RecentFacts.new);
       q.add(f);
-      while (q.length > recentPerFact) {
+      while (q.length > recentPerFact ||
+          (q.length > 1 && q.bytes > retainBytes)) {
         q.removeFirst();
       }
     }
@@ -782,20 +804,41 @@ final class Registry implements ITypeContext {
   /// there is none.
   Stream<Object?> watch(String state, {String? key}) {
     state = canonical(state);
+    final at = (state, key);
     late StreamController<Object?> out;
-    StreamSubscription<Tick>? sub;
     out = StreamController<Object?>(
       onListen: () {
         out.add(read(state, key: key));
-        sub = ticks.listen((t) {
-          for (final c in t.changes) {
-            if (c.state == state && c.key == key) out.add(c.value);
-          }
-        });
+        (_watchers[at] ??= {}).add(out);
+        _watching ??= ticks.listen(_toWatchers);
       },
-      onCancel: () => sub?.cancel(),
+      onCancel: () {
+        final set = _watchers[at];
+        if (set == null) return;
+        set.remove(out);
+        if (set.isEmpty) _watchers.remove(at);
+        if (_watchers.isEmpty) {
+          _watching?.cancel();
+          _watching = null;
+        }
+      },
     );
     return out.stream;
+  }
+
+  /// Who watches which state (of which key): a change reaches only its own
+  /// watchers, however many watch other states.
+  final Map<(String, String?), Set<StreamController<Object?>>> _watchers = {};
+  StreamSubscription<Tick>? _watching;
+
+  void _toWatchers(Tick t) {
+    for (final c in t.changes) {
+      final set = _watchers[(c.state, c.key)];
+      if (set == null) continue;
+      for (final out in [...set]) {
+        out.add(c.value);
+      }
+    }
   }
 
   /// Facts as they are committed, of [fact] only when given.
@@ -818,7 +861,7 @@ final class Registry implements ITypeContext {
   /// (a remote participant's answer to it) takes its cause.
   FactMessage? recentFact(String id) {
     for (final q in _recent.values) {
-      for (final m in q) {
+      for (final m in q._q) {
         if (m.id == id) return m;
       }
     }
@@ -913,6 +956,11 @@ final class Registry implements ITypeContext {
   Stream<CallRecord> get calls => _records.stream;
 
   final LinkedHashMap<String, CallRecord> _recentCalls = LinkedHashMap();
+  int _recentCallBytes = 0;
+
+  static int _callWeight(CallRecord r) =>
+      jsonWeight(r.params) +
+      (r.result is CallDone ? jsonWeight((r.result as CallDone).value) : 16);
 
   // Whether retention dropped ticks or call records: what explain cannot
   // find may be forgotten rather than never there.
@@ -921,8 +969,11 @@ final class Registry implements ITypeContext {
 
   void _remember(CallRecord record) {
     _recentCalls[record.id] = record;
-    while (_recentCalls.length > retainTicks) {
-      _recentCalls.remove(_recentCalls.keys.first);
+    _recentCallBytes += _callWeight(record);
+    while (_recentCalls.length > retainTicks ||
+        (_recentCalls.length > 1 && _recentCallBytes > retainBytes)) {
+      final first = _recentCalls.keys.first;
+      _recentCallBytes -= _callWeight(_recentCalls.remove(first)!);
       _forgotCalls = true;
     }
     _records.add(record);
@@ -1574,4 +1625,21 @@ final class _Seen {
   final Object? params;
   final Principal by;
   Future<CallResult<Object?>> result;
+}
+
+/// The recent facts of one name, and about how much they weigh.
+final class _RecentFacts {
+  final ListQueue<FactMessage> _q = ListQueue();
+  int bytes = 0;
+
+  int get length => _q.length;
+
+  void add(FactMessage f) {
+    _q.add(f);
+    bytes += jsonWeight(f.payload);
+  }
+
+  void removeFirst() => bytes -= jsonWeight(_q.removeFirst().payload);
+
+  List<FactMessage> toList() => _q.toList();
 }

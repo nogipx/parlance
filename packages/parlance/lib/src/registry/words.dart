@@ -66,9 +66,9 @@ final class ListShape<T> extends Shape<List<T>> {
   Object? toJson(List<T> value) => [for (final v in value) item.toJson(v)];
 
   @override
-  List<T> fromJson(Object? json) => [
+  List<T> fromJson(Object? json) => List.unmodifiable([
     for (final v in json! as List<Object?>) item.fromJson(v),
-  ];
+  ]);
 }
 
 /// [of], or null.
@@ -103,10 +103,10 @@ final class MapShape<T> extends Shape<Map<String, T>> {
   };
 
   @override
-  Map<String, T> fromJson(Object? json) => {
+  Map<String, T> fromJson(Object? json) => Map.unmodifiable({
     for (final e in (json! as Map<Object?, Object?>).entries)
       e.key! as String: value.fromJson(e.value),
-  };
+  });
 }
 
 /// A field of a [RecordShape].
@@ -246,10 +246,22 @@ abstract interface class IFactWord<T> {
   Shape<T> get shape;
 }
 
+final Expando<(Shape<Object?>, Object?)> _decoded = Expando('decoded');
+
 /// A state's value from its JSON, wherever it was read (a registry, a
 /// mirror).
 extension StateValues<T> on IStateWord<T> {
-  T? decode(Object? json) => json == null ? null : shape.fromJson(json);
+  T? decode(Object? json) {
+    if (json == null) return null;
+    // A registry's values are frozen, so one decoded value serves every
+    // read of the same JSON; a write puts another JSON there.
+    if (json is! List && json is! Map) return shape.fromJson(json);
+    final cached = _decoded[json];
+    if (cached != null && identical(cached.$1, shape)) return cached.$2 as T;
+    final value = shape.fromJson(json);
+    _decoded[json] = (shape, value);
+    return value;
+  }
 }
 
 /// A command's answer from what a call ended with, wherever it was called

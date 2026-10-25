@@ -189,7 +189,7 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 - Without `since`, or with another epoch, or with a seq older than the retained ticks: first a **snapshot** (every state value, the catalog, the epoch and seq), then live ticks. A snapshot after a gap says `factsLost: true`.
 - With a seq still retained: the retained ticks after it, then live ticks, with no gap and no repeat.
-- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)`. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
+- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)`, the call records as many as ticks; each of these histories also keeps no more than about `retainBytes` (default 4 MB) of values, weighed roughly as their JSON. Whichever bound comes first drops the oldest, but the newest of each history is kept however big, so a big value rewritten often is not held in every version. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
 
 ## 17. Versions
 
@@ -205,5 +205,7 @@ The registry keeps names and JSON, as links, remote and agents see it. A host na
 - **Through the registry.** `state(word)` defines (`StateWriterOf<T>`), reads, watches; `command(word)` defines with a handler that gets typed params (`CommandCallOf<P>`) and returns `R`, and calls with `P`, answering `CallResult<R>`; `fact(word)` defines (`FactEmitterOf<T>`), streams and lists `Fact<T>`. Refusals, failures, `timedOut` and `lost` are `CallResult<Never>`, so they end a call of any answer type.
 - **The word fixes the types.** A call is made on what `command(word)` gives, never by a generic function taking a word and params together: Dart's generics are covariant, so such a function would infer a common supertype of two different records and compile a call with another command's params.
 - An answer that does not decode as the word says is `failed`.
+- A state's value decodes once per value: reads and watches of the same value share one decoded Dart value, so the lists and maps a shape decodes are unmodifiable.
+- A change reaches only the watchers of its state and key: a write costs the same however many watch other states or keys.
 - **As the core sees them.** The typed handles are the core's interfaces (§21.6): `StateOf.reader`, `StateWriterOf` and its `at`, `CommandOf.caller(by:)` (`CallNotDone` for a call not done), `FactEmitterOf`, `FactOf.listener`. Names and keys of entity kinds stay strings, and so do references in link params (`$trigger.…`).
 

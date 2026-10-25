@@ -153,5 +153,46 @@ void main() {
       expect(items, isEmpty, reason: 'nothing new since');
       await sub.cancel();
     });
+
+    test('a big value rewritten is not kept in every version', () async {
+      final r = Registry(retainBytes: 10000);
+      final w = r.defineState(
+        StateDescriptor('x.doc', type: const AnyType()),
+        by: owner,
+      );
+      for (var i = 0; i < 5; i++) {
+        w.set({'v': i, 'text': 'x' * 4000});
+      }
+      final old = await r.feed(epoch: r.epoch, since: 1).first;
+      expect(old, isA<Snapshot>(), reason: 'the oldest ticks were dropped');
+      final recent = r.feed(epoch: r.epoch, since: r.seq - 1);
+      final items = <FeedItem>[];
+      final sub = recent.listen(items.add);
+      await pumpEventQueue();
+      expect(items.single, isA<Tick>(), reason: 'the last one is kept');
+      await sub.cancel();
+    });
+
+    test('the newest is kept however big', () async {
+      final r = Registry(retainBytes: 100);
+      final w = r.defineState(
+        StateDescriptor('x.doc', type: const AnyType()),
+        by: owner,
+      );
+      final f = r.defineFact(
+        FactDescriptor('x.big', type: const AnyType()),
+        by: owner,
+      );
+      w.set({'text': 'x' * 4000});
+      w.set({'text': 'y' * 4000});
+      f.emit({'text': 'z' * 4000});
+      expect(r.recent('x.big'), hasLength(1));
+      final feed = r.feed(epoch: r.epoch, since: r.seq - 1);
+      final items = <FeedItem>[];
+      final sub = feed.listen(items.add);
+      await pumpEventQueue();
+      expect(items.single, isA<Tick>());
+      await sub.cancel();
+    });
   });
 }

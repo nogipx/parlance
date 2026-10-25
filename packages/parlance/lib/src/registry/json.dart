@@ -72,3 +72,31 @@ Object? jsonAt(Object? root, String path) {
   }
   return at;
 }
+
+final Expando<int> _weights = Expando('weight');
+
+/// About how many bytes [v] takes as JSON. A value's weight is kept with
+/// it, so a value shared by many histories is weighed once.
+int jsonWeight(Object? v) =>
+    v is List || v is Map ? _weights[v!] ??= _weigh(v) : _weigh(v);
+
+int _weigh(Object? v) {
+  switch (v) {
+    case String():
+      return 16 + v.length;
+    case List():
+      var n = 16;
+      for (var i = 0; i < v.length; i++) {
+        n += _weigh(v[i]);
+      }
+      return n;
+    case Map<String, Object?>():
+      var n = 16;
+      for (final MapEntry(:key, :value) in v.entries) {
+        n += 16 + key.length + _weigh(value);
+      }
+      return n;
+    default:
+      return 8;
+  }
+}
