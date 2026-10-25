@@ -73,6 +73,26 @@ final class LinkStatus {
 }
 
 /// A definition that could not be taken.
+/// Where a link came from: the source that brought it ([Links.source]),
+/// null for one of the user's own; [edited] when the user's own replaces
+/// the source's.
+final class LinkOrigin {
+  const LinkOrigin(this.source, {this.edited = false});
+
+  final String? source;
+  final bool edited;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LinkOrigin && other.source == source && other.edited == edited;
+
+  @override
+  int get hashCode => Object.hash(source, edited);
+
+  @override
+  String toString() => 'LinkOrigin($source${edited ? ', edited' : ''})';
+}
+
 final class LinkProblem {
   const LinkProblem(this.id, this.message);
   final String? id;
@@ -222,6 +242,13 @@ final class Links {
   /// The host's sets of links, by name, in the order they came: read-only
   /// to the user, who changes one by an own link of the same id.
   final Map<String, List<Map<String, Object?>>> _sources = {};
+
+  /// The sources turned off: their links, and the user's own that replace
+  /// them, are off.
+  final Set<String> _off = {};
+
+  /// Where each link came from, as of the last composition.
+  final Map<String, LinkOrigin> _origins = {};
   List<Map<String, Object?>> _own = const [];
   late final StateWriterOf<List<Object?>> _ownState;
 
@@ -290,16 +317,35 @@ final class Links {
     _reconcile();
   }
 
-  /// Sets the host's links named [name]: its own, an extension's. The
-  /// user's own links come after every source; one with the id of a
-  /// source's link replaces it. Answers what could not be taken.
-  List<LinkProblem> source(String name, List<Object?> definitions) {
+  /// Sets the host's links named [name]: its own, an extension's, a
+  /// plugin's. The user's own links come after every source; one with the
+  /// id of a source's link replaces it. Not [on], the source's links are
+  /// off, and so are the user's own that replace them: a plugin turned off
+  /// takes its links with it, as the user changed them too. Answers what
+  /// could not be taken.
+  List<LinkProblem> source(
+    String name,
+    List<Object?> definitions, {
+    bool on = true,
+  }) {
     _sources[name] = [
       for (final d in definitions)
         if (d is Map) d.cast<String, Object?>(),
     ];
+    on ? _off.remove(name) : _off.add(name);
     return _compose();
   }
+
+  /// Withdraws source [name]: its links go; the user's own that replaced
+  /// them stay, as the user's.
+  List<LinkProblem> dropSource(String name) {
+    _off.remove(name);
+    if (_sources.remove(name) == null) return problems;
+    return _compose();
+  }
+
+  /// Where link [id] came from; null for no such link.
+  LinkOrigin? originOf(String id) => _origins[id];
 
   /// Loads the user's own links from [store] again, when the host changed
   /// them (an undo).
@@ -421,11 +467,22 @@ final class Links {
 
   List<LinkProblem> _compose() {
     final own = {for (final l in _own) l['id']: l};
-    final defs = <Object?>[
-      for (final set in _sources.values)
-        for (final d in set) own.remove(d['id']) ?? d,
-      ...own.values,
-    ];
+    _origins.clear();
+    final defs = <Object?>[];
+    for (final MapEntry(key: name, value: set) in _sources.entries) {
+      for (final d in set) {
+        final mine = own.remove(d['id']);
+        final def = mine ?? d;
+        if (d['id'] case final String id) {
+          _origins[id] = LinkOrigin(name, edited: mine != null);
+        }
+        defs.add(_off.contains(name) ? {...def, 'enabled': false} : def);
+      }
+    }
+    for (final l in own.values) {
+      if (l['id'] case final String id) _origins[id] = const LinkOrigin(null);
+      defs.add(l);
+    }
     return problems = _apply(defs);
   }
 

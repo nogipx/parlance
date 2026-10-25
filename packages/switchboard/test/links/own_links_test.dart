@@ -72,6 +72,31 @@ void main() {
     },
   );
 
+  test("a source turned off takes its links with it, the user's own that "
+      'replace them too; dropped, those stay the user\'s', () async {
+    links.source('plugin:kittens', [say('k.a', 'a'), say('k.b', 'b')]);
+    await f.r.call('links.upsert', {'link': say('k.a', 'own a')}, by: user);
+    expect(
+      links.originOf('k.a'),
+      const LinkOrigin('plugin:kittens', edited: true),
+    );
+    expect(links.originOf('k.b'), const LinkOrigin('plugin:kittens'));
+    expect(links.originOf('mine'), const LinkOrigin(null));
+    links.source('plugin:kittens', [
+      say('k.a', 'a'),
+      say('k.b', 'b'),
+    ], on: false);
+    expect(links.statuses['k.a']!.state, LinkState.off);
+    expect(links.statuses['k.b']!.state, LinkState.off);
+    links.source('plugin:kittens', [say('k.a', 'a'), say('k.b', 'b')]);
+    await press('k.a');
+    expect(f.said, ['own a']);
+    links.dropSource('plugin:kittens');
+    expect(links.links.keys, ['mine', 'k.a']);
+    expect(links.originOf('k.a'), const LinkOrigin(null));
+    expect(links.originOf('k.b'), isNull);
+  });
+
   test('set, upsert and remove go through the store', () async {
     expect(
       (await f.r.call('links.set', {

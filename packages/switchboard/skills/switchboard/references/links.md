@@ -87,7 +87,7 @@ A reaction someone can press is a control: a button on a desk, a phone, a deck. 
 
 ## 15. Links the user keeps
 
-The engine composes the links it runs from the host's **sources** (named sets, read-only to the user: `source(name, definitions)`) and the user's **own** links, in that order. An own link with the id of a source's link replaces it in its place; with `enabled: false` it turns it off.
+The engine composes the links it runs from the host's **sources** (named sets, read-only to the user: `source(name, definitions)`) and the user's **own** links, in that order. An own link with the id of a source's link replaces it in its place; with `enabled: false` it turns it off. A source set with `on: false` is off: its links and the own links replacing them are composed off (a plugin turned off takes its links, as the user changed them, with it). `dropSource(name)` withdraws one; own links that replaced its links stay, as the user's. `originOf(id)` tells where a link came from (`LinkOrigin`: the source, null for an own one, and `edited` when an own one replaces the source's).
 
 Own links live in a `LinksStore` the host gives: loaded at start and on `reloadOwn()` (the host changed them, an undo), saved on every change made through the engine's commands:
 
