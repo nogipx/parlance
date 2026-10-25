@@ -13,6 +13,16 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Entity kind**, **entity** (§3): what keys and refs point at. The host registers a kind with a function listing its entities, each an `EntityRef(id, label, meta)`; it says `entitiesChanged` when the list changes.
 - **`meta`** (§3, §6): what else the host tells of an entity or a word (a label, a unit, the type of value an entity takes), for editors and agents.
 
+## Core
+
+- **Core** (§21): the level everything stands on: typed cells, signals and ports and the hub that commits them; no names, no JSON, no principals. `package:switchboard/core.dart`.
+- **Hub** (§21.1): commits the writes and emits of its cells and signals in ticks, numbers them with seq; `batch`, `onCommit`, `ticks`.
+- **Tag** (§21.1): what a writer gives with a write or an emit, carried unread into the tick; the registry carries causes in it.
+- **Cell**, **keyed cell** (§21.2): one value, or one value per key, with one writer (`claim`), `watch` from the value now.
+- **Signal** (§21.3): said once, no value kept; one emitter unless open.
+- **Port** (§21.4): one handler (`serve`) answers `call`.
+- **Interfaces** (§21.6): `StateReader`, `StateWriter`, `CommandCaller`, `FactEmitter`, `FactListener`: what both the core's handles and the registry's typed handles are, so code on them moves from one to the other unchanged.
+
 ## Who and why
 
 - **Principal** (§4): who acts, a `kind` and an `id` (`user:local`, `plugin:hydra`, `viewer:twitch:123`). Kinds are the host's; the package reserves `system` (the registry) and `link` (the links engine).
@@ -28,7 +38,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Descriptor** (§6): a word's description: `StateDescriptor`, `CommandDescriptor`, `FactDescriptor`.
 - **State** (§6.1): something that is so now; read, watched, written by one writer.
 - **Keyed state** (§6.1): one value per key (`audio.gain[mic]`); an unkeyed state holds one value.
-- **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`StateWriter`, typed `StateWriterOf<T>`).
+- **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`RawStateWriter`, typed `StateWriterOf<T>`).
 - **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and the MCP board; none means everyone. Code in the registry's process reads everything. `mayRead`, and `unreadable` in `describeFor`.
 - **Command** (§6.2): something that can be asked: params, an optional answer (`returns`), exactly one handler.
 - **Handler** (§6.2): the code that runs a command; gets the call (`CommandCall`, typed `CommandCallOf<P>`).
@@ -41,7 +51,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Interceptable** (§6.2, §11): a command before hooks may run in front of.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.
 - **Open fact** (§6.3): one the host lets several producers say (the chat of several platforms); more emit handles are handed out.
-- **Emit handle** (§6.3): what says a fact (`FactEmitter`, typed `FactEmitterOf<T>`).
+- **Emit handle** (§6.3): what says a fact (`RawFactEmitter`, typed `FactEmitterOf<T>`).
 - **Producer** (§6.3, §14): who says a fact: its definer, or one handed an emit handle of an open fact.
 - **Dedup window** (§6.3, §9): how long an id answers its first message: a fact seen again is dropped, a call seen again answers the first result.
 - **Catalog** (§6.4): the descriptors and entity kinds there are now; changes at runtime (`catalogChanges`).

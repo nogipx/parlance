@@ -368,15 +368,17 @@ void main() {
     );
 
     test('links: check, upsert, press, remove', () async {
-      final missing = await c.json('link_check', {
-        'link': {
-          'id': 'later',
-          'when': [
-            {'fact': 'plugin.thing'},
-          ],
-          'do': <Object?>[],
-        },
-      }) as Map;
+      final missing =
+          await c.json('link_check', {
+                'link': {
+                  'id': 'later',
+                  'when': [
+                    {'fact': 'plugin.thing'},
+                  ],
+                  'do': <Object?>[],
+                },
+              })
+              as Map;
       expect(missing['missing'], ['plugin.thing']);
       expect((await c.call('link_upsert', {'link': break_})).error, isFalse);
       final links = await c.json('links') as Map;

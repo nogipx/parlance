@@ -244,8 +244,8 @@ void main() {
       );
 
       group('a subscription', () {
-        late FactEmitter raid;
-        late FactEmitter cheer;
+        late RawFactEmitter raid;
+        late RawFactEmitter cheer;
         late RegistryMirror mirror;
         final seen = <Tick>[];
 
@@ -365,7 +365,7 @@ void main() {
       });
 
       group('a state with readers', () {
-        late StateWriter secret;
+        late RawStateWriter secret;
         const plugin = Principal('plugin', 'kittens');
 
         setUp(() {

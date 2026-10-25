@@ -65,9 +65,9 @@ void main() {
     ]);
     expect(f.links.uses('nobody.knows'), isEmpty);
 
-    final r = await f.r
-        .command(LinkWords.uses)
-        .call((word: 'audio.muted'), by: user);
+    final r = await f.r.command(LinkWords.uses).call((
+      word: 'audio.muted',
+    ), by: user);
     expect((r as CallDone<LinkUses>).value.uses, hasLength(2));
   });
 }

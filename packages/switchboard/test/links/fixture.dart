@@ -44,8 +44,8 @@ base class LinksFixture extends Fixture {
     links = Links(r, rateLimit: rateLimit, onError: (e, s) => errors.add(e));
   }
 
-  late final FactEmitter raid;
-  late final FactEmitter chat;
+  late final RawFactEmitter raid;
+  late final RawFactEmitter chat;
   late final Links links;
 
   /// A second engine a test makes itself, after disposing [links].

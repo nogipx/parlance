@@ -15,6 +15,21 @@ void main() {
     multiLine: true,
   ).allMatches(f.readAsStringSync()).map((m) => m[1]!);
 
+  test('core imports nothing but dart:', () {
+    for (final f in dartIn('lib/src/core')) {
+      for (final i in importsOf(f)) {
+        expect(i, startsWith('dart:'), reason: f.path);
+      }
+    }
+  });
+
+  test('the registry is built on core', () {
+    expect(
+      importsOf(File('lib/src/registry/registry.dart')),
+      contains('../core/core.dart'),
+    );
+  });
+
   test('registry imports neither links nor remote', () {
     for (final f in dartIn('lib/src/registry')) {
       for (final i in importsOf(f)) {

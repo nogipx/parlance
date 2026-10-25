@@ -64,10 +64,10 @@ final class RegistryResponder extends SwitchboardContractPeer {
   String get owner => 'remote:$session';
 
   final Map<String, LayerHandle> _layers = {};
-  final Map<String, StateWriter> _states = {};
-  final Map<String, FactEmitter> _facts = {};
+  final Map<String, RawStateWriter> _states = {};
+  final Map<String, RawFactEmitter> _facts = {};
   final Map<String, Handle> _commands = {};
-  final Map<String, FactEmitter> _producers = {};
+  final Map<String, RawFactEmitter> _producers = {};
 
   /// The calls of its commands it is serving now, by id.
   final Map<String, CommandCall> _serving = {};

@@ -84,9 +84,9 @@ base class Fixture {
   final Registry r;
   final List<String> scenes = ['main', 'break', 'test'];
   final List<String> inputs = ['mic', 'music'];
-  late final StateWriter program;
-  late final StateWriter muted;
-  late final StateWriter gain;
+  late final RawStateWriter program;
+  late final RawStateWriter muted;
+  late final RawStateWriter gain;
 
   /// What the handlers were asked, in order.
   final List<String> shown = [];

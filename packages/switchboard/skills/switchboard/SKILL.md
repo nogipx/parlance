@@ -11,6 +11,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 
 | Library | What it is | Contract |
 |---|---|---|
+| `core` | cells one writer writes, signals, ports one handler serves, the hub that commits them in ticks; typed, no names, no JSON, no dependencies. Everything below is built on it; a small task takes it alone | [references/core.md](references/core.md): §21 |
 | `registry` | catalog, writes in ticks, calls, layers, guards, hooks, feed, format versions, typed words | [references/registry.md](references/registry.md): §1–12, §17, §18 |
 | `owners` | `Owner`, `Owners`, `Handles`, `TrackedKind`, `failCall`: defining, syncing and withdrawing a host's words | [references/owners.md](references/owners.md): §19 |
 | `links` | the engine of links and own words, on the registry's public API | [references/links.md](references/links.md): §13, §15 |

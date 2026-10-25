@@ -12,9 +12,9 @@ void main() {
 
   late Registry r;
   late Links links;
-  late StateWriter lights;
-  late StateWriter occupied;
-  late FactEmitter bell;
+  late RawStateWriter lights;
+  late RawStateWriter occupied;
+  late RawFactEmitter bell;
   final rooms = ['hall', 'kitchen'];
 
   setUp(() {
@@ -95,59 +95,65 @@ void main() {
     },
   );
 
-  test('night mode: guests may not touch the lights; the bell lights the hall for a while', () async {
-    links.apply([
-      {'id': 'night', 'state': 'night'},
-      {
-        'id': 'no-guests',
-        'deny': {'namespace': 'home'},
-        'callers': ['guest'],
-        'while': [
-          {'state': 'my.night', 'is': true},
-        ],
-        'reason': 'night',
-      },
-      {
-        'id': 'bell',
-        'when': [
-          {'fact': 'home.doorbell'},
-        ],
-        'only': [
-          {'state': 'my.night', 'is': true},
-        ],
-        'do': [
-          {
-            'temporarily': {
-              'for': '2m',
-              'do': [
-                {
-                  'call': 'home.light.set',
-                  'params': {'room': 'hall', 'on': true},
-                },
-              ],
+  test(
+    'night mode: guests may not touch the lights; the bell lights the hall for a while',
+    () async {
+      links.apply([
+        {'id': 'night', 'state': 'night'},
+        {
+          'id': 'no-guests',
+          'deny': {'namespace': 'home'},
+          'callers': ['guest'],
+          'while': [
+            {'state': 'my.night', 'is': true},
+          ],
+          'reason': 'night',
+        },
+        {
+          'id': 'bell',
+          'when': [
+            {'fact': 'home.doorbell'},
+          ],
+          'only': [
+            {'state': 'my.night', 'is': true},
+          ],
+          'do': [
+            {
+              'temporarily': {
+                'for': '2m',
+                'do': [
+                  {
+                    'call': 'home.light.set',
+                    'params': {'room': 'hall', 'on': true},
+                  },
+                ],
+              },
             },
-          },
-        ],
-      },
-    ]);
-    expect(
-      (await r.call('home.light.set', {
+          ],
+        },
+      ]);
+      expect(
+        (await r.call('home.light.set', {
+          'room': 'hall',
+          'on': true,
+        }, by: guest)).ok,
+        isTrue,
+      );
+      await r.call('home.light.set', {
         'room': 'hall',
-        'on': true,
-      }, by: guest)).ok,
-      isTrue,
-    );
-    await r.call('home.light.set', {'room': 'hall', 'on': false}, by: resident);
-    await r.call('my.night.set', {'value': true}, by: resident);
-    expect(
-      (await r.call('home.light.set', {
-        'room': 'hall',
-        'on': true,
-      }, by: guest)).ok,
-      isFalse,
-    );
-    bell.emit(null);
-    await pumpEventQueue();
-    expect(r.read('home.light', key: 'hall'), true);
-  });
+        'on': false,
+      }, by: resident);
+      await r.call('my.night.set', {'value': true}, by: resident);
+      expect(
+        (await r.call('home.light.set', {
+          'room': 'hall',
+          'on': true,
+        }, by: guest)).ok,
+        isFalse,
+      );
+      bell.emit(null);
+      await pumpEventQueue();
+      expect(r.read('home.light', key: 'hall'), true);
+    },
+  );
 }

@@ -3,7 +3,7 @@ import '../registry/registry.dart';
 import 'model.dart';
 
 /// Reads a state value (of a key); null when there is none.
-typedef StateReader = Object? Function(String state, String? key);
+typedef StateLookup = Object? Function(String state, String? key);
 
 /// Whether [c] holds on the committed state of [r] now (SPEC §13.3).
 bool evaluate(Condition c, Registry r) =>
@@ -11,7 +11,7 @@ bool evaluate(Condition c, Registry r) =>
 
 /// Whether [c] holds on the state [read] gives: the engine's view at the
 /// position of the message being handled.
-bool evaluateWith(Condition c, StateReader read) => switch (c) {
+bool evaluateWith(Condition c, StateLookup read) => switch (c) {
   StateIs(:final state, :final key, :final test) => test.matches(
     read(state, key),
   ),

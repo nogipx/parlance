@@ -287,8 +287,9 @@ sealed class Trigger {
       return EveryTrigger(d, throttles: throttles, once: once);
     }
     if (m.containsKey('at')) {
-      final at = RegExp(r'^(\d{1,2}):(\d{2})$')
-          .firstMatch(_str(m['at'], '$what.at'));
+      final at = RegExp(
+        r'^(\d{1,2}):(\d{2})$',
+      ).firstMatch(_str(m['at'], '$what.at'));
       if (at == null) _bad('$what.at: expected HH:mm');
       final h = int.parse(at[1]!), min = int.parse(at[2]!);
       if (h > 23 || min > 59) _bad('$what.at: expected HH:mm');

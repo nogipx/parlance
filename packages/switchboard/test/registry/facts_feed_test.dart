@@ -6,7 +6,7 @@ import 'fixture.dart';
 
 void main() {
   late Fixture f;
-  late FactEmitter raid;
+  late RawFactEmitter raid;
 
   setUp(() {
     f = Fixture();

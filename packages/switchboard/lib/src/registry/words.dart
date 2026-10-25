@@ -326,25 +326,75 @@ final class StateOf<T> {
   /// What it is with its layers on.
   T? effective({String? key}) =>
       _decode(registry.effective(word.name, key: key));
+
+  /// Its value (of [key]) as the core reads a cell (SPEC §21.6): code
+  /// that only reads takes a [StateReader] and does not change when a cell
+  /// becomes a state.
+  StateReader<T> reader({String? key}) => _StateReaderOf(this, key);
+}
+
+final class _StateReaderOf<T> implements StateReader<T> {
+  _StateReaderOf(this._state, this._key);
+  final StateOf<T> _state;
+  final String? _key;
+
+  @override
+  T? get value => _state.read(key: _key);
+
+  @override
+  bool get has => _state.has(key: _key);
+
+  @override
+  Stream<T?> watch() => _state.watch(key: _key);
 }
 
 /// The only write handle of a typed state.
-final class StateWriterOf<T> implements Handle {
+///
+/// It is a [StateWriter] of an unkeyed state; [at] gives one of a key.
+final class StateWriterOf<T> implements Handle, StateWriter<T> {
   StateWriterOf._(this.raw, this._shape);
 
   /// The registry's own handle.
-  final StateWriter raw;
+  final RawStateWriter raw;
   final Shape<T> _shape;
 
-  /// As [StateWriter.set].
+  /// As [RawStateWriter.set].
+  @override
   void set(T value, {String? key, Cause? cause}) =>
       raw.set(_shape.toJson(value), key: key, cause: cause);
 
+  @override
   void remove({String? key, Cause? cause}) =>
       raw.remove(key: key, cause: cause);
 
+  /// The value of [key] as a [StateWriter] (SPEC §21.6).
+  StateWriter<T> at(String key) => _KeyWriter(this, key);
+
   @override
   void dispose() => raw.dispose();
+}
+
+final class _KeyWriter<T> implements StateWriter<T> {
+  _KeyWriter(this._writer, this._key);
+  final StateWriterOf<T> _writer;
+  final String _key;
+
+  @override
+  void set(T value) => _writer.set(value, key: _key);
+
+  @override
+  void remove() => _writer.remove(key: _key);
+}
+
+/// What a call through an [CommandCaller] of a command ended with when it was not
+/// done: a refusal, a failure, no answer in time, or a lost answer.
+final class CallNotDone implements Exception {
+  const CallNotDone(this.result);
+
+  final CallResult<Object?> result;
+
+  @override
+  String toString() => 'CallNotDone: ${result.whyNot}';
 }
 
 /// A call being served, its params typed.
@@ -420,6 +470,24 @@ final class CommandOf<P, R> {
 
   /// Why it cannot run now; null when it can.
   String? whyUnavailable() => registry.whyUnavailable(word.name);
+
+  /// Calls on behalf of [by] as the core asks a port (SPEC §21.6): the
+  /// answer of a done call, else [CallNotDone] with how it ended.
+  CommandCaller<P, R> caller({required Principal by}) =>
+      _CommandCallerOf(this, by);
+}
+
+final class _CommandCallerOf<P, R> implements CommandCaller<P, R> {
+  _CommandCallerOf(this._command, this._by);
+  final CommandOf<P, R> _command;
+  final Principal _by;
+
+  @override
+  Future<R> call(P params) async {
+    final r = await _command.call(params, by: _by);
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
 }
 
 /// A committed fact, its payload typed.
@@ -474,16 +542,28 @@ final class FactOf<T> {
   List<Fact<T>> recent([int? n]) => [
     for (final m in registry.recent(word.name, n)) _decode(m),
   ];
+
+  /// Its payloads as the core hears a signal (SPEC §21.6).
+  FactListener<T> get listener => _FactListenerOf(this);
 }
 
-/// An emit handle of a typed fact.
-final class FactEmitterOf<T> implements Handle {
+final class _FactListenerOf<T> implements FactListener<T> {
+  _FactListenerOf(this._fact);
+  final FactOf<T> _fact;
+
+  @override
+  Stream<T> get stream => _fact.stream.map((f) => f.payload);
+}
+
+/// An emit handle of a typed fact; an [FactEmitter] as the core's.
+final class FactEmitterOf<T> implements Handle, FactEmitter<T> {
   FactEmitterOf._(this.raw, this._shape);
 
-  final FactEmitter raw;
+  final RawFactEmitter raw;
   final Shape<T> _shape;
 
-  /// As [FactEmitter.emit].
+  /// As [RawFactEmitter.emit].
+  @override
   bool emit(T payload, {String? id, Cause? cause}) =>
       raw.emit(_shape.toJson(payload), id: id, cause: cause);
 

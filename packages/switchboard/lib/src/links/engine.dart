@@ -333,9 +333,11 @@ final class Links {
     for (final MapEntry(key: name, :value) in values.entries) {
       final active = [
         for (final live in _live.values)
-          if (live case _LiveHandles(link: final OwnState own, :final handles)
-              when own.state == name)
-            (own: own, writer: handles.last as StateWriter),
+          if (live case _LiveHandles(
+            link: final OwnState own,
+            :final handles,
+          ) when own.state == name)
+            (own: own, writer: handles.last as RawStateWriter),
       ];
       if (active.isEmpty) {
         // Checked when it comes.
@@ -1329,8 +1331,10 @@ final class Links {
 
     run.onCancel.add(() => registry.dropLayersOf(owner));
     if (t.holdFor case final d?) {
-      Future.any([Future<void>.delayed(d), run.cancelled.future])
-          .then((_) => end());
+      Future.any([
+        Future<void>.delayed(d),
+        run.cancelled.future,
+      ]).then((_) => end());
     } else {
       _until(t.until!, run).then((_) => end());
     }
@@ -1562,7 +1566,7 @@ final class _LiveReaction extends _Live {
     String? parent,
     Cause? from,
     Principal? origin,
-    StateReader? read,
+    StateLookup? read,
   }) {
     if (stopped) return 'stopped';
     final id = link.id;
@@ -1737,7 +1741,7 @@ final class _Waiter {
   final Until until;
   final Completer<void> done = Completer();
 
-  void check(Tick t, StateReader read, String Function(String) canonical) {
+  void check(Tick t, StateLookup read, String Function(String) canonical) {
     if (done.isCompleted) return;
     if (until.fact case final f?) {
       if (t.facts.any(

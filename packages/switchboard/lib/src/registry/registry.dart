@@ -4,6 +4,17 @@ import 'dart:collection';
 import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
 
+import '../core/core.dart';
+
+export '../core/core.dart'
+    show
+        CommandCaller,
+        FactEmitter,
+        FactListener,
+        Handle,
+        StateReader,
+        StateWriter;
+
 import 'cause.dart';
 import 'descriptors.dart';
 import 'ids.dart';
@@ -111,15 +122,9 @@ final class AliasChanged extends CatalogChange {
   final String alias;
 }
 
-/// Something that can be withdrawn: a definition, a guard, a hook, a layer.
-abstract interface class Handle {
-  /// Withdraws it; a second call does nothing.
-  void dispose();
-}
-
 /// The only write handle of a state.
-final class StateWriter implements Handle {
-  StateWriter._(this._r, this.descriptor, this.by);
+final class RawStateWriter implements Handle {
+  RawStateWriter._(this._r, this.descriptor, this.by);
 
   final Registry _r;
   final StateDescriptor descriptor;
@@ -156,10 +161,17 @@ final class StateWriter implements Handle {
 }
 
 /// An emit handle of a fact.
-final class FactEmitter implements Handle {
-  FactEmitter._(this._r, this.descriptor, this.by, {required this.definer});
+final class RawFactEmitter implements Handle {
+  RawFactEmitter._(
+    this._r,
+    this.descriptor,
+    this.by,
+    this._emitter, {
+    required this.definer,
+  });
 
   final Registry _r;
+  final SignalEmitter<Object?> _emitter;
   final FactDescriptor descriptor;
 
   /// The producer, for the causes of its facts.
@@ -173,13 +185,20 @@ final class FactEmitter implements Handle {
   /// dropped; returns whether it was taken.
   bool emit(Object? payload, {String? id, Cause? cause}) {
     if (_disposed) throw StateError('${descriptor.name} is gone');
-    return _r._emit(descriptor, payload, id ?? newId(), cause ?? Cause(by));
+    return _r._emit(
+      descriptor,
+      _emitter,
+      payload,
+      id ?? newId(),
+      cause ?? Cause(by),
+    );
   }
 
   @override
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _emitter.dispose();
     if (definer) _r._undefine(descriptor.name);
   }
 }
@@ -215,17 +234,30 @@ final class LayerHandle implements Handle {
 typedef _Target = (String state, String? key);
 
 final class _StateEntry {
-  _StateEntry(this.descriptor);
+  _StateEntry(this.descriptor, this.cell) : writer = cell.claim();
   final StateDescriptor descriptor;
-  final Map<String?, Object?> values = {};
+
+  /// Its values by key, null for an unkeyed state; the registry is the
+  /// cell's only writer.
+  final KeyedCell<String?, Object?> cell;
+  final KeyedCellWriter<String?, Object?> writer;
   String? setter;
 }
 
 final class _CommandEntry {
-  _CommandEntry(this.descriptor, this.handler, this.available);
+  _CommandEntry(this.descriptor, this.port, this.serving, this.available);
   final CommandDescriptor descriptor;
-  final CommandHandler handler;
+  final Port<CommandCall, Object?> port;
+  final Handle serving;
   final Availability? available;
+}
+
+final class _FactEntry {
+  _FactEntry(this.descriptor, this.signal);
+  final FactDescriptor descriptor;
+
+  /// Its payloads, tagged with their id and cause.
+  final Signal<Object?> signal;
 }
 
 final class _Guard {
@@ -303,21 +335,6 @@ final class _Stack {
   }
 }
 
-final class _Write {
-  _Write(this.value, this.removed, this.cause);
-  final Object? value;
-  final bool removed;
-  final Cause cause;
-}
-
-final class _PendingFact {
-  _PendingFact(this.id, this.fact, this.payload, this.cause);
-  final String id;
-  final String fact;
-  final Object? payload;
-  final Cause cause;
-}
-
 /// The registry: the vocabulary, its values, calls, guards, before hooks,
 /// layers and the feed (SPEC §§5–12).
 ///
@@ -335,7 +352,12 @@ final class Registry implements TypeContext {
   }) : clock = clock ?? clock_zone.clock,
        overriders = Set.unmodifiable(overriders),
        _onError = onError ?? Zone.current.handleUncaughtError,
-       epoch = newId();
+       epoch = newId() {
+    _hub = Hub(onCommit: _committed);
+  }
+
+  /// Commits every state value and fact of the registry (SPEC §7, §21).
+  late final Hub _hub;
 
   /// How long ids of calls and facts are remembered to drop repeats.
   final Duration dedupWindow;
@@ -362,10 +384,8 @@ final class Registry implements TypeContext {
 
   final ErrorSink _onError;
 
-  int _seq = 0;
-
   /// The seq of the last commit.
-  int get seq => _seq;
+  int get seq => _hub.seq;
 
   // --- Catalog ---------------------------------------------------------------
 
@@ -373,7 +393,10 @@ final class Registry implements TypeContext {
   final Map<String, String? Function(Object?)> _customTypes = {};
   final Map<String, _StateEntry> _states = {};
   final Map<String, _CommandEntry> _commands = {};
-  final Map<String, FactDescriptor> _facts = {};
+  final Map<String, _FactEntry> _facts = {};
+
+  /// The state or fact each cell and signal holds.
+  final Map<Object, String> _names = Map.identity();
   final StreamController<CatalogChange> _catalog = StreamController.broadcast();
 
   void _announce(CatalogChange c) {
@@ -387,7 +410,7 @@ final class Registry implements TypeContext {
   List<Descriptor> get catalog => [
     for (final s in _states.values) s.descriptor,
     for (final c in _commands.values) c.descriptor,
-    ..._facts.values,
+    for (final f in _facts.values) f.descriptor,
   ];
 
   Iterable<EntityKind> get kinds => _kinds.values;
@@ -398,7 +421,8 @@ final class Registry implements TypeContext {
   CommandDescriptor? commandDescriptor(String name) =>
       _commands[canonical(name)]?.descriptor;
 
-  FactDescriptor? factDescriptor(String name) => _facts[canonical(name)];
+  FactDescriptor? factDescriptor(String name) =>
+      _facts[canonical(name)]?.descriptor;
 
   /// Why [command] cannot run now (it is not there, or its owner says it
   /// is unavailable), or null when it can. Guards are not asked: they judge
@@ -416,7 +440,7 @@ final class Registry implements TypeContext {
   /// answers its first result, the descriptors and the entity kinds.
   Map<String, Object?> describe() => {
     'epoch': epoch,
-    'seq': _seq,
+    'seq': seq,
     'dedupWindowMs': dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
     'kinds': [for (final k in _kinds.values) k.toJson()],
@@ -428,7 +452,7 @@ final class Registry implements TypeContext {
   /// not.
   bool mayRead(Principal by, String name) =>
       (_states[canonical(name)]?.descriptor.readers ??
-              _facts[canonical(name)]?.readers)
+              _facts[canonical(name)]?.descriptor.readers)
           ?.allows(by) ??
       true;
 
@@ -452,7 +476,7 @@ final class Registry implements TypeContext {
     for (final s in _states.values)
       if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
     for (final f in _facts.values)
-      if (!(f.readers?.allows(by) ?? true)) f.name,
+      if (!(f.descriptor.readers?.allows(by) ?? true)) f.descriptor.name,
   ];
 
   /// Registers an entity kind (SPEC §3); withdraw it with the handle.
@@ -541,15 +565,17 @@ final class Registry implements TypeContext {
   }
 
   /// Defines a state; the returned writer is its only write handle.
-  StateWriter defineState(StateDescriptor d, {required Principal by}) {
+  RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
     _checkFree(d.name);
-    final e = _StateEntry(d);
+    final cell = KeyedCell<String?, Object?>(hub: _hub, equals: jsonEquals);
+    final e = _StateEntry(d, cell);
+    _names[cell] = d.name;
     for (final c in _commands.values) {
       if (c.descriptor.sets?.state == d.name) e.setter = c.descriptor.name;
     }
     _states[d.name] = e;
     _announce(DescriptorAdded(d));
-    return StateWriter._(this, d, by);
+    return RawStateWriter._(this, d, by);
   }
 
   /// Defines a command served by [handler]; dispose the handle to remove it.
@@ -571,26 +597,30 @@ final class Registry implements TypeContext {
       }
       st?.setter = d.name;
     }
-    _commands[d.name] = _CommandEntry(d, handler, available);
+    final port = Port<CommandCall, Object?>();
+    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
     _announce(DescriptorAdded(d));
     return _Disposer(() => _undefine(d.name));
   }
 
   /// Defines a fact; the returned emitter belongs to the definer.
-  FactEmitter defineFact(FactDescriptor d, {required Principal by}) {
+  RawFactEmitter defineFact(FactDescriptor d, {required Principal by}) {
     _checkFree(d.name);
-    _facts[d.name] = d;
+    final signal = Signal<Object?>(hub: _hub, open: d.open);
+    _facts[d.name] = _FactEntry(d, signal);
+    _names[signal] = d.name;
     _announce(DescriptorAdded(d));
-    return FactEmitter._(this, d, by, definer: true);
+    return RawFactEmitter._(this, d, by, signal.claim(), definer: true);
   }
 
   /// Another emit handle of an open fact, for producer [by]. The host
   /// decides who gets one.
-  FactEmitter producer(String fact, {required Principal by}) {
-    final d = _facts[canonical(fact)];
-    if (d == null) throw StateError('no fact $fact');
+  RawFactEmitter producer(String fact, {required Principal by}) {
+    final f = _facts[canonical(fact)];
+    if (f == null) throw StateError('no fact $fact');
+    final d = f.descriptor;
     if (!d.open) throw StateError('$fact is not open');
-    return FactEmitter._(this, d, by, definer: false);
+    return RawFactEmitter._(this, d, by, f.signal.claim(), definer: false);
   }
 
   void _undefine(String name) {
@@ -598,16 +628,20 @@ final class Registry implements TypeContext {
       // The values go in one tick, while the entry is still there to
       // commit against.
       batch(() {
-        for (final key in [...s.values.keys]) {
-          _pending[(name, key)] = _Write(null, true, Cause(Principal.system));
+        for (final key in [...s.cell.values.keys]) {
+          s.writer.remove(key, tag: Cause(Principal.system));
         }
       });
       _states.remove(name);
+      // Inside an outer batch, its removes go with the state, uncommitted.
+      s.cell.close();
+      _names.remove(s.cell);
       for (final t in [..._stacks.keys]) {
         if (t.$1 == name) _orphan(t);
       }
       _announce(DescriptorRemoved(s.descriptor));
     } else if (_commands.remove(name) case final c?) {
+      c.serving.dispose();
       if (c.descriptor.sets case final s?) {
         _states[s.state]?.setter = null;
         for (final t in [..._stacks.keys]) {
@@ -626,16 +660,14 @@ final class Registry implements TypeContext {
       _hooks.remove(name);
       _announce(DescriptorRemoved(c.descriptor));
     } else if (_facts.remove(name) case final f?) {
-      _announce(DescriptorRemoved(f));
+      f.signal.close();
+      _names.remove(f.signal);
+      _announce(DescriptorRemoved(f.descriptor));
     }
   }
 
   // --- Ticks -----------------------------------------------------------------
 
-  int _batchDepth = 0;
-  bool _committing = false;
-  final LinkedHashMap<_Target, _Write> _pending = LinkedHashMap();
-  final List<_PendingFact> _pendingFacts = [];
   final StreamController<Tick> _ticks = StreamController.broadcast();
   final ListQueue<Tick> _retained = ListQueue();
   final Map<String, ListQueue<FactMessage>> _recent = {};
@@ -645,36 +677,19 @@ final class Registry implements TypeContext {
 
   /// Runs [body] synchronously and commits everything it wrote as one tick
   /// (SPEC §7). Batches nest; the outermost commits.
-  void batch(void Function() body) {
-    _batchDepth++;
-    try {
-      final Object? r = (body as dynamic)();
-      if (r is Future) {
-        throw ArgumentError('a batch is synchronous; write before awaiting');
-      }
-    } finally {
-      _batchDepth--;
-      if (_batchDepth == 0) _commit();
-    }
-  }
-
-  void _afterWrite() {
-    if (_batchDepth == 0 && !_committing) _commit();
-  }
+  void batch(void Function() body) => _hub.batch(body);
 
   void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
     final e = _liveState(d);
     _checkKey(d, key);
     final v = freezeJson(d.type.check(value, this));
-    _pending[(e.descriptor.name, key)] = _Write(v, false, cause);
-    _afterWrite();
+    e.writer.set(key, v, tag: cause);
   }
 
   void _removeState(StateDescriptor d, String? key, Cause cause) {
     final e = _liveState(d);
     _checkKey(d, key);
-    _pending[(e.descriptor.name, key)] = _Write(null, true, cause);
-    _afterWrite();
+    e.writer.remove(key, tag: cause);
   }
 
   _StateEntry _liveState(StateDescriptor d) {
@@ -692,81 +707,58 @@ final class Registry implements TypeContext {
     }
   }
 
-  void _commit() {
-    if (_committing) return;
-    _committing = true;
-    try {
-      while (_pending.isNotEmpty || _pendingFacts.isNotEmpty) {
-        final writes = [..._pending.entries];
-        final facts = [..._pendingFacts];
-        _pending.clear();
-        _pendingFacts.clear();
-        final now = clock.now();
-        final changes = <StateChange>[];
-        for (final MapEntry(key: t, value: w) in writes) {
-          final e = _states[t.$1];
-          if (e == null) continue;
-          final had = e.values.containsKey(t.$2);
-          final previous = e.values[t.$2];
-          if (w.removed) {
-            if (!had) continue;
-            e.values.remove(t.$2);
-          } else {
-            if (had && jsonEquals(previous, w.value)) continue;
-            e.values[t.$2] = w.value;
-          }
-          changes.add(
-            StateChange(
-              seq: ++_seq,
-              id: newId(),
-              state: t.$1,
-              key: t.$2,
-              value: w.value,
-              previous: previous,
-              removed: w.removed,
-              cause: w.cause,
-              at: now,
-            ),
-          );
-        }
-        final committed = <FactMessage>[
-          for (final f in facts)
-            FactMessage(
-              seq: ++_seq,
-              id: f.id,
-              fact: f.fact,
-              payload: f.payload,
-              cause: f.cause,
-              at: now,
-            ),
-        ];
-        if (changes.isEmpty && committed.isEmpty) continue;
-        final tick = Tick(
-          epoch: epoch,
-          from: changes.isNotEmpty ? changes.first.seq : committed.first.seq,
-          to: _seq,
-          changes: List.unmodifiable(changes),
-          facts: List.unmodifiable(committed),
-        );
-        _retained.add(tick);
-        while (_retained.length > retainTicks) {
-          _retained.removeFirst();
-          _forgotTicks = true;
-        }
-        for (final f in committed) {
-          final q = _recent.putIfAbsent(f.fact, ListQueue.new);
-          q.add(f);
-          while (q.length > recentPerFact) {
-            q.removeFirst();
-          }
-        }
-        if (!_ticks.isClosed) _ticks.add(tick);
-        for (final c in changes) {
-          _checkOverride(c);
-        }
+  /// Turns what the hub committed into the registry's tick: names, ids,
+  /// causes and the time.
+  void _committed(HubTick t) {
+    final now = clock.now();
+    final changes = <StateChange>[
+      for (final c in t.changes)
+        StateChange(
+          seq: c.seq,
+          id: newId(),
+          state: _names[c.store]!,
+          key: c.key as String?,
+          value: c.value,
+          previous: c.previous,
+          removed: c.removed,
+          cause: c.tag! as Cause,
+          at: now,
+        ),
+    ];
+    final committed = <FactMessage>[
+      for (final e in t.emits)
+        if (e.tag case (final String id, final Cause cause))
+          FactMessage(
+            seq: e.seq,
+            id: id,
+            fact: _names[e.signal]!,
+            payload: e.value,
+            cause: cause,
+            at: now,
+          ),
+    ];
+    final tick = Tick(
+      epoch: epoch,
+      from: t.from,
+      to: t.to,
+      changes: List.unmodifiable(changes),
+      facts: List.unmodifiable(committed),
+    );
+    _retained.add(tick);
+    while (_retained.length > retainTicks) {
+      _retained.removeFirst();
+      _forgotTicks = true;
+    }
+    for (final f in committed) {
+      final q = _recent.putIfAbsent(f.fact, ListQueue.new);
+      q.add(f);
+      while (q.length > recentPerFact) {
+        q.removeFirst();
       }
-    } finally {
-      _committing = false;
+    }
+    if (!_ticks.isClosed) _ticks.add(tick);
+    for (final c in changes) {
+      _checkOverride(c);
     }
   }
 
@@ -775,22 +767,16 @@ final class Registry implements TypeContext {
   /// The value of [state] (of [key]); inside a batch, the batch's own
   /// writes count (SPEC §7). Null when there is none.
   Object? read(String state, {String? key}) {
-    state = canonical(state);
-    if (_batchDepth > 0 || _committing) {
-      if (_pending[(state, key)] case final w?) {
-        return w.removed ? null : w.value;
-      }
-    }
-    return _states[state]?.values[key];
+    return _states[canonical(state)]?.cell.read(key);
   }
 
   /// Whether [state] (of [key]) has a committed value.
   bool has(String state, {String? key}) =>
-      _states[canonical(state)]?.values.containsKey(key) ?? false;
+      _states[canonical(state)]?.cell.has(key) ?? false;
 
   /// Every committed value of [state], by key (null for an unkeyed one).
   Map<String?, Object?> readAll(String state) =>
-      Map.unmodifiable(_states[canonical(state)]?.values ?? const {});
+      _states[canonical(state)]?.cell.values ?? const {};
 
   /// The value of [state] (of [key]) now, then on every change; null when
   /// there is none.
@@ -846,12 +832,12 @@ final class Registry implements TypeContext {
     StreamSubscription<Tick>? sub;
     out = StreamController<FeedItem>(
       onListen: () {
-        var last = _seq;
+        var last = seq;
         final canResume =
             epoch == this.epoch &&
             since != null &&
-            since <= _seq &&
-            (since == _seq ||
+            since <= seq &&
+            (since == seq ||
                 (_retained.isNotEmpty && _retained.first.from <= since + 1));
         if (canResume) {
           for (final t in _retained) {
@@ -861,10 +847,9 @@ final class Registry implements TypeContext {
           out.add(
             Snapshot(
               epoch: this.epoch,
-              seq: _seq,
+              seq: seq,
               states: {
-                for (final e in _states.entries)
-                  e.key: Map.unmodifiable(e.value.values),
+                for (final e in _states.entries) e.key: e.value.cell.values,
               },
               factsLost: since != null,
             ),
@@ -885,15 +870,20 @@ final class Registry implements TypeContext {
 
   final LinkedHashMap<String, DateTime> _seenFacts = LinkedHashMap();
 
-  bool _emit(FactDescriptor d, Object? payload, String id, Cause cause) {
-    if (_facts[d.name] != d) throw StateError('${d.name} is gone');
+  bool _emit(
+    FactDescriptor d,
+    SignalEmitter<Object?> emitter,
+    Object? payload,
+    String id,
+    Cause cause,
+  ) {
+    if (_facts[d.name]?.descriptor != d) throw StateError('${d.name} is gone');
     final now = clock.now();
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
     final v = freezeJson(d.type.check(payload, this));
     _seenFacts[id] = now;
-    _pendingFacts.add(_PendingFact(id, d.name, v, cause));
-    _afterWrite();
+    emitter.emit(v, tag: (id, cause));
     return true;
   }
 
@@ -1186,7 +1176,7 @@ final class Registry implements TypeContext {
     if (layer != null) _stacks[layer]?.inflight.add(id);
     final expired = Completer<void>();
     final work = Future.sync(
-      () => entry.handler(
+      () => entry.port.call(
         CommandCall._(id, command, params, cause, expired.future),
       ),
     );
@@ -1568,6 +1558,7 @@ final class Registry implements TypeContext {
     }
     await Future.wait([
       _ticks.close(),
+      _hub.dispose(),
       _catalog.close(),
       _records.close(),
       _layerEvents.close(),

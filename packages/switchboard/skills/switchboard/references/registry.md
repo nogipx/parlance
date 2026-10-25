@@ -112,7 +112,7 @@ Descriptors come and go at runtime (a plugin starts or stops).
 
 ## 7. Ticks
 
-A **tick** is the unit of change: every state write and fact made in it is committed together.
+A **tick** is the unit of change: every state write and fact made in it is committed together. The registry keeps its states, facts, commands and ticks on the core (§21): its hub commits, and its ticks are the hub's, with names, ids, causes and the time.
 
 - A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick. Batches nest; the outermost one commits.
 - Inside a batch, reads see the batch's own writes (read your writes); everyone else sees nothing until the commit.
@@ -204,5 +204,6 @@ The registry keeps names and JSON, as links, remote and agents see it. A host na
 - **More shapes:** `Nullable(shape)` for null or a value (a state whose "none" means something, such as every app), `MapShape(value)` for a map from text, and `UnionShape(key, {tag: RecordShape}, tagOf:, descriptions:)` for one of several objects as a sealed class. `Part(description:)` describes a field.
 - **Through the registry.** `state(word)` defines (`StateWriterOf<T>`), reads, watches; `command(word)` defines with a handler that gets typed params (`CommandCallOf<P>`) and returns `R`, and calls with `P`, answering `CallResult<R>`; `fact(word)` defines (`FactEmitterOf<T>`), streams and lists `Fact<T>`. Refusals, failures, `timedOut` and `lost` are `CallResult<Never>`, so they end a call of any answer type.
 - **The word fixes the types.** A call is made on what `command(word)` gives, never by a generic function taking a word and params together: Dart's generics are covariant, so such a function would infer a common supertype of two different records and compile a call with another command's params.
-- An answer that does not decode as the word says is `failed`. Names and keys of entity kinds stay strings, and so do references in link params (`$trigger.…`).
+- An answer that does not decode as the word says is `failed`.
+- **As the core sees them.** The typed handles are the core's interfaces (§21.6): `StateOf.reader`, `StateWriterOf` and its `at`, `CommandOf.caller(by:)` (`CallNotDone` for a call not done), `FactEmitterOf`, `FactOf.listener`. Names and keys of entity kinds stay strings, and so do references in link params (`$trigger.…`).
 
