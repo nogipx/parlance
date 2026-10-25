@@ -5,12 +5,21 @@ import 'types.dart';
 
 /// One entity of a kind, as `describe` lists it.
 final class EntityRef {
-  const EntityRef(this.id, [String? label]) : label = label ?? id;
+  const EntityRef(this.id, [String? label, this.meta = const {}])
+    : label = label ?? id;
 
   final String id;
   final String label;
 
-  Map<String, Object?> toJson() => {'id': id, 'label': label};
+  /// What else the host tells of it, as JSON: what an editor or an agent
+  /// needs to choose it or use it (the type of the value it takes...).
+  final Map<String, Object?> meta;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'label': label,
+    if (meta.isNotEmpty) 'meta': meta,
+  };
 }
 
 /// A kind of entity the host has: rooms, devices, documents (SPEC §3).

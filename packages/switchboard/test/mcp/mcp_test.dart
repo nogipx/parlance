@@ -233,6 +233,29 @@ void main() {
       );
     });
 
+    test('an entity that tells the type of its value shows it', () async {
+      f.r.registerKind(
+        EntityKind(
+          'gauge',
+          list: () => [
+            EntityRef('g1', 'Gauge', {
+              'type': const NumType(min: 0, max: 1).toJson(),
+            }),
+            const EntityRef('g2', 'Plain'),
+          ],
+        ),
+      );
+      final d = jsonDecode((await c.call('describe')).text) as Map;
+      expect((d['entities'] as Map)['gauge'], [
+        {
+          'id': 'g1',
+          'label': 'Gauge',
+          'takes': {'type': 'number', 'minimum': 0, 'maximum': 1},
+        },
+        'g2 (Plain)',
+      ]);
+    });
+
     test('initialize tells the server and how to work', () async {
       final r = await c.request('initialize', {
         'protocolVersion': '2025-06-18',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
@@ -88,12 +89,13 @@ final class TrackedKind {
   final Iterable<EntityRef> Function() _list;
   List<(String, String)> _known;
 
+  /// Each entity's id, and all it tells (its label, its meta).
   static List<(String, String)> _ids(Iterable<EntityRef> refs) => [
-    for (final e in refs) (e.id, e.label),
+    for (final e in refs) (e.id, jsonEncode(e.toJson())),
   ];
 
   /// Compares the entities with the ones seen last: when they differ (an
-  /// entity came, went or was renamed), announces it. Answers the ids that
+  /// entity came, went, was renamed or tells otherwise), announces it. Answers the ids that
   /// went, for the owner to remove their keyed states.
   Set<String> sync() {
     final now = _ids(_list());

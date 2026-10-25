@@ -146,7 +146,23 @@ Future<List<McpTool>> switchboardTools(
           ],
           'entities': {
             for (final e in kinds.entries)
-              e.key: [for (final x in e.value) '${x['id']} (${x['label']})'],
+              e.key: [
+                for (final x in e.value)
+                  // One that tells the type of the value it takes: with it,
+                  // as JSON Schema.
+                  if ((x['meta'] as Map?)?['type']
+                      case final Map<Object?, Object?> t)
+                    {
+                      'id': x['id'],
+                      'label': x['label'],
+                      'takes': {
+                        ...schema(t),
+                        if (t['format'] case final String f) 'format': f,
+                      },
+                    }
+                  else
+                    '${x['id']} (${x['label']})',
+              ],
           },
         });
       },

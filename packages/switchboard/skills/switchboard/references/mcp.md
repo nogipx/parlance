@@ -10,7 +10,7 @@ A **board** is what the tools work on: `LocalBoard(registry, by: principal)` in 
 
 | Tool | Does |
 |---|---|
-| `describe` | the commands this principal may call (params as JSON Schema, refs listing their entities, what each sets, whether it can run now), states, facts, entities |
+| `describe` | the commands this principal may call (params as JSON Schema, refs listing their entities, what each sets, whether it can run now), states, facts, entities (with the JSON Schema of the value one takes, when its meta tells a `type`) |
 | `read` | states now: one, by prefix, or all; a state the principal may not read (§6.1 `readers`) is told as such, and left out of the others (so is a fact it may not hear, from `recent_facts`) |
 | `call` | a command by name; an `id` makes a retry safe |
 | `recent_facts` | the last facts of a name |

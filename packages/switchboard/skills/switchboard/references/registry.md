@@ -37,7 +37,7 @@ A type checks a value and fills defaults. Types are values themselves (they seri
 
 ## 3. Entity kinds
 
-The host registers entity kinds: a name and a function listing the current entities (`id`, `label`). The registry uses them to check `ref` values and to answer `describe`. When the entities of a kind change, the host says so (`entitiesChanged`); the registry passes it on in its catalog changes.
+The host registers entity kinds: a name and a function listing the current entities (`id`, `label`, and `meta`: what else an editor or an agent needs, such as the type of the value it takes). The registry uses them to check `ref` values and to answer `describe`. When the entities of a kind change, the host says so (`entitiesChanged`); the registry passes it on in its catalog changes.
 
 ## 4. Principals and causes
 
