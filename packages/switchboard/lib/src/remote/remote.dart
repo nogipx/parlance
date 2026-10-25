@@ -261,9 +261,10 @@ final class RegistryResponder extends SwitchboardContractPeer {
     }
     final n = ++_subscription;
     final before = _stateFilter;
-    final now = request.states?.toSet();
+    // An old name of a word subscribes to the word (SPEC §6.4).
+    final now = request.states?.map(registry.canonical).toSet();
     _stateFilter = now;
-    _factFilter = request.facts?.toSet();
+    _factFilter = request.facts?.map(registry.canonical).toSet();
     // The states the feeds carry now and did not: their values, so a copy
     // has them from here on, as the ticks after keep them.
     final added = before == null
@@ -960,7 +961,13 @@ final class RegistryMirror {
   /// (descriptors or entities).
   Stream<void> get catalogChanges => _catalogChanges.stream;
 
-  Object? read(String state, {String? key}) => _states[state]?[key];
+  Object? read(String state, {String? key}) => _states[canonical(state)]?[key];
+
+  /// The name [name] stands for, as the catalog's `aliases` say.
+  String canonical(String name) => switch (_catalog['aliases']) {
+    final Map<Object?, Object?> a when a[name] is String => a[name]! as String,
+    _ => name,
+  };
 
   /// Completes when the copy has the seq [seq] of [epoch] (what a call
   /// answered at it wrote), or after [timeout]; answers whether it got
@@ -985,7 +992,7 @@ final class RegistryMirror {
   }
 
   Map<String?, Object?> readAll(String state) =>
-      Map.unmodifiable(_states[state] ?? const {});
+      Map.unmodifiable(_states[canonical(state)] ?? const {});
 
   /// The states the copy keeps, and the facts its ticks carry; null for
   /// all.

@@ -105,6 +105,12 @@ final class KindChanged extends CatalogChange {
   final String kind;
 }
 
+/// A word's old name came or went (SPEC §6.4).
+final class AliasChanged extends CatalogChange {
+  const AliasChanged(this.alias);
+  final String alias;
+}
+
 /// Something that can be withdrawn: a definition, a guard, a hook, a layer.
 abstract interface class Handle {
   /// Withdraws it; a second call does nothing.
@@ -386,24 +392,25 @@ final class Registry implements TypeContext {
 
   Iterable<EntityKind> get kinds => _kinds.values;
 
-  StateDescriptor? stateDescriptor(String name) => _states[name]?.descriptor;
+  StateDescriptor? stateDescriptor(String name) =>
+      _states[canonical(name)]?.descriptor;
 
   CommandDescriptor? commandDescriptor(String name) =>
-      _commands[name]?.descriptor;
+      _commands[canonical(name)]?.descriptor;
 
-  FactDescriptor? factDescriptor(String name) => _facts[name];
+  FactDescriptor? factDescriptor(String name) => _facts[canonical(name)];
 
   /// Why [command] cannot run now (it is not there, or its owner says it
   /// is unavailable), or null when it can. Guards are not asked: they judge
   /// a call, not a command.
   String? whyUnavailable(String command) {
-    final c = _commands[command];
+    final c = _commands[canonical(command)];
     if (c == null) return 'no command $command';
     return c.available?.call();
   }
 
   /// The command that sets [state], if there is one.
-  String? setterOf(String state) => _states[state]?.setter;
+  String? setterOf(String state) => _states[canonical(state)]?.setter;
 
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
   /// answers its first result, the descriptors and the entity kinds.
@@ -413,15 +420,16 @@ final class Registry implements TypeContext {
     'dedupWindowMs': dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
     'kinds': [for (final k in _kinds.values) k.toJson()],
+    if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
   };
 
   /// Whether [by] may read state [name]'s values, or hear fact [name], over
   /// remote and the MCP board (its `readers`); true for a word there is
   /// not.
   bool mayRead(Principal by, String name) =>
-      (_states[name]?.descriptor.readers ?? _facts[name]?.readers)?.allows(
-        by,
-      ) ??
+      (_states[canonical(name)]?.descriptor.readers ??
+              _facts[canonical(name)]?.readers)
+          ?.allows(by) ??
       true;
 
   /// The catalog as [by] sees it: [describe], with what [by] may call
@@ -492,6 +500,44 @@ final class Registry implements TypeContext {
         _facts.containsKey(name)) {
       throw StateError('$name is defined');
     }
+    if (_aliases[name] case final now?) {
+      throw StateError('$name is an old name of $now');
+    }
+  }
+
+  final Map<String, String> _aliases = {};
+
+  /// The old names of words, each with the name it stands for now.
+  Map<String, String> get aliases => Map.unmodifiable(_aliases);
+
+  /// The name [name] stands for: the word it was renamed to, or itself.
+  String canonical(String name) => _aliases[name] ?? name;
+
+  /// Makes [old] another name of the word [now] (SPEC §6.4): a word
+  /// renamed goes on answering to its old name, in calls, reads, facts and
+  /// links, so what names it (the user's links, a plugin) keeps working.
+  /// `describe` lists it under `aliases`. Dispose the handle to drop it.
+  Handle alias(String old, String now) {
+    checkName(old, 'old');
+    final target = canonical(now);
+    if (_states.containsKey(old) ||
+        _commands.containsKey(old) ||
+        _facts.containsKey(old)) {
+      throw StateError('$old is a word itself');
+    }
+    if (_aliases.containsKey(old)) {
+      throw StateError('$old is an old name of ${_aliases[old]} already');
+    }
+    if (target == old) throw StateError('$old cannot stand for itself');
+    _aliases[old] = target;
+    // Old names of [old] now stand for its new one.
+    for (final e in _aliases.entries.toList()) {
+      if (e.value == old) _aliases[e.key] = target;
+    }
+    _announce(AliasChanged(old));
+    return _Disposer(() {
+      if (_aliases.remove(old) != null) _announce(AliasChanged(old));
+    });
   }
 
   /// Defines a state; the returned writer is its only write handle.
@@ -541,7 +587,7 @@ final class Registry implements TypeContext {
   /// Another emit handle of an open fact, for producer [by]. The host
   /// decides who gets one.
   FactEmitter producer(String fact, {required Principal by}) {
-    final d = _facts[fact];
+    final d = _facts[canonical(fact)];
     if (d == null) throw StateError('no fact $fact');
     if (!d.open) throw StateError('$fact is not open');
     return FactEmitter._(this, d, by, definer: false);
@@ -729,6 +775,7 @@ final class Registry implements TypeContext {
   /// The value of [state] (of [key]); inside a batch, the batch's own
   /// writes count (SPEC §7). Null when there is none.
   Object? read(String state, {String? key}) {
+    state = canonical(state);
     if (_batchDepth > 0 || _committing) {
       if (_pending[(state, key)] case final w?) {
         return w.removed ? null : w.value;
@@ -739,15 +786,16 @@ final class Registry implements TypeContext {
 
   /// Whether [state] (of [key]) has a committed value.
   bool has(String state, {String? key}) =>
-      _states[state]?.values.containsKey(key) ?? false;
+      _states[canonical(state)]?.values.containsKey(key) ?? false;
 
   /// Every committed value of [state], by key (null for an unkeyed one).
   Map<String?, Object?> readAll(String state) =>
-      Map.unmodifiable(_states[state]?.values ?? const {});
+      Map.unmodifiable(_states[canonical(state)]?.values ?? const {});
 
   /// The value of [state] (of [key]) now, then on every change; null when
   /// there is none.
   Stream<Object?> watch(String state, {String? key}) {
+    state = canonical(state);
     late StreamController<Object?> out;
     StreamSubscription<Tick>? sub;
     out = StreamController<Object?>(
@@ -765,13 +813,16 @@ final class Registry implements TypeContext {
   }
 
   /// Facts as they are committed, of [fact] only when given.
-  Stream<FactMessage> facts({String? fact}) => ticks.expand(
-    (t) => fact == null ? t.facts : t.facts.where((f) => f.fact == fact),
-  );
+  Stream<FactMessage> facts({String? fact}) {
+    final name = fact == null ? null : canonical(fact);
+    return ticks.expand(
+      (t) => name == null ? t.facts : t.facts.where((f) => f.fact == name),
+    );
+  }
 
   /// The last [n] facts of [fact], oldest first.
   List<FactMessage> recent(String fact, [int? n]) {
-    final q = _recent[fact];
+    final q = _recent[canonical(fact)];
     if (q == null) return const [];
     final all = q.toList();
     return n == null || n >= all.length ? all : all.sublist(all.length - n);
@@ -895,6 +946,7 @@ final class Registry implements TypeContext {
   /// retained (when, on whose behalf, through what), and the calls that led
   /// to it, nearest first, as far as they are remembered.
   Explanation explain(String state, {String? key}) {
+    state = canonical(state);
     final change = lastChange(state, key: key);
     final trail = <CallRecord>[];
     var parent = change?.cause.parent;
@@ -927,6 +979,7 @@ final class Registry implements TypeContext {
   /// The last committed change of [state] (of [key]) still retained, or
   /// null: with its cause, it says why the state is as it is.
   StateChange? lastChange(String state, {String? key}) {
+    state = canonical(state);
     for (final t in _retained.toList().reversed) {
       for (final c in t.changes.reversed) {
         if (c.state == state && c.key == key) return c;
@@ -947,6 +1000,7 @@ final class Registry implements TypeContext {
     bool override = false,
     Cause? cause,
   }) {
+    command = canonical(command);
     final callId = id ?? newId();
     final now = clock.now();
     _forget(_calls, (c) => c.at, now);
@@ -1227,6 +1281,7 @@ final class Registry implements TypeContext {
     Duration? ttl,
     List<String> chain = const [],
   }) {
+    state = canonical(state);
     final e = _states[state];
     if (e == null) throw StateError('no state $state');
     if (e.setter == null) throw StateError('$state has no setter');

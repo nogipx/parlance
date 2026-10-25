@@ -33,6 +33,8 @@ A host names its words once, typed (SPEC §18), and never types a name or a para
 - **Causes:** inside a handler, write and call with `cause: call.causeFor(owner)`, so the trail shows which call led to it. Never pass causes through zones.
 - Names are dotted lowercase (`audio.muted`); never two owners for one name.
 
+- **Words are a public API.** The user's links, plugins and agents name them. Never rename one bare: keep the old name with `registry.alias(old, now)` so what named it keeps working, and ask `links.uses {word}` (`link_uses`) who names it before changing it.
+
 ## Why a call was refused
 
 Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was given to another call) → command exists → params (`invalidParams`) → callers (`notPermitted`) → `available` (`unavailable`) → guards (`denied`, with the guard id) → before hooks → handler (`failed`; `timedOut` means *no answer yet*, the work may still finish). A guard marked overridable is passed only with `override: true` by a kind in `Registry.overriders` (Tephra: `user`, `remote`). `why`/`explain` and the call records tell what happened.

@@ -311,7 +311,10 @@ final class Links {
   /// message they handle, not whatever was committed since (SPEC §7).
   final Map<(String, String?), Object?> _view = {};
 
-  Object? _readView(String state, String? key) => _view[(state, key)];
+  /// A state as of the tick handled; an old name of a word reads the word
+  /// (SPEC §6.4).
+  Object? _readView(String state, String? key) =>
+      _view[(registry.canonical(state), key)];
 
   /// The definitions taken, by id.
   Map<String, Link> get links => Map.unmodifiable(_links);
@@ -837,7 +840,7 @@ final class Links {
     for (final link in _links.values)
       for (final how in {
         for (final u in _uses(link, ownSteps: true))
-          if (u.word == word) u.how,
+          if (registry.canonical(u.word) == registry.canonical(word)) u.how,
       })
         (link: link.id, how: how),
   ];
@@ -1105,13 +1108,17 @@ final class Links {
             r.onFact(f);
           }
         case _LiveBinding b:
-          if (b.condition.reads.any(changed.contains)) _evalBinding(b);
+          if (b.condition.reads.any(
+            (r) => changed.contains(registry.canonical(r)),
+          )) {
+            _evalBinding(b);
+          }
         case _LiveHandles():
           break;
       }
     }
     for (final w in [..._waiters]) {
-      w.check(t, _readView);
+      w.check(t, _readView, registry.canonical);
     }
     // A control lights, goes or comes with what its links read.
     if (changed.any((s) => s != LinkWords.controls.name)) _publishControls();
@@ -1397,7 +1404,8 @@ final class _LiveReaction extends _Live {
             if (stopped) return;
             for (final MapEntry(key: (state, key), :value)
                 in engine._view.entries.toList()) {
-              if (state != s.state || (s.key != null && s.key != key)) {
+              if (state != engine.registry.canonical(s.state) ||
+                  (s.key != null && s.key != key)) {
                 continue;
               }
               if (s.holds(value)) _held(i, s, key, value, null);
@@ -1435,7 +1443,9 @@ final class _LiveReaction extends _Live {
   void onChange(StateChange c, {bool appeared = false}) {
     for (final (i, t) in triggers.indexed) {
       final base = t.base;
-      if (base is! StateTrigger || base.state != c.state) continue;
+      if (base is! StateTrigger || registry.canonical(base.state) != c.state) {
+        continue;
+      }
       if (base.key != null && base.key != c.key) continue;
       final slot = (i, c.key);
       if (base.holdFor != null) {
@@ -1491,7 +1501,9 @@ final class _LiveReaction extends _Live {
   void onFact(FactMessage f) {
     for (final (i, t) in triggers.indexed) {
       final base = t.base;
-      if (base is! FactTrigger || base.fact != f.fact) continue;
+      if (base is! FactTrigger || registry.canonical(base.fact) != f.fact) {
+        continue;
+      }
       if (!base.where.matches(f.payload)) continue;
       fire(i, f.payload, parent: f.id, from: f.cause, origin: f.cause.by);
     }
@@ -1688,10 +1700,12 @@ final class _Waiter {
   final Until until;
   final Completer<void> done = Completer();
 
-  void check(Tick t, StateReader read) {
+  void check(Tick t, StateReader read, String Function(String) canonical) {
     if (done.isCompleted) return;
     if (until.fact case final f?) {
-      if (t.facts.any((m) => m.fact == f.fact && f.where.matches(m.payload))) {
+      if (t.facts.any(
+        (m) => m.fact == canonical(f.fact) && f.where.matches(m.payload),
+      )) {
         done.complete();
       }
     } else if (until.condition case final c? when evaluateWith(c, read)) {

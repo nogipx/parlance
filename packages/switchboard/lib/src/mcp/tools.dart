@@ -164,6 +164,9 @@ Future<List<McpTool>> switchboardTools(
                     '${x['id']} (${x['label']})',
               ],
           },
+          // Old names of words: they still work; use the new one.
+          if (d['aliases'] case final Map<Object?, Object?> a when a.isNotEmpty)
+            'renamed': a,
         });
       },
     ),

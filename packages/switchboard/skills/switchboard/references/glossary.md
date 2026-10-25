@@ -46,6 +46,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Dedup window** (§6.3, §9): how long an id answers its first message: a fact seen again is dropped, a call seen again answers the first result.
 - **Catalog** (§6.4): the descriptors and entity kinds there are now; changes at runtime (`catalogChanges`).
 - **`describe`**, **`describeFor`** (§6.4, §14): the catalog as JSON; for a principal, with what it may call (`access`), what cannot run now (`unavailable`) and what it may not read (`unreadable`).
+- **Alias**, **old name** (§6.4): a renamed word's former name, standing for it everywhere (`alias(old, now)`, `canonical(name)`, `aliases` in `describe`); not a word itself.
 - **Withdraw** (§6.4): giving a word up by disposing its handle; waiting calls of a withdrawn command end `unknownCommand`.
 
 ## Time and order

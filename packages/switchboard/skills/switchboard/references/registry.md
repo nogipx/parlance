@@ -104,7 +104,11 @@ FactDescriptor { name, type, open: bool, readers: { selector: allow | deny }?, m
 
 ### 6.4 Catalog
 
-Descriptors come and go at runtime (a plugin starts or stops). The catalog is the current set of descriptors and entity kinds; every addition, removal and `entitiesChanged` is a catalog change with its own stream. Removing a command fails the calls waiting in its before stage with `unknownCommand`; a running handler finishes.
+Descriptors come and go at runtime (a plugin starts or stops).
+
+**Old names.** Words are a public API: links the user keeps, plugins and agents name them. A word renamed keeps its old name as an **alias**: `alias(old, now)` makes `old` stand for the word in calls, reads, watches, facts, layers, `explain`, subscriptions over remote and links (their triggers, conditions, references and steps); `canonical(name)` tells what a name stands for. An alias is not a word: it cannot be defined, nor be one already. `describe` lists the aliases (`aliases: {old: now}`); a mirror reads through them; the agent's `describe` says them as `renamed`. Adding or dropping one is a catalog change (`AliasChanged`).
+
+ The catalog is the current set of descriptors and entity kinds; every addition, removal and `entitiesChanged` is a catalog change with its own stream. Removing a command fails the calls waiting in its before stage with `unknownCommand`; a running handler finishes.
 
 ## 7. Ticks
 
