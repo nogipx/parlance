@@ -41,7 +41,7 @@ Params are values, references (`$trigger.<path>`, `$state.<name>[<key>]`) and st
 
 ### 13.5 Reactions
 
-Trigger(s) → conditions → steps. Mode when it fires while running: `single` (skip; default), `restart` (cancel the running one, its layers drop), `queue` (with a limit; default 10). A run lasts until its steps and its temporaries end. A refusal stops the run unless the step says `orContinue`.
+Trigger(s) → conditions → steps. Mode when it fires while running: `single` (skip; default), `restart` (cancel the running one, its layers drop), `queue` (with a limit; default 10). A run lasts until its steps and its temporaries end. A refusal stops the run unless the step says `orContinue`. A run is not a transaction: what its steps did before stays done, and the link's status and the run's `failure` say which step stopped it and that those before it were done (`step 2 of 3, after step 1 done: …`).
 
 **On whose behalf a run acts.** A press acts for the presser. A fact or a state change acts for whoever caused it (its cause's principal) when the engine's managers do not count them in: their rights, never the link's, so they reach only what names them in its callers. Every other trigger (the managers' own actions, timers, the registry) runs as the link, `link:<id>`, with no more rights than the link has. An extension's `accept` may name the principal itself.
 

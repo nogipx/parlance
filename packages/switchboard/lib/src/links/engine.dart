@@ -1183,15 +1183,23 @@ final class Links {
 
   // --- Runs ------------------------------------------------------------------
 
-  /// Runs [steps]; answers why it stopped early, or null.
+  /// Runs [steps]; answers why it stopped early, or null. A run is not
+  /// undone when a step stops it: what stopped it says which step it was
+  /// and that those before it were done (SPEC §13.5).
   Future<String?> _runSteps(_Run run, List<Step> steps) async {
     try {
-      for (final s in steps) {
+      for (final (i, s) in steps.indexed) {
         if (run.isCancelled) return 'stopped';
         final failure = await _step(run, s);
         if (failure != null) {
-          _note(run.link.id, failure);
-          return run.failure = failure;
+          final where = steps.length == 1
+              ? failure
+              : i == 0
+              ? 'step 1 of ${steps.length}: $failure'
+              : 'step ${i + 1} of ${steps.length}, after '
+                    '${i == 1 ? 'step 1' : 'steps 1-$i'} done: $failure';
+          _note(run.link.id, where);
+          return run.failure = where;
         }
       }
       _clearNote(run.link.id);

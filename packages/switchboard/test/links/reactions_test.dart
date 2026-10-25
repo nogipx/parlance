@@ -459,6 +459,44 @@ void main() {
     expect(x.stateOf('spam'), LinkState.active);
   });
 
+  test('a run a step stops is not undone, and its status says which step '
+      'and what was done before it', () async {
+    f.r.defineCommand(
+      CommandDescriptor(
+        'test.blocked',
+        callers: const Callers({'*': Access.allow}),
+      ),
+      (_) {},
+      available: () => 'the mixer is off',
+    );
+    f.use([
+      {
+        'id': 'three',
+        'when': [
+          {'fact': 'platform.raid'},
+        ],
+        'do': [
+          {
+            'call': 'test.say',
+            'params': {'text': 'first'},
+          },
+          {'call': 'test.blocked'},
+          {
+            'call': 'test.say',
+            'params': {'text': 'third'},
+          },
+        ],
+      },
+    ]);
+    f.raid.emit({'from': 'a', 'viewers': 1});
+    await pumpEventQueue();
+    expect(f.said, ['first'], reason: 'done is done');
+    expect(
+      f.links.statuses['three']!.reason,
+      startsWith('step 2 of 3, after step 1 done: test.blocked: refused'),
+    );
+  });
+
   test('try runs a reaction with test set', () async {
     final changes = <StateChange>[];
     f.r.ticks.listen((t) => changes.addAll(t.changes));
