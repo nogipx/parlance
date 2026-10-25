@@ -142,6 +142,9 @@ final class Links {
       ),
     );
     _status = registry.state(LinkWords.status).define(by: _engine);
+    _controls = registry
+        .state(LinkWords.controls)
+        .define(by: _engine, meta: const {'label': 'Buttons'});
     _disabledFact = registry.fact(LinkWords.disabled).define(by: _engine);
     final manage = managers ?? anyone;
     _ownState = registry
@@ -149,6 +152,7 @@ final class Links {
         .define(by: _engine, meta: const {'label': "The user's own links"});
     _handles.addAll([
       _status,
+      _controls,
       _disabledFact,
       registry
           .command(LinkWords.press)
@@ -269,6 +273,8 @@ final class Links {
   /// says otherwise.
   late final Callers _managers;
   late final StateWriterOf<LinkStanding> _status;
+  late final StateWriterOf<List<ControlView>> _controls;
+  Object? _controlsJson;
   late final FactEmitterOf<LinkDisabled> _disabledFact;
   final List<Handle> _handles = [];
   final List<StreamSubscription<Object?>> _subs = [];
@@ -589,6 +595,30 @@ final class Links {
       } while (_again);
     } finally {
       _reconciling = false;
+    }
+    _publishControls();
+  }
+
+  /// Writes [controls] as `links.controls` when they changed: for clients
+  /// that see only the registry (a phone over remote).
+  void _publishControls() {
+    try {
+      final now = [
+        for (final c in controls())
+          (
+            id: c.id,
+            name: c.name,
+            look: c.look,
+            lit: c.lit,
+            unavailable: c.unavailable,
+          ),
+      ];
+      final json = LinkWords.controls.shape.toJson(now);
+      if (jsonEquals(json, _controlsJson)) return;
+      _controlsJson = json;
+      _controls.set(now);
+    } on Object catch (e, st) {
+      _onError(e, st);
     }
   }
 
@@ -996,6 +1026,8 @@ final class Links {
     for (final w in [..._waiters]) {
       w.check(t, _readView);
     }
+    // A control lights, goes or comes with what its links read.
+    if (changed.any((s) => s != LinkWords.controls.name)) _publishControls();
   }
 
   void _drop(_LiveBinding b) {

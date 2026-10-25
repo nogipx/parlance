@@ -83,6 +83,8 @@ A reaction someone can press is a control: a button on a desk, a phone, a deck. 
 - **`lit`:** for a control that sets something. It is the condition in `look['lit']`, else the state its single flip step flips, else whether the state its single call sets already holds the call's value. It is null for a control that only does something.
 - **`unavailable`:** why the first command it would call cannot run now.
 
+The engine keeps them as the state `links.controls` too (`LinkWords.controls`: a list of `{id, name, look, lit, unavailable}`), written whenever they change. A client that sees only the registry (a phone over remote, through a mirror) draws its buttons from it.
+
 `registry.pressLink(id, by:)` presses and waits for the run to end. It answers null when the run went through, else why not: the press was refused, the link did not run, or the run failed. Over remote, `client.command(LinkWords.press)` answers a `CallResult<LinkOutcome>` and `whyNotPressed` says the same.
 
 ## 15. Links the user keeps

@@ -37,6 +37,17 @@ typedef LinkStanding = ({
 /// A link the engine turned off, and why.
 typedef LinkDisabled = ({String link, String reason});
 
+/// A control as `links.controls` holds it (SPEC §13.12): the link to
+/// press, its name, how the host draws it (its manual trigger's options),
+/// whether it is lit and why pressing it cannot work now.
+typedef ControlView = ({
+  String id,
+  String? name,
+  Map<String, Object?> look,
+  bool? lit,
+  String? unavailable,
+});
+
 /// Press a link (a reaction with a manual trigger): its trigger's [args];
 /// with [wait], the answer comes when the run has ended.
 typedef PressLink = ({String link, Object? args, bool wait});
@@ -88,6 +99,24 @@ abstract final class LinkWords {
       from: _standingFrom,
     ),
     key: kind,
+  );
+  /// The controls there are now, in the order of the links: what a
+  /// client over remote draws as buttons, and presses with [press].
+  static const StateWord<List<ControlView>> controls = _State(
+    'links.controls',
+    ListShape(
+      RecordShape(
+        {
+          'id': Part(Plain(TextType())),
+          'name': Part(Plain(TextType()), optional: true),
+          'look': Part(MapShape(Plain(AnyType())), defaultValue: {}),
+          'lit': Part(Plain(BoolType()), optional: true),
+          'unavailable': Part(Plain(TextType()), optional: true),
+        },
+        to: _controlTo,
+        from: _controlFrom,
+      ),
+    ),
   );
   static const StateWord<List<Object?>> own = _State(
     'links.own',
@@ -323,3 +352,18 @@ Steps: {call: command, params?, orContinue?} | {flip: bool state, key?, orContin
 Params may hold "\$trigger.path", "\$state.name[key]" and text with {path}.
 Durations: 500ms, 15s, 2m, 1h.
 ''';
+
+Map<String, Object?> _controlTo(ControlView c) => {
+  'id': c.id,
+  'name': ?c.name,
+  'look': c.look,
+  'lit': ?c.lit,
+  'unavailable': ?c.unavailable,
+};
+ControlView _controlFrom(Map<String, Object?> m) => (
+  id: m['id']! as String,
+  name: m['name'] as String?,
+  look: (m['look'] as Map?)?.cast<String, Object?>() ?? const {},
+  lit: m['lit'] as bool?,
+  unavailable: m['unavailable'] as String?,
+);

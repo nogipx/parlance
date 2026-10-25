@@ -133,6 +133,27 @@ void main() {
     expect(why(), ['the mixer is off']);
   });
 
+  test('the controls are a state too, there for a client of the registry '
+      'alone, and follow what their links read', () async {
+    f.muted.set(false);
+    await Future<void>.delayed(Duration.zero);
+    List<ControlView> held() =>
+        f.r.state(LinkWords.controls).read() ?? const [];
+    expect([for (final c in held()) c.id], [
+      'blocked',
+      'mute',
+      'main',
+      'muted-look',
+    ]);
+    final mute = held()[1];
+    expect((mute.id, mute.lit, mute.unavailable), ('mute', false, null));
+    expect(mute.look, {'label': 'Mute'});
+    f.muted.set(true);
+    await Future<void>.delayed(Duration.zero);
+    expect([for (final c in held()) c.id], contains('only-muted'));
+    expect(held()[1].lit, isTrue);
+  });
+
   test('a press answers when its run ended, or why not', () async {
     expect(await f.r.pressLink('main', by: user), isNull);
     expect(f.r.read('studio.program'), 'main');
