@@ -11,13 +11,15 @@ this process or reached over remote, so the same widgets serve both.
 - `changes(states)`: told whenever any of those states changes, and when
   a remote view loses or finds the registry. A screen listens while it is
   shown, for exactly the states it draws.
-- `facts(fact)`: the facts said from now on.
+- `facts(fact)`: the facts said from now on; `recent(fact, count)`: the
+  last the registry keeps, oldest first, to start a list with.
 - `call(command, params)`: on behalf of the view's one principal; a read
   after it reads what it wrote.
 - `synced`: false while a remote view is cut off; what it reads is then
   the last it had, and a screen says so rather than show it as now.
 - Typed (§18): `view.state(word).read()`, `.readAll()`;
-  `view.command(word).call(params)`; `view.fact(word).stream`.
+  `view.command(word).call(params)`; `view.fact(word).stream`,
+  `.recent(count)`.
 
 ## LocalView(registry, by:)
 

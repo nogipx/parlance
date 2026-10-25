@@ -29,6 +29,9 @@ abstract interface class RegistryView {
   /// remote view hears them.
   Stream<FactMessage> facts(String fact);
 
+  /// The last [count] facts of [fact] the registry keeps, oldest first.
+  Future<List<FactMessage>> recent(String fact, int count);
+
   /// Calls [command]; a read after it reads what it wrote.
   Future<CallResult<Object?>> call(String command, Map<String, Object?> params);
 
@@ -81,6 +84,12 @@ final class ViewFactOf<T> {
   final RegistryView view;
   final FactWord<T> word;
 
+  /// The last [count] the registry keeps, oldest first.
+  Future<List<Fact<T>>> recent(int count) async => [
+    for (final m in await view.recent(word.name, count))
+      Fact(word.shape.fromJson(m.payload), m),
+  ];
+
   /// Those said from now on.
   Stream<Fact<T>> get stream =>
       view.facts(word.name).map((m) => Fact(word.shape.fromJson(m.payload), m));
@@ -112,6 +121,10 @@ final class LocalView implements RegistryView {
   Stream<FactMessage> facts(String fact) => registry.mayRead(by, fact)
       ? registry.facts(fact: fact)
       : const Stream.empty();
+
+  @override
+  Future<List<FactMessage>> recent(String fact, int count) async =>
+      registry.mayRead(by, fact) ? registry.recent(fact, count) : const [];
 
   @override
   Future<CallResult<Object?>> call(
@@ -191,6 +204,10 @@ final class MirrorView implements RegistryView {
     );
     return out.stream;
   }
+
+  @override
+  Future<List<FactMessage>> recent(String fact, int count) =>
+      client.recent(fact, count);
 
   /// Counts who asks for [names] in [wanted]; the mirror subscribes anew
   /// when what anyone asks for changes.

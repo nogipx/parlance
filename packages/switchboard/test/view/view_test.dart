@@ -124,6 +124,9 @@ void main() {
       raid.emit(5);
       await settle();
       expect(heard, [5]);
+      expect([for (final m in await view.recent('x.raid', 10)) m.payload], [
+        5,
+      ]);
       expect(mirror.facts, {'x.raid'});
       await sub.cancel();
     });
