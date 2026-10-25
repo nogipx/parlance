@@ -342,8 +342,10 @@ Own command: {id, command: "name", params?: {p: {type, optional?, default?, ...}
 Own state: {id, state: "name", values?: [..], default?} — a flag (or a mode), set by my.name.set {value}
 Any link: enabled: false turns it off; name is how people see it.
 
-Triggers: {fact: name, where?: {field: test}} | {state: name, key?, becomes|leaves: test, for?: "20m"}
+Triggers: {fact: name, where?: {field: test}} | {state: name, key?, becomes|leaves: test, for?: "20m", already?}
   | {state: name, changes: {from?, to?}} | {every: "15m"} | {at: "20:00", days?: [1..7]}
+  A state trigger fires on a change only, not when a value first comes or goes; already: true
+  fires it too for what already holds when the link starts or a value comes.
   | {manual: {...look}} — pressed with links.press — and the host's own (see describe).
   Options on any: throttle: {every: "2m", per: "\$trigger.path"}, once: true.
 Conditions: [{state, key?, is|not|in|<|<=|>|>=: value}...] (all) or {any: [...]}.

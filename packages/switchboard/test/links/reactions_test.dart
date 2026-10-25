@@ -417,6 +417,9 @@ void main() {
 
   test('a loop stops at the chain; too many runs disable the link', () async {
     final x = LinksFixture(rateLimit: 3);
+    // A value to change from: its first one is no change (§13.2).
+    x.muted.set(false);
+    await pumpEventQueue();
     x.use([
       {
         'id': 'echo',

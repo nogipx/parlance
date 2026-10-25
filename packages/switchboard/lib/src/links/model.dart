@@ -253,6 +253,13 @@ sealed class Trigger {
       ];
       if (which.length > 1) _bad('$what: one of becomes, leaves, changes');
       final changes = m['changes'];
+      final already = m['already'] == true;
+      if (already &&
+          !m.containsKey('becomes') &&
+          !m.containsKey('leaves') &&
+          !(changes is Map && changes.containsKey('to'))) {
+        _bad('$what.already: with becomes, leaves or changes.to');
+      }
       return StateTrigger(
         _name(m['state'], '$what.state'),
         key: m['key'] as String?,
@@ -269,6 +276,7 @@ sealed class Trigger {
             ? ValueTest.parse(changes['to'], '$what.changes.to')
             : null,
         holdFor: m['for'] == null ? null : parseDuration(m['for'], '$what.for'),
+        already: already,
         throttles: throttles,
         once: once,
       );
@@ -322,6 +330,7 @@ final class StateTrigger extends Trigger {
     this.from,
     this.to,
     this.holdFor,
+    this.already = false,
     super.throttles,
     super.once,
   });
@@ -335,6 +344,10 @@ final class StateTrigger extends Trigger {
 
   /// And stays so this long.
   final Duration? holdFor;
+
+  /// Fires too for what already holds: when the link starts, and when a
+  /// value comes where there was none. Without it, only a change fires it.
+  final bool already;
 
   /// Whether a change from [previous] to [value] fires it.
   bool fires(Object? previous, Object? value) {

@@ -118,6 +118,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Reaction** (§13.5): trigger(s), conditions, steps.
 - **Trigger** (§13.2): what fires a reaction: `fact` (with a payload filter), `state` (`becomes`, `leaves`, `changes`, `from`/`to`, `for`), `every`, `at`, `manual`.
 - **`for`** (§13.2): a state trigger that fires only once the state has stayed so that long.
+- **Change, not appearance** (§13.2): a state trigger fires on a change of a value; a value that comes where there was none, or goes, is no change.
+- **`already`** (§13.2): a state trigger that also fires for what already holds, when the link starts or a value comes.
 - **`manual`** (§13.2): fired by `links.press {link, args?, wait?}`; the presser is the principal.
 - **Trigger extension** (§13.2): a host's own trigger kind, translated to one of the kinds above, with its own options and default throttles; the package knows none.
 - **`accept`** (§13.2): an extension's check of a firing, which may give the data and the principal the run acts for.

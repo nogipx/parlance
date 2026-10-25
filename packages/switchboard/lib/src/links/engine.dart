@@ -1022,6 +1022,13 @@ final class Links {
   }
 
   void _onTickTimed(Tick t) {
+    // A value that comes where there was none is not a change of it: a
+    // trigger on its edge does not fire for it (SPEC §13.2).
+    final appeared = {
+      for (final c in t.changes)
+        if (!c.removed && !_view.containsKey((c.state, c.key)))
+          (c.state, c.key),
+    };
     for (final c in t.changes) {
       if (c.removed) {
         _view.remove((c.state, c.key));
@@ -1034,7 +1041,7 @@ final class Links {
       switch (live) {
         case _LiveReaction r:
           for (final c in t.changes) {
-            r.onChange(c);
+            r.onChange(c, appeared: appeared.contains((c.state, c.key)));
           }
           for (final f in t.facts) {
             r.onFact(f);
@@ -1325,6 +1332,19 @@ final class _LiveReaction extends _Live {
   void start() {
     for (final (i, t) in triggers.indexed) {
       switch (t.base) {
+        case final StateTrigger s when s.already:
+          // What already holds when the link starts fires it, after the
+          // start, each key on its own.
+          scheduleMicrotask(() {
+            if (stopped) return;
+            for (final MapEntry(key: (state, key), :value)
+                in engine._view.entries.toList()) {
+              if (state != s.state || (s.key != null && s.key != key)) {
+                continue;
+              }
+              if (s.holds(value)) _held(i, s, key, value, null);
+            }
+          });
         case EveryTrigger(:final interval):
           timers.add(
             Timer.periodic(
@@ -1354,34 +1374,59 @@ final class _LiveReaction extends _Live {
     );
   }
 
-  void onChange(StateChange c) {
+  void onChange(StateChange c, {bool appeared = false}) {
     for (final (i, t) in triggers.indexed) {
       final base = t.base;
       if (base is! StateTrigger || base.state != c.state) continue;
       if (base.key != null && base.key != c.key) continue;
       final slot = (i, c.key);
       if (base.holdFor != null) {
-        if (holding[slot] case final timer? when !base.holds(c.value)) {
+        if (holding[slot] case final timer?
+            when c.removed || !base.holds(c.value)) {
           timer.cancel();
           holding.remove(slot);
         }
       }
-      if (!base.fires(c.removed ? null : c.previous, c.value)) continue;
-      final data = {
-        'state': c.state,
-        'key': ?c.key,
-        'value': c.value,
-        'previous': c.previous,
-      };
-      if (base.holdFor case final d?) {
-        holding[slot]?.cancel();
-        holding[slot] = Timer(d, () {
-          holding.remove(slot);
-          fire(i, data, parent: c.id, from: c.cause, origin: c.cause.by);
-        });
-      } else {
-        fire(i, data, parent: c.id, from: c.cause, origin: c.cause.by);
+      // Gone is not a change; come is one only for a trigger that fires
+      // on what already holds.
+      if (c.removed) continue;
+      if (appeared) {
+        if (base.already && base.holds(c.value)) {
+          _held(i, base, c.key, c.value, c);
+        }
+        continue;
       }
+      if (!base.fires(c.previous, c.value)) continue;
+      _held(i, base, c.key, c.value, c);
+    }
+  }
+
+  /// Fires trigger [i] for [value] of [key], now or once it held for its
+  /// `for`; [c] is the change that brought it, none at the start.
+  void _held(
+    int i,
+    StateTrigger base,
+    String? key,
+    Object? value,
+    StateChange? c,
+  ) {
+    final slot = (i, key);
+    final data = {
+      'state': base.state,
+      'key': ?key,
+      'value': value,
+      'previous': c?.previous,
+    };
+    void go() =>
+        fire(i, data, parent: c?.id, from: c?.cause, origin: c?.cause.by);
+    if (base.holdFor case final d?) {
+      holding[slot]?.cancel();
+      holding[slot] = Timer(d, () {
+        holding.remove(slot);
+        go();
+      });
+    } else {
+      go();
     }
   }
 

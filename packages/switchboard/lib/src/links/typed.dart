@@ -43,11 +43,18 @@ extension FactTriggers<T> on FactWord<T> {
 
 extension StateTriggers<T> on StateWord<T> {
   /// The trigger: it (of [key]) becomes [value], and stays so [holding]
-  /// long when given.
-  Map<String, Object?> becomes(T value, {String? key, Duration? holding}) => {
+  /// long when given; with [already], also when it already is so as the
+  /// link starts or the value comes.
+  Map<String, Object?> becomes(
+    T value, {
+    String? key,
+    Duration? holding,
+    bool already = false,
+  }) => {
     'state': name,
     'key': ?key,
     'becomes': shape.toJson(value),
     if (holding != null) 'for': '${holding.inMilliseconds}ms',
+    if (already) 'already': true,
   };
 }
