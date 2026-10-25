@@ -402,6 +402,32 @@ void main() {
       expect(x.r.read('my.mode'), 'talk');
     });
 
+    test('own state values read after the engine was made come back too, '
+        'and one its type refuses does not', () async {
+      f.use([
+        {
+          'id': 'mode',
+          'state': 'mode',
+          'values': ['game', 'talk'],
+        },
+      ]);
+      expect(f.r.read('my.mode'), 'game');
+      f.links.importOwnStates({'my.mode': 'talk', 'my.later': true});
+      expect(f.r.read('my.mode'), 'talk');
+      f.links.importOwnStates({'my.mode': 'dance'});
+      expect(f.r.read('my.mode'), 'talk', reason: 'not one of its values');
+      expect(f.links.exportOwnStates()['my.mode'], 'talk');
+      f.use([
+        {
+          'id': 'mode',
+          'state': 'mode',
+          'values': ['game', 'talk'],
+        },
+        {'id': 'later', 'state': 'later'},
+      ]);
+      expect(f.r.read('my.later'), true, reason: 'taken when it came');
+    });
+
     test('an own command runs its steps with its params', () async {
       f.use([
         {

@@ -107,3 +107,5 @@ Own links live in a `LinksStore` the host gives: loaded at start and on `reloadO
 | `links.remove { id }` | removes an own link; a source's link is turned off by an own one instead |
 
 State `links.own` holds the own links as kept; `links.status` how each link stands.
+
+Own states' values are the host's to persist: `exportOwnStates()` gives them, `Links(ownStates:)` takes them back in a new engine, and `importOwnStates(values)` in one made before they were read (those active take them at once, the others when they come; a value its type refuses is left out).

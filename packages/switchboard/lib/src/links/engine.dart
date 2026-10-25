@@ -325,6 +325,35 @@ final class Links {
   /// The values of own states, to persist and give back to the next engine.
   Map<String, Object?> exportOwnStates() => Map.unmodifiable(_ownValues);
 
+  /// Takes back own states' values kept from before (what
+  /// [exportOwnStates] gave), for an engine made before they were read:
+  /// those active now take them at once, the others when they come. A
+  /// value its state's type refuses is left out.
+  void importOwnStates(Map<String, Object?> values) {
+    for (final MapEntry(key: name, :value) in values.entries) {
+      final active = [
+        for (final live in _live.values)
+          if (live case _LiveHandles(link: final OwnState own, :final handles)
+              when own.state == name)
+            (own: own, writer: handles.last as StateWriter),
+      ];
+      if (active.isEmpty) {
+        // Checked when it comes.
+        _ownValues[name] = value;
+        continue;
+      }
+      for (final (:own, :writer) in active) {
+        try {
+          own.type.check(value, registry);
+        } on TypeMismatch {
+          continue;
+        }
+        _ownValues[name] = value;
+        writer.set(value);
+      }
+    }
+  }
+
   /// Registers a trigger extension (SPEC §13.2).
   void registerTrigger(TriggerExtension ext) {
     if (_extensions.containsKey(ext.name)) {
