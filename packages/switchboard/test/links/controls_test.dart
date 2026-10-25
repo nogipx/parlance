@@ -139,12 +139,10 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     List<ControlView> held() =>
         f.r.state(LinkWords.controls).read() ?? const [];
-    expect([for (final c in held()) c.id], [
-      'blocked',
-      'mute',
-      'main',
-      'muted-look',
-    ]);
+    expect(
+      [for (final c in held()) c.id],
+      ['blocked', 'mute', 'main', 'muted-look'],
+    );
     final mute = held()[1];
     expect((mute.id, mute.lit, mute.unavailable), ('mute', false, null));
     expect(mute.look, {'label': 'Mute'});

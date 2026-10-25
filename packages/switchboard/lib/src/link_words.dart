@@ -100,6 +100,7 @@ abstract final class LinkWords {
     ),
     key: kind,
   );
+
   /// The controls there are now, in the order of the links: what a
   /// client over remote draws as buttons, and presses with [press].
   static const StateWord<List<ControlView>> controls = _State(

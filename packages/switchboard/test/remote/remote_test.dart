@@ -224,6 +224,25 @@ void main() {
         },
       );
 
+      test(
+        'a mirror back with nothing new since follows again at once',
+        () async {
+          final mirror = RegistryMirror();
+          addTearDown(mirror.dispose);
+          mirror.follow(link.client);
+          await settle();
+          expect(mirror.synced, isTrue);
+          await link.close();
+          await settle();
+          expect(mirror.synced, isFalse);
+
+          link = Link.open(f.r, user, wire: wire);
+          mirror.follow(link.client);
+          await settle();
+          expect(mirror.synced, isTrue, reason: 'no tick to wait for');
+        },
+      );
+
       group('a subscription', () {
         late FactEmitter raid;
         late FactEmitter cheer;

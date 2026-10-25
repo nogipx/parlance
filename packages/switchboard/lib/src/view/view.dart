@@ -148,13 +148,13 @@ final class LocalView implements RegistryView {
 /// calls. The mirror keeps the states and hears the facts the view's
 /// listeners ask for, and no others.
 final class MirrorView implements RegistryView {
-  MirrorView(this.mirror, this.client);
+  MirrorView(this.mirror, [this.client]);
 
   final RegistryMirror mirror;
 
   /// The session's client; after a lost connection, set the new one here
-  /// and follow it with the mirror.
-  SwitchboardClient client;
+  /// and follow it with the mirror. Null before the first: a call fails.
+  SwitchboardClient? client;
 
   final Map<String, int> _states = {};
   final Map<String, int> _facts = {};
@@ -206,8 +206,8 @@ final class MirrorView implements RegistryView {
   }
 
   @override
-  Future<List<FactMessage>> recent(String fact, int count) =>
-      client.recent(fact, count);
+  Future<List<FactMessage>> recent(String fact, int count) async =>
+      await client?.recent(fact, count) ?? const [];
 
   /// Counts who asks for [names] in [wanted]; the mirror subscribes anew
   /// when what anyone asks for changes.
@@ -235,6 +235,8 @@ final class MirrorView implements RegistryView {
     String command,
     Map<String, Object?> params,
   ) async {
+    final client = this.client;
+    if (client == null) return const CallFailed('not connected');
     final r = await client.callAt(command, params);
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
       await mirror.reach(epoch, seq);

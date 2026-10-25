@@ -1051,6 +1051,10 @@ final class RegistryMirror {
       case RemoteCatalog(:final json):
         _catalog = json;
         _catalogChanges.add(null);
+        // A feed resumed in the same epoch carries on from the copy's seq:
+        // the copy follows again from its first item, though nothing may
+        // have happened since to send.
+        if (_epoch != null && json['epoch'] == _epoch) _synced = true;
       case RemoteSnapshot(:final snapshot, :final subscription):
         _subscription = subscription;
         _epoch = snapshot.epoch;
