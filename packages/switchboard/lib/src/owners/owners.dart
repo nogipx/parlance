@@ -148,7 +148,17 @@ final class Owners implements Handle {
 /// Ends the call being served as `failed` with [why]: for a handler whose
 /// device or port said no. (A refusal with a code comes from the registry's
 /// own stages, never from a handler.)
-Never failCall(String why) => throw StateError(why);
+Never failCall(String why) => throw CallFailure(why);
+
+/// Why a handler failed its call ([failCall]): told as it is, to people
+/// too.
+final class CallFailure implements Exception {
+  const CallFailure(this.why);
+  final String why;
+
+  @override
+  String toString() => why;
+}
 
 final class _Listening implements Handle {
   _Listening(this._sub);
