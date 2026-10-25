@@ -15,6 +15,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | `owners` | `Owner`, `Owners`, `Handles`, `TrackedKind`, `failCall`: defining, syncing and withdrawing a host's words | [references/owners.md](references/owners.md): §19 |
 | `links` | the engine of links and own words, on the registry's public API | [references/links.md](references/links.md): §13, §15 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
+| `view` | `RegistryView`: what a screen reads and calls, one interface over a registry in this process (`LocalView`) or a `RegistryMirror` (`MirrorView`) | [references/view.md](references/view.md): §20 |
 | `mcp` | curated agent tools on a `Board` (local or remote); `mcp_io`: the server on a Unix socket; the binary `switchboard-mcp` | [references/mcp.md](references/mcp.md): §16 |
 
 ## Adding to the registry

@@ -51,6 +51,20 @@ void main() {
     });
   });
 
+  test('view uses the registry and remote, and Dart', () {
+    for (final f in dartIn('lib/src/view')) {
+      for (final i in importsOf(f)) {
+        expect(
+          i.startsWith('../registry/') ||
+              i.startsWith('../remote/') ||
+              i.startsWith('dart:'),
+          isTrue,
+          reason: '${f.path}: $i',
+        );
+      }
+    }
+  });
+
   test('owners use the registry alone, and Dart', () {
     for (final f in dartIn('lib/src/owners')) {
       for (final i in importsOf(f)) {
