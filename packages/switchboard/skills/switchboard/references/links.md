@@ -68,9 +68,11 @@ A before hook on an interceptable command: steps, a priority and a required time
 
 ### 13.10 What the engine takes
 
-The engine takes names in the registry: the states `links.status` and `links.own`, the fact `links.disabled`, the commands `links.*`, the entity kind `link`, the principal kind `link` (it acts as `link:<id>`, `linkPrincipal(id)`) and the prefix `my.` of own words. So one engine runs on one registry; a second one is refused by the registry as a name defined twice.
+The engine takes names in the registry: the states `links.status`, `links.controls` and `links.own`, the fact `links.disabled`, the commands `links.*`, the entity kind `link`, the principal kind `link` (it acts as `link:<id>`, `linkPrincipal(id)`) and the prefix `my.` of own words. So one engine runs on one registry; a second one is refused by the registry as a name defined twice.
 
 These names are `LinkWords` (`lib/src/link_words.dart`, with `linkGuide`, how links are written). It imports nothing: a client of the engine (the agent's tools, a host's buttons) calls the engine by them without importing the engine. A test holds `linkGuide` to the keys the parser reads.
+
+**Who names a word.** `links.uses { word }` (and `Links.uses(word)`) answers every link that names a state, a command or a fact, and how: `trigger`, `condition`, `call`, `flip`, `reads` (a `$state` reference), `waits`, `holds` (a binding), `guards` (a constraint), `intercepts`; every link composed, active or not, own commands' steps too. `why` says why a value is as it is; this says who a change of a word would set off, who reads it and who calls it: ask before changing or renaming a word.
 
 ### 13.11 Typed words of links
 

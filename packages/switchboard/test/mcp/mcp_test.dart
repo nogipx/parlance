@@ -281,6 +281,7 @@ void main() {
         'link_upsert',
         'link_remove',
         'links_set',
+        'link_uses',
         'link_try',
         'link_press',
       ]);

@@ -158,6 +158,13 @@ final class Links {
           .command(LinkWords.press)
           .define(_press, callers: pressers ?? anyone),
       registry.command(LinkWords.tryOut).define(_try, callers: manage),
+      registry
+          .command(LinkWords.uses)
+          .define(
+            (c) => (uses: uses(c.params.word)),
+            callers: manage,
+            meta: const {'label': 'The links that name a word'},
+          ),
       registry.command(LinkWords.reset).define((c) {
         if (_live[c.params.link] case final _LiveReaction r) r.fired.clear();
       }, callers: manage),
@@ -702,28 +709,55 @@ final class Links {
 
   /// The names [link] needs that the catalog lacks, sorted.
   List<String> _missing(Link link) {
-    final commands = <String>{};
-    final states = <String>{};
-    final facts = <String>{};
-    final other = <String>{};
+    final other = <String>[];
+    final names = _uses(link, other: other);
+    return {
+      for (final u in names)
+        if (switch (u.kind) {
+          _Kind.command => registry.commandDescriptor(u.word) == null,
+          _Kind.state => registry.stateDescriptor(u.word) == null,
+          _Kind.fact => registry.factDescriptor(u.word) == null,
+        })
+          u.word,
+      ...other,
+    }.toList()..sort();
+  }
+
+  /// The words [link] names, each with how it uses it; what it names that
+  /// is not a word (an extension or anchor the engine lacks, an entity) is
+  /// added to [other]. With [ownSteps], an own command's steps too.
+  List<({String word, _Kind kind, String how})> _uses(
+    Link link, {
+    List<String>? other,
+    bool ownSteps = false,
+  }) {
+    final out = <({String word, _Kind kind, String how})>[];
+    void use(String word, _Kind kind, String how) =>
+        out.add((word: word, kind: kind, how: how));
 
     void steps(List<Step> list) {
       for (final s in list) {
         switch (s) {
           case CallStep(:final command, :final params):
-            commands.add(command);
-            states.addAll(stateRefs(params));
+            use(command, _Kind.command, 'call');
+            for (final r in stateRefs(params)) {
+              use(r, _Kind.state, 'reads');
+            }
           case FlipStep(:final state):
-            states.add(state);
+            use(state, _Kind.state, 'flip');
           case WaitStep():
             break;
           case WaitUntilStep(:final until):
-            if (until.fact case final f?) facts.add(f.fact);
-            if (until.condition case final c?) states.addAll(c.reads);
+            if (until.fact case final f?) use(f.fact, _Kind.fact, 'waits');
+            for (final r in until.condition?.reads ?? const <String>[]) {
+              use(r, _Kind.state, 'waits');
+            }
           case TemporarilyStep(:final until, steps: final inner):
             steps(inner);
-            if (until?.fact case final f?) facts.add(f.fact);
-            if (until?.condition case final c?) states.addAll(c.reads);
+            if (until?.fact case final f?) use(f.fact, _Kind.fact, 'waits');
+            for (final r in until?.condition?.reads ?? const <String>[]) {
+              use(r, _Kind.state, 'waits');
+            }
         }
       }
     }
@@ -731,13 +765,13 @@ final class Links {
     void trigger(Trigger t) {
       switch (t) {
         case FactTrigger(:final fact):
-          facts.add(fact);
+          use(fact, _Kind.fact, 'trigger');
         case StateTrigger(:final state):
-          states.add(state);
+          use(state, _Kind.state, 'trigger');
         case ExtensionTrigger(:final raw):
           final ext = _extensionOf(raw);
           if (ext == null) {
-            other.add('trigger ${raw.keys.join('/')}');
+            other?.add('trigger ${raw.keys.join('/')}');
           } else {
             trigger(ext.translate(raw));
           }
@@ -746,43 +780,67 @@ final class Links {
       }
     }
 
+    void condition(Condition? c) {
+      for (final r in c?.reads ?? const <String>[]) {
+        use(r, _Kind.state, 'condition');
+      }
+    }
+
     switch (link) {
-      case OwnState() || OwnCommand():
+      case OwnState():
         break;
+      case OwnCommand(steps: final s):
+        if (ownSteps) steps(s);
       case Reaction(:final triggers, :final only, steps: final s):
         triggers.forEach(trigger);
-        if (only != null) states.addAll(only.reads);
+        condition(only);
         steps(s);
       case Binding(:final condition, :final anchor, :final holds):
-        if (condition != null) states.addAll(condition.reads);
+        for (final r in condition?.reads ?? const <String>[]) {
+          use(r, _Kind.state, 'condition');
+        }
         if (anchor != null) {
           final kind = _anchors[anchor.kind];
           if (kind == null) {
-            other.add('anchor ${anchor.kind}');
+            other?.add('anchor ${anchor.kind}');
           } else if (!registry.hasEntity(kind.entityKind, anchor.entity)) {
-            other.add('${kind.entityKind} ${anchor.entity}');
+            other?.add('${kind.entityKind} ${anchor.entity}');
           } else {
-            states.addAll(kind.condition(anchor.entity).reads);
+            for (final r in kind.condition(anchor.entity).reads) {
+              use(r, _Kind.state, 'condition');
+            }
           }
         }
-        steps(holds);
+        for (final h in holds) {
+          use(h.command, _Kind.command, 'holds');
+          for (final r in stateRefs(h.params)) {
+            use(r, _Kind.state, 'reads');
+          }
+        }
       case Constraint(:final command, :final condition):
-        if (command != null) commands.add(command);
-        if (condition != null) states.addAll(condition.reads);
+        if (command != null) use(command, _Kind.command, 'guards');
+        for (final r in condition?.reads ?? const <String>[]) {
+          use(r, _Kind.state, 'condition');
+        }
       case Interception(:final command, steps: final s):
-        commands.add(command);
+        use(command, _Kind.command, 'intercepts');
         steps(s);
     }
-    return [
-      for (final c in commands)
-        if (registry.commandDescriptor(c) == null) c,
-      for (final s in states)
-        if (registry.stateDescriptor(s) == null) s,
-      for (final f in facts)
-        if (registry.factDescriptor(f) == null) f,
-      ...other,
-    ]..sort();
+    return out;
   }
+
+  /// The links that name [word] (a state, a command or a fact), each with
+  /// how: `trigger`, `condition`, `call`, `flip`, `reads`, `waits`, `holds`,
+  /// `guards`, `intercepts`. Every link composed, active or not; own
+  /// commands' steps too. What `why` does not say: who would be affected.
+  List<LinkUse> uses(String word) => [
+    for (final link in _links.values)
+      for (final how in {
+        for (final u in _uses(link, ownSteps: true))
+          if (u.word == word) u.how,
+      })
+        (link: link.id, how: how),
+  ];
 
   TriggerExtension? _extensionOf(Map<String, Object?> raw) {
     for (final k in raw.keys) {
@@ -1688,3 +1746,5 @@ final class LinksStats {
         'mean ${mean(controlTotalUs, controlRuns)} us, max $controlMaxUs us';
   }
 }
+
+enum _Kind { command, state, fact }

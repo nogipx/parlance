@@ -78,6 +78,16 @@ typedef LinkOutcome = ({
 /// catalog lacks.
 typedef LinkCheck = ({bool ok, List<String> problems, List<String> missing});
 
+/// A word asked about: a state, a command or a fact.
+typedef WordRef = ({String word});
+
+/// A link that names a word, and how: `trigger`, `condition`, `call`,
+/// `flip`, `reads`, `waits`, `holds`, `guards`, `intercepts`.
+typedef LinkUse = ({String link, String how});
+
+/// The links that name a word.
+typedef LinkUses = ({List<LinkUse> uses});
+
 abstract final class LinkWords {
   /// The entity kind of links, and the kind of the principal the engine
   /// acts as.
@@ -162,6 +172,32 @@ abstract final class LinkWords {
       {'link': Part(Plain(RefType(kind))), 'on': Part(Plain(BoolType()))},
       to: _enableTo,
       from: _enableFrom,
+    ),
+  );
+
+  /// The links that name a word, and how: who a change of it would set
+  /// off, who reads it, who calls it.
+  static const CommandWord<WordRef, LinkUses> uses = _Command(
+    'links.uses',
+    RecordShape(
+      {'word': Part(Plain(TextType()))},
+      to: _wordTo,
+      from: _wordFrom,
+    ),
+    returns: RecordShape(
+      {
+        'uses': Part(
+          ListShape(
+            RecordShape(
+              {'link': Part(Plain(TextType())), 'how': Part(Plain(TextType()))},
+              to: _useTo,
+              from: _useFrom,
+            ),
+          ),
+        ),
+      },
+      to: _usesTo,
+      from: _usesFrom,
     ),
   );
 
@@ -370,3 +406,12 @@ ControlView _controlFrom(Map<String, Object?> m) => (
   lit: m['lit'] as bool?,
   unavailable: m['unavailable'] as String?,
 );
+
+Map<String, Object?> _wordTo(WordRef w) => {'word': w.word};
+WordRef _wordFrom(Map<String, Object?> m) => (word: m['word']! as String);
+Map<String, Object?> _useTo(LinkUse u) => {'link': u.link, 'how': u.how};
+LinkUse _useFrom(Map<String, Object?> m) =>
+    (link: m['link']! as String, how: m['how']! as String);
+Map<String, Object?> _usesTo(LinkUses u) => {'uses': u.uses};
+LinkUses _usesFrom(Map<String, Object?> m) =>
+    (uses: (m['uses']! as List).cast<LinkUse>());

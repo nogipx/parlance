@@ -16,7 +16,7 @@ A **board** is what the tools work on: `LocalBoard(registry, by: principal)` in 
 | `recent_facts` | the last facts of a name |
 | `why` | a state's value, last change (when, on whose behalf, through which links), the calls that led to it, the layers holding it: `Registry.explain`, told without the wire's ids |
 | `layers` | every layer: owner, value, priority, the top one |
-| `links`, `link_guide`, `link_check`, `link_upsert`, `link_remove`, `links_set`, `link_try`, `link_press` | the links, how they are written, and the engine's commands |
+| `links`, `link_guide`, `link_check`, `link_upsert`, `link_remove`, `links_set`, `link_uses`, `link_try`, `link_press` | the links, how they are written, who names a word, and the engine's commands |
 
 The links' tools are there only when a links engine is (§13.10): `links` with its state, each other tool when the principal may call its command, `link_guide` with any that writes. `mcp` does not import `links`; it knows the engine by `LinkWords` only.
 

@@ -333,6 +333,20 @@ Future<List<McpTool>> switchboardTools(
         required: ['links'],
         run: (a) => callCommand(LinkWords.set.name, {'links': a['links']}),
       ),
+    if (may(LinkWords.uses.name))
+      McpTool(
+        name: 'link_uses',
+        description:
+            'The links that name a word (a state, a command or a fact), and '
+            'how: trigger, condition, call, flip, reads, waits, holds, '
+            'guards, intercepts. Ask before changing or renaming a word, or '
+            'to find what a change of it sets off.',
+        properties: {
+          'word': {'type': 'string'},
+        },
+        required: ['word'],
+        run: (a) => callCommand(LinkWords.uses.name, {'word': a['word']}),
+      ),
     if (may(LinkWords.tryOut.name))
       McpTool(
         name: 'link_try',

@@ -149,6 +149,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Source** (§15): a host's named set of links, read-only to the user (`source(name, definitions, on:)`, `dropSource`).
 - **Own links** (§15): the user's links, kept in a `LinksStore`; one with a source link's id replaces it, with `enabled: false` turns it off.
 - **Origin** (§15): where a link came from (`originOf`: the source, and `edited` when an own one replaces it).
+- **Uses** (§13.10): `links.uses {word}`, the links that name a word and how (`trigger`, `condition`, `call`, `flip`, `reads`, `waits`, `holds`, `guards`, `intercepts`); the reverse of `why`, for what a change or a rename of a word touches.
 - **Stats**: `links.takeStats()`, what the engine's work on ticks cost since the last call.
 
 ## Remote (§14)
@@ -176,7 +177,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **Board**: what the MCP tools need of a registry: `LocalBoard` in the host's process, `RemoteBoard` over remote.
 - **`BoardOffline`**, **`BoardBehind`**: a remote board cannot reach the registry, or has not caught up with its last call.
-- **`switchboardTools`**: the curated tools: `describe`, `read`, `call`, `recent_facts`, `why`, `layers`, `links` and `link_*`; with `commandTools`, a tool per command too.
+- **`switchboardTools`**: the curated tools: `describe`, `read`, `call`, `recent_facts`, `why`, `layers`, `links` and `link_*` (`link_uses` among them); with `commandTools`, a tool per command too.
 - **`McpTool.typed`**: a host's own tool, its JSON Schema derived from a `RecordShape`.
 - **`McpSocketServer`**: agents on a Unix socket (`mcp_io.dart`); `toolsChanged()` reaches every session.
 - **`switchboard-mcp`**: the board over remote as a stdio server.
