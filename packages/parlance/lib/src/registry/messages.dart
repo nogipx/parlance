@@ -428,6 +428,32 @@ final class CallStarted {
   String toString() => 'Started $command $params ($cause)';
 }
 
+/// What the registry still remembers of one conversation (SPEC §4): the
+/// calls, changes and facts that followed from one message, however far.
+final class Conversation {
+  const Conversation({
+    required this.id,
+    required this.calls,
+    required this.changes,
+    required this.facts,
+  });
+
+  /// The id of the message that started it.
+  final String id;
+  final List<CallRecord> calls;
+  final List<StateChange> changes;
+  final List<FactMessage> facts;
+
+  bool get isEmpty => calls.isEmpty && changes.isEmpty && facts.isEmpty;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'calls': [for (final c in calls) c.toJson()],
+    'changes': [for (final c in changes) c.toJson()],
+    'facts': [for (final f in facts) f.toJson()],
+  };
+}
+
 /// How one principal used a word (SPEC §6.8): its calls and asks, its
 /// reads from outside the build, how many of its listeners listen now, and
 /// when it last did any of it.

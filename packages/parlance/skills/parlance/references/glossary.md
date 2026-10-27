@@ -27,7 +27,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **Principal** (§4): who acts, a `kind` and an `id` (`user/local`, `plugin/hydra`, `viewer/twitch/123`). Kinds are the host's; the package reserves `system` (the registry).
 - **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`plugin/hydra`), or `*`. The most specific one that matches wins.
-- **Cause** (§4): why a message happened: `by` (the principal) and `parent` (the message it follows from). Passed explicitly: `call.causeFor(by)`.
+- **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from) and `correlation` (the conversation it is part of). Passed explicitly: `call.causeFor(by)`.
+- **Conversation** (§4): everything that followed from one message, however far; its id is that message's. `registry.conversation(id)`, a span's `conversation`.
 - **Overrider** (§9): a principal kind the host allows to override an overridable denial (`Registry(overriders: {...})`).
 
 ## Words

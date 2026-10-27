@@ -931,7 +931,11 @@ final class RemoteParticipant implements IParticipant {
         : _callLog.startSpan(
             request.command,
             parent: request.traceparent,
-            data: {'call': request.id, 'by': cause.by.selector},
+            data: {
+              'call': request.id,
+              'by': cause.by.selector,
+              'conversation': cause.conversationOf(request.id),
+            },
           );
     final call = CommandCall(
       request.id,

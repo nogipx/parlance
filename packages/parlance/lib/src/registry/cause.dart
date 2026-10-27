@@ -134,11 +134,15 @@ final class Principal {
 
 /// Why something happens (SPEC §4).
 final class Cause {
-  const Cause(this.by, {this.parent});
+  const Cause(this.by, {this.parent, this.correlation});
 
   factory Cause.fromJson(Object? json) {
     final m = json as Map;
-    return Cause(Principal.fromJson(m['by']), parent: m['parent'] as String?);
+    return Cause(
+      Principal.fromJson(m['by']),
+      parent: m['parent'] as String?,
+      correlation: m['correlation'] as String?,
+    );
   }
 
   /// On whose behalf.
@@ -147,16 +151,36 @@ final class Cause {
   /// The message this one follows from: the call whose handler wrote it.
   final String? parent;
 
+  /// The conversation this one is part of: the id of the message that set
+  /// it all going, the same for everything that followed from it, however
+  /// far (a message come in, the call it led to, the timer that call set). Null
+  /// for a message that starts one: its conversation is its own id
+  /// ([conversationOf]).
+  final String? correlation;
+
+  /// The conversation of the message of [id] this cause is of.
+  String conversationOf(String id) => correlation ?? id;
+
   /// The cause of what a message caused: [parent] is that message, [by]
-  /// may change.
-  Cause child(String parentId, {Principal? by}) =>
-      Cause(by ?? this.by, parent: parentId);
+  /// may change; it stays in the message's conversation.
+  Cause child(String parentId, {Principal? by}) => Cause(
+    by ?? this.by,
+    parent: parentId,
+    correlation: correlation ?? parentId,
+  );
 
   /// The same cause, on behalf of [by].
-  Cause withBy(Principal by) => Cause(by, parent: parent);
+  Cause withBy(Principal by) =>
+      Cause(by, parent: parent, correlation: correlation);
 
-  Map<String, Object?> toJson() => {'by': by.toJson(), 'parent': ?parent};
+  Map<String, Object?> toJson() => {
+    'by': by.toJson(),
+    'parent': ?parent,
+    'correlation': ?correlation,
+  };
 
   @override
-  String toString() => 'Cause($by${parent == null ? '' : ' <- $parent'})';
+  String toString() =>
+      'Cause($by${parent == null ? '' : ' <- $parent'}'
+      '${correlation == null ? '' : ' in $correlation'})';
 }

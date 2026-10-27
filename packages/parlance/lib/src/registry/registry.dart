@@ -797,6 +797,7 @@ final class Registry implements ITypeContext {
   void batch(void Function() body) => _hub.batch(body);
 
   void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
+    cause = _correlated(cause);
     refuseInQuery('write ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
@@ -805,6 +806,7 @@ final class Registry implements ITypeContext {
   }
 
   void _removeState(StateDescriptor d, String? key, Cause cause) {
+    cause = _correlated(cause);
     refuseInQuery('remove ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
@@ -1080,6 +1082,8 @@ final class Registry implements ITypeContext {
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
     final v = freezeJson(d.type.check(payload, this));
+    cause = _correlated(cause);
+    _converse(id, cause);
     _seenFacts[id] = now;
     if (_seenFacts.length > dedupLimit) {
       _seenFacts.remove(_seenFacts.keys.first);
@@ -1100,6 +1104,54 @@ final class Registry implements ITypeContext {
       seen.remove(first.key);
     }
   }
+
+  // --- Conversations ---------------------------------------------------------
+
+  /// The conversation of each call and fact still remembered, by its id:
+  /// what a cause made by hand, naming only its parent, is found in.
+  final LinkedHashMap<String, String> _conversations = LinkedHashMap();
+
+  void _converse(String id, Cause cause) {
+    _conversations[id] = cause.conversationOf(id);
+    if (_conversations.length > dedupLimit) {
+      _conversations.remove(_conversations.keys.first);
+    }
+  }
+
+  /// [cause] in its parent's conversation: one made by hand
+  /// (`Cause(by, parent: fact.id)`) names its parent only; the registry
+  /// finds the conversation that parent is in, or takes the parent as one
+  /// that started it.
+  Cause _correlated(Cause cause) {
+    final parent = cause.parent;
+    if (cause.correlation != null || parent == null) return cause;
+    return Cause(
+      cause.by,
+      parent: parent,
+      correlation: _conversations[parent] ?? parent,
+    );
+  }
+
+  /// What the registry still remembers of conversation [id] (SPEC §4): its
+  /// calls, the changes and the facts committed in it, each in order. The
+  /// message that started it is in it, under its own id.
+  Conversation conversation(String id) => Conversation(
+    id: id,
+    calls: [
+      for (final c in _recentCalls.values)
+        if (c.cause.conversationOf(c.id) == id) c,
+    ],
+    changes: [
+      for (final t in _retained)
+        for (final c in t.changes)
+          if (c.cause.conversationOf(c.id) == id) c,
+    ],
+    facts: [
+      for (final t in _retained)
+        for (final f in t.facts)
+          if (f.cause.conversationOf(f.id) == id) f,
+    ],
+  );
 
   // --- Use -------------------------------------------------------------------
 
@@ -1254,6 +1306,8 @@ final class Registry implements ITypeContext {
     command = canonical(command);
     if (_commands.containsKey(command)) _used(asked, by)?.called();
     final callId = id ?? newId();
+    cause = _correlated(cause ?? Cause(by));
+    _converse(callId, cause);
     final query = _commands[command]?.query ?? false;
     // A query may ask another; a command it may not call.
     if (!query) refuseInQuery('call $command');
@@ -1263,7 +1317,7 @@ final class Registry implements ITypeContext {
         callId,
         command,
         params,
-        cause ?? Cause(by),
+        cause,
         override: override,
         record: false,
       );
@@ -1285,13 +1339,7 @@ final class Registry implements ITypeContext {
       }
       return seen.result;
     }
-    final result = _run(
-      callId,
-      command,
-      params,
-      cause ?? Cause(by),
-      override: override,
-    );
+    final result = _run(callId, command, params, cause, override: override);
     // Only an id the caller gave can be given again: one made here is
     // nobody's to retry with.
     if (id != null) {
@@ -1322,6 +1370,7 @@ final class Registry implements ITypeContext {
               'command': command,
               'code': code.name,
               'id': id,
+              'conversation': cause.conversationOf(id),
               'by': cause.by.selector,
               'reason': reason,
               'guard': ?guard,
@@ -1495,6 +1544,9 @@ final class Registry implements ITypeContext {
     final data = <String, Object>{
       'call': id,
       'parent': ?cause.parent,
+      // The conversation it is part of: what a trace, one request, does
+      // not tell, a message come in and what it led to minutes after.
+      'conversation': cause.conversationOf(id),
       'by': cause.by.selector,
       if (query) 'query': true,
       if (log.isDebug) 'params': params,
