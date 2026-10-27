@@ -28,9 +28,9 @@ void main() {
   });
 
   /// A client that takes nothing while [writes] run, then all.
-  Future<List<SbFeedItem>> slowly(Future<void> Function() writes) async {
-    final got = <SbFeedItem>[];
-    final sub = session.onFeed(const SbFeedRequest()).listen(got.add);
+  Future<List<WireFeedItem>> slowly(Future<void> Function() writes) async {
+    final got = <WireFeedItem>[];
+    final sub = session.onFeed(const WireFeedRequest()).listen(got.add);
     await pumpEventQueue();
     sub.pause();
     await writes();

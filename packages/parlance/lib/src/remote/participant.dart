@@ -731,9 +731,11 @@ final class RemoteParticipant implements IParticipant {
 
   // --- Asked by the host --------------------------------------------------
 
-  Future<SbServed> _serve(SbServe request) async {
+  Future<WireServed> _serve(WireServe request) async {
     final c = _commands[request.command];
-    if (c == null) return SbServed.failed('nothing serves ${request.command}');
+    if (c == null) {
+      return WireServed.failed('nothing serves ${request.command}');
+    }
     final call = CommandCall(
       request.id,
       request.command,
@@ -748,17 +750,17 @@ final class RemoteParticipant implements IParticipant {
       // What it wrote in answer reaches the registry before the answer,
       // so it follows from the call.
       await flush();
-      return SbServed.done(value);
+      return WireServed.done(value);
     } on Object catch (e) {
       await flush();
-      return SbServed.failed('$e');
+      return WireServed.failed('$e');
     }
   }
 
-  SbJson _judge(Map<String, Object?> m) {
+  WireJson _judge(Map<String, Object?> m) {
     final g = _guards[m['guard']];
     final c = _commands[m['command']];
-    if (g == null || c == null) return const SbJson({});
+    if (g == null || c == null) return const WireJson({});
     final why = g.check(
       PendingCall(
         m['id']! as String,
@@ -768,7 +770,7 @@ final class RemoteParticipant implements IParticipant {
         layerDispatch: m['layer'] == true,
       ),
     );
-    return SbJson({'why': ?why});
+    return WireJson({'why': ?why});
   }
 }
 
@@ -1016,11 +1018,11 @@ final class _Served extends ParlanceOwnerContractPeer {
   final RemoteParticipant _p;
 
   @override
-  Future<SbServed> onServe(SbServe request, {RpcContext? context}) =>
+  Future<WireServed> onServe(WireServe request, {RpcContext? context}) =>
       _p._serve(request);
 
   @override
-  Future<SbJson> onJudge(SbJson request, {RpcContext? context}) async =>
+  Future<WireJson> onJudge(WireJson request, {RpcContext? context}) async =>
       _p._judge(request.json);
 }
 

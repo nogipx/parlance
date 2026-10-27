@@ -116,13 +116,13 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<SbDescription> onDescribe(
+  Future<WireDescription> onDescribe(
     RpcNull request, {
     RpcContext? context,
   }) async {
     _open();
     // What this session may call: so its clients offer only that.
-    return SbDescription({
+    return WireDescription({
       ...registry.describeFor(principal),
       'protocol': parlanceProtocol,
       'principal': principal.toJson(),
@@ -131,19 +131,19 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<SbJson> onWhy(SbWhyRequest request, {RpcContext? context}) async {
+  Future<WireJson> onWhy(WireWhyRequest request, {RpcContext? context}) async {
     _open();
     if (registry.stateDescriptor(request.state) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
     }
     if (!_reads(request.state)) _deny(_unreadable(request.state));
-    return SbJson(registry.explain(request.state, key: request.key).toJson());
+    return WireJson(registry.explain(request.state, key: request.key).toJson());
   }
 
   @override
-  Future<SbJson> onLayers(RpcNull request, {RpcContext? context}) async {
+  Future<WireJson> onLayers(RpcNull request, {RpcContext? context}) async {
     _open();
-    return SbJson({
+    return WireJson({
       'layers': [
         for (final l in registry.layers())
           if (_reads(l.state)) l.toJson(),
@@ -164,7 +164,7 @@ final class RegistryResponder extends ParlanceContractPeer {
   final Set<String> _read = {};
 
   /// The feeds open now, each by what sends to it.
-  final Set<void Function(SbFeedItem)> _feeds = {};
+  final Set<void Function(WireFeedItem)> _feeds = {};
 
   /// The states the session's feeds carry; null for all.
   Set<String>? get states =>
@@ -196,9 +196,9 @@ final class RegistryResponder extends ParlanceContractPeer {
       (_stateFilter?.contains(state) ?? true) && _reads(state);
 
   @override
-  Stream<SbFeedItem> onFeed(SbFeedRequest request, {RpcContext? context}) {
+  Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context}) {
     _open();
-    late StreamController<SbFeedItem> out;
+    late StreamController<WireFeedItem> out;
     StreamSubscription<FeedItem>? items;
     StreamSubscription<CatalogChange>? catalog;
     // The last seq the feed took: a tick it takes starts after it, so a
@@ -211,11 +211,11 @@ final class RegistryResponder extends ParlanceContractPeer {
     // What waits while the connection is not taking more: it applies
     // backpressure, so a slow client pauses the feed. Ticks carry their
     // seq; held past [feedBacklog], they are dropped.
-    final held = <(SbFeedItem, int?)>[];
+    final held = <(WireFeedItem, int?)>[];
     var behind = false;
     var factsDropped = false;
 
-    void hand((SbFeedItem, int?) i) {
+    void hand((WireFeedItem, int?) i) {
       out.add(i.$1);
       if (i.$2 case final seq?) sent = seq;
     }
@@ -245,7 +245,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       }
     }
 
-    void send(SbFeedItem item, [int? seq]) {
+    void send(WireFeedItem item, [int? seq]) {
       if (!out.isPaused && held.isEmpty) return hand((item, seq));
       held.add((item, seq));
       if (held.length > feedBacklog) drop();
@@ -265,7 +265,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     void describe() {
       final d = registry.describeFor(principal);
       unavailable = d['unavailable']! as Map<String, String>;
-      send(SbFeedItem('catalog', d));
+      send(WireFeedItem('catalog', d));
     }
 
     // After a tick: whether a command came to run or stopped, told as the
@@ -274,7 +274,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       final now = registry.unavailable;
       if (_sameMap(now, unavailable)) return;
       unavailable = now;
-      send(SbFeedItem('unavailable', {'unavailable': now}));
+      send(WireFeedItem('unavailable', {'unavailable': now}));
     }
 
     follow = () {
@@ -288,7 +288,7 @@ final class RegistryResponder extends ParlanceContractPeer {
               case Snapshot():
                 last = i.seq;
                 send(
-                  SbFeedItem('snapshot', {
+                  WireFeedItem('snapshot', {
                     ...Snapshot(
                       epoch: i.epoch,
                       seq: i.seq,
@@ -307,14 +307,14 @@ final class RegistryResponder extends ParlanceContractPeer {
                 final t = _tickOf(i, last == null ? i.from : last! + 1);
                 if (t != null) {
                   last = i.to;
-                  send(SbFeedItem('tick', t.toJson()), i.to);
+                  send(WireFeedItem('tick', t.toJson()), i.to);
                 }
                 availability();
             }
           });
     };
 
-    out = StreamController<SbFeedItem>(
+    out = StreamController<WireFeedItem>(
       onListen: () {
         _feeds.add(send);
         describe();
@@ -360,7 +360,10 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<SbJson> onSubscribe(SbSubscribe request, {RpcContext? context}) async {
+  Future<WireJson> onSubscribe(
+    WireSubscribe request, {
+    RpcContext? context,
+  }) async {
     _open();
     for (final name in [...?request.states, ...?request.facts]) {
       if (!_reads(name)) _deny(_unreadable(name));
@@ -382,7 +385,7 @@ final class RegistryResponder extends ParlanceContractPeer {
                   _reads(name))
                 name,
           ];
-    final item = SbFeedItem('values', {
+    final item = WireFeedItem('values', {
       'subscription': n,
       'states': {
         for (final name in added)
@@ -396,7 +399,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     for (final send in _feeds) {
       send(item);
     }
-    return SbJson({'subscription': n});
+    return WireJson({'subscription': n});
   }
 
   Iterable<String> _stateNames() => [
@@ -405,8 +408,8 @@ final class RegistryResponder extends ParlanceContractPeer {
   ];
 
   @override
-  Future<SbCallReply> onInvoke(
-    SbCallRequest request, {
+  Future<WireCallReply> onInvoke(
+    WireCallRequest request, {
     RpcContext? context,
   }) async {
     _open();
@@ -422,7 +425,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       override: request.overriding,
       cause: _cause(parent: request.parent, test: request.test, by: by),
     );
-    return SbCallReply(
+    return WireCallReply(
       result.toJson(),
       epoch: registry.epoch,
       seq: registry.seq,
@@ -430,8 +433,8 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<SbJson> onRecent(
-    SbRecentRequest request, {
+  Future<WireJson> onRecent(
+    WireRecentRequest request, {
     RpcContext? context,
   }) async {
     _open();
@@ -440,7 +443,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     }
     if (!_reads(request.fact)) _deny(_unreadable(request.fact));
     _read.add(request.fact);
-    return SbJson({
+    return WireJson({
       'facts': [
         for (final f in registry.recent(request.fact, request.count))
           f.toJson(),
@@ -449,8 +452,8 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<SbLayerRef> onPushLayer(
-    SbLayerRequest request, {
+  Future<WireLayerRef> onPushLayer(
+    WireLayerRequest request, {
     RpcContext? context,
   }) async {
     _open();
@@ -481,7 +484,7 @@ final class RegistryResponder extends ParlanceContractPeer {
         chain: [owner],
       );
       _layers[h.id] = h;
-      return SbLayerRef(h.id);
+      return WireLayerRef(h.id);
     } on TypeMismatch catch (e) {
       throw RpcStatusException(RpcStatus.invalidArgument, '$e');
     } on ArgumentError catch (e) {
@@ -490,7 +493,10 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<RpcNull> onPopLayer(SbLayerRef request, {RpcContext? context}) async {
+  Future<RpcNull> onPopLayer(
+    WireLayerRef request, {
+    RpcContext? context,
+  }) async {
     _open();
     final h = _layers.remove(request.layer);
     if (h == null) {
@@ -501,29 +507,29 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Stream<SbLayerEvent> onLayerEvents(RpcNull request, {RpcContext? context}) {
+  Stream<WireLayerEvent> onLayerEvents(RpcNull request, {RpcContext? context}) {
     _open();
     return registry.layerEvents
         .where((e) => e.owner == owner)
-        .map((e) => SbLayerEvent(e.toJson()));
+        .map((e) => WireLayerEvent(e.toJson()));
   }
 
   @override
-  Future<RpcNull> onDefine(SbDefine request, {RpcContext? context}) async {
+  Future<RpcNull> onDefine(WireDefine request, {RpcContext? context}) async {
     _open();
     _define(_descriptor(request.descriptor));
     return const RpcNull();
   }
 
   @override
-  Future<RpcNull> onUndefine(SbName request, {RpcContext? context}) async {
+  Future<RpcNull> onUndefine(WireName request, {RpcContext? context}) async {
     _open();
     _undefine(request.name);
     return const RpcNull();
   }
 
   @override
-  Future<RpcNull> onWrite(SbSet request, {RpcContext? context}) async {
+  Future<RpcNull> onWrite(WireSet request, {RpcContext? context}) async {
     _open();
     _write(
       request.state,
@@ -537,9 +543,9 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<SbTaken> onEmit(SbEmit request, {RpcContext? context}) async {
+  Future<WireTaken> onEmit(WireEmit request, {RpcContext? context}) async {
     _open();
-    return SbTaken(
+    return WireTaken(
       _emit(
         request.fact,
         request.payload,
@@ -555,7 +561,7 @@ final class RegistryResponder extends ParlanceContractPeer {
   /// §22.4): each op answered on its own, a refusal of one not stopping
   /// the others.
   @override
-  Future<SbJson> onApply(SbJson request, {RpcContext? context}) async {
+  Future<WireJson> onApply(WireJson request, {RpcContext? context}) async {
     _open();
     final results = <Map<String, Object?>>[];
     registry.batch(() {
@@ -567,7 +573,7 @@ final class RegistryResponder extends ParlanceContractPeer {
         }
       }
     });
-    return SbJson({'results': results});
+    return WireJson({'results': results});
   }
 
   /// The part of the session's principal [as] names (SPEC §22.3); the
@@ -808,7 +814,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     try {
       _guards[full] = p.addAskedGuard(full, (c) async {
         final r = await _owner.judge(
-          SbJson({
+          WireJson({
             'guard': full,
             'id': c.id,
             'command': c.command.name,
@@ -830,7 +836,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     try {
       final deadline = registry.callableDescriptor(c.command)?.deadline;
       final served = await _owner.serve(
-        SbServe(
+        WireServe(
           id: c.id,
           command: c.command,
           params: c.params,
@@ -969,7 +975,7 @@ final class ParlanceClient {
   Stream<RemoteFeed> feed({String? epoch, int? since, RpcContext? context}) =>
       _caller
           .feed(
-            SbFeedRequest(epoch: epoch, since: since),
+            WireFeedRequest(epoch: epoch, since: since),
             context: context,
           )
           .map(
@@ -1002,7 +1008,7 @@ final class ParlanceClient {
     RpcContext? context,
   }) async =>
       (await _caller.subscribe(
-            SbSubscribe(states: states?.toList(), facts: facts?.toList()),
+            WireSubscribe(states: states?.toList(), facts: facts?.toList()),
             context: _ctx(context),
           )).json['subscription']
           as int;
@@ -1047,7 +1053,7 @@ final class ParlanceClient {
     final callId = id ?? newId();
     try {
       final reply = await _caller.invoke(
-        SbCallRequest(
+        WireCallRequest(
           id: callId,
           command: command,
           params: params,
@@ -1076,7 +1082,7 @@ final class ParlanceClient {
   }) async => [
     for (final f
         in (await _caller.recent(
-              SbRecentRequest(fact, count),
+              WireRecentRequest(fact, count),
               context: _ctx(context),
             )).json['facts']
             as List)
@@ -1093,7 +1099,7 @@ final class ParlanceClient {
     Duration? ttl,
     RpcContext? context,
   }) async => (await _caller.pushLayer(
-    SbLayerRequest(
+    WireLayerRequest(
       state: state,
       key: key,
       value: value,
@@ -1104,7 +1110,7 @@ final class ParlanceClient {
   )).layer;
 
   Future<void> popLayer(String layer, {RpcContext? context}) =>
-      _caller.popLayer(SbLayerRef(layer), context: _ctx(context));
+      _caller.popLayer(WireLayerRef(layer), context: _ctx(context));
 
   /// Why [state] (of [key]) is as it is (Registry.explain).
   Future<Explanation> why(
@@ -1113,7 +1119,7 @@ final class ParlanceClient {
     RpcContext? context,
   }) async => Explanation.fromJson(
     (await _caller.why(
-      SbWhyRequest(state, key: key),
+      WireWhyRequest(state, key: key),
       context: _ctx(context),
     )).json,
   );
@@ -1137,10 +1143,10 @@ final class ParlanceClient {
   /// Defines [d] as the session's own, as far as the host lets it. A
   /// command's calls come to the session's [RemoteOwner].
   Future<void> define(Descriptor d, {RpcContext? context}) =>
-      _caller.define(SbDefine(d.toJson()), context: _ctx(context));
+      _caller.define(WireDefine(d.toJson()), context: _ctx(context));
 
   Future<void> undefine(String name, {RpcContext? context}) =>
-      _caller.undefine(SbName(name), context: _ctx(context));
+      _caller.undefine(WireName(name), context: _ctx(context));
 
   /// Writes [value] to the session's own [state] (of [key]), or [remove]s
   /// it.
@@ -1153,7 +1159,7 @@ final class ParlanceClient {
     bool test = false,
     RpcContext? context,
   }) => _caller.write(
-    SbSet(
+    WireSet(
       state: state,
       key: key,
       value: value,
@@ -1170,7 +1176,10 @@ final class ParlanceClient {
     List<Map<String, Object?>> ops, {
     RpcContext? context,
   }) async {
-    final r = await _caller.apply(SbJson({'ops': ops}), context: _ctx(context));
+    final r = await _caller.apply(
+      WireJson({'ops': ops}),
+      context: _ctx(context),
+    );
     return [
       for (final x in r.json['results'] as List? ?? const [])
         (x as Map).cast<String, Object?>(),
@@ -1189,7 +1198,7 @@ final class ParlanceClient {
     bool test = false,
     RpcContext? context,
   }) async => (await _caller.emit(
-    SbEmit(
+    WireEmit(
       fact: fact,
       payload: payload,
       id: id,
@@ -1247,17 +1256,17 @@ final class RemoteOwner extends ParlanceOwnerContractPeer {
 
   /// It keeps no guards: every call it is asked about passes.
   @override
-  Future<SbJson> onJudge(SbJson request, {RpcContext? context}) async =>
-      const SbJson({});
+  Future<WireJson> onJudge(WireJson request, {RpcContext? context}) async =>
+      const WireJson({});
 
   @override
-  Future<SbServed> onServe(SbServe request, {RpcContext? context}) async {
+  Future<WireServed> onServe(WireServe request, {RpcContext? context}) async {
     final handler = _handlers[request.command];
     if (handler == null) {
-      return SbServed.failed('nothing serves ${request.command}');
+      return WireServed.failed('nothing serves ${request.command}');
     }
     try {
-      return SbServed.done(
+      return WireServed.done(
         await handler(
           RemoteCall(
             request.id,
@@ -1268,7 +1277,7 @@ final class RemoteOwner extends ParlanceOwnerContractPeer {
         ),
       );
     } on Object catch (e) {
-      return SbServed.failed('$e');
+      return WireServed.failed('$e');
     }
   }
 }

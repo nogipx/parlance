@@ -9,10 +9,11 @@ Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();
 
 /// What `describe` answers: the catalog, the epoch, the seq, the protocol.
-final class SbDescription implements IRpcSerializable {
-  const SbDescription(this.json);
+final class WireDescription implements IRpcSerializable {
+  const WireDescription(this.json);
 
-  factory SbDescription.fromJson(Map<String, dynamic> m) => SbDescription(m);
+  factory WireDescription.fromJson(Map<String, dynamic> m) =>
+      WireDescription(m);
 
   final Map<String, Object?> json;
 
@@ -21,11 +22,11 @@ final class SbDescription implements IRpcSerializable {
 }
 
 /// Asks for the feed, resuming after [since] of [epoch] when given.
-final class SbFeedRequest implements IRpcSerializable {
-  const SbFeedRequest({this.epoch, this.since});
+final class WireFeedRequest implements IRpcSerializable {
+  const WireFeedRequest({this.epoch, this.since});
 
-  factory SbFeedRequest.fromJson(Map<String, dynamic> m) =>
-      SbFeedRequest(epoch: m['epoch'] as String?, since: m['since'] as int?);
+  factory WireFeedRequest.fromJson(Map<String, dynamic> m) =>
+      WireFeedRequest(epoch: m['epoch'] as String?, since: m['since'] as int?);
 
   final String? epoch;
   final int? since;
@@ -36,10 +37,10 @@ final class SbFeedRequest implements IRpcSerializable {
 
 /// What a session's feeds carry: these states and facts, or all of them
 /// (null).
-final class SbSubscribe implements IRpcSerializable {
-  const SbSubscribe({this.states, this.facts});
+final class WireSubscribe implements IRpcSerializable {
+  const WireSubscribe({this.states, this.facts});
 
-  factory SbSubscribe.fromJson(Map<String, dynamic> m) => SbSubscribe(
+  factory WireSubscribe.fromJson(Map<String, dynamic> m) => WireSubscribe(
     states: (m['states'] as List?)?.cast<String>(),
     facts: (m['facts'] as List?)?.cast<String>(),
   );
@@ -53,11 +54,11 @@ final class SbSubscribe implements IRpcSerializable {
 
 /// One item of the feed: the catalog, a snapshot, a tick, or the values of
 /// states a subscription took in.
-final class SbFeedItem implements IRpcSerializable {
-  const SbFeedItem(this.kind, this.json);
+final class WireFeedItem implements IRpcSerializable {
+  const WireFeedItem(this.kind, this.json);
 
-  factory SbFeedItem.fromJson(Map<String, dynamic> m) =>
-      SbFeedItem(m['kind'] as String, _obj(m['item']));
+  factory WireFeedItem.fromJson(Map<String, dynamic> m) =>
+      WireFeedItem(m['kind'] as String, _obj(m['item']));
 
   /// `catalog`, `snapshot`, `tick` or `values`.
   final String kind;
@@ -69,8 +70,8 @@ final class SbFeedItem implements IRpcSerializable {
 
 /// A call. Its [id] makes a retry safe: the same id answers the first
 /// result without running again.
-final class SbCallRequest implements IRpcSerializable {
-  const SbCallRequest({
+final class WireCallRequest implements IRpcSerializable {
+  const WireCallRequest({
     required this.id,
     required this.command,
     this.params = const {},
@@ -80,7 +81,7 @@ final class SbCallRequest implements IRpcSerializable {
     this.as,
   });
 
-  factory SbCallRequest.fromJson(Map<String, dynamic> m) => SbCallRequest(
+  factory WireCallRequest.fromJson(Map<String, dynamic> m) => WireCallRequest(
     id: m['id'] as String,
     command: m['command'] as String,
     params: _obj(m['params']),
@@ -121,10 +122,10 @@ final class SbCallRequest implements IRpcSerializable {
 /// How a call ended, as `CallResult.toJson` gives it, and the seq of
 /// [epoch] the registry had then: a feed that reached it shows what the
 /// call wrote.
-final class SbCallReply implements IRpcSerializable {
-  const SbCallReply(this.result, {required this.epoch, required this.seq});
+final class WireCallReply implements IRpcSerializable {
+  const WireCallReply(this.result, {required this.epoch, required this.seq});
 
-  factory SbCallReply.fromJson(Map<String, dynamic> m) => SbCallReply(
+  factory WireCallReply.fromJson(Map<String, dynamic> m) => WireCallReply(
     _obj(m['result']),
     epoch: m['epoch'] as String,
     seq: m['seq'] as int,
@@ -143,11 +144,11 @@ final class SbCallReply implements IRpcSerializable {
 }
 
 /// Asks for the last [count] facts of [fact].
-final class SbRecentRequest implements IRpcSerializable {
-  const SbRecentRequest(this.fact, this.count);
+final class WireRecentRequest implements IRpcSerializable {
+  const WireRecentRequest(this.fact, this.count);
 
-  factory SbRecentRequest.fromJson(Map<String, dynamic> m) =>
-      SbRecentRequest(m['fact'] as String, m['count'] as int);
+  factory WireRecentRequest.fromJson(Map<String, dynamic> m) =>
+      WireRecentRequest(m['fact'] as String, m['count'] as int);
 
   final String fact;
   final int count;
@@ -157,8 +158,8 @@ final class SbRecentRequest implements IRpcSerializable {
 }
 
 /// Holds a state at a value for the session (SPEC §8, §14).
-final class SbLayerRequest implements IRpcSerializable {
-  const SbLayerRequest({
+final class WireLayerRequest implements IRpcSerializable {
+  const WireLayerRequest({
     required this.state,
     this.key,
     required this.value,
@@ -166,7 +167,7 @@ final class SbLayerRequest implements IRpcSerializable {
     this.ttlMs,
   });
 
-  factory SbLayerRequest.fromJson(Map<String, dynamic> m) => SbLayerRequest(
+  factory WireLayerRequest.fromJson(Map<String, dynamic> m) => WireLayerRequest(
     state: m['state'] as String,
     key: m['key'] as String?,
     value: m['value'],
@@ -191,11 +192,11 @@ final class SbLayerRequest implements IRpcSerializable {
 }
 
 /// A layer of the session, by id.
-final class SbLayerRef implements IRpcSerializable {
-  const SbLayerRef(this.layer);
+final class WireLayerRef implements IRpcSerializable {
+  const WireLayerRef(this.layer);
 
-  factory SbLayerRef.fromJson(Map<String, dynamic> m) =>
-      SbLayerRef(m['layer'] as String);
+  factory WireLayerRef.fromJson(Map<String, dynamic> m) =>
+      WireLayerRef(m['layer'] as String);
 
   final String layer;
 
@@ -204,10 +205,10 @@ final class SbLayerRef implements IRpcSerializable {
 }
 
 /// What happened to a layer of the session, as `LayerEvent.toJson` gives it.
-final class SbLayerEvent implements IRpcSerializable {
-  const SbLayerEvent(this.json);
+final class WireLayerEvent implements IRpcSerializable {
+  const WireLayerEvent(this.json);
 
-  factory SbLayerEvent.fromJson(Map<String, dynamic> m) => SbLayerEvent(m);
+  factory WireLayerEvent.fromJson(Map<String, dynamic> m) => WireLayerEvent(m);
 
   final Map<String, Object?> json;
 
@@ -216,10 +217,10 @@ final class SbLayerEvent implements IRpcSerializable {
 }
 
 /// Any JSON object: what `why`, `layers` and `recent` answer.
-final class SbJson implements IRpcSerializable {
-  const SbJson(this.json);
+final class WireJson implements IRpcSerializable {
+  const WireJson(this.json);
 
-  factory SbJson.fromJson(Map<String, dynamic> m) => SbJson(m);
+  factory WireJson.fromJson(Map<String, dynamic> m) => WireJson(m);
 
   final Map<String, Object?> json;
 
@@ -228,11 +229,11 @@ final class SbJson implements IRpcSerializable {
 }
 
 /// Asks why a state (of a key) is as it is.
-final class SbWhyRequest implements IRpcSerializable {
-  const SbWhyRequest(this.state, {this.key});
+final class WireWhyRequest implements IRpcSerializable {
+  const WireWhyRequest(this.state, {this.key});
 
-  factory SbWhyRequest.fromJson(Map<String, dynamic> m) =>
-      SbWhyRequest(m['state'] as String, key: m['key'] as String?);
+  factory WireWhyRequest.fromJson(Map<String, dynamic> m) =>
+      WireWhyRequest(m['state'] as String, key: m['key'] as String?);
 
   final String state;
   final String? key;
@@ -242,11 +243,11 @@ final class SbWhyRequest implements IRpcSerializable {
 }
 
 /// A word to define for the session, as `Descriptor.toJson` gives it.
-final class SbDefine implements IRpcSerializable {
-  const SbDefine(this.descriptor);
+final class WireDefine implements IRpcSerializable {
+  const WireDefine(this.descriptor);
 
-  factory SbDefine.fromJson(Map<String, dynamic> m) =>
-      SbDefine(_obj(m['descriptor']));
+  factory WireDefine.fromJson(Map<String, dynamic> m) =>
+      WireDefine(_obj(m['descriptor']));
 
   final Map<String, Object?> descriptor;
 
@@ -255,11 +256,11 @@ final class SbDefine implements IRpcSerializable {
 }
 
 /// A word by name.
-final class SbName implements IRpcSerializable {
-  const SbName(this.name);
+final class WireName implements IRpcSerializable {
+  const WireName(this.name);
 
-  factory SbName.fromJson(Map<String, dynamic> m) =>
-      SbName(m['name'] as String);
+  factory WireName.fromJson(Map<String, dynamic> m) =>
+      WireName(m['name'] as String);
 
   final String name;
 
@@ -268,8 +269,8 @@ final class SbName implements IRpcSerializable {
 }
 
 /// Writes a state the session owns: [value] (of [key]), or removes it.
-final class SbSet implements IRpcSerializable {
-  const SbSet({
+final class WireSet implements IRpcSerializable {
+  const WireSet({
     required this.state,
     this.key,
     this.value,
@@ -278,7 +279,7 @@ final class SbSet implements IRpcSerializable {
     this.test = false,
   });
 
-  factory SbSet.fromJson(Map<String, dynamic> m) => SbSet(
+  factory WireSet.fromJson(Map<String, dynamic> m) => WireSet(
     state: m['state'] as String,
     key: m['key'] as String?,
     value: m['value'],
@@ -309,8 +310,8 @@ final class SbSet implements IRpcSerializable {
 
 /// Says a fact: one the session owns, or an open one it produces; [by] when
 /// the host lets it say it for someone else.
-final class SbEmit implements IRpcSerializable {
-  const SbEmit({
+final class WireEmit implements IRpcSerializable {
+  const WireEmit({
     required this.fact,
     this.payload,
     this.id,
@@ -319,7 +320,7 @@ final class SbEmit implements IRpcSerializable {
     this.test = false,
   });
 
-  factory SbEmit.fromJson(Map<String, dynamic> m) => SbEmit(
+  factory WireEmit.fromJson(Map<String, dynamic> m) => WireEmit(
     fact: m['fact'] as String,
     payload: m['payload'],
     id: m['id'] as String?,
@@ -351,11 +352,11 @@ final class SbEmit implements IRpcSerializable {
 }
 
 /// Whether a fact was taken: false for a repeat of its id.
-final class SbTaken implements IRpcSerializable {
-  const SbTaken(this.taken);
+final class WireTaken implements IRpcSerializable {
+  const WireTaken(this.taken);
 
-  factory SbTaken.fromJson(Map<String, dynamic> m) =>
-      SbTaken(m['taken'] == true);
+  factory WireTaken.fromJson(Map<String, dynamic> m) =>
+      WireTaken(m['taken'] == true);
 
   final bool taken;
 
@@ -364,15 +365,15 @@ final class SbTaken implements IRpcSerializable {
 }
 
 /// A call of a command the session owns, for it to serve.
-final class SbServe implements IRpcSerializable {
-  const SbServe({
+final class WireServe implements IRpcSerializable {
+  const WireServe({
     required this.id,
     required this.command,
     required this.params,
     required this.cause,
   });
 
-  factory SbServe.fromJson(Map<String, dynamic> m) => SbServe(
+  factory WireServe.fromJson(Map<String, dynamic> m) => WireServe(
     id: m['id'] as String,
     command: m['command'] as String,
     params: _obj(m['params']),
@@ -398,13 +399,13 @@ final class SbServe implements IRpcSerializable {
 }
 
 /// How the session served a call: [value], or why it failed.
-final class SbServed implements IRpcSerializable {
-  const SbServed.done(this.value) : error = null;
-  const SbServed.failed(String this.error) : value = null;
+final class WireServed implements IRpcSerializable {
+  const WireServed.done(this.value) : error = null;
+  const WireServed.failed(String this.error) : value = null;
 
-  factory SbServed.fromJson(Map<String, dynamic> m) => m['error'] is String
-      ? SbServed.failed(m['error'] as String)
-      : SbServed.done(m['value']);
+  factory WireServed.fromJson(Map<String, dynamic> m) => m['error'] is String
+      ? WireServed.failed(m['error'] as String)
+      : WireServed.done(m['value']);
 
   final Object? value;
   final String? error;
@@ -420,53 +421,56 @@ final class SbServed implements IRpcSerializable {
 @RpcService(name: 'Parlance', kind: RpcServiceKind.peer)
 abstract class IParlanceContract {
   @RpcMethod.unary(name: 'describe')
-  Future<SbDescription> describe(RpcNull request, {RpcContext? context});
+  Future<WireDescription> describe(RpcNull request, {RpcContext? context});
 
   @RpcMethod.serverStream(name: 'feed')
-  Stream<SbFeedItem> feed(SbFeedRequest request, {RpcContext? context});
+  Stream<WireFeedItem> feed(WireFeedRequest request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'call')
-  Future<SbCallReply> invoke(SbCallRequest request, {RpcContext? context});
+  Future<WireCallReply> invoke(WireCallRequest request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'pushLayer')
-  Future<SbLayerRef> pushLayer(SbLayerRequest request, {RpcContext? context});
+  Future<WireLayerRef> pushLayer(
+    WireLayerRequest request, {
+    RpcContext? context,
+  });
 
   @RpcMethod.unary(name: 'popLayer')
-  Future<RpcNull> popLayer(SbLayerRef request, {RpcContext? context});
+  Future<RpcNull> popLayer(WireLayerRef request, {RpcContext? context});
 
   @RpcMethod.serverStream(name: 'layerEvents')
-  Stream<SbLayerEvent> layerEvents(RpcNull request, {RpcContext? context});
+  Stream<WireLayerEvent> layerEvents(RpcNull request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'why')
-  Future<SbJson> why(SbWhyRequest request, {RpcContext? context});
+  Future<WireJson> why(WireWhyRequest request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'layers')
-  Future<SbJson> layers(RpcNull request, {RpcContext? context});
+  Future<WireJson> layers(RpcNull request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'recent')
-  Future<SbJson> recent(SbRecentRequest request, {RpcContext? context});
+  Future<WireJson> recent(WireRecentRequest request, {RpcContext? context});
 
   /// Answers `{subscription}`: the number the feeds' `values` item (or
   /// the next snapshot) carries once they follow it.
   @RpcMethod.unary(name: 'subscribe')
-  Future<SbJson> subscribe(SbSubscribe request, {RpcContext? context});
+  Future<WireJson> subscribe(WireSubscribe request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'define')
-  Future<RpcNull> define(SbDefine request, {RpcContext? context});
+  Future<RpcNull> define(WireDefine request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'undefine')
-  Future<RpcNull> undefine(SbName request, {RpcContext? context});
+  Future<RpcNull> undefine(WireName request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'set')
-  Future<RpcNull> write(SbSet request, {RpcContext? context});
+  Future<RpcNull> write(WireSet request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'emit')
-  Future<SbTaken> emit(SbEmit request, {RpcContext? context});
+  Future<WireTaken> emit(WireEmit request, {RpcContext? context});
 
   /// What a remote participant asked, in its order, applied as one tick
   /// (SPEC §22.4): `{ops: [...]}`, answered `{results: [...]}`, one each.
   @RpcMethod.unary(name: 'apply')
-  Future<SbJson> apply(SbJson request, {RpcContext? context});
+  Future<WireJson> apply(WireJson request, {RpcContext? context});
 }
 
 /// The participant's side of the connection (SPEC §14): it serves the calls
@@ -474,11 +478,11 @@ abstract class IParlanceContract {
 @RpcService(name: 'ParlanceOwner', kind: RpcServiceKind.peer)
 abstract class IParlanceOwnerContract {
   @RpcMethod.unary(name: 'serve')
-  Future<SbServed> serve(SbServe request, {RpcContext? context});
+  Future<WireServed> serve(WireServe request, {RpcContext? context});
 
   /// Asks a guard of the participant's own about a call of its command
   /// (SPEC §22.4): `{guard, id, command, params, cause, layer}`, answered
   /// `{why}`, null to let it pass.
   @RpcMethod.unary(name: 'judge')
-  Future<SbJson> judge(SbJson request, {RpcContext? context});
+  Future<WireJson> judge(WireJson request, {RpcContext? context});
 }
