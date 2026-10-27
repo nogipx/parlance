@@ -44,6 +44,11 @@ final class Handles implements IHandle {
 abstract base class Owner implements IHandle {
   final Handles _handles = Handles();
   IParticipant? _participant;
+  bool _disposed = false;
+
+  /// The group it was attached by, which syncs it with the rest.
+  Owners? _group;
+  bool _due = false;
 
   /// The participant it speaks through.
   IParticipant get participant =>
@@ -61,6 +66,23 @@ abstract base class Owner implements IHandle {
     if (!d.isEmpty) keep(p.declare(d));
     _participant = p;
     define(p);
+    if (changes case final c?) listen(c, (_) => _changed());
+  }
+
+  /// Told whenever what its states say may have changed (its model, a
+  /// device): it is then synced, once for all told in one turn, and with
+  /// the rest of its group as one tick. Without it, whoever changes the
+  /// model calls [Owners.sync].
+  Stream<void>? get changes => null;
+
+  void _changed() {
+    if (_group case final g?) return g._changed(this);
+    if (_due) return;
+    _due = true;
+    Timer.run(() {
+      _due = false;
+      if (!_disposed) participant.batch(sync);
+    });
   }
 
   /// The words it owns (SPEC §6.7): `[...OrdersState.values, ...]`, told
@@ -99,7 +121,10 @@ abstract base class Owner implements IHandle {
 
   /// Withdraws its words.
   @override
-  void dispose() => _handles.dispose();
+  void dispose() {
+    _disposed = true;
+    _handles.dispose();
+  }
 }
 
 /// A kind of entities an owner keeps: it tells the registry when the
@@ -152,9 +177,38 @@ final class TrackedKind {
 final class Owners implements IHandle {
   Owners(this.participant, this.owners) {
     for (final MapEntry(key: name, value: o) in owners.entries) {
-      o.attach(participant.child(name));
+      final part = participant.child(name);
+      _parts.add(part);
+      o._group = this;
+      o.attach(part);
     }
     sync();
+  }
+
+  /// The parts it made, one per owner: withdrawn with the group.
+  final List<IParticipant> _parts = [];
+  final Set<Owner> _dirty = {};
+  bool _disposed = false;
+
+  void _changed(Owner o) {
+    if (_dirty.isNotEmpty) {
+      _dirty.add(o);
+      return;
+    }
+    _dirty.add(o);
+    Timer.run(() {
+      final due = [
+        for (final o in owners.values)
+          if (_dirty.contains(o)) o,
+      ];
+      _dirty.clear();
+      if (_disposed) return;
+      participant.batch(() {
+        for (final o in due) {
+          o.sync();
+        }
+      });
+    });
   }
 
   final IParticipant participant;
@@ -190,10 +244,18 @@ final class Owners implements IHandle {
     }
   });
 
+  /// Withdraws the owners, the last first, and the parts they spoke as,
+  /// with all the parts did: a scope (a user's session, a feature) leaves
+  /// nothing of itself in the registry.
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     for (final o in [...owners.values].reversed) {
       o.dispose();
+    }
+    for (final p in _parts.reversed) {
+      p.dispose();
     }
   }
 }

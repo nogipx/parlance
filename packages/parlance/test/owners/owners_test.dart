@@ -61,6 +61,30 @@ final class Other extends Owner {
   }
 }
 
+/// Dials that say when their model changed.
+final class Watched extends Dials {
+  final StreamController<void> moved = StreamController.broadcast();
+
+  @override
+  Stream<void> get changes => moved.stream;
+}
+
+/// One more, of another part, writing the flag from its model.
+final class Flagged extends Owner {
+  bool on = false;
+  final StreamController<void> moved = StreamController.broadcast();
+  late final StateWriterOf<bool> _on;
+
+  @override
+  Stream<void> get changes => moved.stream;
+
+  @override
+  void define(IParticipant p) => _on = keep(p.state(_Flag.on).define());
+
+  @override
+  void sync() => _on.set(on);
+}
+
 /// Dials that say what they own and use.
 final class Told extends Dials {
   @override
@@ -263,5 +287,51 @@ void main() {
     );
     expect(r.declarations, isEmpty);
     expect(r.stateDescriptor('test.level'), isNull);
+  });
+
+  test('an owner that says when its model moved is synced on its own: '
+      'what one turn told, once and as one tick for the group', () async {
+    final dials = Watched();
+    final flag = Flagged();
+    Owners(module(), {'dials': dials, 'flag': flag});
+    expect(dials.synced, 1);
+    final ticks = <Tick>[];
+    r.ticks.listen(ticks.add);
+    dials.dials['a'] = 5;
+    dials.moved
+      ..add(null)
+      ..add(null);
+    flag.on = true;
+    flag.moved.add(null);
+    await pumpEventQueue();
+    expect(dials.synced, 2, reason: 'once for the turn');
+    expect(ticks, hasLength(1), reason: 'one tick for both');
+    expect(r.state(Level.of).read(key: 'a'), 5);
+    expect(r.state(_Flag.on).read(), isTrue);
+  });
+
+  test('a scope leaves nothing of itself: its words, values, kinds and '
+      'declarations go with it, and others see them missing', () async {
+    final p = module();
+    final outsider = r.participant(const Principal('outsider'));
+    final statuses = <WordStatus>[];
+    outsider.statusChanges('test.level').listen(statuses.add);
+    final session = Owners(p, {'dials': Told()});
+    final dials = session.owners['dials']! as Dials;
+    final part = p.child('dials');
+    part.state(_Flag.on).define().set(true);
+    await pumpEventQueue();
+    session.dispose();
+    await pumpEventQueue();
+    expect(r.stateDescriptor('test.level'), isNull);
+    expect(r.stateDescriptor('test.on'), isNull, reason: 'the part went');
+    expect(r.state(Level.of).readAll(), isEmpty);
+    expect(r.hasKind('dial'), isFalse);
+    expect(r.declarations, isEmpty);
+    expect(statuses.last, const WordMissing());
+    dials.dials['a'] = 9;
+    expect(dials.sync, throwsStateError, reason: 'withdrawn');
+    Owners(p, {'dials': Dials()});
+    expect(r.state(Level.of).read(key: 'a'), 1, reason: 'p still speaks');
   });
 }
