@@ -35,7 +35,7 @@ A host names its words once, typed (SPEC §18), and never types a name or a para
 - The string API (`defineState(StateDescriptor(...))`, `call(name, map)`) is for names known only at run time: own words, links, remote, MCP.
 - **Callers** decide who may call: selectors are `*` or a path split by `/` only (`user`, `plugin/hydra`, `viewer/twitch`, `module/orders/sync`); a selector names all under it, the nearest said wins; a level holds letters, digits, `.`, `-`, `_` only, all else reserved (a selector or principal with another sign is refused; make a level of an outside id with `Principal.levelOf`); unmatched is denied; `warn` allows but tells editors. In Tephra use `Who.crew`, `Who.crewAndViewers`, `Who.streamerAtTheMac`.
 - **Causes:** inside a handler, write and call with `cause: call.causeFor(owner)`, so the trail shows which call led to it. Never pass causes through zones.
-- Names are dotted lowercase (`audio.muted`); never two owners for one name.
+- Names are lower-case words split by `.`, joined within by `_` only (`audio.voice.muted_talk`, never `muted-talk`); never two owners for one name.
 
 - **Words are a public API.** The user's links, plugins and agents name them. Never rename one bare: keep the old name with `registry.alias(old, now)` so what named it keeps working, and ask `links.uses {word}` (`link_uses`) who names it before changing it.
 

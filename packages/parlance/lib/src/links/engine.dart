@@ -113,7 +113,8 @@ abstract interface class ILinksStore {
 const _engine = Principal(LinkWords.kind);
 
 /// The principal the engine acts as for the link [id].
-Principal linkPrincipal(String id) => Principal(LinkWords.kind, id);
+Principal linkPrincipal(String id) =>
+    Principal(LinkWords.kind, Principal.levelOf(id));
 
 /// The links engine (SPEC §13): own words and the four relations, on the
 /// public API of a [Registry] only.

@@ -154,14 +154,14 @@ void main() {
   test('a remote group checks what it needs against the host\'s catalog '
       'as it is now', () async {
     final p = await join();
-    p.attach({'on-air': _OnAir()});
+    p.attach({'on_air': _OnAir()});
     await expectLater(
       p.checkUses(),
       throwsA(
         isA<UnmetUses>().having(
           (e) => e.message,
           'message',
-          '${kittens.child('on-air')} needs studio.program: missing',
+          '${kittens.child('on_air')} needs studio.program: missing',
         ),
       ),
     );
@@ -171,7 +171,7 @@ void main() {
     );
     studio.state(_Program.scene).define().set('main');
     await p.checkUses();
-    expect(r.declarations[kittens.child('on-air')]!.toJson(), {
+    expect(r.declarations[kittens.child('on_air')]!.toJson(), {
       'owns': ['kittens.lamp'],
       'uses': {'studio.program': 'required'},
     });
