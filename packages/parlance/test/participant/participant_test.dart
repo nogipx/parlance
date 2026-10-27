@@ -495,6 +495,35 @@ void main() {
       reason: 'a : in an id would be a level that is not one',
     );
     expect(() => Principal.parse('module/orders/'), throwsArgumentError);
+    for (final reserved in ['#', '@', ':', '*', ' ', '~', '%']) {
+      expect(
+        () => Principal.parse('viewer/twitch/bo${reserved}1'),
+        throwsArgumentError,
+        reason: '$reserved is reserved',
+      );
+    }
+    expect(() => Principal.parse('Viewer/x'), throwsArgumentError);
+    expect(Principal.parse('viewer/YouTube/UC_a-b.c').id, 'YouTube/UC_a-b.c');
+  });
+
+  test('a text from outside becomes a level: as it is when it is one, else '
+      'its other signs as _ and a hash of it, never two as one', () {
+    expect(Principal.levelOf('cool_guy_99'), 'cool_guy_99');
+    expect(Principal.levelOf('UCabc-D_e.f'), 'UCabc-D_e.f');
+    expect(Principal.levelOf('ann@mail.com'), 'ann_mail.com.877b4e30');
+    expect(
+      Principal.levelOf('ann#mail.com'),
+      isNot(Principal.levelOf('ann@mail.com')),
+    );
+    expect(Principal.levelOf('a'), 'a');
+    expect(Principal.levelOf('Вася'), matches(RegExp(r'^x_\.[0-9a-f]{8}$')));
+    expect(Principal.levelOf(''), matches(RegExp(r'^x\.[0-9a-f]{8}$')));
+    for (final t in ['ann@mail.com', 'Вася', '', ' b ']) {
+      expect(
+        () => Principal('viewer', Principal.levelOf(t)).check(),
+        returnsNormally,
+      );
+    }
   });
 }
 

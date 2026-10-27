@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Who acts: a kind the host declared and an id within it (SPEC §4).
 final class Principal {
   const Principal(this.kind, [this.id = '']);
@@ -18,13 +20,43 @@ final class Principal {
   /// `member/forum/123`).
   String get selector => id.isEmpty ? kind : '$kind/$id';
 
-  static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
-  static final RegExp _kind = RegExp(r'^[a-z][a-z0-9_-]*$');
+  /// The levels (SPEC §4): letters, digits, `.`, `-` and `_` only, as gRPC
+  /// names; every other sign is reserved. A kind and a part's name are
+  /// ours, lower-case; a level of an id may come from outside, its case
+  /// kept (`levelOf` makes one of any text).
+  static final RegExp _kind = RegExp(r'^[a-z][a-z0-9._-]*$');
+  static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9._-]*$');
+  static final RegExp _level = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+  static final RegExp _outside = RegExp(r'[^A-Za-z0-9._-]+');
 
-  /// A level of an id: what an outside system names (a member's id, a
-  /// device's) passes as it is, but never `/`, `:`, `*` or a space, which
-  /// would make levels where there are none.
-  static final RegExp _segment = RegExp(r'^[^/:*\s]+$');
+  /// A level of an id made of [text] from outside (a member's id, a
+  /// device's name), by the rule Kubernetes and Helm name things by: a
+  /// text that is one already stays as it is; else every run of other
+  /// signs becomes `_` and a hash of the whole text is added after a `.`
+  /// (`ann@mail.com` → `ann_mail.com.<hash>`), so two texts never become
+  /// one level.
+  static String levelOf(String text) {
+    if (_level.hasMatch(text)) return text;
+    var slug = text.replaceAll(_outside, '_');
+    if (slug.isEmpty || !RegExp('^[A-Za-z0-9]').hasMatch(slug)) {
+      slug = 'x$slug';
+    }
+    if (slug.length > 64) slug = slug.substring(0, 64);
+    return '$slug.${_fnv1a(text)}';
+  }
+
+  /// FNV-1a, 32 bits, of [text]'s UTF-8, as 8 hex digits.
+  static String _fnv1a(String text) {
+    var h = 0x811c9dc5;
+    for (final b in utf8.encode(text)) {
+      h ^= b;
+      // h * 0x01000193 by shifts and adds: exact in JavaScript too, where
+      // a product past 2^53 would not be.
+      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) &
+          0xffffffff;
+    }
+    return h.toRadixString(16).padLeft(8, '0');
+  }
 
   /// The principal [selector] names: `kind` or `kind/level/...`.
   factory Principal.parse(String selector) {
@@ -40,15 +72,20 @@ final class Principal {
   /// the path of a principal from outside is the levels it says.
   void check() {
     if (!_kind.hasMatch(kind)) {
-      throw ArgumentError.value(kind, 'kind', 'lower-case words, - and _');
+      throw ArgumentError.value(
+        kind,
+        'kind',
+        'lower-case letters, digits, ., - and _, from a letter',
+      );
     }
     if (id.isEmpty) return;
     for (final level in id.split('/')) {
-      if (!_segment.hasMatch(level)) {
+      if (!_level.hasMatch(level)) {
         throw ArgumentError.value(
           id,
           'id',
-          'levels split by /, none empty or with :, * or a space',
+          'levels split by /, each of letters, digits, ., - and _ '
+              '(Principal.levelOf makes one of any text)',
         );
       }
     }
@@ -59,7 +96,11 @@ final class Principal {
   /// parts too, unless something names the part.
   Principal child(String name) {
     if (!_part.hasMatch(name)) {
-      throw ArgumentError.value(name, 'name', 'lower-case words, - and _');
+      throw ArgumentError.value(
+        name,
+        'name',
+        'lower-case letters, digits, ., - and _',
+      );
     }
     return Principal(kind, id.isEmpty ? name : '$id/$name');
   }
