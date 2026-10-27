@@ -36,12 +36,12 @@ void main() {
       [
         'knob hears: clipped at 95',
         'for a guest the command is notPermitted',
-        'a guest turns it: guest:bob may not call player.volume.set',
-        'a guest defines player.volume: guest:bob defines in no namespace',
+        'a guest turns it: guest/bob may not call player.volume.set',
+        'a guest defines player.volume: guest/bob defines in no namespace',
         '150: volume: above 100',
-        'why 95: listener:ann called player.volume.set, and player:deck '
+        'why 95: listener/ann called player.volume.set, and player/deck '
             'wrote it',
-        'player:deck owns: {player.volume, player.volume.set, '
+        'player/deck owns: {player.volume, player.volume.set, '
             'player.clipped}',
       ],
     ),
@@ -50,13 +50,13 @@ void main() {
       [
         'links taken: 1, problems: 0',
         'after the link: 80',
-        'why 80: link:limiter',
+        'why 80: link/limiter',
       ],
     ),
     'remote': (
       remote.main,
       [
-        'the phone joined as phone:ann-phone',
+        'the phone joined as phone/ann-phone',
         'knob shows: 30',
         'knob hears: clipped at 96',
         'knob shows: 96',

@@ -542,7 +542,7 @@ final class RemoteParticipant implements IParticipant {
   ) {
     _live();
     // The host knows it by its speaker and its id, as it registers it.
-    final full = '${(as ?? who).selector}/$id';
+    final full = '${(as ?? who).selector}#$id';
     _guards[full] = (id: id, check: check, overridable: overridable, as: as);
     _ask({'op': 'guard', 'id': id, 'overridable': overridable, ..._asOf(as)});
     return _Disposer(() {

@@ -68,7 +68,7 @@ void main() {
   });
 
   test('who may ask is its askers', () async {
-    define(askers: Callers.only(['module:orders']));
+    define(askers: Callers.only(['module/orders']));
     final r1 = await r.call('orders.page', {'from': 0}, by: asker);
     expect((r1 as CallRefused).code, Refusal.notPermitted);
     expect(asked, 0);

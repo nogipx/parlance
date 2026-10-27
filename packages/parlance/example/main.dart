@@ -48,7 +48,7 @@ Future<void> main() async {
     ),
   );
   // The owner is the participant's part `devices`, named here: what it
-  // writes and says is told as house:devices.
+  // writes and says is told as house/devices.
   houseSide.attach({'devices': house});
   // Residents press and change links; a run set off by anyone else (a guest
   // at the door) acts with that one's rights, never the link's.

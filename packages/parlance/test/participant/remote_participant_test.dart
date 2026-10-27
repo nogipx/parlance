@@ -322,7 +322,7 @@ void main() {
     expect(denied, isA<CallRefused>());
     expect((denied as CallRefused).code, Refusal.denied);
     expect(denied.reason, 'the kittens sleep');
-    expect(denied.guard, 'plugin:kittens/night');
+    expect(denied.guard, 'plugin/kittens#night');
     expect((hooked, served), (0, 0), reason: 'denied before the hooks');
     expect(
       (await r.call('kittens.lamp.turn', {'on': false}, by: crew)).ok,
@@ -460,12 +460,12 @@ void main() {
   });
   test('its access by default goes with what it defines', () async {
     final p = await join(
-      access: WordAccess(read: Callers.only(['plugin:kittens'])),
+      access: WordAccess(read: Callers.only(['plugin/kittens'])),
     );
     p.state(Lamp.on).define();
     await p.flush();
     expect(r.stateDescriptor('kittens.lamp')!.readers!.rules.keys, {
-      'plugin:kittens',
+      'plugin/kittens',
     });
   });
 

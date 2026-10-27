@@ -8,7 +8,7 @@ Links are data. The engine validates them against the catalog; a link that names
 
 ### 13.1 Own words
 
-- **Own command** `my.<name>`: params, steps, callers (the engine's managers always; a definition's `callers` open it to more, and only an explicit `callers` lets anyone outside the managers in). Registered as a command whose handler runs the steps on behalf of `link:<id>`.
+- **Own command** `my.<name>`: params, steps, callers (the engine's managers always; a definition's `callers` open it to more, and only an explicit `callers` lets anyone outside the managers in). Registered as a command whose handler runs the steps on behalf of `link/<id>`.
 - **Own state** `my.<name>`: `bool` or `enum`, with a default and a setter `my.<name>.set { value }`, callable by the managers (and the registry, for layers). Its values are the engine's to persist.
 
 ### 13.2 Triggers
@@ -25,7 +25,7 @@ A state trigger fires on a **change** of a value only. A value that comes where 
 
 Options on any trigger: `throttle` — at most once per interval, per key (a path into the trigger, e.g. the viewer); `once` — once until `links.reset { link }`. The host registers **trigger extensions**: a name, a translation to one of the kinds above, and a parse of the extension's own options; the package knows none. The throttles an extension's translation carries are defaults (a chat command's cooldown, so a busy chat cannot run a link past its rate): a `throttle` in the definition replaces them.
 
-The principal of a run is the presser for `manual`; the principal an extension gives (a viewer, for a chat command); for a fact or a state change, whoever caused it when the engine's managers do not count them in; else `link:<id>`: time, the managers' own actions, own commands and interceptions run on behalf of the link (§13.5).
+The principal of a run is the presser for `manual`; the principal an extension gives (a viewer, for a chat command); for a fact or a state change, whoever caused it when the engine's managers do not count them in; else `link/<id>`: time, the managers' own actions, own commands and interceptions run on behalf of the link (§13.5).
 
 ### 13.3 Conditions
 
@@ -43,13 +43,13 @@ Params are values, references (`$trigger.<path>`, `$state.<name>[<key>]`) and st
 
 Trigger(s) → conditions → steps. Mode when it fires while running: `single` (skip; default), `restart` (cancel the running one, its layers drop), `queue` (with a limit; default 10). A run lasts until its steps and its temporaries end. A refusal stops the run unless the step says `orContinue`. A run is not a transaction: what its steps did before stays done, and the link's status and the run's `failure` say which step stopped it and that those before it were done (`step 2 of 3, after step 1 done: …`).
 
-**On whose behalf a run acts.** A press acts for the presser. A fact or a state change acts for whoever caused it (its cause's principal) when the engine's managers do not count them in: their rights, never the link's, so they reach only what names them in its callers. Every other trigger (the managers' own actions, timers, the registry) runs as the link, `link:<id>`, with no more rights than the link has. An extension's `accept` may name the principal itself.
+**On whose behalf a run acts.** A press acts for the presser. A fact or a state change acts for whoever caused it (its cause's principal) when the engine's managers do not count them in: their rights, never the link's, so they reach only what names them in its callers. Every other trigger (the managers' own actions, timers, the registry) runs as the link, `link/<id>`, with no more rights than the link has. An extension's `accept` may name the principal itself.
 
 A firing that does not run (conditions, mode, a full queue, a throttle, `once`) spends nothing: no throttle, no `once`, no count toward the rate limit. Runs dropped from a queue end as `stopped`, so a press that waits for one is answered. A run that ends well clears the failure its link's status showed.
 
 ### 13.6 Bindings
 
-While the conditions hold, push one layer per held call (only commands with `sets`), owner `link:<id>`, with the link's priority; when they stop, drop them. A binding whose layer was dropped as `overridden` does not push it again until its conditions turn false and then true. A binding changed while it holds pushes its new layers before it lets go of the old ones, so a held value moves straight to the new one, never through the value under it. After a restart (the registry's layers imported), a binding takes back its own layers when it starts: held on by the ones it pushes, or let go at once when its conditions are false, so the base from before the restart comes back. Layers imported after the engine started are taken back by `takeBackLayers()`, the same way. An **anchor** gives a binding its condition and its home: the host registers anchor kinds (an entity kind and the condition an entity makes); the binding names the entity.
+While the conditions hold, push one layer per held call (only commands with `sets`), owner `link/<id>`, with the link's priority; when they stop, drop them. A binding whose layer was dropped as `overridden` does not push it again until its conditions turn false and then true. A binding changed while it holds pushes its new layers before it lets go of the old ones, so a held value moves straight to the new one, never through the value under it. After a restart (the registry's layers imported), a binding takes back its own layers when it starts: held on by the ones it pushes, or let go at once when its conditions are false, so the base from before the restart comes back. Layers imported after the engine started are taken back by `takeBackLayers()`, the same way. An **anchor** gives a binding its condition and its home: the host registers anchor kinds (an entity kind and the condition an entity makes); the binding names the entity.
 
 ### 13.7 Constraints
 
@@ -68,7 +68,7 @@ A before hook on an interceptable command: steps, a priority and a required time
 
 ### 13.10 What the engine takes
 
-The engine takes names in the registry: the states `links.status`, `links.controls` and `links.own`, the fact `links.disabled`, the commands `links.*`, the entity kind `link`, the principal kind `link` (it acts as `link:<id>`, `linkPrincipal(id)`) and the prefix `my.` of own words. So one engine runs on one registry; a second one is refused by the registry as a name defined twice.
+The engine takes names in the registry: the states `links.status`, `links.controls` and `links.own`, the fact `links.disabled`, the commands `links.*`, the entity kind `link`, the principal kind `link` (it acts as `link/<id>`, `linkPrincipal(id)`) and the prefix `my.` of own words. So one engine runs on one registry; a second one is refused by the registry as a name defined twice.
 
 These names are `LinkWords` (`lib/src/link_words.dart`, with `linkGuide`, how links are written). It imports nothing: a client of the engine (the agent's tools, a host's buttons) calls the engine by them without importing the engine. A test holds `linkGuide` to the keys the parser reads.
 

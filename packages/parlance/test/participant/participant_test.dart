@@ -68,7 +68,7 @@ void main() {
       last.set(c.params, cause: c.causeFor(orders));
       placed.emit(c.params, cause: c.causeFor(orders));
       return c.params.id;
-    }, callers: Callers.only(['module:cart']));
+    }, callers: Callers.only(['module/cart']));
     return p;
   }
 
@@ -243,7 +243,7 @@ void main() {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       p
           .state(OrderState.last)
-          .define(readers: Callers.only(['module:orders']))
+          .define(readers: Callers.only(['module/orders']))
           .set((id: 'o', status: 'new'));
       final c = r.participant(cart);
       expect(c.state(OrderState.last).read(), isNull);
@@ -259,20 +259,20 @@ void main() {
         orders,
         vocabularies: [WordSet.open('orders')],
         access: WordAccess(
-          read: Callers.only(['module:orders', 'module:cart']),
-          call: Callers.only(['module:cart']),
+          read: Callers.only(['module/orders', 'module/cart']),
+          call: Callers.only(['module/cart']),
         ),
       );
       p.state(OrderState.last).define();
-      p.fact(OrderFact.placed).define(readers: Callers.only(['module:orders']));
+      p.fact(OrderFact.placed).define(readers: Callers.only(['module/orders']));
       p.command(OrderCommand.place).define((c) => c.params.id);
 
       expect(r.stateDescriptor('orders.last')!.readers!.rules.keys, {
-        'module:orders',
-        'module:cart',
+        'module/orders',
+        'module/cart',
       });
       expect(r.factDescriptor('orders.placed')!.readers!.rules.keys, {
-        'module:orders',
+        'module/orders',
       }, reason: 'its own, not merged');
       final c = r.participant(cart);
       final stranger = r.participant(someone);
@@ -309,12 +309,12 @@ void main() {
     test('a selector names the parts of what it names; the nearest wins', () {
       final sync = orders.child('sync');
       expect(sync, const Principal('module', 'orders/sync'));
-      expect(sync.child('push').selector, 'module:orders/sync/push');
+      expect(sync.child('push').selector, 'module/orders/sync/push');
       expect(sync.isWithin(orders), isTrue);
       expect(orders.isWithin(sync), isFalse);
       final callers = Callers({
-        'module:orders': Access.allow,
-        'module:orders/sync': Access.deny,
+        'module/orders': Access.allow,
+        'module/orders/sync': Access.deny,
       });
       expect(callers.allows(orders.child('ui')), isTrue, reason: 'its whole');
       expect(callers.allows(sync), isFalse, reason: 'its own rule');
@@ -343,7 +343,7 @@ void main() {
         status: 'new',
       ));
       await settle();
-      expect(done.ok, isTrue, reason: 'module:cart names its parts too');
+      expect(done.ok, isTrue, reason: 'module/cart names its parts too');
       expect(records.single.cause.by, cart.child('ui'), reason: 'the record');
       await sub.cancel();
     });
@@ -463,6 +463,38 @@ void main() {
       throwsArgumentError,
       reason: 'a word of the vocabulary lies outside its namespace',
     );
+  });
+
+  test('a selector is a path: every level after / is a level, and the '
+      'nearest one said decides', () {
+    final viewer = Principal.parse('viewer/twitch/123');
+    expect(viewer.kind, 'viewer');
+    expect(viewer.parent!.selector, 'viewer/twitch');
+    const rules = Callers({
+      'viewer': Access.deny,
+      'viewer/twitch': Access.allow,
+      'viewer/twitch/42': Access.deny,
+    });
+    expect(rules.accessOf(viewer), Access.allow);
+    expect(rules.accessOf(Principal.parse('viewer/twitch/42')), Access.deny);
+    expect(rules.accessOf(Principal.parse('viewer/youtube/9')), Access.deny);
+  });
+
+  test('a selector that names no one is refused, not left to match nobody', () {
+    expect(
+      () => StateDescriptor(
+        'orders.x',
+        type: const BoolType(),
+        readers: Callers.only(['module:orders']),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => r.participant(const Principal('viewer', 'twitch:1')),
+      throwsArgumentError,
+      reason: 'a : in an id would be a level that is not one',
+    );
+    expect(() => Principal.parse('module/orders/'), throwsArgumentError);
   });
 }
 

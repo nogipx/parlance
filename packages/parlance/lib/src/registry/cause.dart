@@ -4,7 +4,7 @@ final class Principal {
 
   factory Principal.fromJson(Object? json) {
     final m = json as Map;
-    return Principal(m['kind'] as String, m['id'] as String? ?? '');
+    return Principal(m['kind'] as String, m['id'] as String? ?? '')..check();
   }
 
   /// The registry itself: layer dispatches, expiry.
@@ -13,13 +13,49 @@ final class Principal {
   final String kind;
   final String id;
 
-  /// `kind:id`, or just the kind when there is no id.
-  String get selector => id.isEmpty ? kind : '$kind:$id';
+  /// Its path (SPEC §4): `kind/id`, each level after `/`; just the kind
+  /// when there is no id (`user/local`, `studio/sound`,
+  /// `member/forum/123`).
+  String get selector => id.isEmpty ? kind : '$kind/$id';
 
   static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
+  static final RegExp _kind = RegExp(r'^[a-z][a-z0-9_-]*$');
 
-  /// A part of this one, named [name] (SPEC §4): `studio` → `studio:sound`,
-  /// `module:orders` → `module:orders/sync`. What names this one names its
+  /// A level of an id: what an outside system names (a member's id, a
+  /// device's) passes as it is, but never `/`, `:`, `*` or a space, which
+  /// would make levels where there are none.
+  static final RegExp _segment = RegExp(r'^[^/:*\s]+$');
+
+  /// The principal [selector] names: `kind` or `kind/level/...`.
+  factory Principal.parse(String selector) {
+    final i = selector.indexOf('/');
+    final p = i < 0
+        ? Principal(selector)
+        : Principal(selector.substring(0, i), selector.substring(i + 1));
+    p.check();
+    return p;
+  }
+
+  /// Throws when its kind or a level of its id is not one (SPEC §4): so
+  /// the path of a principal from outside is the levels it says.
+  void check() {
+    if (!_kind.hasMatch(kind)) {
+      throw ArgumentError.value(kind, 'kind', 'lower-case words, - and _');
+    }
+    if (id.isEmpty) return;
+    for (final level in id.split('/')) {
+      if (!_segment.hasMatch(level)) {
+        throw ArgumentError.value(
+          id,
+          'id',
+          'levels split by /, none empty or with :, * or a space',
+        );
+      }
+    }
+  }
+
+  /// A part of this one, named [name] (SPEC §4): `studio` → `studio/sound`,
+  /// `module/orders` → `module/orders/sync`. What names this one names its
   /// parts too, unless something names the part.
   Principal child(String name) {
     if (!_part.hasMatch(name)) {

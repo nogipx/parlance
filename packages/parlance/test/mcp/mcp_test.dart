@@ -352,9 +352,9 @@ void main() {
         });
         final why = await c.json('why', {'state': 'audio.muted'}) as Map;
         expect(why['value'], true);
-        expect((why['changed'] as Map)['by'], 'host:studio');
+        expect((why['changed'] as Map)['by'], 'host/studio');
         expect(((why['trail'] as List).first as Map)['call'], 'audio.mute');
-        expect(((why['trail'] as List).first as Map)['by'], 'agent:claude');
+        expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
         f.r.pushLayer(
           'audio.muted',
           value: false,
@@ -457,7 +457,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(await c.json('read', {'state': 'studio.program'}), 'test');
       final why = await c.json('why', {'state': 'studio.program'}) as Map;
-      expect(((why['trail'] as List).first as Map)['by'], 'agent:claude');
+      expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
       expect((await c.call('link_upsert', {'link': break_})).error, isFalse);
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(

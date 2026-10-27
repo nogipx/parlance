@@ -151,10 +151,10 @@ void main() {
       f.chat.emit({
         'user': 'v',
         'text': 'hi',
-      }, cause: const Cause(Principal('viewer', 'twitch:v')));
+      }, cause: const Cause(Principal('viewer', 'twitch/v')));
       await pumpEventQueue();
       final greet = calls.where((c) => c.command == 'my.greet').single;
-      expect(greet.cause.by, const Principal('viewer', 'twitch:v'));
+      expect(greet.cause.by, const Principal('viewer', 'twitch/v'));
       expect(greet.result, isA<CallRefused>());
     });
 
@@ -173,7 +173,7 @@ void main() {
       f.chat.emit({
         'user': 'v',
         'text': 'hi',
-      }, cause: const Cause(Principal('viewer', 'twitch:v')));
+      }, cause: const Cause(Principal('viewer', 'twitch/v')));
       await pumpEventQueue();
       expect(
         calls.where((c) => c.command == 'my.greet').single.result,

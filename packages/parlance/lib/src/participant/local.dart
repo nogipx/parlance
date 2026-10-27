@@ -23,6 +23,9 @@ extension Participants on Registry {
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
   }) {
+    who.check();
+    access.read?.check();
+    access.call?.check();
     for (final v in vocabularies) {
       v.check();
     }

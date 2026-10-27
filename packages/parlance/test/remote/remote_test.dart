@@ -376,7 +376,7 @@ void main() {
               'kittens.settings',
               type: const MapType(AnyType()),
               readers: const Callers({
-                'plugin:kittens': Access.allow,
+                'plugin/kittens': Access.allow,
                 'plugin': Access.deny,
                 '*': Access.allow,
               }),
@@ -461,7 +461,7 @@ void main() {
               'kittens.whisper',
               type: const TextType(),
               readers: const Callers({
-                'plugin:kittens': Access.allow,
+                'plugin/kittens': Access.allow,
                 'plugin': Access.deny,
                 '*': Access.allow,
               }),
@@ -573,7 +573,7 @@ void main() {
             await again.client.call('x.go', {}, id: 'k'),
             isA<CallDone<Object?>>(),
           );
-          expect(runs, ['user:local/k'], reason: 'the retry did not run again');
+          expect(runs, ['user/local#k'], reason: 'the retry did not run again');
         },
       );
 

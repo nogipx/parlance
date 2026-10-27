@@ -25,8 +25,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Who and why
 
-- **Principal** (§4): who acts, a `kind` and an `id` (`user:local`, `plugin:hydra`, `viewer:twitch:123`). Kinds are the host's; the package reserves `system` (the registry) and `link` (the links engine).
-- **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`plugin:hydra`), or `*`. The most specific one that matches wins.
+- **Principal** (§4): who acts, a `kind` and an `id` (`user/local`, `plugin/hydra`, `viewer/twitch/123`). Kinds are the host's; the package reserves `system` (the registry) and `link` (the links engine).
+- **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`plugin/hydra`), or `*`. The most specific one that matches wins.
 - **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from), `chain` (the links and hooks it went through), `test`. Passed explicitly: `call.causeFor(by)`.
 - **Chain** (§4): the link and hook ids a cause went through; a link or hook never runs for a message whose chain holds its id. This is how loops are stopped.
 - **Test** (§4): the cause's mark for what a trial run caused (`links.try`, a test fact); consumers may show it apart.
@@ -129,7 +129,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Links (§13, §15)
 
 - **Link**: a rule as data (JSON) the links engine runs: a reaction, a binding, a constraint, an interception, or an own word.
-- **Links engine** (`Links`): runs the links on a registry, acting as `link:<id>`. One per registry; it takes the names `links.*`, `my.*`, the entity kind and principal kind `link` (§13.10).
+- **Links engine** (`Links`): runs the links on a registry, acting as `link/<id>`. One per registry; it takes the names `links.*`, `my.*`, the entity kind and principal kind `link` (§13.10).
 - **LinkWords** (§13.10, §13.11): the engine's own words, typed, importable without the engine.
 - **Unresolved** (§13): a link that names something the catalog lacks; inactive until it is there.
 - **Reaction** (§13.5): trigger(s), conditions, steps.
@@ -150,7 +150,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Run** (§13.5): one execution of a reaction's steps; lasts until its steps and temporaries end.
 - **On whose behalf** (§13.5): a press acts for the presser; a fact or state change for whoever caused it, unless the engine's managers caused it; everything else as the link.
 - **`orContinue`** (§13.4, §13.5): a step whose refusal does not stop the run.
-- **Binding** (§13.6): while its conditions hold, one layer per held call, owned by `link:<id>`; dropped when they stop.
+- **Binding** (§13.6): while its conditions hold, one layer per held call, owned by `link/<id>`; dropped when they stop.
 - **Anchor** (§13.6): gives a binding its condition and home from an entity: the host registers anchor kinds (an entity kind and the condition an entity makes).
 - **Take back** (§13.6): after a restart, bindings claim the layers they held (`takeBackLayers()`), or let them go.
 - **Constraint** (§13.7): a guard defined as a link: a target, the principals, conditions, a reason.
@@ -202,7 +202,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Namespace** (§22.1): the first words of the names a participant may define (`orders` for `orders.cancel`); one live participant's alone.
 - **Participant rights** (§22.2): `define` (a further check on its words), `produce` (open facts of others), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
-- **Part** (§4, §22.3): `principal.child(name)` (`studio:sound`), and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, and its acts are told as its own, for audit.
+- **Part** (§4, §22.3): `principal.child(name)` (`studio/sound`), and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, and its acts are told as its own, for audit.
 - **Version** (§1): a word's breaking change beside the old one, the same name with `.v<N>` (N >= 2); the name alone is version 1. A version is a word of its own; `wordVersion(name)` parses one.
 - **Query** (§6.6, §18): a word that only answers, a kind of its own (`QueryDescriptor`, `is: query`; `IQueryWord`, asked with `.ask`): no sets, no hooks, no dedup, no call record, nothing changed from its handler; safe to ask again.
 - **JsonShape** (§18): the shape of a class that serializes itself (json_serializable, freezed), with an optional `type` for checks and `describe`.

@@ -72,6 +72,20 @@ final class Callers {
 
   final Map<String, Access> rules;
 
+  /// Throws when a selector is not one (SPEC §4): `*`, a kind, or a path
+  /// of levels split by `/` (`plugin/hydra`, `module/orders/sync`). One
+  /// that could name no one would match nobody, quietly.
+  void check() {
+    for (final s in rules.keys) {
+      if (s == '*') continue;
+      try {
+        Principal.parse(s);
+      } on ArgumentError catch (e) {
+        throw ArgumentError.value(s, 'selector', '${e.message}');
+      }
+    }
+  }
+
   Access accessOf(Principal p) {
     for (Principal? q = p; q != null; q = q.parent) {
       if (rules[q.selector] case final a?) return a;
@@ -150,7 +164,9 @@ final class StateDescriptor extends Descriptor {
     this.key,
     this.readers,
     Map<String, Object?> meta = const {},
-  }) : super(name, meta);
+  }) : super(name, meta) {
+    readers?.check();
+  }
 
   factory StateDescriptor.fromJson(Map<Object?, Object?> m) => StateDescriptor(
     m['name'] as String,
@@ -195,7 +211,9 @@ sealed class CallableDescriptor extends Descriptor {
     required this.returns,
     required this.callers,
     required this.deadline,
-  });
+  }) {
+    callers.check();
+  }
 
   final ObjectType params;
 
@@ -317,7 +335,9 @@ final class FactDescriptor extends Descriptor {
     this.open = false,
     this.readers,
     Map<String, Object?> meta = const {},
-  }) : super(name, meta);
+  }) : super(name, meta) {
+    readers?.check();
+  }
 
   factory FactDescriptor.fromJson(Map<Object?, Object?> m) => FactDescriptor(
     m['name'] as String,

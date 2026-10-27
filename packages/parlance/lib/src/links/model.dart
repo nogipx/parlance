@@ -12,6 +12,18 @@ import '../registry/types.dart';
 
 Never _bad(String what) => throw FormatException(what);
 
+/// A selector (SPEC §4): `*`, a kind, or a path split by `/`.
+String _selector(Object? v, String what) {
+  final s = _str(v, what);
+  if (s == '*') return s;
+  try {
+    Principal.parse(s);
+  } on ArgumentError {
+    _bad('$what: "$s" is no selector (a kind, or levels split by /)');
+  }
+  return s;
+}
+
 Map<String, Object?> _map(Object? v, String what) => switch (v) {
   final Map<Object?, Object?> m => m.cast<String, Object?>(),
   _ => _bad('$what: expected an object'),
@@ -645,7 +657,7 @@ sealed class Link {
             : _name(d['namespace'], '$what.deny.namespace'),
         appliesTo: applies == null || applies == 'any'
             ? null
-            : {for (final c in _list(applies)) _str(c, '$what.callers')},
+            : {for (final c in _list(applies)) _selector(c, '$what.callers')},
         condition: m['while'] == null
             ? null
             : Condition.parse(m['while'], '$what.while'),
@@ -819,10 +831,11 @@ final class Constraint extends Link {
   final String reason;
   final bool overridable;
 
+  /// Whether it holds for [p]: for everyone, or for a selector [p] is
+  /// within (its kind, it, a whole it is part of), as callers match.
   bool appliesToPrincipal(Principal p) =>
       appliesTo == null ||
-      appliesTo!.contains(p.kind) ||
-      appliesTo!.contains(p.selector);
+      appliesTo!.any((s) => s == '*' || p.isWithin(Principal.parse(s)));
 
   bool targets(String commandName, Map<String, Object?> params) {
     if (command != null) {

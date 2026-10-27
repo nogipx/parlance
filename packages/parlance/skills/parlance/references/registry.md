@@ -43,9 +43,11 @@ The host registers entity kinds: a name and a function listing the current entit
 
 ## 4. Principals and causes
 
-A **principal** is who acts: a `kind` and an `id` (`user:local`, `plugin:hydra`, `viewer:twitch:123`). Kinds are an open set declared by the host. The package reserves two: `system` (the registry itself) and `link` (the links engine).
+A **principal** is who acts: a `kind` and an `id`. Kinds are an open set declared by the host. The package reserves two: `system` (the registry itself) and `link` (the links engine).
 
-A principal has **parts**: `child(name)` names one (`studio` → `studio:sound`, `module:orders` → `module:orders/sync`), so what each part of a module does is told as that part's in causes, call records and `explain`, for audit. `isWithin(other)` tells a part of `other` at any depth, `parent` the whole it is part of. A part has its whole's rights unless something names the part (§6.2).
+**A principal is a path.** Its selector is its kind, then each level of its id after `/`: `user/local`, `plugin/hydra`, `viewer/twitch/123`, `module/orders/sync`. `/` is the only separator and every level is one: the path of a principal tells where it stands, and nothing else does. A kind is lower-case words, `-` and `_`; a level of an id is what an outside system names (a member's id, a device's) but never `/`, `:`, `*` or a space, which would make levels where there are none, and never empty. A principal from outside (`Principal.parse`, `fromJson`, a participant's, a session's) is checked (`ArgumentError`); a host builds one of an outside id so that it is (Tephra: `Who.viewer` replaces what would make a level).
+
+A principal has **parts**: `child(name)` adds a level (`studio` → `studio/sound`, `module/orders` → `module/orders/sync`), so what each part of a module does is told as that part's in causes, call records and `explain`, for audit. `isWithin(other)` tells a part of `other` at any depth, `parent` the whole it is part of (one level up). A part has its whole's rights unless something names the part (§6.2). An id joined to a principal (a remote call's, a guard's) is `<principal>#<id>`, never another level.
 
 A **cause** is why something happens:
 
@@ -92,7 +94,7 @@ CommandDescriptor {
 
 - Exactly one handler per command; defining a command registers its handler.
 - `sets` says the command sets that state: the target key comes from param `key`, the value from param `value`. A state has at most one setter. Layers (§8) and `flip` need the setter, and call it with only those two params, so its other params must be optional.
-- `callers` selectors are a principal kind (`user`), a kind and id (`plugin:hydra`) or `*` for anyone; the most specific selector wins; a principal matched by none is denied. A selector names the parts of what it names (§4): for `module:orders/sync` the nearest wins, its own, then `module:orders`, then `module`, then `*`. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
+- `callers` are **selectors**: `*` (anyone), or a path (§4): a kind (`user`), a principal (`plugin/hydra`), a part (`module/orders/sync`), any level between (`viewer/twitch`, every viewer of one platform). A selector names everything under it. For a principal the nearest said wins: its own path, then each level up to its kind, then `*` (for `viewer/twitch/123`: `viewer/twitch/123`, `viewer/twitch`, `viewer`, `*`); a principal matched by none is denied. A nearer rule overrides a wider one either way (`module/orders: allow`, `module/orders/sync: deny`). A selector that is not a path (`plugin:hydra`) is refused where it is said (`ArgumentError`), rather than matching nobody. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
 - `deadline` bounds the handler; the default is 30 s.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
 - A word that only answers is not a command but a query (§6.6).

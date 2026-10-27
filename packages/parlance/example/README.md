@@ -32,14 +32,14 @@ fvm dart run example/main.dart
 What the tour shows:
 
 1. **Typed calls.** `registry.command(HouseCommand.setLight).call((room: 'kitchen', on: true), by: ...)`. A guest is refused what its callers do not allow (the heating's callers come from the participant's default), and a room that does not exist is refused as `invalidParams`. A view's `status` says, before any call, what is there for the guest: `notPermitted`, `ready`, `missing`.
-2. **A fact sets off a reaction.** Motion lights the hall. `explain` tells on whose behalf (`house:devices`, the owner's part), through which link and by which calls.
+2. **A fact sets off a reaction.** Motion lights the hall. `explain` tells on whose behalf (`house/devices`, the owner's part), through which link and by which calls.
 3. **A binding.** While it is night the heating is held at 17 °C as a layer. In the morning the layer goes and the heating returns.
 4. **A guard.** The door stays locked at night (`denied`, overridable). A resident overrides it.
 5. **A constraint and a temporary step.** While away, unlocking is denied by a link, and no one overrides it. A guest rings: the porch light comes on for a moment, called on the guest's behalf, with the guest's rights.
 6. **Own words.** `my.movie` is callable by the residents and refused to a guest. `my.guests` is a flag.
 7. **A query.** `registry.query(HouseQuery.rooms).ask((lit: true), by: ...)`: a question that changes nothing, asked rather than called; asking again is safe, and the registry keeps nothing of it.
 8. **By hand.** A switch flipped by hand, not through a command: the owner said where its devices' changes come from (`changes`), so it is synced on its own and nobody calls `sync()` on its participant.
-9. **What modules need, and a scope.** A garden needs `weather.rain`, which the house has not: `checkUses()` says so at start (`module:garden/sprinkler needs weather.rain: missing`). A visit is a group of owners made when guests come: it says what it owns and uses (`registry.declarations`, `describe`), hears the doorbell and keeps who is in; disposed when they leave, its words go, and a guest's view sees `visit.guests` missing.
+9. **What modules need, and a scope.** A garden needs `weather.rain`, which the house has not: `checkUses()` says so at start (`module/garden/sprinkler needs weather.rain: missing`). A visit is a group of owners made when guests come: it says what it owns and uses (`registry.declarations`, `describe`), hears the doorbell and keeps who is in; disposed when they leave, its words go, and a guest's view sees `visit.guests` missing.
 10. **A phone that joins over remote.** The house opens a session for the phone and says who it is; the phone joins it as a `RemoteParticipant` over an `RpcClientConnection` (in memory here, one that does not come back). It uses the house through `HouseClient(phone)`: it watches the states it reads (`heatChanges`), calls `setHeat(target: 22)` and reads what the call wrote as soon as the call answers; a call refused (40 °C, above the word's bound) throws `CallNotDone` with why.
 11. **An agent over MCP.** Its tools come from `parlanceTools` over a `LocalBoard`: the curated ones, plus one per command it may call. It gets no link tools, because it is not one of the residents who manage links.
 

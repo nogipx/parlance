@@ -36,7 +36,7 @@ Every word has an **owner**, the part that defined it. Nobody changes someone el
 
 Around the words:
 
-- **Who speaks.** Every write and call is made by a principal (`user:local`, `plugin:hydra`, `viewer:twitch:123`), and every command says who may call it. A refusal says why: not permitted, unavailable now, denied by a guard.
+- **Who speaks.** Every write and call is made by a principal (`user/local`, `plugin/hydra`, `viewer/twitch/123`), and every command says who may call it. A refusal says why: not permitted, unavailable now, denied by a guard.
 - **Why it is so.** Every change carries its cause: who started it and what it went through. `explain('audio.muted')` answers *"a viewer pressed a button, and link X turned it into this call"*.
 - **Links.** Sentences built from words, kept as data rather than code: *when fact `chat.message` says `!mute`, call `audio.mute`*; *while `stream.live` holds, keep `scene.current` at `live`*. Users can write their own; links speak only in words too.
 - **Words are a public API.** Links, plugins and agents name them, so a renamed word keeps its old name as an alias and nothing that named it breaks.

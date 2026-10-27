@@ -422,7 +422,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       request.command,
       request.params,
       by: by,
-      id: '${principal.selector}/${request.id}',
+      id: '${principal.selector}#${request.id}',
       override: request.overriding,
       cause: _cause(parent: request.parent, test: request.test, by: by),
     );
@@ -643,7 +643,7 @@ final class RegistryResponder extends ParlanceContractPeer {
           part: part,
         );
       case 'unguard':
-        _guards.remove('${part.who.selector}/${m['id']}')?.dispose();
+        _guards.remove('${part.who.selector}#${m['id']}')?.dispose();
       default:
         throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }
@@ -765,7 +765,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       return _permitted(
         () => emitter.emit(
           payload,
-          id: id == null ? null : '${principal.selector}/$id',
+          id: id == null ? null : '${principal.selector}#$id',
           cause: _cause(parent: parent, test: test, by: by ?? p.who),
         ),
       );
@@ -811,7 +811,7 @@ final class RegistryResponder extends ParlanceContractPeer {
   /// its turn: the participant judges the call. Known as `<speaker>/<id>`.
   void _guard(String id, {required bool overridable, LocalParticipant? part}) {
     final p = part ?? _p;
-    final full = '${p.who.selector}/$id';
+    final full = '${p.who.selector}#$id';
     try {
       _guards[full] = p.addAskedGuard(full, (c) async {
         final r = await _owner.judge(
