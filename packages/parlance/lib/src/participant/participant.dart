@@ -166,6 +166,11 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// now, though no tick says so: it reads what the registry does not keep.
   void availabilityChanged(String command);
 
+  /// Says what it owns and uses (SPEC §6.7), in place of what it said
+  /// before; each word it owns must lie in its [namespaces]. Told in
+  /// `describe`, withdrawn with the handle or with it.
+  IHandle declare(Declaration d);
+
   /// Runs [writes], its writes and facts committed as one tick.
   void batch(void Function() writes);
 

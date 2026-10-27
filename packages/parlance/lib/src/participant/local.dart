@@ -324,6 +324,24 @@ final class LocalParticipant implements IParticipant {
   }
 
   @override
+  IHandle declare(Declaration d) {
+    _live();
+    _mayOwn(d);
+    return _keep(_r.declare(who, d));
+  }
+
+  /// Each word [d] owns lies in its namespaces.
+  void _mayOwn(Declaration d) {
+    for (final name in d.owns) {
+      if (!owns(name)) {
+        throw NotPermitted(
+          '$who owns words in ${namespaces.isEmpty ? 'no namespace' : namespaces.join(', ')}, not $name',
+        );
+      }
+    }
+  }
+
+  @override
   void batch(void Function() writes) => _r.batch(writes);
 
   @override

@@ -13,6 +13,8 @@ A host's words have owners: one owner writes a state, serves a command, emits a 
 
 ### 19.1 Words it uses
 
+- **`words`**: the words it owns, `[...OrdersState.values, ...OrdersCommand.values]`. When it attaches, every one must lie in the participant's namespaces, or `NotPermitted` comes before it defines anything; then the participant declares them with its uses (§6.7), so `describe` tells what each part owns and needs. It may still define words it does not list, within its namespaces (a name known only at run time).
+
 - **`uses`**: an owner says which words of others it uses, `Use.required(word)` or `Use.optional(word)` (any typed word, `IWord`). An optional one it handles being missing, not permitted or unavailable (§6.5); a required one it cannot work without.
 - **`Owners.checkUses()`**: once every group of the app is attached (a word of one group may be another's, and the order they attach in does not matter), `main` awaits each group's check. It waits until the participant's view of the catalog is the registry's (`settle`, §22), then takes each owner's required words as its part sees them: missing or not permitted is unmet; a command unavailable now is there. It throws `UnmetUses`, a `StateError` naming every unmet word with the part that needs it (`host:needy needs test.level: missing`), so the app stops at start with a clear message rather than a part failing later.
 - It checks at start only. Words come and go while the app runs (a remote owner leaves, a plugin is turned off): then a part reads their status, never the start's answer. It checks names and whether the part may use them, not a word's kind or type.

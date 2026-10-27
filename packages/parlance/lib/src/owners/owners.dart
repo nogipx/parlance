@@ -49,12 +49,25 @@ abstract base class Owner implements IHandle {
   IParticipant get participant =>
       _participant ?? (throw StateError('$runtimeType is not attached'));
 
-  /// Attaches it to [p] and defines its words there; once.
+  /// Attaches it to [p], says there what it owns and uses, and defines its
+  /// words; once. A word of [words] outside the participant's namespaces
+  /// is refused before anything is defined.
   void attach(IParticipant p) {
     if (_participant != null) throw StateError('$runtimeType is attached');
+    final d = Declaration(
+      owns: {for (final w in words) w.name},
+      uses: {for (final u in uses) u.word.name: u.required},
+    );
+    if (!d.isEmpty) keep(p.declare(d));
     _participant = p;
     define(p);
   }
+
+  /// The words it owns (SPEC §6.7): `[...OrdersState.values, ...]`, told
+  /// in `describe` with what it [uses]. It may define others too, within
+  /// its namespaces (a name known only at run time); a word listed here
+  /// outside them is refused when it attaches.
+  Iterable<IWord> get words => const [];
 
   /// Defines its words through [p]; keep what each returns with [keep].
   void define(IParticipant p);

@@ -79,6 +79,9 @@ final class RegistryResponder extends ParlanceContractPeer {
   /// Its guards, asked across the connection.
   final Map<String, IHandle> _guards = {};
 
+  /// What it and its parts said of themselves (SPEC §6.7), by the part.
+  final Map<Principal, IHandle> _declared = {};
+
   /// The calls of its commands it is serving now, by id.
   final Map<String, CommandCall> _serving = {};
   bool _closed = false;
@@ -545,6 +548,13 @@ final class RegistryResponder extends ParlanceContractPeer {
         _kind(m['name']! as String, m['entities'] as List? ?? const [], part);
       case 'unkind':
         _kinds.remove(m['name'])?.handle.dispose();
+      case 'declare':
+        _declared.remove(part.who)?.dispose();
+        _declared[part.who] = _permitted(
+          () => part.declare(Declaration.fromJson(m['declaration'])),
+        );
+      case 'undeclare':
+        _declared.remove(part.who)?.dispose();
       case 'guard':
         _guard(
           m['id']! as String,
@@ -784,6 +794,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     _producers.clear();
     _kinds.clear();
     _guards.clear();
+    _declared.clear();
     _unavailable.clear();
     _p.dispose();
   }

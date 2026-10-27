@@ -156,6 +156,48 @@ final class AliasChanged extends CatalogChange {
   final String alias;
 }
 
+/// What a part says it owns and uses came, changed or went (SPEC §6.7).
+final class DeclarationChanged extends CatalogChange {
+  const DeclarationChanged(this.by);
+  final Principal by;
+}
+
+/// What a part says of itself (SPEC §6.7): the words it owns and the words
+/// of others it uses, each required or not. Told, not enforced: what it
+/// may define its namespaces say; what it may use, the words' readers and
+/// callers.
+final class Declaration {
+  const Declaration({this.owns = const {}, this.uses = const {}});
+
+  factory Declaration.fromJson(Object? json) {
+    final m = (json! as Map).cast<String, Object?>();
+    return Declaration(
+      owns: {...(m['owns'] as List? ?? const []).cast<String>()},
+      uses: {
+        for (final MapEntry(:key, :value)
+            in (m['uses'] as Map? ?? const {}).entries)
+          key as String: value == 'required',
+      },
+    );
+  }
+
+  final Set<String> owns;
+
+  /// Each word it uses, and whether it is required.
+  final Map<String, bool> uses;
+
+  bool get isEmpty => owns.isEmpty && uses.isEmpty;
+
+  Map<String, Object?> toJson() => {
+    if (owns.isNotEmpty) 'owns': [...owns],
+    if (uses.isNotEmpty)
+      'uses': {
+        for (final MapEntry(:key, :value) in uses.entries)
+          key: value ? 'required' : 'optional',
+      },
+  };
+}
+
 /// The only write handle of a state: the registry's own, or a remote
 /// participant's (SPEC §22).
 abstract interface class IStateHandle implements IHandle {
@@ -603,6 +645,11 @@ final class Registry implements ITypeContext {
     'descriptors': [for (final d in catalog) d.toJson()],
     'kinds': [for (final k in _kinds.values) k.toJson()],
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
+    if (_declared.isNotEmpty)
+      'declared': {
+        for (final MapEntry(:key, :value) in _declared.entries)
+          key.selector: value.toJson(),
+      },
   };
 
   /// Whether [by] may read state [name]'s values, or hear fact [name], over
@@ -657,6 +704,27 @@ final class Registry implements ITypeContext {
 
   /// The entities of [kind] changed.
   void entitiesChanged(String kind) => _announce(KindChanged(kind));
+
+  final Map<Principal, Declaration> _declared = {};
+
+  /// What each part says it owns and uses (SPEC §6.7).
+  Map<Principal, Declaration> get declarations => Map.unmodifiable(_declared);
+
+  /// Takes [d] as what [by] says of itself, in place of what it said
+  /// before; withdrawn with the handle.
+  IHandle declare(Principal by, Declaration d) {
+    for (final name in [...d.owns, ...d.uses.keys]) {
+      checkWordName(name);
+    }
+    _declared[by] = d;
+    _announce(DeclarationChanged(by));
+    return _Disposer(() {
+      if (_declared[by] == d) {
+        _declared.remove(by);
+        _announce(DeclarationChanged(by));
+      }
+    });
+  }
 
   /// Registers the host's type [name] with its checker (SPEC §2).
   IHandle registerType(String name, String? Function(Object? value) check) {

@@ -162,6 +162,8 @@ final class RemoteParticipant implements IParticipant {
   /// the commands that set them.
   List<Map<String, Object?>> _standing() => [
     for (final k in _kinds.values) _kindOp(k.kind, k.as),
+    for (final MapEntry(key: part, value: d) in _declared.entries)
+      _declareOp(d, part),
     for (final s in _states.values)
       {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
     for (final f in _facts.values)
@@ -217,6 +219,9 @@ final class RemoteParticipant implements IParticipant {
   >
   _guards = {};
   final Map<String, ({EntityKind kind, Principal? as})> _kinds = {};
+
+  /// What it and each part said of itself, by the part (null: itself).
+  final Map<Principal?, Declaration> _declared = {};
   final Map<Principal, _Part> _parts = {};
   bool _disposed = false;
 
@@ -546,6 +551,33 @@ final class RemoteParticipant implements IParticipant {
   }
 
   @override
+  IHandle declare(Declaration d) => _declare(d, null);
+
+  IHandle _declare(Declaration d, Principal? as) {
+    _live();
+    for (final name in d.owns) {
+      if (!_owns(name)) {
+        throw NotPermitted(
+          '${as ?? who} owns words in ${namespaces.join(', ')}, not $name',
+        );
+      }
+    }
+    _declared[as] = d;
+    _ask(_declareOp(d, as));
+    return _Disposer(() {
+      if (_declared[as] != d) return;
+      _declared.remove(as);
+      _ask({'op': 'undeclare', ..._asOf(as)});
+    });
+  }
+
+  static Map<String, Object?> _declareOp(Declaration d, Principal? as) => {
+    'op': 'declare',
+    'declaration': d.toJson(),
+    ..._asOf(as),
+  };
+
+  @override
   IHandle registerKind(EntityKind kind) => _registerKind(kind, null);
 
   IHandle _registerKind(EntityKind kind, Principal? as) {
@@ -611,6 +643,11 @@ final class RemoteParticipant implements IParticipant {
       _kinds.remove(e.key);
       _ask({'op': 'unkind', 'name': e.key, ..._asOf(e.value.as)});
     }
+    for (final as in [..._declared.keys]) {
+      if (!mine(as)) continue;
+      _declared.remove(as);
+      _ask({'op': 'undeclare', ..._asOf(as)});
+    }
     _parts.removeWhere((p, _) => p.isWithin(part));
   }
 
@@ -671,6 +708,9 @@ final class RemoteParticipant implements IParticipant {
     for (final k in _kinds.keys) {
       _ask({'op': 'unkind', 'name': k});
     }
+    for (final as in _declared.keys) {
+      _ask({'op': 'undeclare', ..._asOf(as)});
+    }
     _disposed = true;
     _own.clear();
     _states.clear();
@@ -678,6 +718,7 @@ final class RemoteParticipant implements IParticipant {
     _commands.clear();
     _guards.clear();
     _kinds.clear();
+    _declared.clear();
     await flush();
     await _connection?.cancel();
     await _changes?.cancel();
@@ -916,6 +957,9 @@ final class _Part implements IParticipant {
 
   @override
   IHandle registerKind(EntityKind kind) => _root._registerKind(kind, who);
+
+  @override
+  IHandle declare(Declaration d) => _root._declare(d, who);
 
   @override
   void entitiesChanged(String kind) => _root.entitiesChanged(kind);

@@ -26,6 +26,17 @@ final class House extends Owner {
   House(this.devices);
 
   final Devices devices;
+
+  /// What it owns, told in `describe` as the part's: each must lie in the
+  /// namespaces main gave the house.
+  @override
+  Iterable<IWord> get words => [
+    ...HouseState.values,
+    ...HouseCommand.values,
+    ...HouseQuery.values,
+    ...HouseFact.values,
+  ];
+
   late final TrackedKind _rooms;
   late final StateWriterOf<bool> _light;
   late final StateWriterOf<num> _heat;

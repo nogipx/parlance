@@ -158,6 +158,10 @@ A **query** only answers: a search, a page, a snapshot by params that no state h
 | what its handler tries to change | done | refused (`QueryEffect`), the query fails |
 | in Dart (§18) | `ICommandWord`, `command(word).call` | `IQueryWord`, `query(word).ask` |
 
+### 6.7 What a part says of itself
+
+A part may say which words it owns and which of others it uses, each required or optional: a `Declaration { owns: [name], uses: { name: required | optional } }`, one per principal, a new one in place of the last. `describe` tells them all as `declared: { selector: declaration }`, so a reader of the catalog sees who owns what and who needs it, and `catalogChanges` tells `DeclarationChanged(by)` when one comes, changes or goes. It is told, not enforced: what a part may define its namespaces say (§22), what it may read and call the words' readers and callers; a part may own words it has not defined yet, and use words not there (§6.5). A participant refuses a declaration that owns a word outside its namespaces; it goes with the participant, across a connection with its session, and comes back when it rejoins. `Owner.words` and `Owner.uses` (§19.1) make one when it attaches.
+
 ## 7. Ticks
 
 A **tick** is the unit of change: every state write and fact made in it is committed together. The registry keeps its states, facts, commands and ticks on the core (§21): its hub commits, and its ticks are the hub's, with names, ids, causes and the time.

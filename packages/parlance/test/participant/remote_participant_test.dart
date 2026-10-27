@@ -174,6 +174,13 @@ void main() {
     );
     studio.state(_Program.scene).define().set('main');
     await group.checkUses();
+    expect(r.declarations[kittens.child('on-air')]!.toJson(), {
+      'owns': ['kittens.lamp'],
+      'uses': {'studio.program': 'required'},
+    });
+    group.dispose();
+    await p.flush();
+    expect(r.declarations, isEmpty);
     studio.dispose();
     await p.close();
   });
@@ -409,6 +416,7 @@ void main() {
     expect(r.commandDescriptor('kittens.lamp.turn'), isNotNull);
     await p.close();
     expect(r.commandDescriptor('kittens.lamp.turn'), isNull);
+    expect(r.declarations, isEmpty);
     expect(r.stateDescriptor('kittens.lamp'), isNull);
   });
   test('its access by default goes with what it defines', () async {
@@ -462,6 +470,7 @@ void main() {
     final p = await RemoteParticipant.join(connection);
     final lamps = Lamps()..attach(p);
     lamps.sync();
+    final told = p.declare(const Declaration(owns: {'kittens.lamp'}));
     await p.flush();
     expect(r.read('kittens.lamp'), false);
 
@@ -490,6 +499,8 @@ void main() {
     final served = await r.call('kittens.lamp.turn', {'on': false}, by: crew);
     expect(served.ok, isTrue, reason: '$served');
     expect(lamps.lit, isFalse, reason: 'served over the new connection');
+    expect(r.declarations[kittens]!.owns, {'kittens.lamp'});
+    told.dispose();
 
     await p.close();
     await connection.dispose();
@@ -506,6 +517,9 @@ void main() {
 final class _OnAir extends Owner {
   @override
   Iterable<Use> get uses => const [Use.required(_Program.scene)];
+
+  @override
+  Iterable<IWord> get words => Lamp.values;
 
   @override
   void define(IParticipant p) {}

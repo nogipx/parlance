@@ -26,6 +26,7 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 - **Entity kinds** (`registerKind`, §3) it keeps, and `entitiesChanged` of those only.
 - **`availabilityChanged(command)`**: a check of its own command that reads what the registry does not keep answers otherwise now; watchers of its status are told (§6.5).
 - **`batch(writes)`**: its writes and facts in one tick (§7).
+- **`declare(declaration)`**: what it owns and uses (§6.7), in place of what it said before; a word it owns outside its namespaces is refused (`NotPermitted`). Withdrawn with the handle or with it.
 - **`settle()`**: completes when the registry has done all it asked so far and what it sees of the catalog, so `status` too, is as of then. In the host's process at once; across a connection after the host answered and the catalog was asked anew (the feed brings it in its own time). `Owners.checkUses` (§19.1) waits for it.
 - **`clock`**: where it reads the time; the registry's in this process.
 - **`dispose()`** withdraws everything it defined, registered and added, and frees its namespaces; its words are then missing to everyone (§6.5).

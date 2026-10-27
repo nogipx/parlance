@@ -61,6 +61,15 @@ final class Other extends Owner {
   }
 }
 
+/// Dials that say what they own and use.
+final class Told extends Dials {
+  @override
+  Iterable<IWord> get words => Level.values;
+
+  @override
+  Iterable<Use> get uses => const [Use.optional(_Flag.on)];
+}
+
 /// One that needs the dials' level, and can do without the flag.
 final class Needy extends Owner {
   @override
@@ -222,5 +231,37 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('an owner says what it owns and uses; describe tells it as its '
+      'part\'s, until it goes', () async {
+    final changes = <CatalogChange>[];
+    r.catalogChanges.listen(changes.add);
+    final owners = Owners(module(), {'dials': Told()});
+    final part = me.child('dials');
+    expect(r.declarations[part]!.owns, {'test.level'});
+    expect(r.describe()['declared'], {
+      part.selector: {
+        'owns': ['test.level'],
+        'uses': {'test.on': 'optional'},
+      },
+    });
+    owners.dispose();
+    await pumpEventQueue();
+    expect(r.declarations, isEmpty);
+    expect(changes.whereType<DeclarationChanged>().map((c) => c.by), [
+      part,
+      part,
+    ]);
+  });
+
+  test('a word it lists outside its namespaces is refused before it '
+      'defines anything', () {
+    expect(
+      () => Owners(module({'other'}), {'dials': Told()}),
+      throwsA(isA<NotPermitted>()),
+    );
+    expect(r.declarations, isEmpty);
+    expect(r.stateDescriptor('test.level'), isNull);
   });
 }
