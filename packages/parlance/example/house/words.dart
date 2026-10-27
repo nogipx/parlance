@@ -12,6 +12,10 @@ abstract final class Who {
   static Principal phone(String name) => Principal('phone', name);
   static Principal agent(String session) => Principal('agent', session);
 
+  /// The module that keeps a visit, and the garden's.
+  static const visit = Principal('module', 'visit');
+  static const garden = Principal('module', 'garden');
+
   /// The kinds that may override an overridable guard.
   static const overriders = {'resident'};
 
@@ -181,3 +185,54 @@ Map<String, Object?> _ringTo(Ring r) => {'who': r.who};
 Ring _ringFrom(Map<String, Object?> m) => (who: m['who']! as String);
 Map<String, Object?> _motionTo(Motion r) => {'room': r.room};
 Motion _motionFrom(Map<String, Object?> m) => (room: m['room']! as String);
+
+/// A visit's words: who is in, and seeing a guest out. They are there only
+/// while a visit is (a scope, `main.dart`).
+enum VisitState<T> implements IStateWord<T> {
+  guests<List<String>>('visit.guests', ListShape(Plain(TextType())));
+
+  const VisitState(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => null;
+}
+
+typedef Leave = ({String who});
+
+enum VisitCommand<P, R> implements ICommandWord<P, R> {
+  leave<Leave, void>(
+    'visit.leave',
+    RecordShape(
+      {'who': Part(Plain(TextType()))},
+      to: _leaveTo,
+      from: _leaveFrom,
+    ),
+  );
+
+  const VisitCommand(this.name, this.params);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  Shape<R>? get returns => null;
+}
+
+/// A weather station's word, of a house that has none.
+enum WeatherState<T> implements IStateWord<T> {
+  rain<bool>('weather.rain', Plain(BoolType()));
+
+  const WeatherState(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => null;
+}
+
+Map<String, Object?> _leaveTo(Leave l) => {'who': l.who};
+Leave _leaveFrom(Map<String, Object?> m) => (who: m['who']! as String);

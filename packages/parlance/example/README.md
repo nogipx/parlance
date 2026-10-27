@@ -2,14 +2,14 @@
 
 ## Level by level
 
-One small domain, a player's volume, on every level. `levels/player.dart` holds its words and a `Knob`: a part of the app that knows only the five interfaces and so runs on every level unchanged.
+One small domain, a player's volume, on every level. `levels/player.dart` holds its words, the `Player` owner the levels with a registry start (`startPlayer`), and a `Knob`: a part of the app that knows only the five interfaces and so runs on every level unchanged, in the host's process and across a connection.
 
 | Run | What it shows |
 |---|---|
 | `dart run example/levels/level0_core.dart` | The core: a `Cell`, a `Port` and a `Signal` in one process. One writer per state, a late listener still sees the value now. |
-| `dart run example/levels/level1_registry.dart` | The registry: the same knob on named, typed words. A guest is refused, a value out of range is refused, `explain` tells who called and who wrote. |
+| `dart run example/levels/level1_registry.dart` | The registry: the same knob on named, typed words. The player is an `Owner` on a participant `main` makes (its namespace, who calls its commands); the knob reads and calls through a listener's participant. A guest sees the command `notPermitted` before calling and is refused, may not define in the player's namespace, a value out of range is refused, `explain` tells who called and which part wrote. |
 | `dart run example/levels/level2_links.dart` | Links: a limiter kept as data turns the volume back when it clips; the cause names the link. |
-| `dart run example/levels/level3_remote.dart` | Over the network: a phone calls and reads the same words through rpc_dart, acting as the principal the host gave it. |
+| `dart run example/levels/level3_remote.dart` | Over the network: the phone joins as a `RemoteParticipant` over an `RpcClientConnection`, acting as the principal the host gave it, and the same knob runs on it unchanged: it calls, hears the fact, and reads the state it watches. |
 | `dart run example/levels/level4_agent.dart` | An agent: the vocabulary as MCP tools; the agent learns the words from the catalog and calls one. |
 
 # A house on parlance
@@ -22,10 +22,11 @@ fvm dart run example/main.dart
 
 | File | What it shows |
 |---|---|
-| `house/words.dart` | The vocabulary, typed: `HouseState`, `HouseCommand`, `HouseQuery`, `HouseFact` as enums, params as records, `Mode` as a Dart enum; who acts (`Who`) and who may call what (`Callers`). Every name is written here once. |
-| `house/house.dart` | The owner, an `Owner` (`package:parlance/owners.dart`): code only, it says nothing of who it is or what it may. Keeps its rooms as a tracked kind, defines its words through its participant (`p.state()`, `p.command()`, `p.query()`, `p.fact()`), serves the commands from its devices, answers a query, writes states with the call's cause, emits facts, says when a command is unavailable, and adds a guard (`night-door`) that judges its own commands. |
+| `house/words.dart` | The vocabulary, typed: `HouseState`, `HouseCommand`, `HouseQuery`, `HouseFact` as enums (and the visit's and a weather station's words), params as records, `Mode` as a Dart enum; who acts (`Who`) and who may call what (`Callers`). Every name is written here once. |
+| `house/house.dart` | The owner, an `Owner` (`package:parlance/owners.dart`): code only, it says nothing of who it is or what it may. Keeps its rooms as a tracked kind, defines its words through its participant (`p.state()`, `p.command()`, `p.query()`, `p.fact()`), lists the words it owns, says where its devices' changes come from (`changes`), serves the commands from its devices, answers a query, writes states with the call's cause, emits facts, says when a command is unavailable, and adds a guard (`night-door`) that judges its own commands. |
+| `house/visit.dart` | Two modules beside the house, knowing it only by its words: a `Visit` that lists the words it owns (`words`) and the house's it needs (`uses`), and a `Sprinkler` that needs a weather station's word the house does not have. |
 | `house/links.dart` | Links built from the words (`trigger()`, `holds()`, `step()`): a reaction, a reaction with a temporary step, a binding, a constraint, an own command and an own state. |
-| `main.dart` | The house's participant (who it is, its namespaces, who calls its commands by default, on whose behalf it speaks), its owner as the part `devices`, then the tour in nine parts. |
+| `main.dart` | The house's participant (who it is, its namespaces, who calls its commands by default, on whose behalf it speaks), its owner as the part `devices`, then the tour in eleven parts. |
 
 What the tour shows:
 
@@ -36,7 +37,9 @@ What the tour shows:
 5. **A constraint and a temporary step.** While away, unlocking is denied by a link, and no one overrides it. A guest rings: the porch light comes on for a moment, called on the guest's behalf, with the guest's rights.
 6. **Own words.** `my.movie` is callable by the residents and refused to a guest. `my.guests` is a flag.
 7. **A query.** `registry.query(HouseQuery.rooms).ask((lit: true), by: ...)`: a question that changes nothing, asked rather than called; asking again is safe, and the registry keeps nothing of it.
-8. **A phone that joins over remote.** The house opens a session for the phone and says who it is; the phone joins it as a `RemoteParticipant` over an `RpcClientConnection` (in memory here, one that does not come back). It watches the states it reads, calls with `part.command(word).call(...)`, and reads what the call wrote as soon as the call answers.
-9. **An agent over MCP.** Its tools come from `parlanceTools` over a `LocalBoard`: the curated ones, plus one per command it may call. It gets no link tools, because it is not one of the residents who manage links.
+8. **By hand.** A switch flipped by hand, not through a command: the owner said where its devices' changes come from (`changes`), so it is synced on its own and nobody calls `Owners.sync()`.
+9. **What modules need, and a scope.** A garden needs `weather.rain`, which the house has not: `checkUses()` says so at start (`module:garden/sprinkler needs weather.rain: missing`). A visit is a group of owners made when guests come: it says what it owns and uses (`registry.declarations`, `describe`), hears the doorbell and keeps who is in; disposed when they leave, its words go, and a guest's view sees `visit.guests` missing.
+10. **A phone that joins over remote.** The house opens a session for the phone and says who it is; the phone joins it as a `RemoteParticipant` over an `RpcClientConnection` (in memory here, one that does not come back). It watches the states it reads, calls with `part.command(word).call(...)`, and reads what the call wrote as soon as the call answers.
+11. **An agent over MCP.** Its tools come from `parlanceTools` over a `LocalBoard`: the curated ones, plus one per command it may call. It gets no link tools, because it is not one of the residents who manage links.
 
 `test/example_test.dart` runs the tour and holds it to what it prints.

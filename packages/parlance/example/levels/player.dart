@@ -2,6 +2,8 @@
 /// speaks only through the core's interfaces.
 library;
 
+import 'package:parlance/owners.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 
 /// The params of setting the volume.
@@ -105,20 +107,49 @@ abstract final class Who {
   });
 }
 
-/// Defines the player's words in [r] and serves its command: the player
-/// part of the app, as the registry sees it.
-void definePlayer(Registry r) {
-  final volume = r.state(PlayerState.volume).define(by: Who.player);
-  final clipped = r.fact(PlayerFact.clipped).define(by: Who.player);
-  r.command(PlayerCommand.setVolume).define((c) {
-    final cause = c.causeFor(Who.player);
-    volume.set(c.params.volume, cause: cause);
-    if (c.params.volume > loud) {
-      clipped.emit((volume: c.params.volume), cause: cause);
-    }
-  }, callers: Who.turners);
-  volume.set(50);
+/// The player part of the app, as the registry sees it: an owner that
+/// defines its words through the participant main gives it and serves
+/// its command. It says what it owns; who it is and what it may, main says.
+final class Player extends Owner {
+  int _volume = 50;
+  late final StateWriterOf<int> _level;
+
+  @override
+  Iterable<IWord> get words => [
+    ...PlayerState.values,
+    ...PlayerCommand.values,
+    ...PlayerFact.values,
+  ];
+
+  @override
+  void define(IParticipant p) {
+    _level = keep(p.state(PlayerState.volume).define());
+    final clipped = keep(p.fact(PlayerFact.clipped).define());
+    keep(
+      p.command(PlayerCommand.setVolume).define((c) {
+        final cause = c.causeFor(p.who);
+        _volume = c.params.volume;
+        _level.set(_volume, cause: cause);
+        if (_volume > loud) clipped.emit((volume: _volume), cause: cause);
+      }),
+    );
+  }
+
+  @override
+  void sync() => _level.set(_volume);
 }
+
+/// Starts the player in [r]: its participant, in the namespace `player`,
+/// its commands called by [Who.turners] unless one says otherwise, and its
+/// owner as the part `deck` (what it writes is told as `player:deck`).
+Owners startPlayer(Registry r) => Owners(
+  r.participant(
+    Who.player,
+    namespaces: {'player'},
+    access: const WordAccess(call: Who.turners),
+  ),
+  {'deck': Player()},
+);
 
 /// Lets ticks, links and remote work through what was just done.
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));

@@ -13,7 +13,7 @@ import 'player.dart';
 Future<void> main() async {
   print('Level 2: links');
   final r = Registry();
-  definePlayer(r);
+  final player = startPlayer(r);
   final links = Links(r);
 
   // Data, not code: a user could have written it in an editor.
@@ -41,5 +41,6 @@ Future<void> main() async {
   print('  why 80: ${why.trail.first.cause.by} called it');
 
   await links.dispose();
+  player.dispose();
   await r.dispose();
 }

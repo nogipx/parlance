@@ -273,8 +273,28 @@ final class ParticipantStateOf<T> {
   Stream<T?> watch({String? key}) =>
       participant.watch(word.name, key: key).map(word.decode);
 
+  /// Its value (of [key]) as the core reads a cell (SPEC §21.6), here or
+  /// across a connection; over one, another's state is there while it is
+  /// watched.
+  IStateReader<T> reader({String? key}) => _ParticipantReader(this, key);
+
   WordStatus get status => participant.status(word.name);
   Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
+}
+
+final class _ParticipantReader<T> implements IStateReader<T> {
+  _ParticipantReader(this._state, this._key);
+  final ParticipantStateOf<T> _state;
+  final String? _key;
+
+  @override
+  T? get value => _state.read(key: _key);
+
+  @override
+  bool get has => value != null;
+
+  @override
+  Stream<T?> watch() => _state.watch(key: _key);
 }
 
 /// A command as a participant has it, typed.
@@ -381,6 +401,9 @@ final class ParticipantFactOf<T> {
   /// Those said from now on.
   Stream<Fact<T>> get stream => participant.facts(word.name).map(_decode);
 
+  /// Its payloads as the core hears a signal (SPEC §21.6).
+  IFactListener<T> get listener => _ParticipantListener(this);
+
   /// The last [count] the registry keeps, oldest first.
   Future<List<Fact<T>>> recent(int count) async => [
     for (final m in await participant.recent(word.name, count)) _decode(m),
@@ -388,4 +411,12 @@ final class ParticipantFactOf<T> {
 
   WordStatus get status => participant.status(word.name);
   Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
+}
+
+final class _ParticipantListener<T> implements IFactListener<T> {
+  _ParticipantListener(this._fact);
+  final ParticipantFactOf<T> _fact;
+
+  @override
+  Stream<T> get stream => _fact.stream.map((f) => f.payload);
 }

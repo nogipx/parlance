@@ -1,10 +1,12 @@
-/// Level 3, over the network: a phone speaks the same words through
-/// rpc_dart. The host decides who the connection is when it accepts it;
-/// the phone reads through a mirror and calls through a client.
+/// Level 3, over the network: the phone is a participant too, across a
+/// connection through rpc_dart. The host decides who the connection is
+/// when it accepts it; the knob on the phone is the same class as in the
+/// host's process.
 ///
 /// Run: `dart run example/levels/level3_remote.dart`.
 library;
 
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 import 'package:rpc_dart/rpc_dart.dart';
@@ -14,7 +16,7 @@ import 'player.dart';
 Future<void> main() async {
   print('Level 3: over the network');
   final r = Registry();
-  definePlayer(r);
+  final player = startPlayer(r);
 
   // The host's end: a session that acts for the phone and nobody else.
   final (phoneEnd, hostEnd) = RpcChannelTransport.memoryPair();
@@ -24,23 +26,35 @@ Future<void> main() async {
     ..registerServiceContract(session)
     ..start();
 
-  // The phone's end: a client to call, a mirror to read.
-  final phone = RpcPeerEndpoint(transport: phoneEnd)..start();
-  final client = ParlanceClient(phone);
-  final mirror = RegistryMirror()..follow(client);
+  // The phone's end: it joins over a connection. In memory one that does
+  // not come back once lost; over a socket the factory would dial again,
+  // and the phone would join again.
+  final connection = RpcClientConnection(
+    transportFactory: (_) async => phoneEnd,
+    shouldReconnect: (_) => false,
+  );
+  final phone = await RemoteParticipant.join(connection);
+  print('  the phone joined as ${phone.who}');
 
-  final reply = await client.command(PlayerCommand.setVolume).callAt((
-    volume: 30,
-  ));
-  print('  the phone turns it to 30: ${reply.result.whyNot ?? 'done'}');
-  // The mirror shows what the call wrote once it reached the call's seq.
-  await mirror.reach(reply.epoch!, reply.seq!);
-  print('  the phone sees: ${mirror.state(PlayerState.volume).read()}');
+  // It keeps of another's state only what it watches.
+  final volume = phone.state(PlayerState.volume);
+  final watching = volume.watch().listen((_) {});
+  final knob = Knob(
+    volume: volume.reader(),
+    setVolume: phone.command(PlayerCommand.setVolume).caller,
+    clipped: phone.fact(PlayerFact.clipped).listener,
+  );
+  // A call answers once the phone's copy has what it wrote.
+  await knob.turnTo(30);
+  await knob.turnTo(96);
+  await settle();
   print('  the host sees: ${r.state(PlayerState.volume).read()}');
 
-  await mirror.dispose();
-  session.close();
+  await watching.cancel();
   await phone.close();
+  await connection.dispose();
+  session.close();
   await host.close();
+  player.dispose();
   await r.dispose();
 }

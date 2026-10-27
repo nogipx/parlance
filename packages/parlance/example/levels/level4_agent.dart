@@ -14,7 +14,7 @@ import 'player.dart';
 Future<void> main() async {
   print('Level 4: an agent');
   final r = Registry();
-  definePlayer(r);
+  final player = startPlayer(r);
 
   // The curated tools, and with commandTools each command the agent may
   // call as a tool of its own, its schema made from the word.
@@ -42,5 +42,6 @@ Future<void> main() async {
     "  a guest's tools: ${[for (final t in guestTools) t.name].join(', ')}",
   );
   print('  the volume: ${r.state(PlayerState.volume).read()}');
+  player.dispose();
   await r.dispose();
 }

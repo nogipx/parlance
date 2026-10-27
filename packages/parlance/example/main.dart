@@ -2,7 +2,9 @@
 /// whether a word is there for them, facts and the links they set off, a
 /// binding that holds a state, a guard and a constraint, the user's own
 /// words, a question that changes nothing, why a state is as it is and
-/// which part did it, a phone that joins over remote and an agent over MCP.
+/// which part did it, a device changed by hand, modules that say what they
+/// need and a visit that comes and goes as a scope, a phone that joins
+/// over remote and an agent over MCP.
 ///
 /// Run: `dart run example/main.dart`.
 library;
@@ -20,6 +22,7 @@ import 'package:parlance/view.dart';
 
 import 'house/house.dart';
 import 'house/links.dart';
+import 'house/visit.dart';
 import 'house/words.dart';
 
 Future<void> main() async {
@@ -184,7 +187,59 @@ Future<void> main() async {
   final why2 = registry.explain(HouseState.light.name, key: 'living');
   print('  the living light was written by ${why2.change?.cause.by}');
 
-  // --- 8. A phone that joins over remote -------------------------------------
+  // --- 8. A switch flipped by hand ---------------------------------------------
+
+  section('By hand');
+  // Nobody called a command: the device changed, and the owner is synced
+  // because it said where its changes come from.
+  final before = light.read(key: 'kitchen');
+  devices.flip('kitchen');
+  await settle();
+  print(
+    '  the kitchen switch flipped by hand: '
+    'from $before to ${light.read(key: 'kitchen')}',
+  );
+
+  // --- 9. Modules beside the house: what they need, and a scope ---------------
+
+  section('A visit, as a scope');
+  // A garden that needs a weather station the house does not have: main
+  // learns it at start, by name, rather than when it would water.
+  final garden = Owners(
+    registry.participant(Who.garden, namespaces: {'garden'}),
+    {'sprinkler': Sprinkler()},
+  );
+  try {
+    await garden.checkUses();
+  } on UnmetUses catch (e) {
+    print('  the garden cannot start: ${e.message}');
+  }
+  garden.dispose();
+  // A visit is made when guests come and goes when they leave: its words
+  // are there only meanwhile, and leave nothing behind.
+  final visitSide = registry.participant(
+    Who.visit,
+    namespaces: {'visit'},
+    access: const WordAccess(call: Who.household),
+  );
+  final visit = Owners(visitSide, {'book': Visit()});
+  await visit.checkUses();
+  final declared = registry.declarations[Who.visit.child('book')]!;
+  print(
+    '  the visit owns ${declared.owns.join(', ')}; uses '
+    '${[for (final MapEntry(:key, :value) in declared.uses.entries) '$key (${value ? 'required' : 'optional'})'].join(', ')}',
+  );
+  house.ring(Who.bob, 'bob');
+  await settle();
+  final guests = registry.state(VisitState.guests);
+  print('  guests: ${guests.read()}');
+  visit.dispose();
+  visitSide.dispose();
+  print(
+    '  after the visit: visit.guests ${asBob.status(VisitState.guests.name)}',
+  );
+
+  // --- 10. A phone that joins over remote ------------------------------------
 
   section('A phone over remote');
   // The phone is a participant like the house, across a connection: the
@@ -208,7 +263,7 @@ Future<void> main() async {
   await modes.cancel();
   await phone.close();
 
-  // --- 9. An agent over MCP --------------------------------------------------
+  // --- 11. An agent over MCP -------------------------------------------------
 
   section('An agent over MCP');
   final tools = await parlanceTools(

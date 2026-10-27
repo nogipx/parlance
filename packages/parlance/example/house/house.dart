@@ -1,6 +1,8 @@
 /// The house itself: its devices, and the words it owns in the registry.
 library;
 
+import 'dart:async';
+
 import 'package:parlance/owners.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
@@ -18,6 +20,17 @@ final class Devices {
   num heat = 20;
   Mode mode = Mode.home;
   bool locked = true;
+
+  final StreamController<void> _changed = StreamController.broadcast();
+
+  /// Told when a device changes on its own, not through a command.
+  Stream<void> get changed => _changed.stream;
+
+  /// Someone flips a room's switch by hand.
+  void flip(String room) {
+    lights[room] = !lights[room]!;
+    _changed.add(null);
+  }
 }
 
 /// The owner of the house's words: it defines them, serves its commands
@@ -36,6 +49,11 @@ final class House extends Owner {
     ...HouseQuery.values,
     ...HouseFact.values,
   ];
+
+  /// When a device changed by hand, it is synced on its own: nobody has
+  /// to call [Owners.sync].
+  @override
+  Stream<void> get changes => devices.changed;
 
   late final TrackedKind _rooms;
   late final StateWriterOf<bool> _light;
@@ -127,7 +145,7 @@ final class House extends Owner {
     );
   }
 
-  /// Writes what the devices say now; [Owners.sync] makes it one tick.
+  /// Writes what the devices say now, as one tick with its group.
   @override
   void sync() {
     for (final gone in _rooms.sync()) {

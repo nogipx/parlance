@@ -35,9 +35,14 @@ void main() {
       registry.main,
       [
         'knob hears: clipped at 95',
+        'for a guest the command is notPermitted',
         'a guest turns it: guest:bob may not call player.volume.set',
+        'a guest defines player.volume: guest:bob defines in no namespace',
         '150: volume: above 100',
-        'why 95: listener:ann called player.volume.set, and player wrote it',
+        'why 95: listener:ann called player.volume.set, and player:deck '
+            'wrote it',
+        'player:deck owns: {player.volume, player.volume.set, '
+            'player.clipped}',
       ],
     ),
     'links': (
@@ -48,7 +53,16 @@ void main() {
         'why 80: link:limiter',
       ],
     ),
-    'remote': (remote.main, ['the phone sees: 30', 'the host sees: 30']),
+    'remote': (
+      remote.main,
+      [
+        'the phone joined as phone:ann-phone',
+        'knob shows: 30',
+        'knob hears: clipped at 96',
+        'knob shows: 96',
+        'the host sees: 96',
+      ],
+    ),
     'agent': (
       agent.main,
       [

@@ -37,7 +37,14 @@ void main() {
       'and dark: [kitchen, living, porch]',
       'the living light was written by house:devices',
       'the phone sees: 22 °C, mode home',
-      'rings it can see: [bob]',
+      'the kitchen switch flipped by hand: from false to true',
+      'the garden cannot start: module:garden/sprinkler needs weather.rain: '
+          'missing',
+      'the visit owns visit.guests, visit.leave; uses doorbell.rang '
+          '(required), house.mode (optional)',
+      'guests: [bob]',
+      'after the visit: visit.guests missing',
+      'rings it can see: [bob, bob]',
       'the agent turns the hall light off: Done.',
     ]) {
       expect(out, contains(expected));
