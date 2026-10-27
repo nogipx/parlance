@@ -152,7 +152,7 @@ final class StateDescriptor extends Descriptor {
   /// The entity kind of its keys, when it holds one value per entity.
   final String? key;
 
-  /// Who may read its values over remote and the MCP board, as callers
+  /// Who may read its values over remote and MCP, as callers
   /// name who may call a command (SPEC §6.1); null for everyone. Its
   /// descriptor is in the catalog for all. Code in the registry's own
   /// process reads it anyway.
@@ -302,7 +302,7 @@ final class FactDescriptor extends Descriptor {
   /// More producers than the definer may emit it.
   final bool open;
 
-  /// Who may hear it over remote and the MCP board, as a state's
+  /// Who may hear it over remote and MCP, as a state's
   /// [StateDescriptor.readers]; null for everyone.
   final Callers? readers;
 

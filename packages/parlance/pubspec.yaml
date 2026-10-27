@@ -1,5 +1,5 @@
 name: parlance
-description: "A shared language for app parts that do not know each other: owned states, commands and facts, with rights, causes and links."
+description: "A shared language for app parts that do not know each other: owned states, commands, queries and facts, with rights and causes."
 publish_to: none
 resolution: workspace
 

@@ -581,7 +581,7 @@ final class Registry implements ITypeContext {
   };
 
   /// Whether [by] may read state [name]'s values, or hear fact [name], over
-  /// remote and the MCP board (its `readers`); true for a word there is
+  /// remote and MCP (its `readers`); true for a word there is
   /// not.
   bool mayRead(Principal by, String name) =>
       (_states[canonical(name)]?.descriptor.readers ??

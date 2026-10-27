@@ -165,7 +165,7 @@ Removed: what a part owns, the registry knows from what it defined; what it need
 
 Words are a public API (§17), and inside one build the compiler knows who uses each. What it does not see are the users outside the build: remote participants, plugins, agents, a phone. The registry counts them, so a team knows when an old word (an old version, an old name) is no longer used and can go.
 
-- **What counts.** A call or an ask, by anyone (refused too: the caller depends on the word). A session's subscription (its mirror's listeners), while it lasts. A read from outside the build: a session's `recent` or `why`, an agent's read, `why` or recent facts through the board. What the app's own modules read and watch in this process is not counted: the compiler knows it, and it would cost every read.
+- **What counts.** A call or an ask, by anyone (refused too: the caller depends on the word). A session's subscription (its mirror's listeners), while it lasts. A read from outside the build: a session's `recent` or `why`, an agent's read, `why` or recent facts through its tools. What the app's own modules read and watch in this process is not counted: the compiler knows it, and it would cost every read.
 - **As it was named.** A use of an old name (§6.4) is counted under that name, so `usesOf('audio.silence')` says who has not moved to the new one.
 - **Bounded.** Only a name there is a word of (or an old name of one) is counted, so a peer's made-up names keep nothing; for one word at most `usersPerWord` (64) principals are told apart, the rest counted under their kind alone (`viewer`).
 - `usesOf(name)` and `usage` answer, per principal, `WordUse { by, calls, reads, listening (now), last }`. A use is never forgotten while the registry lives; outliving it (a count over weeks, from every host) is the host's to store. A subscription to a word not there yet counts from when the word comes.
@@ -256,5 +256,5 @@ The registry keeps names and JSON, as remote participants and agents see it. A h
 - An answer that does not decode as the word says is `failed`.
 - A state's value decodes once per value: reads and watches of the same value share one decoded Dart value, so the lists and maps a shape decodes are unmodifiable.
 - A change reaches only the watchers of its state and key: a write costs the same however many watch other states or keys.
-- **As the core sees them.** The typed handles are the core's interfaces (§21.6): `StateOf.reader`, `StateWriterOf` and its `at`, `CommandOf.caller(by:)` (`CallNotDone` for a call not done), `FactEmitterOf`, `FactOf.listener`. Names and keys of entity kinds stay strings, and so do references in link params (`$trigger.…`).
+- **As the core sees them.** The typed handles are the core's interfaces (§21.6): `StateOf.reader`, `StateWriterOf` and its `at`, `CommandOf.caller(by:)` (`CallNotDone` for a call not done), `FactEmitterOf`, `FactOf.listener`. Names and keys of entity kinds stay strings.
 

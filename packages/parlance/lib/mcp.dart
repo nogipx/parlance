@@ -1,5 +1,5 @@
-/// A parlance for agents (SPEC §16): an MCP session, the boards it works
-/// on (a registry here, or one over remote) and the curated tools.
+/// A parlance for agents (SPEC §16): an MCP session and its tools, made
+/// on a participant, here or across a connection (`parlanceTools`).
 library;
 
 export 'src/mcp/protocol.dart';
