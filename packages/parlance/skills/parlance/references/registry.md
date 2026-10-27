@@ -6,7 +6,9 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 
 **Values** are JSON values: `null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`. Everything a registry holds or sends is a value, so it crosses a process boundary and is persisted without codecs. Values are deep-frozen when they enter the registry. Equality is deep.
 
-**Names** are dotted lower-case words: `^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)*$`. The first word is the owner's namespace by convention; the registry does not enforce ownership by name, only by handle.
+**Names** are dotted lower-case words: `^[a-z][a-z0-9_-]*(\.[a-z0-9_-]+)*$`. The first word is the owner's namespace by convention; the registry does not enforce ownership by name, only by handle (participants do, §22.1).
+
+**Versions** are optional and per word. A breaking change to a word that must live beside the old one is a new word, the same name with `.v<N>`: `orders.order.v2` is version 2 of `orders.order`. A name without a version is version 1; `.v1` is refused, and so are `.v0` and leading zeros, so a word has one name, never two spellings. A version is the last word only: `orders.v2.cancel` is refused, so no name reads as a version it is not. `wordVersion(name)` tells the word and the version. Versions are words like any other: each has its type, owner, readers and callers; nothing projects one into another. The owner serves every version it keeps until none is used: a command by a handler per version, a state by writing each version in one batch, a fact by saying each, every one with an id of its own (§6.3). Inside one build the compiler shows what still uses an old version; versions matter at the boundaries that outlive a build (participants across a connection, plugins, the user's links, agents).
 
 **Keys** (of keyed states) are entity ids: non-empty strings.
 

@@ -645,7 +645,7 @@ final class Registry implements ITypeContext {
   /// links, so what names it (the user's links, a plugin) keeps working.
   /// `describe` lists it under `aliases`. Dispose the handle to drop it.
   IHandle alias(String old, String now) {
-    checkName(old, 'old');
+    checkWordName(old, 'old');
     final target = canonical(now);
     if (_states.containsKey(old) ||
         _commands.containsKey(old) ||

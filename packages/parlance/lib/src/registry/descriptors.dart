@@ -118,7 +118,7 @@ final class Sets {
 /// What everything in the catalog has.
 sealed class Descriptor {
   Descriptor(this.name, this.meta) {
-    checkName(name);
+    checkWordName(name);
     if (!isJsonValue(meta)) throw ArgumentError.value(meta, 'meta');
   }
 
