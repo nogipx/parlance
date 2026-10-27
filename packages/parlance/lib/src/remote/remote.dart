@@ -32,6 +32,7 @@ extension ServeParticipant on LocalParticipant {
     RpcPeerEndpoint endpoint, {
     String? session,
     int feedBacklog = 256,
+    int maxSubscription = 4096,
     LogScope? log,
   }) {
     takeForServing(this);
@@ -40,6 +41,7 @@ extension ServeParticipant on LocalParticipant {
       this,
       session: session,
       feedBacklog: feedBacklog,
+      maxSubscription: maxSubscription,
       log: log,
     );
     endpoint.registerServiceContract(s);
@@ -59,6 +61,7 @@ final class RemoteSession extends ParlanceContractPeer {
     LocalParticipant participant, {
     String? session,
     this.feedBacklog = 256,
+    this.maxSubscription = 4096,
     LogScope? log,
   }) : session = session ?? newId(),
        registry = registryOf(participant),
@@ -83,6 +86,15 @@ final class RemoteSession extends ParlanceContractPeer {
   /// again from the last one sent, as the registry still has it, or from a
   /// snapshot.
   final int feedBacklog;
+
+  /// How long past its deadline a call of the session's own command waits
+  /// for the owner's late end (SPEC §9): after it, the call ends `failed`.
+  static const lateEnds = Duration(minutes: 5);
+
+  /// How many names one subscription may ask for, states and facts
+  /// together: a peer naming more is refused (`resourceExhausted`), so a
+  /// session holds no more for it than this.
+  final int maxSubscription;
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
@@ -191,6 +203,13 @@ final class RemoteSession extends ParlanceContractPeer {
   /// The feeds open now, each by what sends to it.
   final Set<void Function(WireFeedItem)> _feeds = {};
 
+  /// The highest seq a call of the session answered at: what its mirror
+  /// waits to reach before the call returns there.
+  int _owed = 0;
+
+  /// Each feed's catch-up: told the seq of a call answered.
+  final Set<void Function(int seq)> _catchUps = {};
+
   /// The states the session's feeds carry; null for all.
   Set<String>? get states =>
       _stateFilter == null ? null : Set.unmodifiable(_stateFilter!);
@@ -231,6 +250,8 @@ final class RemoteSession extends ParlanceContractPeer {
     var last = request.since;
     // The last seq it handed to the connection.
     var sent = request.since;
+    // The last seq of a tick it saw, sent or left out.
+    int? seen;
     // The commands that could not run when the feed last told, and why.
     var unavailable = const <String, String>{};
     // What waits while the connection is not taking more: it applies
@@ -274,6 +295,31 @@ final class RemoteSession extends ParlanceContractPeer {
       if (!out.isPaused && held.isEmpty) return hand((item, seq));
       held.add((item, seq));
       if (held.length > feedBacklog) drop();
+    }
+
+    // Tells the client, by an empty tick, that the ticks it was not sent
+    // went by up to [seq]: a call answered there returns at once rather
+    // than wait for a tick that never comes.
+    void catchUp(int seq) {
+      final through = seen;
+      final from = last;
+      if (through == null || from == null || from >= seq) return;
+      final to = through < seq ? through : seq;
+      if (to <= from) return;
+      last = to;
+      send(
+        WireFeedItem(
+          'tick',
+          Tick(
+            epoch: registry.epoch,
+            from: from + 1,
+            to: to,
+            changes: const [],
+            facts: const [],
+          ).toJson(),
+        ),
+        to,
+      );
     }
 
     void drain() {
@@ -329,10 +375,15 @@ final class RemoteSession extends ParlanceContractPeer {
                 );
                 factsDropped = false;
               case Tick():
+                seen = i.to;
                 final t = _tickOf(i, last == null ? i.from : last! + 1);
                 if (t != null) {
                   last = i.to;
                   send(WireFeedItem('tick', t.toJson()), i.to);
+                } else if (i.to <= _owed) {
+                  // Nothing in it the session follows, but a call of its
+                  // waits for this seq: told it went by, empty.
+                  catchUp(i.to);
                 }
                 availability();
             }
@@ -342,6 +393,7 @@ final class RemoteSession extends ParlanceContractPeer {
     out = StreamController<WireFeedItem>(
       onListen: () {
         _feeds.add(send);
+        _catchUps.add(catchUp);
         describe();
         catalog = registry.catalogChanges.listen((_) => describe());
         follow();
@@ -349,6 +401,7 @@ final class RemoteSession extends ParlanceContractPeer {
       onResume: drain,
       onCancel: () async {
         _feeds.remove(send);
+        _catchUps.remove(catchUp);
         held.clear();
         await items?.cancel();
         await catalog?.cancel();
@@ -390,16 +443,25 @@ final class RemoteSession extends ParlanceContractPeer {
     RpcContext? context,
   }) async {
     _open();
-    for (final name in [...?request.states, ...?request.facts]) {
-      if (!_reads(name)) _deny(_unreadable(name));
+    final asked = (request.states?.length ?? 0) + (request.facts?.length ?? 0);
+    if (asked > maxSubscription) {
+      throw RpcStatusException(
+        RpcStatus.resourceExhausted,
+        'a subscription asks for at most $maxSubscription names, not $asked',
+      );
     }
+    // A word it may not read is left out, not the whole subscription: one
+    // such word among what its listeners ask for would otherwise hold back
+    // every word added after it. Its status tells the participant why.
+    final states = request.states?.where(_reads).toSet();
+    final facts = request.facts?.where(_reads).toSet();
     final n = ++_subscription;
-    _listenTo({...?request.states, ...?request.facts});
+    _listenTo({...?states, ...?facts});
     final before = _stateFilter;
     // An old name of a word subscribes to the word (SPEC §6.4).
-    final now = request.states?.map(registry.canonical).toSet();
+    final now = states?.map(registry.canonical).toSet();
     _stateFilter = now;
-    _factFilter = request.facts?.map(registry.canonical).toSet();
+    _factFilter = facts?.map(registry.canonical).toSet();
     // The states the feeds carry now and did not: their values, so a copy
     // has them from here on, as the ticks after keep them.
     final added = before == null
@@ -425,19 +487,46 @@ final class RemoteSession extends ParlanceContractPeer {
     for (final send in _feeds) {
       send(item);
     }
-    return WireJson({'subscription': n});
+    return WireJson({
+      'subscription': n,
+      // What it asked for and may not read: left out.
+      'left': [
+        for (final name in [...?request.states, ...?request.facts])
+          if (!_reads(name)) name,
+      ],
+    });
   }
 
   /// What the session listens to, by the names it gave: counted as its use
   /// of each word (SPEC §6.8), from one subscription to the next.
-  final Map<String, IHandle> _listening = {};
+  /// A name with no word yet is kept as null, and counted once its word
+  /// comes ([_catalogChanged]).
+  final Map<String, IHandle?> _listening = {};
+  StreamSubscription<CatalogChange>? _catalogUse;
 
   void _listenTo(Set<String> names) {
     for (final gone in [..._listening.keys.where((n) => !names.contains(n))]) {
-      _listening.remove(gone)!.dispose();
+      _listening.remove(gone)?.dispose();
     }
     for (final name in names) {
       _listening[name] ??= registry.listenedBy(name, principal);
+    }
+    final waiting = _listening.containsValue(null);
+    if (waiting && _catalogUse == null) {
+      _catalogUse = registry.catalogChanges.listen(_catalogChanged);
+    }
+  }
+
+  /// A word came, or an old name of one: the names it listens to that
+  /// were not words before count from now.
+  void _catalogChanged(CatalogChange c) {
+    if (c is! DescriptorAdded && c is! AliasChanged) return;
+    for (final name in [..._listening.keys]) {
+      _listening[name] ??= registry.listenedBy(name, principal);
+    }
+    if (!_listening.containsValue(null)) {
+      unawaited(_catalogUse?.cancel());
+      _catalogUse = null;
     }
   }
 
@@ -464,11 +553,12 @@ final class RemoteSession extends ParlanceContractPeer {
       override: request.overriding,
       cause: _cause(parent: request.parent, by: by),
     );
-    return WireCallReply(
-      result.toJson(),
-      epoch: registry.epoch,
-      seq: registry.seq,
-    );
+    final seq = registry.seq;
+    if (seq > _owed) _owed = seq;
+    for (final catchUp in [..._catchUps]) {
+      catchUp(seq);
+    }
+    return WireCallReply(result.toJson(), epoch: registry.epoch, seq: seq);
   }
 
   @override
@@ -806,9 +896,13 @@ final class RemoteSession extends ParlanceContractPeer {
           cause: c.cause.toJson(),
           traceparent: c.span.traceparent,
         ),
-        context: deadline == null
-            ? null
-            : RpcContext.empty().withTimeout(deadline),
+        // The registry bounds the call by its deadline and answers
+        // `timedOut`; the owner's late end is still waited for, and
+        // recorded late, as a handler's in this process is, up to a while
+        // past it (a peer cannot hold a call open for good).
+        context: RpcContext.empty().withTimeout(
+          (deadline ?? const Duration(seconds: 30)) + lateEnds,
+        ),
       );
       if (served.error case final why?) throw _Failed(why);
       return served.value;
@@ -824,6 +918,7 @@ final class RemoteSession extends ParlanceContractPeer {
     if (_closed) return;
     _closed = true;
     if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
+    unawaited(_catalogUse?.cancel());
     for (final h in [
       ..._commands.values,
       ..._facts.values,

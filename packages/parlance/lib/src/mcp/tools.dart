@@ -181,10 +181,16 @@ Future<List<McpTool>> parlanceTools(
           return McpResult.json(await _values(p, name, states));
         }
         final prefix = a['prefix'] as String? ?? '';
-        return McpResult.json({
+        final names = [
           for (final s in states)
-            if ((s['name'] as String).startsWith(prefix))
-              s['name']: await _values(p, s['name'] as String, states),
+            if ((s['name'] as String).startsWith(prefix)) s['name'] as String,
+        ];
+        // Read together: across a connection one subscription for all.
+        final values = await Future.wait([
+          for (final n in names) _values(p, n, states, keep: false),
+        ]);
+        return McpResult.json({
+          for (var i = 0; i < names.length; i++) names[i]: values[i],
         });
       },
     ),
@@ -348,12 +354,16 @@ const _offline =
     'the registry is not reachable now; what was read before may be old. '
     'Try again in a moment.';
 
+/// [state]'s values as the agent reads them; one read by name is kept
+/// across a connection, a look at many ([keep] false) is not, so a read
+/// of everything leaves no follower behind.
 Future<Object?> _values(
   IParticipant p,
   String state,
-  List<Map<String, Object?>> states,
-) async {
-  final all = await p.fetch(state);
+  List<Map<String, Object?>> states, {
+  bool keep = true,
+}) async {
+  final all = await p.fetch(state, keep: keep);
   final keyed = states.any((s) => s['name'] == state && s['key'] != null);
   return keyed ? {for (final e in all.entries) e.key: e.value} : all[null];
 }

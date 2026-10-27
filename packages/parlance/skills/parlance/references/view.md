@@ -35,4 +35,4 @@ A `RemoteParticipant` (§22) is the view there: it keeps the states and hears th
 
 ## fetch(state)
 
-A read by name, of a state the view may not keep: what a part naming words at run time reads (a plugin, an agent). In this process it is `readAll`, counted as a use (§6.8); across a connection the view keeps the state from then on, and answers once it has it. One it may not read is empty.
+A read by name, of a state the view may not keep: what a part naming words at run time reads (a plugin, an agent). In this process it is `readAll`, counted as a use (§6.8); across a connection the view answers once it has the state and, with `keep` (the default), keeps it from then on; `keep: false` lets it go again, for a look at many states (an agent reading all). What changes in one turn of the event loop is one subscription. One it may not read is empty.

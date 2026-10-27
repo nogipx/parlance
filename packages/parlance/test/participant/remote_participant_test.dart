@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
+import 'package:parlance/src/remote/contract.dart' show parlanceProtocol;
+import 'package:parlance/src/remote/participant.dart' show checkProtocol;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
@@ -458,6 +460,174 @@ void main() {
     s.close();
     await guest.close();
     await h.close();
+  });
+
+  test('explain and recent answer across a connection as in the host\'s '
+      'process', () async {
+    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    owner.defineState(
+      StateDescriptor(
+        'studio.secret',
+        type: const TextType(),
+        readers: Callers.only(['user']),
+      ),
+    );
+    owner.defineFact(
+      FactDescriptor(
+        'studio.whisper',
+        type: const TextType(),
+        readers: Callers.only(['user']),
+      ),
+    );
+    final here = r.participant(kittens.child('here'));
+    final there = await join();
+    for (final p in <IParticipant>[here, there]) {
+      final none = await p.explain('studio.nothing');
+      expect((none.value, none.change), (null, null));
+      expect(none.trail, isEmpty);
+      await expectLater(
+        p.explain('studio.secret'),
+        throwsA(isA<NotPermitted>()),
+      );
+      expect(await p.recent('studio.whisper', 5), isEmpty);
+      expect(await p.recent('studio.nothing', 5), isEmpty);
+    }
+  });
+
+  test('a host gone is told as such, not as the wire\'s error', () async {
+    final p = await join();
+    session?.close();
+    await host?.close();
+    await settle();
+    await expectLater(p.describe(), throwsA(isA<RegistryUnreachable>()));
+  });
+
+  test('a subscription naming more than the host takes is refused', () async {
+    final (c, srv) = RpcChannelTransport.memoryPair();
+    final h = RpcPeerEndpoint(transport: srv);
+    final s = r.participant(kittens).serve(h, maxSubscription: 3);
+    h.start();
+    final connection = RpcClientConnection(
+      transportFactory: (_) async => c,
+      shouldReconnect: (_) => false,
+    );
+    final p = await RemoteParticipant.join(connection);
+    final errors = [
+      for (final name in ['a.x', 'a.y', 'a.z', 'a.w'])
+        p.watch(name).listen((_) {}),
+    ];
+    await settle();
+    expect(s.states, isEmpty, reason: "refused: it carries what it did before");
+    for (final e in errors) {
+      await e.cancel();
+    }
+    await p.close();
+    await connection.dispose();
+    s.close();
+    await h.close();
+  });
+
+  test('its command past the deadline is timedOut, and its late end is '
+      'recorded', () async {
+    final p = await join();
+    final ended = Completer<void>();
+    p.defineCommand(
+      CommandDescriptor(
+        'kittens.slow',
+        callers: Callers.only(['user']),
+        deadline: const Duration(milliseconds: 100),
+      ),
+      (_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        ended.complete();
+        return null;
+      },
+    );
+    await p.flush();
+    final records = <CallRecord>[];
+    r.calls.listen(records.add);
+    expect(await r.call('kittens.slow', {}, by: crew), isA<CallTimedOut>());
+    await ended.future;
+    await settle();
+    expect(
+      [for (final c in records) (c.result.runtimeType, c.late)],
+      [(CallTimedOut, false), (CallDone<Object?>, true)],
+    );
+  });
+
+  test('a call that writes what it does not watch answers at once', () async {
+    final studio = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    final program = studio.defineState(
+      StateDescriptor('studio.program', type: const TextType()),
+    );
+    studio.defineCommand(
+      CommandDescriptor('studio.show', callers: Callers.only(['plugin'])),
+      (c) => program.set('break', cause: c.causeFor(crew)),
+    );
+    final p = await join();
+    final took = Stopwatch()..start();
+    expect((await p.call('studio.show', {})).ok, isTrue);
+    expect(
+      took.elapsedMilliseconds,
+      lessThan(500),
+      reason: 'not waiting out reach for a tick it is never sent',
+    );
+  });
+
+  test('a host of another protocol is refused, saying both versions', () {
+    expect(() => checkProtocol(parlanceProtocol), returnsNormally);
+    expect(
+      () => checkProtocol(parlanceProtocol - 1),
+      throwsA(
+        isA<ProtocolMismatch>().having(
+          (e) => '$e',
+          'says',
+          contains(
+            'protocol ${parlanceProtocol - 1}, this participant '
+            '$parlanceProtocol',
+          ),
+        ),
+      ),
+    );
+    expect(() => checkProtocol(null), throwsA(isA<ProtocolMismatch>()));
+  });
+
+  test('a word it may not read holds back none of the words it watches '
+      'after', () async {
+    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    owner
+        .defineState(
+          StateDescriptor(
+            'studio.secret',
+            type: const TextType(),
+            readers: Callers.only(['user']),
+          ),
+        )
+        .set('hush');
+    owner.state(_Program.scene).define().set('main');
+    final p = await join();
+    final secret = p.watch('studio.secret').listen((_) {});
+    await settle();
+    final seen = <String?>[];
+    final program = p.state(_Program.scene).watch().listen(seen.add);
+    await settle();
+    expect(seen, ['main']);
+    expect(p.read('studio.secret'), isNull);
+    expect(p.status('studio.secret'), const WordNotPermitted());
+    await secret.cancel();
+    await program.cancel();
+  });
+
+  test('a word it watches before it is there counts once it comes', () async {
+    final p = await join();
+    final sub = p.state(_Program.scene).watch().listen((_) {});
+    await settle();
+    expect(r.usesOf('studio.program'), isEmpty);
+    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    owner.state(_Program.scene).define().set('main');
+    await settle();
+    expect(r.usesOf('studio.program').single.listening, 1);
+    await sub.cancel();
   });
 
   test('what it watches is its use of the word, while it watches', () async {

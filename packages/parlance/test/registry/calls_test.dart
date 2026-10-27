@@ -132,6 +132,26 @@ void main() {
     },
   );
 
+  test(
+    'ids are remembered as many as dedupLimit, the oldest going first',
+    () async {
+      final r = Registry(dedupLimit: 2);
+      var ran = 0;
+      r.defineCommand(
+        CommandDescriptor('x.go', callers: Callers.only(['user'])),
+        (_) => ran++,
+      );
+      for (final id in ['a', 'b', 'c']) {
+        await r.call('x.go', {}, by: user, id: id);
+      }
+      await r.call('x.go', {}, by: user, id: 'c');
+      expect(ran, 3, reason: 'c is remembered');
+      await r.call('x.go', {}, by: user, id: 'a');
+      expect(ran, 4, reason: 'a went past the limit: it runs again');
+      await r.dispose();
+    },
+  );
+
   test('ids are forgotten after the dedup window', () {
     fakeAsync((t) {
       final r = Registry(dedupWindow: const Duration(minutes: 1));

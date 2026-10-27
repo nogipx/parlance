@@ -22,10 +22,11 @@ abstract interface class IRegistryView {
 
   /// Every value of [state] now, by key, also of a state the view does not
   /// keep (SPEC §20): what a part that names words at run time reads (a
-  /// plugin, an agent). Across a connection the view keeps [state] from
-  /// then on, so a read after answers at once, and waits until it has it;
-  /// one it may not read is empty.
-  Future<Map<String?, Object?>> fetch(String state);
+  /// plugin, an agent). Across a connection the view waits until it has
+  /// it, and with [keep] keeps it from then on, so a read after answers at
+  /// once; without, it lets it go again (a look at many states at once).
+  /// One it may not read is empty.
+  Future<Map<String?, Object?>> fetch(String state, {bool keep = true});
 
   /// Told whenever any of [states] changes, and when the view loses or
   /// finds the registry again; while it is listened to, a remote view
@@ -182,7 +183,7 @@ final class LocalView implements IRegistryView {
   /// A read by name, as a part outside the build makes it: counted as
   /// [by]'s use of the word (SPEC §6.8).
   @override
-  Future<Map<String?, Object?>> fetch(String state) async {
+  Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) async {
     if (!registry.mayRead(by, state)) return const {};
     registry.usedBy(state, by);
     return registry.readAll(state);

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
@@ -16,6 +17,42 @@ import '../registry/types.dart';
 import '../view/mirror_view.dart';
 import 'contract.dart';
 import 'remote.dart';
+
+/// The host cannot be asked now: the connection is down, or the session
+/// ended. What the participant read before may be old.
+final class RegistryUnreachable implements Exception {
+  const RegistryUnreachable(this.reason);
+  final String reason;
+
+  @override
+  String toString() => 'the registry cannot be reached now: $reason';
+}
+
+/// Both ends must speak one protocol: a part built against another would be
+/// told nothing clear, only answers it does not understand. Throws
+/// [ProtocolMismatch] for a host's [version] other than this one's.
+void checkProtocol(Object? version) {
+  if (version != parlanceProtocol) {
+    throw ProtocolMismatch(host: version, here: parlanceProtocol);
+  }
+}
+
+/// The host speaks another version of the protocol than this participant
+/// (SPEC §14): one end was built against an older parlance. Joining is
+/// refused, rather than answers the other end does not understand.
+final class ProtocolMismatch implements Exception {
+  const ProtocolMismatch({required this.host, required this.here});
+
+  /// The host's version, as its `describe` told it (null: one too old to
+  /// tell).
+  final Object? host;
+  final int here;
+
+  @override
+  String toString() =>
+      'the host speaks parlance protocol $host, this participant $here: '
+      'build both against one parlance';
+}
 
 /// What a remote participant asked and the registry refused, told after:
 /// over a connection the answer is not there when the participant asks
@@ -103,7 +140,13 @@ final class RemoteParticipant implements IParticipant {
       await endpoint.close();
       throw StateError('the connection gave up: $reason');
     }
-    final p = await _start(endpoint, onError, log, keepAway);
+    final RemoteParticipant p;
+    try {
+      p = await _start(endpoint, onError, log, keepAway);
+    } on Object {
+      await endpoint.close();
+      rethrow;
+    }
     p._connection = connection.state.listen(p._onConnection);
     return p;
   }
@@ -131,6 +174,7 @@ final class RemoteParticipant implements IParticipant {
   ) async {
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
+    checkProtocol(d['protocol']);
     final p = RemoteParticipant._(
       endpoint,
       client,
@@ -209,7 +253,11 @@ final class RemoteParticipant implements IParticipant {
         );
         return;
       }
-      _queue.insertAll(0, _standing());
+      // What it has as it stands, then what it said while away, in order.
+      _queue
+        ..insertAll(0, _standing())
+        ..addAll(_away);
+      _away.clear();
       for (final c in _commands.values) {
         c.told = false;
       }
@@ -348,8 +396,10 @@ final class RemoteParticipant implements IParticipant {
     }
     // Away, only what it says waits: the rest a new session gets as it
     // stands then.
-    if (!_online && op['op'] != 'emit') return;
-    if (!_online) _keepAway();
+    if (!_online) {
+      if (op['op'] == 'emit') _keepAway(op);
+      return;
+    }
     _queue.add(op);
     if (_scheduled) return;
     _scheduled = true;
@@ -362,16 +412,16 @@ final class RemoteParticipant implements IParticipant {
     });
   }
 
-  /// Makes room for one more fact said while away: past [keepAway], the
-  /// oldest goes.
-  void _keepAway() {
-    var kept = 0;
-    for (final op in _queue) {
-      if (op['op'] == 'emit') kept++;
+  /// The facts said while away, oldest first, to send when back.
+  final ListQueue<Map<String, Object?>> _away = ListQueue();
+
+  /// Keeps [op], a fact said while away: past [keepAway], the oldest goes.
+  void _keepAway(Map<String, Object?> op) {
+    if (_away.length >= keepAway) {
+      _away.removeFirst();
+      _droppedAway++;
     }
-    if (kept < keepAway) return;
-    _queue.removeAt(_queue.indexWhere((op) => op['op'] == 'emit'));
-    _droppedAway++;
+    _away.add(op);
   }
 
   /// Completes when the registry has answered all it asked so far.
@@ -397,12 +447,17 @@ final class RemoteParticipant implements IParticipant {
         if (!_disposed) {
           // The connection dropped: a new session gets what it defined as
           // it stands; what it said goes again after, its ids letting the
-          // registry drop one it took.
+          // registry drop one it took. What it asked besides is in what it
+          // has as it stands.
           _online = false;
-          _queue.insertAll(0, [
-            for (final op in ops)
+          final said = [
+            for (final op in [...ops, ..._queue])
               if (op['op'] == 'emit') op,
-          ]);
+            ..._away,
+          ];
+          _queue.clear();
+          _away.clear();
+          said.forEach(_keepAway);
         } else {
           for (final op in ops) {
             _fail(op, 'lost', '$e');
@@ -443,26 +498,57 @@ final class RemoteParticipant implements IParticipant {
       : _view.readAll(state);
 
   @override
-  Future<Map<String?, Object?>> fetch(String state) async =>
-      _own.containsKey(state) ? readAll(state) : _view.fetch(state);
+  Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) async =>
+      _own.containsKey(state) ? readAll(state) : _view.fetch(state, keep: keep);
 
   @override
   Future<Map<String, Object?>> describe() {
     _live();
-    return _client.describe();
+    return _asked(_client.describe);
+  }
+
+  /// [ask] of the host, its failures told as a participant's in this
+  /// process would be: a refusal as [NotPermitted] (or [denied]), [missing]
+  /// for a word there is not, and no host to ask as [RegistryUnreachable].
+  /// The wire's errors stay the package's.
+  Future<T> _asked<T>(
+    Future<T> Function() ask, {
+    T Function()? missing,
+    T Function()? denied,
+  }) async {
+    try {
+      return await ask();
+    } on RpcStatusException catch (e) {
+      if (e.statusCode == RpcStatus.permissionDenied) {
+        if (denied != null) return denied();
+        throw NotPermitted(e.message);
+      }
+      if (e.statusCode == RpcStatus.notFound && missing != null) {
+        return missing();
+      }
+      throw RegistryUnreachable(e.message);
+    } on NotPermitted {
+      rethrow;
+    } on Object catch (e) {
+      throw RegistryUnreachable('$e');
+    }
   }
 
   @override
   Future<Explanation> explain(String state, {String? key}) async {
     _live();
-    try {
-      return await _client.why(state, key: key);
-    } on RpcStatusException catch (e) {
-      if (e.statusCode == RpcStatus.permissionDenied) {
-        throw NotPermitted(e.message);
-      }
-      rethrow;
-    }
+    // A state there is not explains itself as nothing, as in the host's
+    // process: no value, no change.
+    return _asked(
+      () => _client.why(state, key: key),
+      missing: () => Explanation(
+        state: state,
+        key: key,
+        value: null,
+        change: null,
+        trail: const [],
+      ),
+    );
   }
 
   @override
@@ -517,7 +603,13 @@ final class RemoteParticipant implements IParticipant {
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) =>
-      _view.recent(fact, count);
+      // As in the host's process: none of a fact there is not, or one it
+      // may not hear.
+      _asked(
+        () => _view.recent(fact, count),
+        missing: () => const [],
+        denied: () => const [],
+      );
 
   /// Calls [command] as [who], after what it asked before has been done.
   @override
@@ -542,6 +634,9 @@ final class RemoteParticipant implements IParticipant {
       refuseInQuery('call $command');
     }
     await flush();
+    // What its listeners asked for reaches the host before the call, so
+    // what the call writes comes back on the feed.
+    if (_online) await _view.settled;
     final r = await _client.callAt(
       command,
       params,
@@ -1036,7 +1131,8 @@ final class _Part implements IParticipant {
   Map<String?, Object?> readAll(String state) => _root.readAll(state);
 
   @override
-  Future<Map<String?, Object?>> fetch(String state) => _root.fetch(state);
+  Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) =>
+      _root.fetch(state, keep: keep);
 
   @override
   Future<Map<String, Object?>> describe() => _root.describe();

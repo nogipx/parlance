@@ -166,13 +166,13 @@ Words are a public API (§17), and inside one build the compiler knows who uses 
 - **What counts.** A call or an ask, by anyone (refused too: the caller depends on the word). A session's subscription (its mirror's listeners), while it lasts. A read from outside the build: a session's `recent` or `why`, an agent's read, `why` or recent facts through the board. What the app's own modules read and watch in this process is not counted: the compiler knows it, and it would cost every read.
 - **As it was named.** A use of an old name (§6.4) is counted under that name, so `usesOf('audio.silence')` says who has not moved to the new one.
 - **Bounded.** Only a name there is a word of (or an old name of one) is counted, so a peer's made-up names keep nothing; for one word at most `usersPerWord` (64) principals are told apart, the rest counted under their kind alone (`viewer`).
-- `usesOf(name)` and `usage` answer, per principal, `WordUse { by, calls, reads, listening (now), last }`. A use is never forgotten while the registry lives; outliving it (a count over weeks, from every host) is the host's to store. A subscription to a word not there yet counts once the session subscribes again with the word there.
+- `usesOf(name)` and `usage` answer, per principal, `WordUse { by, calls, reads, listening (now), last }`. A use is never forgotten while the registry lives; outliving it (a count over weeks, from every host) is the host's to store. A subscription to a word not there yet counts from when the word comes.
 
 ## 7. Ticks
 
 A **tick** is the unit of change: every state write and fact made in it is committed together. The registry keeps its states, facts, commands and ticks on the core (§21): its hub commits, and its ticks are the hub's, with names, ids, causes and the time.
 
-- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick. Batches nest; the outermost one commits.
+- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick. Batches nest; the outermost one commits. A batch is whole or nothing: when `fn` throws, nothing it wrote or said is committed (an outer batch that catches it keeps what it wrote itself), and the error goes on.
 - Inside a batch, reads see the batch's own writes (read your writes); everyone else sees nothing until the commit.
 - On commit, writes that leave a value unchanged are dropped; each remaining change and each fact gets its seq; the tick is delivered as one message: `Tick { epoch, from, to, changes, facts }`.
 - Delivery is asynchronous and in seq order. A subscriber that throws does not stop the others; the error goes to the host's error sink.
@@ -190,7 +190,7 @@ call(name, params, by: Principal, id?, override = false) → CallResult
 
 A call goes through these stages, in order; the first refusal ends it:
 
-1. **Dedup.** (Not for a query, §6.6.) A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result.
+1. **Dedup.** (Not for a query, §6.6.) A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result. Only an id the caller gave is remembered (one the registry made is nobody's to retry with), and at most `dedupLimit` of them (10 000, the oldest going first; so too the ids of facts): a retry of one forgotten runs again.
 2. **Lookup.** Unknown command → `unknownCommand`.
 3. **Params.** Checked and filled with defaults → `invalidParams`.
 4. **Policy.** `callers` for the principal → `notPermitted`.

@@ -133,6 +133,41 @@ void main() {
       expect(hub.seq, 1);
     });
 
+    test('a batch that throws commits nothing it wrote or said; an outer '
+        'one keeps what it wrote before', () async {
+      final hub = Hub();
+      final cell = Cell<int>(hub: hub);
+      final w = cell.claim();
+      final signal = Signal<int>(hub: hub);
+      final say = signal.claim();
+      final heard = <int>[];
+      final sub = signal.stream.listen(heard.add);
+      expect(
+        () => hub.batch(() {
+          w.set(1);
+          say.emit(1);
+          throw StateError('midway');
+        }),
+        throwsStateError,
+      );
+      expect((cell.value, hub.seq), (null, 0));
+      hub.batch(() {
+        w.set(2);
+        try {
+          hub.batch(() {
+            w.set(3);
+            throw StateError('inner');
+          });
+        } on StateError {
+          // The outer goes on with what it wrote itself.
+        }
+      });
+      expect(cell.value, 2);
+      await settle();
+      expect(heard, isEmpty);
+      await sub.cancel();
+    });
+
     test('a batch is synchronous', () {
       final hub = Hub();
       expect(() => hub.batch(() async {}), throwsArgumentError);

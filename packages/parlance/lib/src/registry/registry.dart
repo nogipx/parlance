@@ -348,6 +348,7 @@ final class Registry implements ITypeContext {
     this.retainTicks = 1000,
     this.recentPerFact = 100,
     this.usersPerWord = 64,
+    this.dedupLimit = 10000,
     this.retainBytes = 4 << 20,
     Set<String> overriders = const {},
     Clock? clock,
@@ -370,6 +371,12 @@ final class Registry implements ITypeContext {
 
   /// How long ids of calls and facts are remembered to drop repeats.
   final Duration dedupWindow;
+
+  /// How many ids of calls, and of facts, are remembered at most within
+  /// [dedupWindow]: past it the oldest go, so a burst of calls (a fader
+  /// dragged) does not hold ten minutes of them. A retry of one forgotten
+  /// runs again.
+  final int dedupLimit;
 
   /// How many ticks a feed can resume from.
   final int retainTicks;
@@ -1074,6 +1081,9 @@ final class Registry implements ITypeContext {
     if (_seenFacts.containsKey(id)) return false;
     final v = freezeJson(d.type.check(payload, this));
     _seenFacts[id] = now;
+    if (_seenFacts.length > dedupLimit) {
+      _seenFacts.remove(_seenFacts.keys.first);
+    }
     emitter.emit(v, tag: (id, cause));
     return true;
   }
@@ -1117,10 +1127,11 @@ final class Registry implements ITypeContext {
   void usedBy(String word, Principal by) => _used(word, by)?.read();
 
   /// [by] listens to [word] until the handle is disposed: a session's
-  /// subscription (SPEC §6.8).
-  IHandle listenedBy(String word, Principal by) {
+  /// subscription (SPEC §6.8). Null while there is no word of that name:
+  /// ask again when one comes (`catalogChanges`).
+  IHandle? listenedBy(String word, Principal by) {
     final use = _used(word, by);
-    if (use == null) return _Disposer(() {});
+    if (use == null) return null;
     use.listening++;
     return _Disposer(() => use.listening--);
   }
@@ -1281,7 +1292,12 @@ final class Registry implements ITypeContext {
       cause ?? Cause(by),
       override: override,
     );
-    _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
+    // Only an id the caller gave can be given again: one made here is
+    // nobody's to retry with.
+    if (id != null) {
+      _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
+      if (_calls.length > dedupLimit) _calls.remove(_calls.keys.first);
+    }
     return result;
   }
 
@@ -1447,7 +1463,7 @@ final class Registry implements ITypeContext {
             c.result = Future.value(r);
           }
           _running.remove(id);
-          _close(id, span, r, late: true);
+          _close(id, span, r, late: true, query: entry.query);
           finish(r, late: true);
         }),
       );
@@ -1456,7 +1472,7 @@ final class Registry implements ITypeContext {
     }
     if (result is! CallTimedOut) {
       _running.remove(id);
-      _close(id, span, result);
+      _close(id, span, result, query: entry.query);
     }
     return finish(result);
   }
@@ -1512,10 +1528,15 @@ final class Registry implements ITypeContext {
     LogSpanHandle span,
     CallResult<Object?> r, {
     bool late = false,
+    bool query = false,
   }) {
     if (!_traced) return;
     _spans.remove(id);
-    if (span.traceparent case final tp?) _rememberTrace(id, tp);
+    // A query leads to nothing that could follow from it: its trace would
+    // only push out the ones a later call may link.
+    if (!query) {
+      if (span.traceparent case final tp?) _rememberTrace(id, tp);
+    }
     if (late) span.addData({'late': true});
     switch (r) {
       case CallFailed(:final error):

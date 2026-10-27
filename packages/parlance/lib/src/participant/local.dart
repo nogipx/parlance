@@ -196,7 +196,8 @@ final class LocalParticipant implements IParticipant {
   Map<String?, Object?> readAll(String state) => _view.readAll(state);
 
   @override
-  Future<Map<String?, Object?>> fetch(String state) => _view.fetch(state);
+  Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) =>
+      _view.fetch(state, keep: keep);
 
   @override
   Future<Map<String, Object?>> describe() async => _r.describeFor(who);

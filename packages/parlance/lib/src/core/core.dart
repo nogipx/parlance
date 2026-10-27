@@ -98,15 +98,28 @@ final class Hub {
   Stream<HubTick> get ticks => _ticks.stream;
 
   /// Runs [body] synchronously and commits everything it wrote as one tick.
-  /// Batches nest; the outermost commits.
+  /// Batches nest; the outermost commits. When [body] throws, nothing it
+  /// wrote or said is committed, and the error goes on.
   void batch(void Function() body) {
+    // What was waiting before it, to go back to if [body] throws: a batch
+    // is committed whole or not at all, never the half written before the
+    // throw.
+    final before = _pending.isEmpty ? null : LinkedHashMap.of(_pending);
+    final emitted = _emits.length;
     _depth++;
+    var done = false;
     try {
       final Object? r = (body as dynamic)();
       if (r is Future) {
         throw ArgumentError('a batch is synchronous; write before awaiting');
       }
+      done = true;
     } finally {
+      if (!done) {
+        _pending.clear();
+        if (before != null) _pending.addAll(before);
+        _emits.length = emitted;
+      }
       _depth--;
       if (_depth == 0) _commit();
     }

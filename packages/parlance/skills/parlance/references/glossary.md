@@ -125,7 +125,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **IRegistryView**: what a screen reads and calls: values now, told when the states it draws change (`changes`), facts said from now on, `recent`, calls on behalf of one principal, `synced`.
 - **LocalView**: a view of a registry in the same process, as one principal.
-- **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on.
+- **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
+- **`ProtocolMismatch`**, **`RegistryUnreachable`**: a host of another protocol version, refused at join; a host that cannot be asked now.
 
 ## Agents (§16)
 

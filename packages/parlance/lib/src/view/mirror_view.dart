@@ -29,10 +29,17 @@ final class MirrorView implements IRegistryView {
   final Set<String> _fetched = {};
 
   @override
-  Future<Map<String?, Object?>> fetch(String state) async {
-    if (_fetched.add(state)) _want(_states, {state}, 1);
+  Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) async {
+    if (_fetched.contains(state)) {
+      await settled;
+      return mirror.readAll(state);
+    }
+    if (keep) _fetched.add(state);
+    _want(_states, {state}, 1);
     await settled;
-    return mirror.readAll(state);
+    final values = mirror.readAll(state);
+    if (!keep) _want(_states, {state}, -1);
+    return values;
   }
 
   @override
@@ -92,11 +99,19 @@ final class MirrorView implements IRegistryView {
         wanted[n] = now;
       }
     }
-    if (!changed) return;
-    _settled = mirror
-        .subscribe(states: {..._states.keys}, facts: {..._facts.keys})
-        .catchError((Object _) {});
+    if (!changed || _asking) return;
+    // What changes in one turn goes in one subscription: a look at many
+    // states asks once to add them and once to let them go.
+    _asking = true;
+    _settled = Future(() {
+      _asking = false;
+      return mirror
+          .subscribe(states: {..._states.keys}, facts: {..._facts.keys})
+          .catchError((Object _) {});
+    });
   }
+
+  bool _asking = false;
 
   Future<void>? _settled;
 
@@ -112,6 +127,7 @@ final class MirrorView implements IRegistryView {
   ) async {
     final client = this.client;
     if (client == null) return const CallFailed('not connected');
+    await settled;
     final r = await client.callAt(command, params);
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
       await mirror.reach(epoch, seq);

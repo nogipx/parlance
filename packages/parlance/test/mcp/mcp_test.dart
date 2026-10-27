@@ -406,6 +406,17 @@ void main() {
       },
     );
 
+    test('a read of every state is a look: it leaves no follower', () async {
+      f.muted.set(true);
+      final all = await c.json('read') as Map;
+      expect(all['audio.muted'], true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(session.states, isEmpty, reason: 'let go after the look');
+      expect(await c.json('read', {'state': 'audio.muted'}), true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(session.states, {'audio.muted'}, reason: 'one by name is kept');
+    });
+
     test('a word added later is a catalog change the tools follow', () async {
       final seen = <void>[];
       final sub = p.catalogChanges.listen(seen.add);

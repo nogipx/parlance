@@ -409,10 +409,16 @@ void main() {
           for (var i = 1; i < ticks.length; i++) {
             expect(ticks[i].from, ticks[i - 1].to + 1);
           }
+          // Left out, not refused: the rest of what it asks goes on.
           expect(
-            await status(other.client.subscribe(states: ['kittens.settings'])),
-            RpcStatus.permissionDenied,
+            await status(
+              other.client.subscribe(
+                states: ['kittens.settings', 'audio.muted'],
+              ),
+            ),
+            isNull,
           );
+          expect(other.session.states, {'audio.muted'});
           expect(
             await status(other.client.why('kittens.settings')),
             RpcStatus.permissionDenied,
@@ -466,7 +472,8 @@ void main() {
           );
           expect(
             await status(other.client.subscribe(facts: ['kittens.whisper'])),
-            RpcStatus.permissionDenied,
+            isNull,
+            reason: 'left out, not refused',
           );
           expect(other.session.hears((x) => x == 'kittens.whisper'), isFalse);
           expect(own.session.hears((x) => x == 'kittens.whisper'), isTrue);

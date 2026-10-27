@@ -33,7 +33,7 @@ void main() {
   test('a name there is no word of keeps nothing', () async {
     await f.r.call('no.such', {}, by: user);
     f.r.usedBy('nor.this', user);
-    f.r.listenedBy('nor.that', user).dispose();
+    expect(f.r.listenedBy('nor.that', user), isNull);
     expect(f.r.usage, isEmpty);
   });
 
@@ -52,7 +52,7 @@ void main() {
   });
 
   test('a listener counts while it listens; a read once', () {
-    final h = f.r.listenedBy('audio.muted', viewer);
+    final h = f.r.listenedBy('audio.muted', viewer)!;
     expect(f.r.usesOf('audio.muted').single.listening, 1);
     h.dispose();
     f.r.usedBy('audio.muted', viewer);

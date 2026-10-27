@@ -5,5 +5,10 @@
 /// process. The wire, its client and the mirror are the package's.
 library;
 
-export 'src/remote/participant.dart' show ParticipantError, RemoteParticipant;
+export 'src/remote/participant.dart'
+    show
+        ParticipantError,
+        ProtocolMismatch,
+        RegistryUnreachable,
+        RemoteParticipant;
 export 'src/remote/remote.dart' show RemoteSession, ServeParticipant;

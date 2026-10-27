@@ -8,7 +8,7 @@ The core is the level everything else stands on: typed values in one process, no
 
 A hub commits the writes of its cells and the emits of its signals in **ticks**.
 
-- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick; batches nest, the outermost commits; a batch that returns a future is refused.
+- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick; batches nest, the outermost commits; one whose body throws commits nothing of it; a batch that returns a future is refused.
 - Inside a batch (and while a tick is being committed), reads see the batch's own writes; `has` sees only committed values.
 - On commit, a write that leaves a value equal to the one there is, and a remove of a value there is not, are dropped. Each remaining change, then each emit, gets the next **seq** of the hub.
 - A tick is `HubTick { from, to, changes, emits }`; a change says its store, key, value, previous value, whether it removed, and the **tag** its writer gave. The hub never reads a tag: it is how a layer above carries its own data through (the registry carries the cause and a fact's id).

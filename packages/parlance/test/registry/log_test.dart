@@ -93,6 +93,56 @@ void main() {
     await r.dispose();
   });
 
+  test(
+    'questions asked meanwhile do not push out the trace a fact keeps',
+    () async {
+      final r = Registry(
+        log: logs.scope('parlance'),
+        retainTicks: 2,
+        onError: (e, _) {},
+      );
+      final said = r.defineFact(
+        FactDescriptor('x.said', type: const TextType()),
+        by: owner,
+      );
+      r.defineCommand(
+        CommandDescriptor('x.say', callers: Callers.only(['user'])),
+        (c) => said.emit('hi', cause: c.causeFor(owner)),
+      );
+      r.defineQuery(
+        QueryDescriptor(
+          'x.ask',
+          returns: const IntType(),
+          askers: Callers.only(['user']),
+        ),
+        (_) => 1,
+      );
+      r.defineCommand(
+        CommandDescriptor('x.answer', callers: Callers.only(['user'])),
+        (_) {},
+      );
+      String? fact;
+      r.facts(fact: 'x.said').listen((f) => fact = f.id);
+      await r.call('x.say', {}, by: user);
+      await pumpEventQueue();
+      for (var i = 0; i < 5; i++) {
+        await r.call('x.ask', {}, by: user);
+      }
+      await r.call(
+        'x.answer',
+        {},
+        by: user,
+        cause: Cause(user, parent: fact),
+      );
+      await pumpEventQueue();
+      final answer = records.whereType<LogSpanStart>().singleWhere(
+        (s) => s.name == 'x.answer',
+      );
+      expect(answer.links, hasLength(1));
+      await r.dispose();
+    },
+  );
+
   test('a refusal is told, and opens no span; a failure ends its span as an '
       'error', () async {
     final r = Registry(log: logs.scope('parlance'), onError: (e, _) {});
