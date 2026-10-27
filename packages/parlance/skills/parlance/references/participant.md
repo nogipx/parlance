@@ -10,7 +10,7 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 
 ### 22.1 Making one
 
-`registry.participant(who, namespaces: {...}, rights: ...)` (`package:parlance/participant.dart`).
+`registry.participant(who, namespaces: {...}, rights: ..., access: ...)` (`package:parlance/participant.dart`).
 
 - **Namespaces** are the first words of the names it may define: `orders` for `orders.cancel` and `orders.list.page`; a name equal to a namespace is in it. Without namespaces it defines nothing.
 - A namespace is **one live participant's**: one another participant has, or one inside or around it (`orders` and `orders.archive`), is refused at once (`StateError`). It is free again when that participant goes.
@@ -29,6 +29,8 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 - **`clock`**: where it reads the time; the registry's in this process.
 - **`dispose()`** withdraws everything it defined, registered and added, and frees its namespaces; its words are then missing to everyone (§6.5).
 
+**Access by default** (`WordAccess(read:, call:)`): who may read its states and facts and call its commands when a word does not say. A word's own `readers` or `callers` replace it whole, nothing merges. Without a default and a word's own, a state or a fact is everyone's to read, and a command is refused at once (`ArgumentError`): who may call it is never left to chance. It is applied as the participant defines, so it goes over a connection as part of the descriptor. A word kept from someone is `notPermitted` to them (§6.5), not missing, so a team sees whom to ask; there are no rights per field: what is private to fewer goes in a word of its own.
+
 | Right | Null means |
 |---|---|
 | `define(who, d)` | every word in its namespaces |
@@ -37,11 +39,11 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 
 ### 22.3 Owners
 
-An `Owner` (§19) is a participant's code: it says `who`, `namespaces` and `rights`, and defines its words in `define(IParticipant p)`. `Owners(registry, owners)` makes each its participant and attaches it; `owner.attach(p)` attaches it to one made elsewhere, of the same `who`.
+An `Owner` (§19) is a participant's code: it says `who`, `namespaces`, `rights` and `access`, and defines its words in `define(IParticipant p)`. `Owners(registry, owners, access: ...)` makes each its participant and attaches it; what an owner's `access` leaves unsaid, the `Owners`' one says (one default for the app's modules); `owner.attach(p)` attaches it to one made elsewhere, of the same `who`.
 
 ### 22.4 Across a connection
 
-`RemoteParticipant` (`package:parlance/remote.dart`) is the same `IParticipant` over a session (§14). It joins only over an `RpcClientConnection`: `RemoteParticipant.join(connection)` makes its peer endpoint on the connection's transport (`p.endpoint`, for other contracts on the same connection), starts the connection when it is idle, waits until it is online (a connection that gives up first fails the join), and joins again each time it is back. A connection that does not come back once lost (a wasm module's to its host, one in memory) is one whose factory gives its one transport and that does not reconnect (`shouldReconnect: (_) => false`); one that gives up is told to `errors` (`{op: join}`, `lost`). The host makes the session as it makes a local participant: `RegistryResponder(endpoint, registry, principal:, namespaces:, rights:)`; the session is a participant in the host's process, so namespaces are shared with the local ones and its rights are checked there. The participant learns its principal and namespaces from `describe`.
+`RemoteParticipant` (`package:parlance/remote.dart`) is the same `IParticipant` over a session (§14); its access by default is its own (`join(connection, access:)`). It joins only over an `RpcClientConnection`: `RemoteParticipant.join(connection)` makes its peer endpoint on the connection's transport (`p.endpoint`, for other contracts on the same connection), starts the connection when it is idle, waits until it is online (a connection that gives up first fails the join), and joins again each time it is back. A connection that does not come back once lost (a wasm module's to its host, one in memory) is one whose factory gives its one transport and that does not reconnect (`shouldReconnect: (_) => false`); one that gives up is told to `errors` (`{op: join}`, `lost`). The host makes the session as it makes a local participant: `RegistryResponder(endpoint, registry, principal:, namespaces:, rights:)`; the session is a participant in the host's process, so namespaces are shared with the local ones and its rights are checked there. The participant learns its principal and namespaces from `describe`.
 
 - **What it asks goes in its order, and one turn of its event loop is one tick.** A define, a write, a fact, a kind, a guard, an availability: each returns at once (its handle, `true` for a fact) and is queued; the queue goes as one `apply` the host runs in one batch. A name outside its namespaces, or an act as another, is refused at once (`NotPermitted`); what the host refuses comes after, to `errors` (`ParticipantError`: the op, the session's status, why). `flush()` completes when the host has answered all it asked so far.
 - **Its calls come after what it asked.** A call waits for the queue first, so it sees what the participant wrote; it answers once the mirror has reached what the call wrote (§14).

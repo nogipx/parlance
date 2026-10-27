@@ -35,6 +35,56 @@ final class ParticipantRights {
   static const none = ParticipantRights();
 }
 
+/// Who may read and call a participant's words when a word does not say
+/// (SPEC §22.2): its states' and facts' `readers`, its commands' `callers`.
+/// A word's own replaces it whole; nothing merges.
+final class WordAccess {
+  const WordAccess({this.read, this.call});
+
+  /// Readers of its states and facts; null: everyone.
+  final Callers? read;
+
+  /// Callers of its commands; null: each command says.
+  final Callers? call;
+
+  static const none = WordAccess();
+
+  /// This, where it says nothing, then [fallback].
+  WordAccess or(WordAccess fallback) =>
+      WordAccess(read: read ?? fallback.read, call: call ?? fallback.call);
+
+  /// [d] with [read] as its readers when it names none.
+  StateDescriptor state(StateDescriptor d) => d.readers != null || read == null
+      ? d
+      : StateDescriptor(
+          d.name,
+          type: d.type,
+          key: d.key,
+          readers: read,
+          meta: d.meta,
+        );
+
+  /// [d] with [read] as its readers when it names none.
+  FactDescriptor fact(FactDescriptor d) => d.readers != null || read == null
+      ? d
+      : FactDescriptor(
+          d.name,
+          type: d.type,
+          open: d.open,
+          readers: read,
+          meta: d.meta,
+        );
+
+  /// [callers], else [call]; a command with neither is refused at once.
+  Callers callersOf(String command, Callers? callers) =>
+      callers ??
+      call ??
+      (throw ArgumentError(
+        '$command names no callers, and its participant no default: '
+        'say who may call it',
+      ));
+}
+
 /// A part of the app as it speaks (SPEC §22): it sees the registry only
 /// through this, as one principal, [who]. It reads, watches, hears and
 /// calls what [who] may; it defines words only in its [namespaces], and
@@ -51,6 +101,9 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// The first words of the names it may define: `orders` for
   /// `orders.cancel` and `orders.list.page`.
   Set<String> get namespaces;
+
+  /// Who may read and call its words when a word does not say.
+  WordAccess get access;
 
   /// Where it reads the time: the registry's clock in this process.
   Clock get clock;
@@ -69,7 +122,8 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
     Cause? cause,
   });
 
-  /// Defines a state of its own, with [who] its only writer.
+  /// Defines a state of its own, with [who] its only writer; readers
+  /// from [access] when [d] names none.
   IStateHandle defineState(StateDescriptor d);
 
   /// Defines a command of its own, served by [handler].
@@ -79,7 +133,8 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
     Availability? available,
   });
 
-  /// Defines a fact of its own, with [who] its producer.
+  /// Defines a fact of its own, with [who] its producer; readers from
+  /// [access] when [d] names none.
   IFactHandle defineFact(FactDescriptor d);
 
   /// Another producer of an open [fact], as far as [rights] let it.
@@ -165,10 +220,11 @@ final class ParticipantCommandOf<P, R> {
   final IParticipant participant;
   final ICommandWord<P, R> word;
 
-  /// Defines it as the participant's own, served by [handler] (SPEC §6.2).
+  /// Defines it as the participant's own, served by [handler] (SPEC §6.2);
+  /// [callers], else the participant's default (`access.call`).
   IHandle define(
     FutureOr<R> Function(CommandCallOf<P> call) handler, {
-    required Callers callers,
+    Callers? callers,
     Sets? sets,
     bool interceptable = false,
     Duration deadline = const Duration(seconds: 30),
@@ -181,7 +237,7 @@ final class ParticipantCommandOf<P, R> {
         word.name,
         params: word.params.type,
         returns: word.returns?.type,
-        callers: callers,
+        callers: participant.access.callersOf(word.name, callers),
         sets: sets,
         interceptable: interceptable,
         deadline: deadline,

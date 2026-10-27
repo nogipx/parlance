@@ -87,6 +87,19 @@ final class _Stray extends Owner {
   void define(IParticipant p) => keep(p.state(_Flag.on).define());
 }
 
+/// Says its own readers.
+final class _Private extends Owner {
+  @override
+  Principal get who => me;
+  @override
+  Set<String> get namespaces => const {'test.on'};
+  @override
+  WordAccess get access => WordAccess(read: Callers.only(['host:me']));
+
+  @override
+  void define(IParticipant p) => keep(p.state(_Flag.on).define());
+}
+
 enum _Flag<T> implements IStateWord<T> {
   on<bool>('test.on', Plain(BoolType()));
 
@@ -149,6 +162,15 @@ void main() {
     expect(r.stateDescriptor('test.on'), isNull);
     Owners(r, [Other()]);
     expect(() => Owners(r, [Other()]), throwsStateError, reason: 'taken');
+  });
+
+  test('what an owner leaves unsaid of access, the owners\' default says', () {
+    Owners(r, [
+      Dials(),
+      _Private(),
+    ], access: WordAccess(read: Callers.only(['host'])));
+    expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
+    expect(r.stateDescriptor('test.on')!.readers!.rules.keys, {'host:me'});
   });
 
   test('an owner listens while attached, and stops when it goes', () async {

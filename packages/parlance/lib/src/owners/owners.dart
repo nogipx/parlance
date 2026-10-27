@@ -52,6 +52,10 @@ abstract base class Owner implements IHandle {
   /// What it may do beyond defining in its namespaces.
   ParticipantRights get rights => ParticipantRights.none;
 
+  /// Who may read and call its words when a word does not say; what it
+  /// leaves unsaid, the [Owners]' default says.
+  WordAccess get access => WordAccess.none;
+
   /// The participant it speaks through.
   IParticipant get participant =>
       _participant ?? (throw StateError('$runtimeType is not attached'));
@@ -137,15 +141,17 @@ final class TrackedKind {
 }
 
 /// Owners on one registry, each through a participant of its own made
-/// from its [Owner.who], [Owner.namespaces] and [Owner.rights]: attached
-/// in order, synced in one batch, withdrawn the last first.
+/// from its [Owner.who], [Owner.namespaces], [Owner.rights] and
+/// [Owner.access] (then [access], for what an owner leaves unsaid):
+/// attached in order, synced in one batch, withdrawn the last first.
 final class Owners implements IHandle {
-  Owners(this.registry, this.owners) {
+  Owners(this.registry, this.owners, {this.access = WordAccess.none}) {
     for (final o in owners) {
       final p = registry.participant(
         o.who,
         namespaces: o.namespaces,
         rights: o.rights,
+        access: o.access.or(access),
       );
       _participants.add(p);
       o.attach(p);
@@ -155,6 +161,10 @@ final class Owners implements IHandle {
 
   final Registry registry;
   final List<Owner> owners;
+
+  /// Who may read and call the owners' words when neither a word nor its
+  /// owner says: one default for the app's modules.
+  final WordAccess access;
   final List<IParticipant> _participants = [];
 
   /// Writes what every owner has now, as one tick.

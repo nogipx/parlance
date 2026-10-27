@@ -18,6 +18,7 @@ extension Participants on Registry {
     Principal who, {
     Set<String> namespaces = const {},
     ParticipantRights rights = ParticipantRights.none,
+    WordAccess access = WordAccess.none,
   }) {
     final taken = _namespaces[this] ??= {};
     for (final ns in namespaces) {
@@ -33,6 +34,7 @@ extension Participants on Registry {
       who,
       Set.unmodifiable(namespaces),
       rights,
+      access,
     );
     for (final ns in namespaces) {
       taken[ns] = p;
@@ -49,8 +51,16 @@ bool _overlap(String a, String b) =>
 /// A participant of a registry in this process: the registry as [who] may
 /// use it.
 final class LocalParticipant implements IParticipant {
-  LocalParticipant._(this._r, this.who, this.namespaces, this.rights)
-    : _view = LocalView(_r, by: who);
+  LocalParticipant._(
+    this._r,
+    this.who,
+    this.namespaces,
+    this.rights,
+    this.access,
+  ) : _view = LocalView(_r, by: who);
+
+  @override
+  final WordAccess access;
 
   final Registry _r;
   final LocalView _view;
@@ -158,7 +168,7 @@ final class LocalParticipant implements IParticipant {
   @override
   IStateHandle defineState(StateDescriptor d) {
     _mayDefine(d);
-    return _keep(_OwnState(this, _r.defineState(d, by: who)));
+    return _keep(_OwnState(this, _r.defineState(access.state(d), by: who)));
   }
 
   @override
@@ -184,7 +194,7 @@ final class LocalParticipant implements IParticipant {
   @override
   IFactHandle defineFact(FactDescriptor d) {
     _mayDefine(d);
-    return _keep(_OwnFact(this, _r.defineFact(d, by: who)));
+    return _keep(_OwnFact(this, _r.defineFact(access.fact(d), by: who)));
   }
 
   @override

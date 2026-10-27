@@ -56,8 +56,12 @@ final class RemoteParticipant implements IParticipant {
     this.mirror,
     this.who,
     this.namespaces,
+    this.access,
     this._onError,
   ) : _view = MirrorView(mirror, client);
+
+  @override
+  final WordAccess access;
 
   /// Joins the registry over [connection], starting it when it is idle:
   /// the participant makes its peer endpoint on the connection's transport
@@ -66,6 +70,7 @@ final class RemoteParticipant implements IParticipant {
   /// namespaces are the session's the host made.
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
+    WordAccess access = WordAccess.none,
     void Function(ParticipantError error)? onError,
   }) async {
     final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
@@ -87,6 +92,7 @@ final class RemoteParticipant implements IParticipant {
       RegistryMirror(),
       Principal.fromJson(d['principal']),
       {...(d['namespaces'] as List? ?? const []).cast<String>()},
+      access,
       onError,
     );
     endpoint.registerServiceContract(_Served(endpoint, p));
@@ -398,8 +404,9 @@ final class RemoteParticipant implements IParticipant {
   // --- Its own words ------------------------------------------------------
 
   @override
-  IStateHandle defineState(StateDescriptor d) {
-    _mayDefine(d);
+  IStateHandle defineState(StateDescriptor raw) {
+    _mayDefine(raw);
+    final d = access.state(raw);
     _ask({'op': 'define', 'descriptor': d.toJson()});
     _states[d.name] = d;
     _own[d.name] = {};
@@ -427,8 +434,9 @@ final class RemoteParticipant implements IParticipant {
   }
 
   @override
-  IFactHandle defineFact(FactDescriptor d) {
-    _mayDefine(d);
+  IFactHandle defineFact(FactDescriptor raw) {
+    _mayDefine(raw);
+    final d = access.fact(raw);
     _ask({'op': 'define', 'descriptor': d.toJson()});
     _facts[d.name] = d;
     return _Fact(this, d, own: true);

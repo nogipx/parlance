@@ -244,6 +244,57 @@ void main() {
     });
   });
 
+  group('access by default', () {
+    test('its words take it when they say nothing; a word\'s own replaces '
+        'it whole', () async {
+      final p = r.participant(
+        orders,
+        namespaces: {'orders'},
+        access: WordAccess(
+          read: Callers.only(['module:orders', 'module:cart']),
+          call: Callers.only(['module:cart']),
+        ),
+      );
+      p.state(OrderState.last).define();
+      p.fact(OrderFact.placed).define(readers: Callers.only(['module:orders']));
+      p.command(OrderCommand.place).define((c) => c.params.id);
+
+      expect(r.stateDescriptor('orders.last')!.readers!.rules.keys, {
+        'module:orders',
+        'module:cart',
+      });
+      expect(r.factDescriptor('orders.placed')!.readers!.rules.keys, {
+        'module:orders',
+      }, reason: 'its own, not merged');
+      final c = r.participant(cart);
+      final stranger = r.participant(someone);
+      expect(c.status('orders.last'), const WordReady());
+      expect(stranger.status('orders.last'), const WordNotPermitted());
+      expect(c.status('orders.placed'), const WordNotPermitted());
+      expect(
+        (await c.command(OrderCommand.place).call((id: 'o', status: 'n'))).ok,
+        isTrue,
+      );
+      expect(stranger.status('orders.place'), const WordNotPermitted());
+    });
+
+    test('a command with no callers anywhere is refused at once', () {
+      final p = r.participant(orders, namespaces: {'orders'});
+      expect(
+        () => p.command(OrderCommand.place).define((c) => c.params.id),
+        throwsArgumentError,
+      );
+      expect(r.commandDescriptor('orders.place'), isNull);
+    });
+
+    test('without it, a state is everyone\'s to read', () {
+      r.participant(orders, namespaces: {'orders'}).state(OrderState.last)
+        ..define()
+        ..read();
+      expect(r.stateDescriptor('orders.last')!.readers, isNull);
+    });
+  });
+
   test('its guards judge calls of its own commands only', () async {
     final p = ordersModule();
     p.addGuard('orders.no-o3', (c) => c.params['id'] == 'o3' ? 'no o3' : null);

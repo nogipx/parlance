@@ -97,6 +97,7 @@ void main() {
   Future<RemoteParticipant> join({
     Set<String> namespaces = const {'kittens'},
     SessionRights rights = SessionRights.none,
+    WordAccess access = WordAccess.none,
   }) {
     final (c, s) = RpcChannelTransport.memoryPair();
     final h = host = RpcPeerEndpoint(transport: s);
@@ -114,7 +115,7 @@ void main() {
       transportFactory: (_) async => c,
       shouldReconnect: (_) => false,
     );
-    return RemoteParticipant.join(link);
+    return RemoteParticipant.join(link, access: access);
   }
 
   setUp(() => r = Registry(overriders: {'user'}));
@@ -312,6 +313,17 @@ void main() {
     expect(r.commandDescriptor('kittens.lamp.turn'), isNull);
     expect(r.stateDescriptor('kittens.lamp'), isNull);
   });
+  test('its access by default goes with what it defines', () async {
+    final p = await join(
+      access: WordAccess(read: Callers.only(['plugin:kittens'])),
+    );
+    p.state(Lamp.on).define();
+    await p.flush();
+    expect(r.stateDescriptor('kittens.lamp')!.readers!.rules.keys, {
+      'plugin:kittens',
+    });
+  });
+
   test('a connection that gives up is told to its errors', () async {
     final p = await join();
     final errors = <ParticipantError>[];
