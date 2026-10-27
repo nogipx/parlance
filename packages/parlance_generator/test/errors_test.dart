@@ -63,8 +63,8 @@ $body
       'a query answers',
     ),
     'a type a word cannot carry': (
-      '@StateWord() Object get any;',
-      'Object is no type a word can carry',
+      '@StateWord() Set<int> get any;',
+      'Set<int> is no type a word can carry',
     ),
     'a bad name': (
       '@StateWord(name: "Big") int get big;',

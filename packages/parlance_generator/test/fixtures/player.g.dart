@@ -97,7 +97,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
           ),
         ),
         'repeat': Part(EnumShape(Repeat.values), defaultValue: 'off'),
-        'on': Part(Nullable<String>(Plain(RefType('speaker'))), optional: true),
+        'on': Part(Plain(RefType('speaker')), optional: true),
       },
       to: _$PlayerPlayTo,
       from: _$PlayerPlayFrom,
@@ -131,7 +131,7 @@ enum PlayerQuery<P, R> implements IQueryWord<P, R> {
     RecordShape<PlayerSearch>(
       {
         'text': Part(Plain(TextType(maxLength: 40))),
-        'limit': Part(Nullable<int>(Plain(IntType())), optional: true),
+        'limit': Part(Plain(IntType()), optional: true),
       },
       to: _$PlayerSearchTo,
       from: _$PlayerSearchFrom,

@@ -139,11 +139,8 @@
         },
         "on": {
           "type": {
-            "type": "nullable",
-            "of": {
-              "type": "ref",
-              "kind": "speaker"
-            }
+            "type": "ref",
+            "kind": "speaker"
           },
           "optional": true
         }
@@ -188,10 +185,7 @@
         },
         "limit": {
           "type": {
-            "type": "nullable",
-            "of": {
-              "type": "int"
-            }
+            "type": "int"
           },
           "optional": true
         }

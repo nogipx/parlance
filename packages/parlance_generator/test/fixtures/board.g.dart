@@ -1,0 +1,295 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'board.dart';
+
+// **************************************************************************
+// VocabularyGenerator
+// **************************************************************************
+
+/// The states of [Board].
+enum BoardState<T> implements IStateWord<T> {
+  notes<Note>('note', _$NoteShape, key: 'note'),
+  anything<Object?>('note.anything', Plain(AnyType()));
+
+  const BoardState(this.name, this.shape, {this.key});
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  final String? key;
+}
+
+/// The commands of [Board].
+enum BoardCommand<P, R> implements ICommandWord<P, R> {
+  put<BoardPut, ({String id})>(
+    'note.put',
+    RecordShape<BoardPut>(
+      {
+        'id': Part(
+          Plain(TextType()),
+          optional: true,
+          description: 'Its id; else a new one.',
+        ),
+        'note': Part(_$NoteShape),
+      },
+      to: _$BoardPutTo,
+      from: _$BoardPutFrom,
+    ),
+    _$BoardPutValueShape,
+  ),
+  expire<BoardExpire, void>(
+    'note.expire',
+    RecordShape<BoardExpire>(
+      {
+        'id': Part(Plain(RefType('note'))),
+        'in': Part(Plain(DurationType(max: 60000))),
+      },
+      to: _$BoardExpireTo,
+      from: _$BoardExpireFrom,
+    ),
+    null,
+  ),
+  pin<BoardPin, void>(
+    'note.pin',
+    RecordShape<BoardPin>(
+      {'ids': Part(ListShape(Plain(RefType('note')), maxItems: 3))},
+      to: _$BoardPinTo,
+      from: _$BoardPinFrom,
+    ),
+    null,
+  ),
+  count<BoardCount, void>(
+    'note.count',
+    RecordShape<BoardCount>(
+      {'readers': Part(Nullable<int>(Plain(IntType())))},
+      to: _$BoardCountTo,
+      from: _$BoardCountFrom,
+    ),
+    null,
+  );
+
+  const BoardCommand(this.name, this.params, this.returns);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  final Shape<R>? returns;
+}
+
+/// The facts of [Board].
+enum BoardFact<T> implements IFactWord<T> {
+  seen<Note>('note.seen', _$NoteShape);
+
+  const BoardFact(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+}
+
+/// The owner base of [Board]: it defines every word, keeps a
+/// writer of each state, says each fact by a method of its
+/// params, and serves each command and query by a handler to
+/// write (`call.inReply`: the cause of what it does in reply).
+abstract base class BoardOwner extends Owner {
+  @override
+  Iterable<IWord> get words => boardWords.words;
+
+  /// Writes note.
+  late final StateWriterOf<Note> notes;
+
+  /// Writes note.anything.
+  late final StateWriterOf<Object?> anything;
+  late final FactEmitterOf<Note> _seen;
+
+  @override
+  void define(IParticipant p) {
+    notes = keep(p.state(BoardState.notes).define());
+    anything = keep(p.state(BoardState.anything).define());
+    _seen = keep(p.fact(BoardFact.seen).define(open: true));
+    keep(p.command(BoardCommand.put).define(put));
+    keep(p.command(BoardCommand.expire).define(expire));
+    keep(p.command(BoardCommand.pin).define(pin));
+    keep(p.command(BoardCommand.count).define(count));
+    defineMore(p);
+  }
+
+  /// Says note.seen; [cause] as a write's.
+  void seen(Note note, {Cause? cause}) => _seen.emit(note, cause: cause);
+
+  /// What [Board] does not say: kinds, guards, words named at
+  /// run time. After its words are defined.
+  void defineMore(IParticipant p) {}
+
+  /// Serves note.put.
+  ({String id}) put(CommandCallOf<BoardPut> call);
+
+  /// Serves note.expire.
+  void expire(CommandCallOf<BoardExpire> call);
+
+  /// Serves note.pin.
+  void pin(CommandCallOf<BoardPin> call);
+
+  /// Serves note.count.
+  void count(CommandCallOf<BoardCount> call);
+}
+
+/// The words of [Board] as a consumer uses them, through a
+/// view: its participant, a `LocalView`, a `MirrorView`.
+final class BoardClient {
+  const BoardClient(this.view);
+
+  final IRegistryView view;
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+
+  /// note of [note] now.
+  Note? notesOf(String note) => view.state(BoardState.notes).read(key: note);
+
+  /// note of every note, by key.
+  Map<String?, Note> get notesAll => view.state(BoardState.notes).readAll();
+
+  /// note of [note] now, then on every change.
+  Stream<Note?> notesChanges(String note) =>
+      view.state(BoardState.notes).watch(key: note);
+
+  /// note.anything now.
+  Object? get anything => view.state(BoardState.anything).read();
+
+  /// note.anything now, then whenever it changes.
+  Stream<Object?> get anythingChanges =>
+      view.state(BoardState.anything).watch();
+
+  /// Calls note.put; a call not done throws [CallNotDone].
+  Future<({String id})> put({String? id, required Note note}) async {
+    final r = await view.command(BoardCommand.put).call((id: id, note: note));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Calls note.expire; a call not done throws [CallNotDone].
+  Future<void> expire({required String id, required int ms}) async {
+    final r = await view.command(BoardCommand.expire).call((id: id, ms: ms));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Calls note.pin; a call not done throws [CallNotDone].
+  Future<void> pin({required List<String> ids}) async {
+    final r = await view.command(BoardCommand.pin).call((ids: ids));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Calls note.count; a call not done throws [CallNotDone].
+  Future<void> count({required int? readers}) async {
+    final r = await view.command(BoardCommand.count).call((readers: readers));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// note.seen, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<Note>> get seen => view.fact(BoardFact.seen).stream;
+}
+
+/// The vocabulary of [Board]: its namespace and every word, for
+/// `main` to grant a participant (`vocabularies:`), for
+/// `Owner.words` and `schemaOf`.
+const boardWords = WordSet('note', [
+  ...BoardState.values,
+  ...BoardCommand.values,
+  ...BoardFact.values,
+]);
+
+const _$ActionShape = RecordShape<Action>(
+  {
+    'call': Part(Plain(TextType())),
+    'params': Part(MapShape(Plain(AnyType())), defaultValue: {}),
+  },
+  to: _$ActionTo,
+  from: _$ActionFrom,
+);
+
+Map<String, Object?> _$ActionTo(Action v) => {
+  'call': v.call,
+  'params': v.params,
+};
+
+Action _$ActionFrom(Map<String, Object?> m) => (
+  call: m['call']! as String,
+  params: (m['params'] as Map<String, Object?>?) ?? {},
+);
+
+const _$NoteShape = RecordShape<Note>(
+  {
+    'level': Part(EnumShape(Level.values)),
+    'text': Part(Plain(TextType(maxLength: 200)), description: 'What it says.'),
+    'tags': Part(ListShape(Plain(TextType())), defaultValue: []),
+    'by': Part(Plain(TextType()), optional: true),
+    'action': Part(_$ActionShape, optional: true),
+  },
+  to: _$NoteTo,
+  from: _$NoteFrom,
+);
+
+Map<String, Object?> _$NoteTo(Note v) => {
+  'level': v.level,
+  'text': v.text,
+  'tags': v.tags,
+  'by': v.author,
+  'action': v.action,
+};
+
+Note _$NoteFrom(Map<String, Object?> m) => (
+  level: m['level']! as Level,
+  text: m['text']! as String,
+  tags: (m['tags'] as List<String>?) ?? [],
+  author: m['by'] as String?,
+  action: m['action'] as Action?,
+);
+
+typedef BoardPut = ({String? id, Note note});
+
+Map<String, Object?> _$BoardPutTo(BoardPut p) => {'id': p.id, 'note': p.note};
+
+BoardPut _$BoardPutFrom(Map<String, Object?> m) =>
+    (id: m['id'] as String?, note: m['note']! as Note);
+
+const _$BoardPutValueShape = RecordShape<({String id})>(
+  {'id': Part(Plain(TextType()))},
+  to: _$BoardPutValueTo,
+  from: _$BoardPutValueFrom,
+);
+
+Map<String, Object?> _$BoardPutValueTo(({String id}) v) => {'id': v.id};
+
+({String id}) _$BoardPutValueFrom(Map<String, Object?> m) =>
+    (id: m['id']! as String);
+
+typedef BoardExpire = ({String id, int ms});
+
+Map<String, Object?> _$BoardExpireTo(BoardExpire p) => {'id': p.id, 'in': p.ms};
+
+BoardExpire _$BoardExpireFrom(Map<String, Object?> m) =>
+    (id: m['id']! as String, ms: m['in']! as int);
+
+typedef BoardPin = ({List<String> ids});
+
+Map<String, Object?> _$BoardPinTo(BoardPin p) => {'ids': p.ids};
+
+BoardPin _$BoardPinFrom(Map<String, Object?> m) =>
+    (ids: m['ids']! as List<String>);
+
+typedef BoardCount = ({int? readers});
+
+Map<String, Object?> _$BoardCountTo(BoardCount p) => {'readers': p.readers};
+
+BoardCount _$BoardCountFrom(Map<String, Object?> m) =>
+    (readers: m['readers'] as int?);

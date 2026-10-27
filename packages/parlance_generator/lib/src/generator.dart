@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/nullability_suffix.dart';
@@ -22,6 +23,10 @@ const _fact = TypeChecker.typeNamed(FactWord, inPackage: 'parlance');
 const _range = TypeChecker.typeNamed(Range, inPackage: 'parlance');
 const _length = TypeChecker.typeNamed(Length, inPackage: 'parlance');
 const _ref = TypeChecker.typeNamed(Ref, inPackage: 'parlance');
+const _describe = TypeChecker.typeNamed(Describe, inPackage: 'parlance');
+const _fieldName = TypeChecker.typeNamed(FieldName, inPackage: 'parlance');
+const _default = TypeChecker.typeNamed(Default, inPackage: 'parlance');
+const _millis = TypeChecker.typeNamed(Millis, inPackage: 'parlance');
 
 /// Makes the typed words (SPEC §18, §23) of a class marked `@Vocabulary`:
 /// an enum per kind of word it has, a record and its shape per params or
@@ -29,12 +34,31 @@ const _ref = TypeChecker.typeNamed(Ref, inPackage: 'parlance');
 final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
   const VocabularyGenerator();
 
+  /// Each vocabulary of the library: one library may say several (an index
+  /// of parts, `part 'scenes.dart'`), so what they share (a record's shape,
+  /// a class's `toJson`) is made once, in its one `.g.dart`.
   @override
-  FutureOr<String> generateForAnnotatedElement(
+  Future<String> generate(LibraryReader library, BuildStep buildStep) async {
+    final shared = _Shared();
+    return [
+      for (final a in library.annotatedWith(typeChecker))
+        await _generate(a.element, a.annotation, buildStep, shared),
+    ].join('\n\n');
+  }
+
+  @override
+  Future<String> generateForAnnotatedElement(
     Element element,
     ConstantReader annotation,
     BuildStep buildStep,
-  ) {
+  ) => _generate(element, annotation, buildStep, _Shared());
+
+  Future<String> _generate(
+    Element element,
+    ConstantReader annotation,
+    BuildStep buildStep,
+    _Shared shared,
+  ) async {
     if (element is! ClassElement || !element.isAbstract) {
       throw InvalidGenerationSourceError(
         '@Vocabulary goes on an abstract class',
@@ -53,9 +77,66 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
       namespace,
       owner: annotation.peek('owner')?.boolValue ?? true,
       client: annotation.peek('client')?.boolValue ?? true,
+      recordFields: await _recordFields(element, buildStep.resolver),
+      shared: shared,
     ).build();
     return DartFormatter(languageVersion: Version(3, 9, 0)).format(out);
   }
+}
+
+/// The annotations on the named fields of each record typedef the words
+/// of [cls] carry, by typedef and field: a record type keeps no metadata of
+/// its own, so they are read from the typedef's source.
+Future<Map<TypeAliasElement, Map<String, List<DartObject>>>> _recordFields(
+  ClassElement cls,
+  Resolver resolver,
+) async {
+  final out = <TypeAliasElement, Map<String, List<DartObject>>>{};
+  final seen = <DartType>{};
+  Future<void> visit(DartType t) async {
+    if (!seen.add(t)) return;
+    if (t is RecordType) {
+      if (t.alias?.element case final a? when !out.containsKey(a)) {
+        final fields = out[a] = {};
+        final node = await resolver.astNodeFor(a.firstFragment, resolve: true);
+        if (node case GenericTypeAlias(type: final RecordTypeAnnotation r)) {
+          for (final RecordTypeAnnotationNamedField f
+              in r.namedFields?.fields ?? const []) {
+            fields[f.name.lexeme] = [
+              for (final m in f.metadata)
+                ?m.elementAnnotation?.computeConstantValue(),
+            ];
+          }
+        }
+      }
+      for (final f in t.namedFields) {
+        await visit(f.type);
+      }
+    }
+    if (t is InterfaceType) {
+      for (final a in t.typeArguments) {
+        await visit(a);
+      }
+    }
+  }
+
+  for (final g in cls.getters) {
+    await visit(g.returnType);
+  }
+  for (final m in cls.methods) {
+    await visit(m.returnType);
+    for (final p in m.formalParameters) {
+      await visit(p.type);
+    }
+  }
+  return out;
+}
+
+/// What the vocabularies of one library make once: the shapes of records,
+/// by name, and the `toJson` tear-offs of classes.
+final class _Shared {
+  final Set<String> recordShapes = {};
+  final Set<String> jsonHelpers = {};
 }
 
 /// A word as the class says it.
@@ -125,9 +206,19 @@ final class _Emitter {
     this.namespace, {
     required this.owner,
     required this.client,
+    required this.recordFields,
+    required this.shared,
   });
 
+  final _Shared shared;
+
   final ClassElement cls;
+
+  /// The annotations on each record typedef's fields ([_recordFields]).
+  final Map<TypeAliasElement, Map<String, List<DartObject>>> recordFields;
+
+  /// The shapes of the records made so far, by name: each made once.
+  Set<String> get _recordShapes => shared.recordShapes;
   final String namespace;
   final bool owner;
   final bool client;
@@ -139,7 +230,7 @@ final class _Emitter {
 
   /// Code after the enums: records, their conversions, toJson tear-offs.
   final StringBuffer _helpers = StringBuffer();
-  final Set<String> _jsonHelpers = {};
+  Set<String> get _jsonHelpers => shared.jsonHelpers;
 
   String build() {
     final states = <_State>[];
@@ -221,6 +312,7 @@ final class _Emitter {
         if (r.peek('readers')?.objectValue case final o?) {
           f.options.add('readers: ${_callers(o)}');
         }
+        if (r.peek('open')?.boolValue ?? false) f.options.add('open: true');
         _meta(f, r);
         named(f);
         facts.add(f);
@@ -275,7 +367,8 @@ final class _Emitter {
 
   String _name(Element e, ConstantReader r) {
     final own = r.peek('name')?.stringValue ?? _snake(e.displayName);
-    final name = '$namespace.$own';
+    // '' is the namespace itself: `signal`, beside `signal.raise`.
+    final name = own.isEmpty ? namespace : '$namespace.$own';
     try {
       checkWordName(name);
     } on ArgumentError catch (x) {
@@ -449,8 +542,12 @@ final class _Emitter {
         element: m,
       );
     }
+    // Said by their names in JSON, as the params are.
+    String json(String dart) =>
+        _jsonName(ps.firstWhere((p) => p.displayName == dart));
     return 'Sets(${_quote(state.name)}, '
-        '${key == null ? '' : 'key: ${_quote(key)}, '}value: ${_quote(value)})';
+        '${key == null ? '' : 'key: ${_quote(json(key))}, '}'
+        'value: ${_quote(json(value))})';
   }
 
   /// `<Class>Client` (SPEC §23.5): the words as a consumer uses them, over
@@ -519,7 +616,7 @@ final class _Emitter {
           ..writeln()
           ..writeln('  /// ${st.name} of every ${st.key}, by key.')
           ..writeln(
-            '  Map<String?, $bare> get ${st.member}All =>'
+            '  Map<String?, ${st.type}> get ${st.member}All =>'
             ' view.state($word).readAll();',
           )
           ..writeln()
@@ -795,24 +892,34 @@ final class _Emitter {
     final from = <String>[];
     for (final p in ps) {
       final n = p.displayName;
+      final key = _jsonName(p);
       final type = _dart(p.type);
       fields.add('$type $n');
-      final shape = _shape(p.type, p, '${m.displayName}.$n');
       final nullable = p.type.nullabilitySuffix == NullabilitySuffix.question;
       final dflt = p.defaultValueCode;
-      final optional = nullable || dflt != null || !p.isRequired;
+      // One left out may be absent: its shape is the value's. A required
+      // one that may be null says null (SPEC §18).
+      final optional = dflt != null || !p.isRequired;
+      final shape = _shape(
+        optional && nullable ? _nonNull(p.type) : p.type,
+        p,
+        '${m.displayName}.$n',
+      );
       final args = [
         shape,
         if (optional && dflt == null) 'optional: true',
         if (dflt != null) 'defaultValue: ${_json(p)}',
+        if (_describeOf(_describe.firstAnnotationOf(p)) case final d?)
+          'description: $d',
       ];
-      parts.add("'$n': Part(${args.join(', ')})");
-      to.add("'$n': p.$n");
+      parts.add('${_quote(key)}: Part(${args.join(', ')})');
+      to.add('${_quote(key)}: p.$n');
       final bare = _dart(p.type).replaceFirst(RegExp(r'\?$'), '');
       from.add(switch ((nullable, dflt)) {
-        (_, final String d) => '$n: (m[\'$n\'] as $bare?) ?? $d',
-        (true, null) => '$n: m[\'$n\'] as $bare?',
-        (false, null) => '$n: m[\'$n\']! as $bare',
+        (_, final String d) => '$n: (m[${_quote(key)}] as $bare?) ?? $d',
+        (true, null) when bare == 'Object' => '$n: m[${_quote(key)}]',
+        (true, null) => '$n: m[${_quote(key)}] as $bare?',
+        (false, null) => '$n: m[${_quote(key)}]! as $bare',
       });
     }
     _helpers
@@ -850,24 +957,61 @@ final class _Emitter {
     if (v.toDoubleValue() case final d?) return '$d';
     if (v.toStringValue() case final s?) return _quote(s);
     if (v.isNull) return 'null';
+    if (v.toListValue() != null || v.toMapValue() != null) {
+      return 'const ${_constant(v, p)}';
+    }
     throw InvalidGenerationSourceError(
-      '${p.displayName}: a default here is a bool, a number, a text or an '
-      'enum value',
+      '${p.displayName}: a default here is a bool, a number, a text, an '
+      'enum value, or a list or a map of them',
       element: p,
     );
   }
 
+  /// The name [p] has in JSON: its `@FieldName`, else its own.
+  String _jsonName(FormalParameterElement p) =>
+      switch (_fieldName.firstAnnotationOf(p)) {
+        final a? => ConstantReader(a).read('name').stringValue,
+        null => p.displayName,
+      };
+
+  /// A `@Describe`'s text as code, if [a] is one.
+  String? _describeOf(DartObject? a) => switch (a) {
+    final a? => _quote(ConstantReader(a).read('text').stringValue),
+    null => null,
+  };
+
   /// The shape of [t] (SPEC §18), as code in a constant context; [on]
   /// carries its bounds.
-  String _shape(DartType t, Element on, String where, {bool bounded = true}) {
+  ///
+  /// [notes], when given, are the annotations in place of [on]'s: a record
+  /// field's, which has no element of its own.
+  String _shape(
+    DartType t,
+    Element on,
+    String where, {
+    bool bounded = true,
+    List<DartObject>? notes,
+  }) {
+    // Any value, null too.
+    if (t is DynamicType || (t is InterfaceType && t.isDartCoreObject)) {
+      return 'Plain(AnyType())';
+    }
     if (t.nullabilitySuffix == NullabilitySuffix.question) {
       final inner = _nonNull(t);
       return 'Nullable<${_dart(inner)}>('
-          '${_shape(inner, on, where, bounded: bounded)})';
+          '${_shape(inner, on, where, bounded: bounded, notes: notes)})';
     }
-    final range = bounded ? _range.firstAnnotationOf(on) : null;
-    final length = bounded ? _length.firstAnnotationOf(on) : null;
-    final ref = bounded ? _ref.firstAnnotationOf(on) : null;
+    DartObject? note(TypeChecker c) => !bounded
+        ? null
+        : notes == null
+        ? c.firstAnnotationOf(on)
+        : notes
+              .where((o) => o.type != null && c.isExactlyType(o.type!))
+              .firstOrNull;
+    final range = note(_range);
+    final length = note(_length);
+    final ref = note(_ref);
+    final millis = note(_millis);
     final max = length == null
         ? null
         : _code(
@@ -889,6 +1033,10 @@ final class _Emitter {
     }
 
     if (t.isDartCoreBool) return 'Plain(BoolType())';
+    if (t.isDartCoreInt && millis != null) {
+      final max = ConstantReader(millis).peek('max');
+      return 'Plain(DurationType(${max == null ? '' : 'max: ${_code(max.objectValue, '${max.intValue}')}'}))';
+    }
     if (t.isDartCoreInt) return 'Plain(${bounds('IntType')})';
     if (t.isDartCoreDouble) {
       throw InvalidGenerationSourceError(
@@ -908,12 +1056,16 @@ final class _Emitter {
     if (t is InterfaceType && t.element is EnumElement) {
       return 'EnumShape(${t.element.displayName}.values)';
     }
+    if (t is RecordType) return _recordShape(t, on, where);
     if (t is InterfaceType && t.isDartCoreList) {
+      // `@Ref` on a list names its items' kind; its other bounds are
+      // the list's.
       final item = _shape(
         t.typeArguments.single,
         on,
         '$where[]',
-        bounded: false,
+        bounded: ref != null,
+        notes: ref == null ? null : [ref],
       );
       return 'ListShape($item${max == null ? '' : ', maxItems: $max'})';
     }
@@ -945,10 +1097,95 @@ final class _Emitter {
     }
     throw InvalidGenerationSourceError(
       '$where: ${t.getDisplayString()} is no type a word can carry: a bool, '
-      'a number, a text, an enum, a list, a map by text, or a class with '
-      'fromJson and toJson (json_serializable, freezed)',
+      'a number, a text, an enum, a list, a map by text, a record of named '
+      'fields, or a class with fromJson and toJson (json_serializable, '
+      'freezed)',
       element: on,
     );
+  }
+
+  /// The shape of record [t], of named fields: a constant made once, named
+  /// after its typedef. Its fields say what a parameter would, by the
+  /// annotations on them in the typedef ([recordFields]): `@Describe`,
+  /// `@FieldName`, `@Default`, bounds. A nullable field may be left out.
+  String _recordShape(RecordType t, Element on, String where) {
+    if (t.positionalFields.isNotEmpty) {
+      throw InvalidGenerationSourceError(
+        '$where: a record a word carries has named fields only',
+        element: on,
+      );
+    }
+    final alias = t.alias?.element;
+    // Unnamed, it is named after where it is, apart from the params'.
+    final name =
+        alias?.displayName ??
+        '$_c${where.split(RegExp('[^A-Za-z0-9]')).map(_pascal).join()}Value';
+    final shape = '_\$${name}Shape';
+    if (!_recordShapes.add(name)) return shape;
+    final type = _dart(t);
+    final notesOf = alias == null ? null : recordFields[alias];
+    final parts = <String>[];
+    final to = <String>[];
+    final from = <String>[];
+    // In the order the typedef says them: the analyzer sorts them by name.
+    final byName = {for (final f in t.namedFields) f.name: f};
+    for (final f in [
+      for (final n in notesOf?.keys ?? const <String>[]) ?byName[n],
+      for (final f in t.namedFields)
+        if (!(notesOf?.containsKey(f.name) ?? false)) f,
+    ]) {
+      final n = f.name;
+      final notes = notesOf?[n] ?? const [];
+      DartObject? note(TypeChecker c) => notes
+          .where((o) => o.type != null && c.isExactlyType(o.type!))
+          .firstOrNull;
+      final key = switch (note(_fieldName)) {
+        final a? => ConstantReader(a).read('name').stringValue,
+        null => n,
+      };
+      final nullable = f.type.nullabilitySuffix == NullabilitySuffix.question;
+      final dflt = switch (note(_default)) {
+        final a? => ConstantReader(a).read('value').objectValue,
+        null => null,
+      };
+      final optional = nullable || dflt != null;
+      final args = [
+        _shape(
+          nullable ? _nonNull(f.type) : f.type,
+          on,
+          '$where.$n',
+          notes: notes,
+        ),
+        if (optional && dflt == null) 'optional: true',
+        if (dflt != null) 'defaultValue: ${_constant(dflt, on)}',
+        if (_describeOf(note(_describe)) case final d?) 'description: $d',
+      ];
+      parts.add('${_quote(key)}: Part(${args.join(', ')})');
+      to.add('${_quote(key)}: v.$n');
+      final bare = _dart(f.type).replaceFirst(RegExp(r'\?$'), '');
+      from.add(switch ((nullable, dflt)) {
+        (_, final DartObject d) =>
+          '$n: (m[${_quote(key)}] as $bare?) ?? ${_constant(d, on)}',
+        (true, null) when bare == 'Object' => '$n: m[${_quote(key)}]',
+        (true, null) => '$n: m[${_quote(key)}] as $bare?',
+        (false, null) => '$n: m[${_quote(key)}]! as $bare',
+      });
+    }
+    _helpers
+      ..writeln()
+      ..writeln(
+        'const $shape = RecordShape<$type>({${parts.join(', ')}}, '
+        'to: _\$${name}To, from: _\$${name}From);',
+      )
+      ..writeln()
+      ..writeln(
+        'Map<String, Object?> _\$${name}To($type v) => {${to.join(', ')}};',
+      )
+      ..writeln()
+      ..writeln(
+        '$type _\$${name}From(Map<String, Object?> m) => (${from.join(', ')});',
+      );
+    return shape;
   }
 
   /// The value type of [t], for a JSON class's fields (SPEC §2): what
@@ -1126,7 +1363,19 @@ enum ${_c}Fact<T> implements IFactWord<T> {
       ? t.typeArguments.single
       : t;
 
-  String _dart(DartType t) => t.getDisplayString();
+  /// [t] as code: a typedef by its name (`ChatLine`, `List<ChatLine>`).
+  String _dart(DartType t) {
+    final q = t.nullabilitySuffix == NullabilitySuffix.question ? '?' : '';
+    String args(List<DartType> ts) =>
+        ts.isEmpty ? '' : '<${ts.map(_dart).join(', ')}>';
+    if (t.alias case final a?) {
+      return '${a.element.displayName}${args(a.typeArguments)}$q';
+    }
+    if (t is InterfaceType && t.typeArguments.isNotEmpty) {
+      return '${t.element.displayName}${args(t.typeArguments)}$q';
+    }
+    return t.getDisplayString();
+  }
 }
 
 String _snake(String s) => s
