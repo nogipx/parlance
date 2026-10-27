@@ -179,7 +179,7 @@ Future<void> main() async {
 
   section('An agent over MCP');
   final tools = await parlanceTools(
-    LocalBoard(registry, by: Who.agent('demo')),
+    registry.participant(Who.agent('demo')),
     commandTools: true,
   );
   print('  its tools: ${[for (final t in tools) t.name].join(', ')}');
@@ -203,10 +203,8 @@ final class Phone {
     final (c, s) = RpcChannelTransport.memoryPair();
     // The host decides who the connection is, when it accepts it.
     final host = RpcPeerEndpoint(transport: s);
-    final session = RegistryResponder(host, registry, principal: principal);
-    host
-      ..registerServiceContract(session)
-      ..start();
+    final session = registry.participant(principal).serve(host);
+    host.start();
     // In memory the connection does not come back once lost; over a socket
     // the factory would dial again, and the phone would join again.
     final connection = RpcClientConnection(
@@ -219,7 +217,7 @@ final class Phone {
 
   final RemoteParticipant part;
   final RpcClientConnection _connection;
-  final RegistryResponder _session;
+  final RemoteSession _session;
   final RpcPeerEndpoint _host;
 
   Future<void> close() async {

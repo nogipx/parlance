@@ -21,10 +21,8 @@ Future<void> main() async {
   // The host's end: a session that acts for the phone and nobody else.
   final (phoneEnd, hostEnd) = RpcChannelTransport.memoryPair();
   final host = RpcPeerEndpoint(transport: hostEnd);
-  final session = RegistryResponder(host, r, principal: Who.phone);
-  host
-    ..registerServiceContract(session)
-    ..start();
+  final session = r.participant(Who.phone).serve(host);
+  host.start();
 
   // The phone's end: it joins over a connection. In memory one that does
   // not come back once lost; over a socket the factory would dial again,

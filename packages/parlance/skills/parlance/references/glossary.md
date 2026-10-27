@@ -37,7 +37,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **State** (§6.1): something that is so now; read, watched, written by one writer.
 - **Keyed state** (§6.1): one value per key (`audio.gain[mic]`); an unkeyed state holds one value.
 - **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`RawStateWriter`, typed `StateWriterOf<T>`).
-- **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and the MCP board; none means everyone. Code in the registry's process reads everything. `mayRead`, and `unreadable` in `describeFor`.
+- **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and to agents; none means everyone. Code in the registry's process reads everything. `mayRead`, and `unreadable` in `describeFor`.
 - **Command** (§6.2): something that can be asked: params, an optional answer (`returns`), exactly one handler.
 - **Handler** (§6.2): the code that runs a command; gets the call (`CommandCall`, typed `CommandCallOf<P>`).
 - **Callers** (§6.2): selectors with `allow`, `warn` or `deny`; who matches none is denied.
@@ -98,6 +98,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Owner**: who defines words and does their work. `define(r)` defines them through typed words and `keep`s each handle; `sync()` writes the states as its devices or ports have them now; `dispose()` withdraws them, the last kept first.
 - **Attaching owners**: `p.attach({name: owner})`, each to the part of its name; the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
 - **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.
+- **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`) and what happened read back (`written`, `said`, `callsOf`).
+- **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
 - **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(namespace)`; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **Handles**: the set of handles an owner keeps, withdrawn together.
@@ -108,16 +110,14 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Remote (§14)
 
-- **Session**: one connection with one principal, fixed by the host when it accepts it (`RegistryResponder`, one per connection). Its words go with it.
-- **`RegistryResponder`**: the registry's side of a session.
-- **`ParlanceClient`**: the participant's side: `describe`, `feed`, `subscribe`, `call`, `why`, `recent`, `define`, `set`, `emit`.
-- **`SessionRights`**: what a session may own besides calling: `define` (which words), `produce` (which open facts), `speakFor` (on whose behalf it says a fact).
-- **Remote owner** (`RemoteOwner`, `ParlanceOwner`): a participant that owns words; the registry calls its commands over the same connection.
+- **Session**: one connection with one principal, fixed by the host when it accepts it: a participant the host made and serves on it (`participant.serve(endpoint)`, a `RemoteSession`, one per connection). Its words go with it.
+- **`RemoteSession`**: the registry's side of a session: `hears`, `close`.
+- **Remote participant** (`RemoteParticipant`): a part across a connection, the only way across; the registry calls its commands over the same connection.
 - **Parent** (§14): the call a session is serving, or a fact the registry keeps, that what it does follows from.
 - **Subscription**: the states and facts a session's feeds carry (`subscribe`); a tick with none of them is not sent, without leaving a gap. `values` items bring what a new subscription adds.
 - **`hears`**: whether a session's feeds carry a fact matching a test: what the host knows a participant learns.
 - **Protocol**: the remote protocol's version, told by `describe`.
-- **Mirror** (`RegistryMirror`): a participant's copy of the states, from the feed; resumes after a lost connection, back to a snapshot after a gap.
+- **Mirror**: a remote participant's copy of the states it follows, from the feed; resumes after a lost connection, back to a snapshot after a gap. The package's own.
 - **Synced**: whether a mirror follows the registry now.
 - **`reach(epoch, seq)`**: waits until a mirror has a call's seq, so a read after a call reads its effect.
 
@@ -125,16 +125,15 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **IRegistryView**: what a screen reads and calls: values now, told when the states it draws change (`changes`), facts said from now on, `recent`, calls on behalf of one principal, `synced`.
 - **LocalView**: a view of a registry in the same process, as one principal.
-- **MirrorView**: a view over a mirror and a client; subscribes the mirror to what its listeners ask for.
+- **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on.
 
 ## Agents (§16)
 
-- **IBoard**: what the MCP tools need of a registry: `LocalBoard` in the host's process, `RemoteBoard` over remote.
-- **`BoardOffline`**, **`BoardBehind`**: a remote board cannot reach the registry, or has not caught up with its last call.
+- **Agent**: a participant the MCP tools work on, here or across a connection.
 - **`parlanceTools`**: the curated tools: `describe`, `read`, `call`, `recent_facts`, `why`; with `commandTools`, a tool per command too.
 - **`McpTool.typed`**: a host's own tool, its JSON Schema derived from a `RecordShape`.
 - **`McpSocketServer`**: agents on a Unix socket (`mcp_io.dart`); `toolsChanged()` reaches every session.
-- **`parlance-mcp`**: the board over remote as a stdio server.
+- **`parlance-mcp`**: an agent's participant across a connection as a stdio server.
 - **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `namespaces`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
 - **Namespace** (§22.1): the first words of the names a participant may define (`orders` for `orders.cancel`); one live participant's alone.
 - **Participant rights** (§22.2): `define` (a further check on its words), `produce` (open facts of others), `speakFor` (facts on someone's behalf).

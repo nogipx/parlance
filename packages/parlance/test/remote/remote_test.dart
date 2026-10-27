@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/src/remote/remote.dart';
+import 'package:parlance/src/remote/contract.dart';
 import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
@@ -16,22 +18,16 @@ final class Link {
     Principal principal, {
     required bool wire,
     Iterable<WordSet> vocabularies = const [],
-    SessionRights rights = SessionRights.none,
+    ParticipantRights rights = ParticipantRights.none,
   }) {
     final (c, s) = wire
         ? RpcChannelTransport.pair()
         : RpcChannelTransport.memoryPair();
     final responder = RpcPeerEndpoint(transport: s);
-    final session = RegistryResponder(
-      responder,
-      r,
-      principal: principal,
-      vocabularies: vocabularies,
-      rights: rights,
-    );
-    responder
-      ..registerServiceContract(session)
-      ..start();
+    final session = r
+        .participant(principal, vocabularies: vocabularies, rights: rights)
+        .serve(responder);
+    responder.start();
     final caller = RpcPeerEndpoint(transport: c)..start();
     return Link._(ParlanceClient(caller), session, caller, [
       caller.close,
@@ -40,7 +36,7 @@ final class Link {
   }
 
   final ParlanceClient client;
-  final RegistryResponder session;
+  final RemoteSession session;
 
   /// The participant's side of the connection.
   final RpcPeerEndpoint endpoint;
@@ -566,7 +562,7 @@ void main() {
         const plugin = Principal('plugin', 'kittens');
         // The host's rights: words under its id, open facts it produces,
         // a viewer it speaks for.
-        final rights = SessionRights(
+        final rights = ParticipantRights(
           produce: (p, fact) => fact == 'platform.follow' ? null : 'not $fact',
           speakFor: (p, by, fact) => by.kind == 'viewer' ? null : 'not $by',
         );

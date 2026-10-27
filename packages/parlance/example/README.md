@@ -35,6 +35,6 @@ What the tour shows:
 4. **By hand.** A switch flipped by hand, not through a command: the owner said where its devices' changes come from (`changes`), so it is synced on its own and nobody calls `sync()` on its participant.
 5. **A scope.** A visit is a participant with its owner, made when guests come: its words are `ready` meanwhile; it hears the doorbell and keeps who is in; disposed when they leave, its words go, and a guest's view sees `visit.guests` missing.
 6. **A phone that joins over remote.** The house opens a session for the phone and says who it is; the phone joins it as a `RemoteParticipant` over an `RpcClientConnection` (in memory here, one that does not come back). It uses the house through `HouseClient(phone)`: it watches the states it reads (`heatChanges`), calls `setHeat(target: 22)` and reads what the call wrote as soon as the call answers; a call refused (40 °C, above the word's bound) throws `CallNotDone` with why.
-7. **An agent over MCP.** Its tools come from `parlanceTools` over a `LocalBoard`: the curated ones, plus one per command it may call.
+7. **An agent over MCP.** Its tools come from `parlanceTools` over the agent's participant (`registry.participant(agent)`): the curated ones, plus one per command it may call.
 
 `test/example_test.dart` runs the tour and holds it to what it prints.

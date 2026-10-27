@@ -101,6 +101,19 @@ final class WordAccess {
 /// registry itself, so what its words' callers and readers say holds for
 /// it.
 abstract interface class IParticipant implements IRegistryView, IHandle {
+  /// The catalog as it sees it (SPEC §22): the words, what it may call and
+  /// read, what cannot run now; what an agent or an editor shows of it.
+  Future<Map<String, Object?>> describe();
+
+  /// Why [state] (of [key]) is as it is (SPEC §9): its value, its last
+  /// change, the calls that led to it. Refused ([NotPermitted]) when it may
+  /// not read it; counted as its use of the word (§6.8).
+  Future<Explanation> explain(String state, {String? key});
+
+  /// Told when the catalog it sees changes: a word came or went, a kind's
+  /// entities changed.
+  Stream<void> get catalogChanges;
+
   /// Who it speaks as.
   Principal get who;
 

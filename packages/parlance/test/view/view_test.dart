@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
 import 'package:parlance/view.dart';
+import 'package:parlance/src/remote/remote.dart';
+import 'package:parlance/src/view/mirror_view.dart';
 import 'package:test/test.dart';
 
 import '../registry/fixture.dart';

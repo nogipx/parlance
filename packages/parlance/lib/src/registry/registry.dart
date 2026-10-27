@@ -303,6 +303,28 @@ final class _FactEntry {
   final Signal<Object?> signal;
 }
 
+final class _Use {
+  _Use(this.by, this._clock);
+  final Principal by;
+  final Clock _clock;
+  int calls = 0;
+  int reads = 0;
+  int listening = 0;
+  DateTime? last;
+
+  void seen() => last = _clock.now();
+  void called() => calls++;
+  void read() => reads++;
+
+  WordUse snapshot() => WordUse(
+    by: by,
+    calls: calls,
+    reads: reads,
+    listening: listening,
+    last: last!,
+  );
+}
+
 final class _Guard {
   _Guard(this.id, this.check, this.overridable) : ask = null, timeout = null;
   _Guard.asked(this.id, this.ask, this.overridable, this.timeout)
@@ -325,6 +347,7 @@ final class Registry implements ITypeContext {
     this.dedupWindow = const Duration(minutes: 10),
     this.retainTicks = 1000,
     this.recentPerFact = 100,
+    this.usersPerWord = 64,
     this.retainBytes = 4 << 20,
     Set<String> overriders = const {},
     Clock? clock,
@@ -353,6 +376,11 @@ final class Registry implements ITypeContext {
 
   /// How many facts of each name [recent] keeps.
   final int recentPerFact;
+
+  /// How many principals [usesOf] tells apart for one word; past them a
+  /// use is counted under the principal's kind alone (`guest`), so many
+  /// guests do not grow it, and no use goes unseen.
+  final int usersPerWord;
 
   /// About how many bytes of values each history keeps: the retained ticks,
   /// the call records, the recent facts of each name. Whichever bound comes
@@ -1063,6 +1091,53 @@ final class Registry implements ITypeContext {
     }
   }
 
+  // --- Use -------------------------------------------------------------------
+
+  final Map<String, Map<Principal, _Use>> _uses = {};
+
+  /// The record of [by]'s use of [name], a word there is or an old name of
+  /// one; null for any other name, so a peer's made-up names keep nothing.
+  _Use? _used(String name, Principal by) {
+    final word = canonical(name);
+    if (_states[word] == null &&
+        _commands[word] == null &&
+        _facts[word] == null) {
+      return null;
+    }
+    final users = _uses.putIfAbsent(name, () => {});
+    final who = users.containsKey(by) || users.length < usersPerWord
+        ? by
+        : Principal(by.kind);
+    return (users[who] ??= _Use(who, clock))..seen();
+  }
+
+  /// [by] read [word] once, from outside the build: a session's read of a
+  /// fact's recent ones or a state's why, an agent's read (SPEC §6.8).
+  /// Calls and asks are counted by the registry itself.
+  void usedBy(String word, Principal by) => _used(word, by)?.read();
+
+  /// [by] listens to [word] until the handle is disposed: a session's
+  /// subscription (SPEC §6.8).
+  IHandle listenedBy(String word, Principal by) {
+    final use = _used(word, by);
+    if (use == null) return _Disposer(() {});
+    use.listening++;
+    return _Disposer(() => use.listening--);
+  }
+
+  /// Who used [name] (a word, or an old name of one), as it was named:
+  /// calls and asks, reads and listeners from outside the build (SPEC
+  /// §6.8). What the app's own modules read and watch in this process is
+  /// not counted: the compiler knows it.
+  List<WordUse> usesOf(String name) => [
+    for (final u in (_uses[name] ?? const {}).values) u.snapshot(),
+  ];
+
+  /// Every name used, and by whom (SPEC §6.8).
+  Map<String, List<WordUse>> get usage => {
+    for (final name in _uses.keys) name: usesOf(name),
+  };
+
   // --- Calls -----------------------------------------------------------------
 
   final LinkedHashMap<String, _Seen> _calls = LinkedHashMap();
@@ -1164,7 +1239,9 @@ final class Registry implements ITypeContext {
     bool override = false,
     Cause? cause,
   }) {
+    final asked = command;
     command = canonical(command);
+    if (_commands.containsKey(command)) _used(asked, by)?.called();
     final callId = id ?? newId();
     final query = _commands[command]?.query ?? false;
     // A query may ask another; a command it may not call.

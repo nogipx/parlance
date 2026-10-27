@@ -7,6 +7,7 @@
 library;
 
 import 'package:parlance/mcp.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 
 import 'player.dart';
@@ -19,7 +20,7 @@ Future<void> main() async {
   // The curated tools, and with commandTools each command the agent may
   // call as a tool of its own, its schema made from the word.
   final tools = await parlanceTools(
-    LocalBoard(r, by: Who.agent),
+    r.participant(Who.agent),
     commandTools: true,
   );
   print('  its tools: ${[for (final t in tools) t.name].join(', ')}');
@@ -35,7 +36,7 @@ Future<void> main() async {
 
   // A guest's agent gets no tool for a command its guest may not call.
   final guestTools = await parlanceTools(
-    LocalBoard(r, by: Who.guest),
+    r.participant(Who.guest),
     commandTools: true,
   );
   print(

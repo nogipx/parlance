@@ -1,9 +1,9 @@
-/// The registry over rpc_dart (SPEC §14): a session per remote participant,
-/// a typed client and a mirror that resumes the feed after a lost
-/// connection.
+/// The registry over rpc_dart (SPEC §14): the host serves a participant
+/// across a connection (`participant.serve(endpoint)`, a [RemoteSession]),
+/// and the part at the other end is a participant there too
+/// ([RemoteParticipant]), the same `IParticipant` as in the host's
+/// process. The wire, its client and the mirror are the package's.
 library;
 
-export 'src/remote/contract.dart';
-export 'src/remote/participant.dart';
-export 'src/remote/remote.dart';
-export 'src/remote/typed.dart';
+export 'src/remote/participant.dart' show ParticipantError, RemoteParticipant;
+export 'src/remote/remote.dart' show RemoteSession, ServeParticipant;

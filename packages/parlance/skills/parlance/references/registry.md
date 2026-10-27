@@ -74,7 +74,7 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 ```
 
 - A state has exactly one writer: whoever defined it holds the only write handle.
-- `readers` say who may read its values over remote and the MCP board, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
+- `readers` say who may read its values over remote and to agents, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.
 - Removing a key or the whole state is a change like any other.
@@ -102,7 +102,7 @@ CommandDescriptor {
 FactDescriptor { name, type, open: bool, readers: { selector: allow | deny }?, meta }
 ```
 
-- `readers` say who may hear it over remote and the MCP board, as a state's (§6.1).
+- `readers` say who may hear it over remote and to agents, as a state's (§6.1).
 - The definer holds an emit handle. When `open`, the host may hand more emit handles for the same fact to other producers (the chat of several platforms).
 - A fact has an id. A fact whose id was already seen within the dedup window is dropped: producers may retry.
 - One id is one message, of whatever kind: a cause's `parent` and `recentFact(id)` find the message by it. A random id (§5) is that by itself. A sender that gives its own ids keeps them apart; the registry drops a repeat only among facts (and among calls, §9), never a call and a fact of one id. One event said as two facts (two versions of a word) takes an id per fact, each stable across retries (`<id>` and `<id>:v1`), and one cause.
@@ -158,6 +158,15 @@ A **query** only answers: a search, a page, a snapshot by params that no state h
 ### 6.7 What a part says of itself
 
 Removed: what a part owns, the registry knows from what it defined; what it needs of others, it asks by the word's status (§6.5), when it needs it.
+
+### 6.8 Who uses a word
+
+Words are a public API (§17), and inside one build the compiler knows who uses each. What it does not see are the users outside the build: remote participants, plugins, agents, a phone. The registry counts them, so a team knows when an old word (an old version, an old name) is no longer used and can go.
+
+- **What counts.** A call or an ask, by anyone (refused too: the caller depends on the word). A session's subscription (its mirror's listeners), while it lasts. A read from outside the build: a session's `recent` or `why`, an agent's read, `why` or recent facts through the board. What the app's own modules read and watch in this process is not counted: the compiler knows it, and it would cost every read.
+- **As it was named.** A use of an old name (§6.4) is counted under that name, so `usesOf('audio.silence')` says who has not moved to the new one.
+- **Bounded.** Only a name there is a word of (or an old name of one) is counted, so a peer's made-up names keep nothing; for one word at most `usersPerWord` (64) principals are told apart, the rest counted under their kind alone (`viewer`).
+- `usesOf(name)` and `usage` answer, per principal, `WordUse { by, calls, reads, listening (now), last }`. A use is never forgotten while the registry lives; outliving it (a count over weeks, from every host) is the host's to store. A subscription to a word not there yet counts once the session subscribes again with the word there.
 
 ## 7. Ticks
 
@@ -225,7 +234,7 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 ```
 
 - Without `since`, or with another epoch, or with a seq older than the retained ticks: first a **snapshot** (every state value, the catalog, the epoch and seq), then live ticks. A snapshot after a gap says `factsLost: true`.
-- With a seq still retained: the retained ticks after it, then live ticks, with no gap and no repeat.
+- With a seq still retained: the retained ticks after it, then live ticks, with no gap and no repeat. What each kind of message is promised across a drop: §14.1.
 - The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)`, the call records as many as ticks; each of these histories also keeps no more than about `retainBytes` (default 4 MB) of values, weighed roughly as their JSON. Whichever bound comes first drops the oldest, but the newest of each history is kept however big, so a big value rewritten often is not held in every version. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
 
 ## 17. Versions

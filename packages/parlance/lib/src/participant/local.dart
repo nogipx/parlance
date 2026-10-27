@@ -60,6 +60,29 @@ bool _overlap(String a, String b) =>
 
 /// A participant of a registry in this process: the registry as [who] may
 /// use it.
+/// The registry [p] speaks to: the package's own, for a session that
+/// serves [p] across a connection (`serve`); not exported, so a part given
+/// a participant never holds the registry.
+Registry registryOf(LocalParticipant p) => p._r;
+
+/// Takes [p] for a session to serve (`serve`): one participant, one
+/// session, and only a new one, so the session owns all it has. Refused
+/// for one served already, or one that did anything here: its words,
+/// guards, kinds, owners or parts would go with the session. Not exported.
+void takeForServing(LocalParticipant p) {
+  p._live();
+  if (p._served) throw StateError('${p.who} is served already');
+  if (p._handles.isNotEmpty ||
+      p._children.isNotEmpty ||
+      p._group.owners.isNotEmpty) {
+    throw StateError(
+      '${p.who} did things in this process: serve a participant made for '
+      'the session',
+    );
+  }
+  p._served = true;
+}
+
 final class LocalParticipant implements IParticipant {
   LocalParticipant._(
     this._r,
@@ -99,6 +122,7 @@ final class LocalParticipant implements IParticipant {
   /// The kinds it registered.
   final Set<String> _kinds = {};
   bool _disposed = false;
+  bool _served = false;
 
   @override
   Clock get clock => _r.clock;
@@ -170,6 +194,22 @@ final class LocalParticipant implements IParticipant {
 
   @override
   Map<String?, Object?> readAll(String state) => _view.readAll(state);
+
+  @override
+  Future<Map<String?, Object?>> fetch(String state) => _view.fetch(state);
+
+  @override
+  Future<Map<String, Object?>> describe() async => _r.describeFor(who);
+
+  @override
+  Future<Explanation> explain(String state, {String? key}) async {
+    if (!_r.mayRead(who, state)) throw NotPermitted('$who may not read $state');
+    _r.usedBy(state, who);
+    return _r.explain(state, key: key);
+  }
+
+  @override
+  Stream<void> get catalogChanges => _r.catalogChanges.map((_) {});
 
   @override
   Stream<Object?> watch(String state, {String? key}) =>

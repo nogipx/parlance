@@ -25,6 +25,16 @@ final class MirrorView implements IRegistryView {
   @override
   Map<String?, Object?> readAll(String state) => mirror.readAll(state);
 
+  /// What it keeps for [fetch], as long as it lives.
+  final Set<String> _fetched = {};
+
+  @override
+  Future<Map<String?, Object?>> fetch(String state) async {
+    if (_fetched.add(state)) _want(_states, {state}, 1);
+    await settled;
+    return mirror.readAll(state);
+  }
+
   @override
   Stream<void> changes(Set<String> states) {
     late StreamController<void> out;

@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_socket/rpc_dart_socket.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
@@ -23,13 +24,12 @@ void main() {
       final dir = Directory.systemTemp.createTempSync('sbmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
       final path = '${dir.path}/r.sock';
-      final sessions = <RegistryResponder>[];
+      final sessions = <RemoteSession>[];
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
         mode: RpcPeerMode((endpoint) {
-          final s = RegistryResponder(endpoint, f.r, principal: agent);
+          final s = f.r.participant(agent).serve(endpoint);
           sessions.add(s);
-          endpoint.registerServiceContract(s);
         }),
       );
       await server.start();

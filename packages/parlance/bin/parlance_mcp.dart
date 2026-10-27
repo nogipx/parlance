@@ -57,15 +57,11 @@ Future<void> main(List<String> args) async {
     transportFactory: (cancel) =>
         connectRpcSocket(address, cancellationToken: cancel),
   );
-  connection.connect();
-  final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
-  final client = ParlanceClient(endpoint);
-  final mirror = RegistryMirror()..follow(client);
-  // The feed ends when the host goes; follow it again until it is back.
-  final refollow = Timer.periodic(const Duration(seconds: 2), (_) {
-    if (!mirror.synced) mirror.follow(client);
-  });
-  final board = RemoteBoard(client, mirror);
+  // The agent is a participant of the host's: it joins, and joins again
+  // whenever the host is back.
+  final joining = RemoteParticipant.join(connection);
+  RemoteParticipant? joined;
+  StreamSubscription<void>? changes;
 
   late final McpSession session;
   session = McpSession(
@@ -76,24 +72,27 @@ Future<void> main(List<String> args) async {
     log: stderr.writeln,
     tools: () async {
       try {
-        return await parlanceTools(board, commandTools: commandTools);
+        final p = await joining.timeout(const Duration(seconds: 5));
+        return await parlanceTools(p, commandTools: commandTools);
       } on Object catch (e) {
         stderr.writeln('parlance-mcp: the host is not reachable: $e');
         return const [];
       }
     },
   );
-  final changes = board.catalogChanges.listen((_) => session.toolsChanged());
+  unawaited(
+    joining.then((p) {
+      joined = p;
+      changes = p.catalogChanges.listen((_) => session.toolsChanged());
+    }, onError: (Object e) => stderr.writeln('parlance-mcp: $e')),
+  );
 
   await session.done;
-  refollow.cancel();
-  await changes.cancel();
-  await mirror.dispose();
-  await endpoint.close();
+  await changes?.cancel();
+  await joined?.close();
   await connection.dispose();
 }
 
-/// `unix:/path` or `tcp://host:port`; null for anything else.
 RpcSocketAddress? parseAddress(String s) {
   if (s.startsWith('unix:')) return RpcSocketAddress.unix(s.substring(5));
   final tcp = RegExp(r'^tcp://([^:]+):(\d+)$').firstMatch(s);

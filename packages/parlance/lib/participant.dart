@@ -9,6 +9,6 @@
 /// owners.md (§19).
 library;
 
-export 'src/participant/local.dart';
+export 'src/participant/local.dart' hide registryOf, takeForServing;
 export 'src/participant/owner.dart' hide OwnerGroup;
 export 'src/participant/participant.dart';

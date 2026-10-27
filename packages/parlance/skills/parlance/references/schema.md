@@ -46,7 +46,7 @@ abstract class Player {
 
 - An enum per kind the class has: `<Class>State`, `<Class>Command`, `<Class>Query`, `<Class>Fact`, each value the member's name, implementing `IStateWord`, `ICommandWord`, `IQueryWord`, `IFactWord`.
 - A record per params or payload, `<Class><Member>` (`PlayerSetVolume = ({int volume})`), and its `RecordShape`.
-- `<class>Words`, the vocabulary (`WordSet`: its namespace and every word): what `main` grants a participant, `registry.participant(who, vocabularies: [playerWords])` (or `RegistryResponder(vocabularies:)`), so the namespace is written once, in `@Vocabulary`, never again as a string; each word is checked to lie in it. Words named at run time are defined in the vocabulary's namespace (`defineMore`); a participant whose words all come at run time gets `WordSet.open(namespace)`. Also for `Owner.words` (§19.1) and `schemaOf`.
+- `<class>Words`, the vocabulary (`WordSet`: its namespace and every word): what `main` grants a participant, `registry.participant(who, vocabularies: [playerWords])` (the same for one served across a connection, `.serve(endpoint)`), so the namespace is written once, in `@Vocabulary`, never again as a string; each word is checked to lie in it. Words named at run time are defined in the vocabulary's namespace (`defineMore`); a participant whose words all come at run time gets `WordSet.open(namespace)`. Also for `Owner.words` (§19.1) and `schemaOf`.
 - `<Class>Owner`, the owner base (§23.4), and `<Class>Client`, the consumer's (§23.5).
 - A class's JSON type: the parameters of the factory freezed redirects, or its own instance fields (json_serializable), renamed by `@JsonKey(name:)`, left out by `@JsonKey(includeToJson: false)`; a nullable field may be absent; `DateTime` is a text; what it cannot tell is any value. A class whose fields are classes must give JSON all the way down (`explicitToJson: true`), or writing it is refused (§18).
 
@@ -61,7 +61,7 @@ Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract b
 
 ### 23.5 The client
 
-Unless `@Vocabulary(client: false)`, it makes `<Class>Client(view)`: the words as another module uses them, over any `IRegistryView` (§20): its participant, a `LocalView`, a `MirrorView` across a connection. A screen, a bloc or a repository takes it and knows no word, shape or record.
+Unless `@Vocabulary(client: false)`, it makes `<Class>Client(view)`: the words as another module uses them, over any `IRegistryView` (§20): its participant (here or across a connection), a `LocalView`. A screen, a bloc or a repository takes it and knows no word, shape or record.
 
 - A state: `volume` (now), `volumeChanges` (now, then whenever it changes, deduplicated; while listened to, a remote view keeps it). Keyed: `speakerLevelOf(speaker)`, `speakerLevelAll`, `speakerLevelChanges(speaker)`.
 - A command or a query: a method with the class's own parameters, defaults and all (`setVolume(volume: 95)`, `skip()`, `search(text: 'A')`), answering its value; a call not done (refused, failed, no answer in time, lost) throws `CallNotDone` with its result, so `whyNot` and the refusal's code are there.

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/mcp.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
@@ -11,7 +12,7 @@ import '../registry/fixture.dart';
 
 /// The registry fixture with a fact to hear.
 final class Board extends Fixture {
-  Board() {
+  Board({super.registry}) {
     raid = r.defineFact(
       FactDescriptor(
         'platform.raid',
@@ -29,11 +30,14 @@ final class Board extends Fixture {
 
 /// A client of an MCP session in memory: sends requests, reads answers.
 final class Client {
-  Client(IBoard board, {bool commandTools = false}) {
+  Client(IParticipant agent, {bool commandTools = false}) {
     session = McpSession(
       input: _in.stream,
       output: (line) => _out.add(jsonDecode(line) as Map<String, Object?>),
-      tools: () => parlanceTools(board, commandTools: commandTools),
+      tools: () {
+        toolsMade++;
+        return parlanceTools(agent, commandTools: commandTools);
+      },
       instructions: parlanceInstructions,
     );
     _out.stream.listen((m) {
@@ -47,6 +51,9 @@ final class Client {
   final _out = StreamController<Map<String, Object?>>();
   final _waiting = <int, Completer<Map<String, Object?>>>{};
   final notes = <String>[];
+
+  /// How many times the session asked for its tools.
+  var toolsMade = 0;
   var _id = 0;
 
   Future<Map<String, Object?>> request(String method, [Object? params]) {
@@ -109,7 +116,7 @@ void main() {
       (_) {},
       available: () => why,
     );
-    final c = Client(LocalBoard(f.r, by: agent), commandTools: true);
+    final c = Client(f.r.participant(agent), commandTools: true);
     addTearDown(c.close);
     final listed = await c.request('tools/list');
     expect('$listed', isNot(contains('not yet')));
@@ -133,15 +140,14 @@ void main() {
         CommandDescriptor('x.slow', callers: Callers.only(['agent'])),
         (_) => slow.future,
       );
-      final board = _Counting(LocalBoard(f.r, by: agent));
-      final c = Client(board);
+      final c = Client(f.r.participant(agent));
       addTearDown(c.close);
       await c.tools();
       await c.tools();
-      expect(board.describes, 1);
+      expect(c.toolsMade, 1);
       c.session.toolsChanged();
       await c.tools();
-      expect(board.describes, 2);
+      expect(c.toolsMade, 2);
       final pending = c.call('call', {'command': 'x.slow'});
       await c.request('ping').timeout(const Duration(seconds: 1));
       slow.complete();
@@ -149,13 +155,13 @@ void main() {
     },
   );
 
-  group('a local board', () {
+  group('an agent in this process', () {
     late Board f;
     late Client c;
 
     setUp(() {
       f = Board();
-      c = Client(LocalBoard(f.r, by: agent));
+      c = Client(f.r.participant(agent));
     });
     tearDown(() => c.close());
 
@@ -177,11 +183,8 @@ void main() {
       expect(all.error, isFalse);
       expect(all.text, isNot(contains('hush')));
       expect((await c.call('why', {'state': 'studio.secret'})).error, isTrue);
-      await expectLater(
-        LocalBoard(f.r, by: agent).readAll('studio.secret'),
-        throwsStateError,
-      );
-      expect(await LocalBoard(f.r, by: user).readAll('studio.secret'), {
+      expect(await f.r.participant(agent).fetch('studio.secret'), isEmpty);
+      expect(await f.r.participant(user).fetch('studio.secret'), {
         null: 'hush',
       });
     });
@@ -201,10 +204,7 @@ void main() {
         (await c.call('recent_facts', {'fact': 'studio.whisper'})).error,
         isTrue,
       );
-      await expectLater(
-        LocalBoard(f.r, by: agent).recentFacts('studio.whisper', 5),
-        throwsStateError,
-      );
+      expect(await f.r.participant(agent).recent('studio.whisper', 5), isEmpty);
     });
 
     test('an entity that tells the type of its value shows it', () async {
@@ -243,10 +243,7 @@ void main() {
     test('the curated tools, and no command tools unless asked', () async {
       final names = await c.tools();
       expect(names, ['describe', 'read', 'call', 'recent_facts', 'why']);
-      final withCommands = Client(
-        LocalBoard(f.r, by: agent),
-        commandTools: true,
-      );
+      final withCommands = Client(f.r.participant(agent), commandTools: true);
       addTearDown(withCommands.close);
       expect(
         await withCommands.tools(),
@@ -320,33 +317,32 @@ void main() {
     });
   });
 
-  group('a remote board', () {
+  group('an agent across a connection', () {
     late Board f;
-    late RegistryResponder session;
+    late RemoteSession session;
     late RpcPeerEndpoint responder;
-    late RpcPeerEndpoint caller;
-    late RegistryMirror mirror;
+    late RpcClientConnection connection;
+    late RemoteParticipant p;
     late Client c;
 
     setUp(() async {
       f = Board();
-      final (client, server) = RpcChannelTransport.pair();
+      final (client, server) = RpcChannelTransport.memoryPair();
       responder = RpcPeerEndpoint(transport: server);
-      session = RegistryResponder(responder, f.r, principal: agent);
-      responder
-        ..registerServiceContract(session)
-        ..start();
-      caller = RpcPeerEndpoint(transport: client)..start();
-      final sc = ParlanceClient(caller);
-      mirror = RegistryMirror()..follow(sc);
-      c = Client(RemoteBoard(sc, mirror));
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      session = f.r.participant(agent).serve(responder);
+      responder.start();
+      connection = RpcClientConnection(
+        transportFactory: (_) async => client,
+        shouldReconnect: (_) => false,
+      );
+      p = await RemoteParticipant.join(connection);
+      c = Client(p);
     });
     tearDown(() async {
       await c.close();
-      await mirror.dispose();
+      await p.close();
+      await connection.dispose();
       session.close();
-      await caller.close();
       await responder.close();
     });
 
@@ -359,7 +355,6 @@ void main() {
         'command': 'studio.show',
         'params': {'scene': 'test'},
       });
-      await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(await c.json('read', {'state': 'studio.program'}), 'test');
       final why = await c.json('why', {'state': 'studio.program'}) as Map;
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
@@ -381,10 +376,21 @@ void main() {
       }
     });
 
+    test('a state it reads by name is kept from then on, counted as its '
+        'use', () async {
+      f.muted.set(false);
+      expect(await c.json('read', {'state': 'audio.muted'}), false);
+      f.muted.set(true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(p.read('audio.muted'), true, reason: 'kept: at once');
+      expect(f.r.usesOf('audio.muted').single.listening, 1);
+    });
+
     test(
       'the connection gone: reads say so, a call is lost with its id',
       () async {
         await c.tools();
+        session.close();
         await responder.close();
         await Future<void>.delayed(const Duration(milliseconds: 50));
         final read = await c.call('read', {'state': 'studio.program'});
@@ -400,84 +406,13 @@ void main() {
       },
     );
 
-    test('a copy that cannot catch up with a call says so on read', () async {
-      // The mirror follows another registry: it never reaches the call.
-      final other = Board();
-      final (c2, s2) = RpcChannelTransport.pair();
-      final otherResponder = RpcPeerEndpoint(transport: s2);
-      final otherSession = RegistryResponder(
-        otherResponder,
-        other.r,
-        principal: agent,
-      );
-      otherResponder
-        ..registerServiceContract(otherSession)
-        ..start();
-      final otherCaller = RpcPeerEndpoint(transport: c2)..start();
-      final lagging = RegistryMirror()..follow(ParlanceClient(otherCaller));
-      addTearDown(() async {
-        await lagging.dispose();
-        otherSession.close();
-        await otherCaller.close();
-        await otherResponder.close();
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      final board = RemoteBoard(
-        ParlanceClient(caller),
-        lagging,
-        catchUp: const Duration(milliseconds: 50),
-      );
-      await board.call('studio.show', {'scene': 'break'});
-      await expectLater(
-        board.readAll('studio.program'),
-        throwsA(isA<BoardBehind>()),
-      );
-    });
-
     test('a word added later is a catalog change the tools follow', () async {
       final seen = <void>[];
-      final sub = RemoteBoard(
-        ParlanceClient(caller),
-        mirror,
-      ).catalogChanges.listen(seen.add);
+      final sub = p.catalogChanges.listen(seen.add);
       f.r.defineFact(FactDescriptor('x.new', type: const AnyType()), by: owner);
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(seen, isNotEmpty);
       await sub.cancel();
     });
   });
-}
-
-/// A board that counts how often its catalog is asked.
-final class _Counting implements IBoard {
-  _Counting(this.inner);
-  final IBoard inner;
-  int describes = 0;
-
-  @override
-  Future<Map<String, Object?>> describe() {
-    describes++;
-    return inner.describe();
-  }
-
-  @override
-  Future<Map<String?, Object?>> readAll(String state) => inner.readAll(state);
-
-  @override
-  Future<CallResult<Object?>> call(
-    String command,
-    Map<String, Object?> params, {
-    String? id,
-  }) => inner.call(command, params, id: id);
-
-  @override
-  Future<List<FactMessage>> recentFacts(String fact, int n) =>
-      inner.recentFacts(fact, n);
-
-  @override
-  Future<Explanation> why(String state, {String? key}) =>
-      inner.why(state, key: key);
-
-  @override
-  Stream<void> get catalogChanges => inner.catalogChanges;
 }

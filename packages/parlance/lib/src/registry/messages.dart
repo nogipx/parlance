@@ -428,6 +428,35 @@ final class CallStarted {
   String toString() => 'Started $command $params ($cause)';
 }
 
+/// How one principal used a word (SPEC §6.8): its calls and asks, its
+/// reads from outside the build, how many of its listeners listen now, and
+/// when it last did any of it.
+final class WordUse {
+  const WordUse({
+    required this.by,
+    required this.calls,
+    required this.reads,
+    required this.listening,
+    required this.last,
+  });
+
+  /// Who; a principal's kind alone (`guest`) for the many past
+  /// `Registry.usersPerWord`.
+  final Principal by;
+  final int calls;
+  final int reads;
+  final int listening;
+  final DateTime last;
+
+  Map<String, Object?> toJson() => {
+    'by': by.selector,
+    if (calls > 0) 'calls': calls,
+    if (reads > 0) 'reads': reads,
+    if (listening > 0) 'listening': listening,
+    'last': last.toUtc().toIso8601String(),
+  };
+}
+
 /// A finished call, for journals (SPEC §9).
 final class CallRecord {
   const CallRecord({

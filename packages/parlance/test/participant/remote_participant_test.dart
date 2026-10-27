@@ -82,7 +82,7 @@ final class Lamps extends Owner {
 
 void main() {
   late Registry r;
-  RegistryResponder? session;
+  RemoteSession? session;
   RpcPeerEndpoint? host;
   RpcClientConnection? connection;
 
@@ -90,27 +90,26 @@ void main() {
   /// factory gives the one transport, and it does not reconnect.
   Future<RemoteParticipant> join({
     Set<String> namespaces = const {'kittens'},
-    SessionRights rights = SessionRights.none,
+    ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
     LogScope? log,
   }) {
     final (c, s) = RpcChannelTransport.memoryPair();
     final h = host = RpcPeerEndpoint(transport: s);
-    final session_ = session = RegistryResponder(
-      h,
-      r,
-      principal: kittens,
-      vocabularies: [for (final n in namespaces) WordSet.open(n)],
-      rights: rights,
-    );
-    h
-      ..registerServiceContract(session_)
-      ..start();
+    session = r
+        .participant(
+          kittens,
+          vocabularies: [for (final n in namespaces) WordSet.open(n)],
+          rights: rights,
+          access: access,
+        )
+        .serve(h);
+    h.start();
     final link = connection = RpcClientConnection(
       transportFactory: (_) async => c,
       shouldReconnect: (_) => false,
     );
-    return RemoteParticipant.join(link, access: access, log: log);
+    return RemoteParticipant.join(link, log: log);
   }
 
   setUp(() => r = Registry(overriders: {'user'}));
@@ -249,7 +248,7 @@ void main() {
   test('outside its namespaces it is refused at once; what the host refuses '
       'comes after, to its errors', () async {
     final p = await join(
-      rights: SessionRights(
+      rights: ParticipantRights(
         define: (_, d) => d is FactDescriptor ? 'no facts' : null,
       ),
     );
@@ -362,7 +361,7 @@ void main() {
 
   test('it speaks for another only when the host lets it', () async {
     final p = await join(
-      rights: SessionRights(
+      rights: ParticipantRights(
         speakFor: (_, by, _) => by.kind == 'viewer' ? null : 'viewers only',
       ),
     );
@@ -411,6 +410,69 @@ void main() {
     await sub.cancel();
   });
 
+  test('only a new participant is served, and once', () {
+    final (_, srv) = RpcChannelTransport.memoryPair();
+    final h = RpcPeerEndpoint(transport: srv);
+    addTearDown(h.close);
+    final fresh = r.participant(
+      kittens,
+      vocabularies: [WordSet.open('kittens')],
+    );
+    final s = fresh.serve(h);
+    addTearDown(s.close);
+    expect(() => fresh.serve(h), throwsStateError, reason: 'served already');
+    final used = r.participant(crew, vocabularies: [WordSet.open('crew')]);
+    used.defineState(StateDescriptor('crew.ready', type: const BoolType()));
+    expect(() => used.serve(h), throwsStateError, reason: 'it did things here');
+  });
+
+  test('its access by default is the host\'s, told when it joins', () async {
+    final p = await join(access: WordAccess(call: Callers.only(['user'])));
+    expect(p.access.call?.toJson(), Callers.only(['user']).toJson());
+    p.command(LampCommand.turn).define((_) {});
+    await p.flush();
+    expect(
+      r.commandDescriptor('kittens.lamp.turn')!.callers.toJson(),
+      Callers.only(['user']).toJson(),
+    );
+  });
+
+  test('over an endpoint made elsewhere it is the same participant, and '
+      'leaves the endpoint open', () async {
+    final (c, srv) = RpcChannelTransport.memoryPair();
+    final h = RpcPeerEndpoint(transport: srv);
+    final s = r
+        .participant(kittens, vocabularies: [WordSet.open('kittens')])
+        .serve(h);
+    h.start();
+    final guest = RpcPeerEndpoint(transport: c)..start();
+    final p = await RemoteParticipant.over(guest);
+    final lamps = Lamps();
+    p.attach({'lamps': lamps});
+    await p.flush();
+    final done = await r.call('kittens.lamp.turn', {'on': true}, by: crew);
+    expect(done.ok, isTrue, reason: '$done');
+    expect(lamps.lit, isTrue);
+    await p.close();
+    expect(identical(p.endpoint, guest), isTrue);
+    s.close();
+    await guest.close();
+    await h.close();
+  });
+
+  test('what it watches is its use of the word, while it watches', () async {
+    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    owner.state(_Program.scene).define().set('main');
+    final p = await join();
+    final sub = p.state(_Program.scene).watch().listen((_) {});
+    await settle();
+    final use = r.usesOf('studio.program').single;
+    expect((use.by, use.listening), (kittens, 1));
+    await sub.cancel();
+    await settle();
+    expect(r.usesOf('studio.program').single.listening, 0, reason: 'gone');
+  });
+
   test('going, it withdraws its words', () async {
     final p = await join();
     p.attach({'lamps': Lamps()});
@@ -445,23 +507,75 @@ void main() {
     expect(errors.map((e) => (e.op['op'], e.code)), [('join', 'lost')]);
   });
 
-  test('it outlives a lost connection: the new session gets its words as '
-      'they stand, and then what it said while away', () async {
-    final sessions = <RegistryResponder>[];
+  test('away, it keeps the last facts it said, as many as it may, and tells '
+      'how many went', () async {
+    final sessions = <RemoteSession>[];
     final hosts = <RpcPeerEndpoint>[];
     final connection = RpcClientConnection(
       transportFactory: (_) async {
         final (c, s) = RpcChannelTransport.memoryPair();
         final h = RpcPeerEndpoint(transport: s);
-        final session = RegistryResponder(
-          h,
-          r,
-          principal: kittens,
-          vocabularies: [WordSet.open('kittens')],
-        );
-        h
-          ..registerServiceContract(session)
-          ..start();
+        final session = r
+            .participant(kittens, vocabularies: [WordSet.open('kittens')])
+            .serve(h);
+        h.start();
+        sessions.add(session);
+        hosts.add(h);
+        return c;
+      },
+      backoff: const RpcFixedBackoff(Duration(milliseconds: 10)),
+    );
+    final p = await RemoteParticipant.join(connection, keepAway: 2);
+    final errors = <ParticipantError>[];
+    p.errors.listen(errors.add);
+    final lamps = Lamps();
+    p.attach({'lamps': lamps});
+    await p.flush();
+
+    final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
+    sessions.last.close();
+    await hosts.last.close();
+    await offline;
+    lamps
+      ..purr()
+      ..lit = true
+      ..purr()
+      ..purr();
+
+    final back = DateTime.now().add(const Duration(seconds: 5));
+    while (r.recent('kittens.purred').length < 2 &&
+        DateTime.now().isBefore(back)) {
+      await settle();
+    }
+    expect(r.recent('kittens.purred').map((f) => f.payload), [
+      {'on': true},
+      {'on': true},
+    ], reason: 'the last two');
+    expect(errors.single.code, 'dropped');
+    expect(errors.single.message, contains('1 facts'));
+
+    await p.close();
+    await connection.dispose();
+    for (final s in sessions) {
+      s.close();
+    }
+    for (final h in hosts) {
+      await h.close();
+    }
+  });
+
+  test('it outlives a lost connection: the new session gets its words as '
+      'they stand, and then what it said while away', () async {
+    final sessions = <RemoteSession>[];
+    final hosts = <RpcPeerEndpoint>[];
+    final connection = RpcClientConnection(
+      transportFactory: (_) async {
+        final (c, s) = RpcChannelTransport.memoryPair();
+        final h = RpcPeerEndpoint(transport: s);
+        final session = r
+            .participant(kittens, vocabularies: [WordSet.open('kittens')])
+            .serve(h);
+        h.start();
         sessions.add(session);
         hosts.add(h);
         return c;

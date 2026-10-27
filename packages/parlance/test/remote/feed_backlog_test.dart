@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
+import 'package:parlance/src/remote/remote.dart';
+import 'package:parlance/src/remote/contract.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
@@ -11,14 +13,14 @@ const viewer = Principal('viewer', 'slow');
 
 void main() {
   late Registry r;
-  late RegistryResponder session;
+  late RemoteSession session;
   late RpcPeerEndpoint endpoint;
 
   Future<void> open({required int retainTicks}) async {
     r = Registry(retainTicks: retainTicks);
     final (_, s) = RpcChannelTransport.memoryPair();
     endpoint = RpcPeerEndpoint(transport: s);
-    session = RegistryResponder(endpoint, r, principal: viewer, feedBacklog: 4);
+    session = r.participant(viewer).serve(endpoint, feedBacklog: 4);
   }
 
   tearDown(() async {

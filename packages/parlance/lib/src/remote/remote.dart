@@ -9,40 +9,62 @@ import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart';
 import '../registry/types.dart';
 import 'contract.dart';
 
 // --- The registry's side -------------------------------------------------------
 
-/// What a session may own besides calling (SPEC §14,
-/// §22.2): a session is a participant, and these are its rights.
-typedef SessionRights = ParticipantRights;
+/// A participant served across a connection (SPEC §14, §22): `main` makes
+/// it as it makes one for a module in this process (who it is, its
+/// vocabularies, its rights, its access by default), and [serve] gives it
+/// to the part at the other end of the endpoint, a `RemoteParticipant`
+/// there.
+extension ServeParticipant on LocalParticipant {
+  /// Serves this participant over [endpoint] (registering the session's
+  /// contract on it): the part across it reads, calls and owns words as
+  /// this participant, and nothing more. The participant is the session's
+  /// from then on: [RemoteSession.close] withdraws it, its words with it.
+  /// Only a new participant is served, and once: one served already, or
+  /// one that defined, attached or guarded anything here, is refused
+  /// ([StateError]). Its access by default is told to the part across.
 
-/// One session of a remote participant (SPEC §14, §22.4): the registry as
-/// the principal the host accepted for this connection may see and use it;
-/// and, in its [namespaces] and as far as [rights] let it, an owner of
-/// words of its own, whose commands it serves over the same connection.
-///
-/// Register it on the connection's peer endpoint; [close] it when the
-/// connection ends, so its words go.
-final class RegistryResponder extends ParlanceContractPeer {
-  RegistryResponder(
-    super.endpoint,
-    this.registry, {
-    required this.principal,
+  RemoteSession serve(
+    RpcPeerEndpoint endpoint, {
     String? session,
-    Iterable<WordSet> vocabularies = const [],
-    SessionRights rights = SessionRights.none,
+    int feedBacklog = 256,
+    LogScope? log,
+  }) {
+    takeForServing(this);
+    final s = RemoteSession._(
+      endpoint,
+      this,
+      session: session,
+      feedBacklog: feedBacklog,
+      log: log,
+    );
+    endpoint.registerServiceContract(s);
+    return s;
+  }
+}
+
+/// One session of a participant served across a connection
+/// ([ServeParticipant.serve], SPEC §14, §22.4): the registry as the
+/// participant may see and use it; and, in its [namespaces] and as far as
+/// [rights] let it, an owner of words of its own, whose commands it serves
+/// over the same connection. [close] it when the connection ends, so its
+/// words go.
+final class RemoteSession extends ParlanceContractPeer {
+  RemoteSession._(
+    super.endpoint,
+    LocalParticipant participant, {
+    String? session,
     this.feedBacklog = 256,
     LogScope? log,
   }) : session = session ?? newId(),
+       registry = registryOf(participant),
+       principal = participant.who,
        _owner = ParlanceOwnerContractPeerCaller(endpoint),
-       _p = registry.participant(
-         principal,
-         vocabularies: vocabularies,
-         rights: rights,
-       ) {
+       _p = participant {
     this.log = (log ?? registry.log.child('sessions')).withData({
       'session': this.session,
       'principal': principal.selector,
@@ -71,7 +93,7 @@ final class RegistryResponder extends ParlanceContractPeer {
   final LocalParticipant _p;
 
   Set<String> get namespaces => _p.namespaces;
-  SessionRights get rights => _p.rights;
+  ParticipantRights get rights => _p.rights;
 
   /// The participant's side, serving the session's commands.
   final ParlanceOwnerContractPeerCaller _owner;
@@ -134,6 +156,12 @@ final class RegistryResponder extends ParlanceContractPeer {
       'protocol': parlanceProtocol,
       'principal': principal.toJson(),
       'namespaces': [..._p.namespaces],
+      // Who may read and call its words by default, as the host said: the
+      // part across fills its words' descriptors so.
+      'defaults': {
+        'read': ?_p.access.read?.toJson(),
+        'call': ?_p.access.call?.toJson(),
+      },
     });
   }
 
@@ -144,6 +172,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
     }
     if (!_reads(request.state)) _deny(_unreadable(request.state));
+    registry.usedBy(request.state, principal);
     return WireJson(registry.explain(request.state, key: request.key).toJson());
   }
 
@@ -365,6 +394,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       if (!_reads(name)) _deny(_unreadable(name));
     }
     final n = ++_subscription;
+    _listenTo({...?request.states, ...?request.facts});
     final before = _stateFilter;
     // An old name of a word subscribes to the word (SPEC §6.4).
     final now = request.states?.map(registry.canonical).toSet();
@@ -396,6 +426,19 @@ final class RegistryResponder extends ParlanceContractPeer {
       send(item);
     }
     return WireJson({'subscription': n});
+  }
+
+  /// What the session listens to, by the names it gave: counted as its use
+  /// of each word (SPEC §6.8), from one subscription to the next.
+  final Map<String, IHandle> _listening = {};
+
+  void _listenTo(Set<String> names) {
+    for (final gone in [..._listening.keys.where((n) => !names.contains(n))]) {
+      _listening.remove(gone)!.dispose();
+    }
+    for (final name in names) {
+      _listening[name] ??= registry.listenedBy(name, principal);
+    }
   }
 
   Iterable<String> _stateNames() => [
@@ -439,6 +482,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     }
     if (!_reads(request.fact)) _deny(_unreadable(request.fact));
     _read.add(request.fact);
+    registry.usedBy(request.fact, principal);
     return WireJson({
       'facts': [
         for (final f in registry.recent(request.fact, request.count))
@@ -794,6 +838,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     _kinds.clear();
     _guards.clear();
     _unavailable.clear();
+    _listenTo(const {});
     _p.dispose();
   }
 }

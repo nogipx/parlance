@@ -8,6 +8,7 @@ import '../participant/owner.dart';
 import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
+import '../registry/ids.dart';
 import '../registry/json.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
@@ -53,14 +54,15 @@ final class ParticipantError {
 final class RemoteParticipant implements IParticipant {
   RemoteParticipant._(
     this.endpoint,
-    this.client,
-    this.mirror,
+    this._client,
+    this._mirror,
     this.who,
     this.namespaces,
     this.access,
     this._onError,
     this.log,
-  ) : _view = MirrorView(mirror, client),
+    this.keepAway,
+  ) : _view = MirrorView(_mirror, _client),
       _callLog = log.child('calls');
 
   /// Where it logs: how its connection goes, what the host refused, and a
@@ -69,6 +71,13 @@ final class RemoteParticipant implements IParticipant {
   final LogScope log;
   final LogScope _callLog;
 
+  /// How many facts said while away it keeps to send when back; past it
+  /// the oldest go, and how many is told to [errors] once it is back.
+  final int keepAway;
+  int _droppedAway = 0;
+
+  /// Its access by default, the host's: as the participant the host
+  /// serves was made (SPEC §22.2), told when it joins.
   @override
   final WordAccess access;
 
@@ -79,9 +88,9 @@ final class RemoteParticipant implements IParticipant {
   /// namespaces are the session's the host made.
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
-    WordAccess access = WordAccess.none,
     void Function(ParticipantError error)? onError,
     LogScope? log,
+    int keepAway = 1000,
   }) async {
     final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
     final online = connection.currentState is RpcClientOnline
@@ -94,6 +103,32 @@ final class RemoteParticipant implements IParticipant {
       await endpoint.close();
       throw StateError('the connection gave up: $reason');
     }
+    final p = await _start(endpoint, onError, log, keepAway);
+    p._connection = connection.state.listen(p._onConnection);
+    return p;
+  }
+
+  /// Joins the registry over [endpoint], one made elsewhere that does not
+  /// come back once lost (a guest's in a wasm or JavaScript runtime): the
+  /// same participant, but with no connection to join again over. The
+  /// endpoint stays the caller's: [close] does not close it.
+  static Future<RemoteParticipant> over(
+    RpcPeerEndpoint endpoint, {
+    void Function(ParticipantError error)? onError,
+    LogScope? log,
+    int keepAway = 1000,
+  }) async {
+    final p = await _start(endpoint, onError, log, keepAway);
+    p._ownsEndpoint = false;
+    return p;
+  }
+
+  static Future<RemoteParticipant> _start(
+    RpcPeerEndpoint endpoint,
+    void Function(ParticipantError error)? onError,
+    LogScope? log,
+    int keepAway,
+  ) async {
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
     final p = RemoteParticipant._(
@@ -102,21 +137,39 @@ final class RemoteParticipant implements IParticipant {
       RegistryMirror(),
       Principal.fromJson(d['principal']),
       {...(d['namespaces'] as List? ?? const []).cast<String>()},
-      access,
+      _accessOf(d['defaults']),
       onError,
       log ?? LogScope.noop,
+      keepAway,
     );
     if (p.log.isEnabled(RpcLogLevel.info)) {
       p.log.info('joined', data: {'as': p.who.selector});
     }
     endpoint.registerServiceContract(_Served(endpoint, p));
     // It keeps of another's only what it watches: nothing to start with.
-    unawaited(p.mirror.subscribe(states: const {}, facts: const {}));
-    p.mirror.follow(client);
-    p._changes = p.mirror.changes.listen((_) => p._checkAvailability());
-    p._connection = connection.state.listen(p._onConnection);
+    unawaited(p._mirror.subscribe(states: const {}, facts: const {}));
+    p._mirror.follow(client);
+    p._changes = p._mirror.changes.listen((_) => p._checkAvailability());
+    // It has joined when its view is live: the feed's first snapshot came.
+    if (!p._mirror.synced) {
+      await p._mirror.changes
+          .firstWhere((_) => p._mirror.synced)
+          .timeout(const Duration(seconds: 10), onTimeout: () {});
+    }
     return p;
   }
+
+  /// Its access by default, as the host served it (SPEC §22.2).
+  static WordAccess _accessOf(Object? json) {
+    final m = json is Map ? json : const <String, Object?>{};
+    return WordAccess(
+      read: m['read'] == null ? null : Callers.fromJson(m['read']),
+      call: m['call'] == null ? null : Callers.fromJson(m['call']),
+    );
+  }
+
+  /// Whether [close] closes [endpoint]: its own, made on a connection.
+  bool _ownsEndpoint = true;
 
   StreamSubscription<RpcClientConnectionState>? _connection;
 
@@ -146,7 +199,7 @@ final class RemoteParticipant implements IParticipant {
     if (_rejoining || _disposed) return;
     _rejoining = true;
     try {
-      final d = await client.describe();
+      final d = await _client.describe();
       final now = Principal.fromJson(d['principal']);
       if (now != who) {
         _fail(
@@ -162,7 +215,16 @@ final class RemoteParticipant implements IParticipant {
       }
       _online = true;
       if (log.isEnabled(RpcLogLevel.info)) log.info('joined again');
-      mirror.follow(client);
+      if (_droppedAway > 0) {
+        _fail(
+          const {'op': 'emit'},
+          'dropped',
+          '$_droppedAway facts said while away were dropped, past the '
+              '$keepAway kept',
+        );
+        _droppedAway = 0;
+      }
+      _mirror.follow(_client);
       _checkAvailability();
       await flush();
     } on Object {
@@ -199,8 +261,8 @@ final class RemoteParticipant implements IParticipant {
 
   /// The peer endpoint it made on its connection.
   final RpcPeerEndpoint endpoint;
-  final ParlanceClient client;
-  final RegistryMirror mirror;
+  final ParlanceClient _client;
+  final RegistryMirror _mirror;
   final MirrorView _view;
   final void Function(ParticipantError error)? _onError;
   StreamSubscription<void>? _changes;
@@ -287,6 +349,7 @@ final class RemoteParticipant implements IParticipant {
     // Away, only what it says waits: the rest a new session gets as it
     // stands then.
     if (!_online && op['op'] != 'emit') return;
+    if (!_online) _keepAway();
     _queue.add(op);
     if (_scheduled) return;
     _scheduled = true;
@@ -297,6 +360,18 @@ final class RemoteParticipant implements IParticipant {
       _checkAvailability();
       unawaited(flush());
     });
+  }
+
+  /// Makes room for one more fact said while away: past [keepAway], the
+  /// oldest goes.
+  void _keepAway() {
+    var kept = 0;
+    for (final op in _queue) {
+      if (op['op'] == 'emit') kept++;
+    }
+    if (kept < keepAway) return;
+    _queue.removeAt(_queue.indexWhere((op) => op['op'] == 'emit'));
+    _droppedAway++;
   }
 
   /// Completes when the registry has answered all it asked so far.
@@ -312,7 +387,7 @@ final class RemoteParticipant implements IParticipant {
       final done = Completer<void>();
       _sending = done.future;
       try {
-        final results = await client.apply(ops);
+        final results = await _client.apply(ops);
         for (var i = 0; i < ops.length && i < results.length; i++) {
           if (results[i]['error'] case final String code) {
             _fail(ops[i], code, '${results[i]['message']}');
@@ -366,6 +441,36 @@ final class RemoteParticipant implements IParticipant {
   Map<String?, Object?> readAll(String state) => _own.containsKey(state)
       ? Map.unmodifiable(_own[state]!)
       : _view.readAll(state);
+
+  @override
+  Future<Map<String?, Object?>> fetch(String state) async =>
+      _own.containsKey(state) ? readAll(state) : _view.fetch(state);
+
+  @override
+  Future<Map<String, Object?>> describe() {
+    _live();
+    return _client.describe();
+  }
+
+  @override
+  Future<Explanation> explain(String state, {String? key}) async {
+    _live();
+    try {
+      return await _client.why(state, key: key);
+    } on RpcStatusException catch (e) {
+      if (e.statusCode == RpcStatus.permissionDenied) {
+        throw NotPermitted(e.message);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<void> get catalogChanges => _mirror.catalogChanges;
+
+  /// The catalog as its feed last told it ([describe] asks the host anew):
+  /// for a screen that draws labels and entities as they are now.
+  Map<String, Object?> get catalog => _mirror.catalog;
 
   @override
   Stream<Object?> watch(String state, {String? key}) {
@@ -437,7 +542,7 @@ final class RemoteParticipant implements IParticipant {
       refuseInQuery('call $command');
     }
     await flush();
-    final r = await client.callAt(
+    final r = await _client.callAt(
       command,
       params,
       id: id,
@@ -445,22 +550,22 @@ final class RemoteParticipant implements IParticipant {
       as: as,
     );
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
-      await mirror.reach(epoch, seq);
+      await _mirror.reach(epoch, seq);
     }
     return r.result;
   }
 
   /// Whether [command] is a query, as the catalog says.
   bool _isQuery(String command) {
-    final name = mirror.canonical(command);
-    for (final d in mirror.catalog['descriptors'] as List? ?? const []) {
+    final name = _mirror.canonical(command);
+    for (final d in _mirror.catalog['descriptors'] as List? ?? const []) {
       if (d case {'name': final n, 'is': 'query'} when n == name) return true;
     }
     return false;
   }
 
   @override
-  bool get synced => mirror.synced;
+  bool get synced => _mirror.synced;
 
   @override
   WordStatus status(String word) => _view.status(word);
@@ -681,7 +786,7 @@ final class RemoteParticipant implements IParticipant {
   Future<void> settle() async {
     _live();
     await flush();
-    mirror.takeCatalog(await client.describe());
+    _mirror.takeCatalog(await _client.describe());
   }
 
   @override
@@ -711,11 +816,11 @@ final class RemoteParticipant implements IParticipant {
     await flush();
     await _connection?.cancel();
     await _changes?.cancel();
-    await mirror.dispose();
+    await _mirror.dispose();
     await _errors.close();
-    // The endpoint is its own; the connection stays the caller's to
-    // dispose.
-    await endpoint.close();
+    // The endpoint made on a connection is its own; the connection, and an
+    // endpoint given to [over], stay the caller's.
+    if (_ownsEndpoint) await endpoint.close();
   }
 
   // --- Asked by the host --------------------------------------------------
@@ -873,7 +978,9 @@ final class _Fact implements IFactHandle {
       'op': 'emit',
       'fact': descriptor.name,
       'payload': freezeJson(descriptor.type.check(payload, const _Unseen())),
-      'id': ?id,
+      // Its id is given here, so a fact sent again after a drop is dropped
+      // by the host if it took it before.
+      'id': id ?? newId(),
       'by': ?by?.toJson(),
       ...RemoteParticipant._causeOf(cause),
       ...RemoteParticipant._asOf(_by),
@@ -927,6 +1034,19 @@ final class _Part implements IParticipant {
 
   @override
   Map<String?, Object?> readAll(String state) => _root.readAll(state);
+
+  @override
+  Future<Map<String?, Object?>> fetch(String state) => _root.fetch(state);
+
+  @override
+  Future<Map<String, Object?>> describe() => _root.describe();
+
+  @override
+  Future<Explanation> explain(String state, {String? key}) =>
+      _root.explain(state, key: key);
+
+  @override
+  Stream<void> get catalogChanges => _root.catalogChanges;
 
   @override
   Stream<Object?> watch(String state, {String? key}) =>

@@ -15,10 +15,11 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | `registry` | catalog, writes in ticks, calls, guards, feed, logs and spans, format versions, typed words | [references/registry.md](references/registry.md): §1–12, §17, §18 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
 | `participant` | `IParticipant`: a part of the app as one principal, defining words only in its vocabularies' namespaces and holding its owners (`Owner`, `TrackedKind`, `failCall`; contract §19 in [references/owners.md](references/owners.md)), the same in this process (`LocalParticipant`) and across a connection; rights to produce and speak for others | [references/participant.md](references/participant.md): §22 |
-| `view` | `IRegistryView`: what a screen reads and calls, one interface over a registry in this process (`LocalView`) or a `RegistryMirror` (`MirrorView`) | [references/view.md](references/view.md): §20 |
+| `view` | `IRegistryView`: what a screen reads and calls, one interface over a registry in this process (`LocalView`) or across a connection (a `RemoteParticipant`); `fetch` reads by name | [references/view.md](references/view.md): §20 |
 | `schema` | a module's words written once as an abstract class (`@Vocabulary`), from which `parlance_generator` makes the typed enums and shapes; `schemaOf` / `schemaBreaks` keep published words from changing by accident | [references/schema.md](references/schema.md): §23 |
+| `testing` | `TestHost`: a registry for a test, stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`), the module here or across a connection in memory (`join`), and what happened read back (`written`, `said`, `callsOf`, `errors`) | [references/testing.md](references/testing.md): §24 |
 | glossary | every term of the package in a line, with its section | [references/glossary.md](references/glossary.md) |
-| `mcp` | curated agent tools on a `IBoard` (local or remote); `mcp_io`: the server on a Unix socket; the binary `parlance-mcp` | [references/mcp.md](references/mcp.md): §16 |
+| `mcp` | curated agent tools on an agent's participant (here or across a connection); `mcp_io`: the server on a Unix socket; the binary `parlance-mcp` | [references/mcp.md](references/mcp.md): §16 |
 
 ## Adding to the registry
 
@@ -36,6 +37,7 @@ A host names its words once, typed (SPEC §18), and never types a name or a para
 - **Causes:** inside a handler, write and call with `cause: call.causeFor(owner)`, so the trail shows which call led to it. Never pass causes through zones.
 - Names are lower-case words split by `.`, joined within by `_` or `-` (`audio.voice.muted_talk`, `kitten-daycare.lights`); never two owners for one name.
 
+- **Who uses a word** (SPEC §6.8): `registry.usesOf(name)` / `usage` count the uses the compiler cannot see (calls by anyone, remote subscriptions, reads by sessions and agents), by the name used; check it before removing an old word or name.
 - **Words are a public API.** Plugins, agents and what the host stores (a call kept in a project) name them. Never rename one bare: keep the old name with `registry.alias(old, now)` so what named it keeps working.
 
 ## Why a call was refused
@@ -46,16 +48,17 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Remote and agents
 
-- A session's principal is fixed by the host when it accepts the connection; call ids are per principal. Both sides are `RpcPeerEndpoint`s: `RegistryResponder(endpoint, registry, principal:, vocabularies:, rights:)` (a plugin's: `[WordSet.open(id)]`, its words come at run time) on the host's, a session being a participant (SPEC §22).
+- A session's principal is fixed by the host when it accepts the connection; call ids are per principal. Both sides are `RpcPeerEndpoint`s. **The host serves a participant**: `registry.participant(who, vocabularies:, rights:, access:)` made as for a module in this process (a plugin's: `[WordSet.open(id)]`, its words come at run time), then `.serve(endpoint)`, a `RemoteSession` (`close()` when the connection ends: the participant goes with it). Serve only a participant made for the session: one served already or used in this process is refused. Its access by default is the part's across too (SPEC §14, §22).
 - **A remote part is a participant too:** `await RemoteParticipant.join(connection)`, always over an `RpcClientConnection` (it rejoins after a drop; a fixed connection, wasm or memory, is one that does not reconnect), gives the same `IParticipant` as in the host's process, so an `Owner` attaches to it unchanged (`owner.attach(p)`). What it asks goes in order, one turn as one tick; refusals come to `errors`; `flush()` waits for the host. It reads another's state only while it watches it.
-- The lower level stays: `ParlanceClient(endpoint)` (`client.define`, `client.write`, `client.emit`) and a `RemoteOwner` serving its commands; pass `parent: call.id` (or a fact's id) so what it does follows from what it answers. Its words go with the session.
-- A participant that needs a few states and facts subscribes: `mirror.subscribe(states: {...}, facts: {...})`; its feed then carries only those, without gaps, and the host knows what it hears (`session.hears`).
-- Remote outcomes are data: `CallLost(id)` when the answer did not come back (retry with the id), `BoardOffline` while disconnected, `BoardBehind` when the mirror has not caught up with your call.
-- MCP tools are curated (`parlanceTools`); a host adds its own and must call `McpSession.toolsChanged()` whenever its tools change.
+- Over an endpoint a runtime hands it (a wasm or JavaScript guest), `RemoteParticipant.over(endpoint)`: the same participant, with nothing to rejoin over.
+- **It is the only way across.** The wire, its client and the mirror are the package's own: a plugin, a phone, an agent each join as a participant. Its feed carries only what its listeners ask for, and what it reads by name (`fetch`), and the host knows what it hears (`session.hears`). `join` completes when its view is live.
+- **Delivery** (SPEC §14.1): a state arrives as its value now, a fact at most once (`factsLost` past the retained ticks), a call once per id (`lost` may have run: retry with the id). A fact that must not be lost is a state its owner keeps until it is handled.
+- Remote outcomes are data: `CallLost(id)` when the answer did not come back (retry with the id); `synced` false while disconnected.
+- MCP tools are curated (`parlanceTools(participant)`: an agent is a participant, here or across a connection); a host adds its own and must call `McpSession.toolsChanged()` whenever its tools change.
 
 ## Rules of the package
 
-- Imports go one way: `remote` and `owners` use `registry`; `participant` uses `registry` and the view interface (`view/view.dart`), never remote; `owners` use `participant` too; only `remote` uses rpc_dart, but for its logger (`package:rpc_dart/logger.dart`), which the registry logs to. Rules between states and commands (when this, call that) are the host's, built on this public API, not the package's. `test/boundaries_test.dart` holds this.
+- Imports go one way: `remote` and `owners` use `registry`; `participant` uses `registry` and the view interface (`view/view.dart`), never remote; `owners` use `participant` too; only `remote` and `testing` (its connection in memory) use rpc_dart, but for its logger (`package:rpc_dart/logger.dart`), which the registry logs to. Rules between states and commands (when this, call that) are the host's, built on this public API, not the package's. `test/boundaries_test.dart` holds this.
 - No words of any domain in `lib/` (the boundary test bans them); the host's vocabulary stays in the host.
 - Results are typed (`CallResult<R>`, `Explanation`); serialize at the edges.
 - `contract.g.dart` is generated: change `contract.dart`, then `fvm dart run build_runner build`.
@@ -63,6 +66,7 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Testing
 
+- A module of a host is tested with `TestHost` (`package:parlance/testing.dart`, SPEC §24): its own participant, stand-ins for the words of others, what it wrote, said and called read back.
 - Fixtures: `test/registry/fixture.dart` (`Fixture`, principals `user`, `agent`, `viewer`, `owner`).
 - A whole host in miniature: `example/` (run `fvm dart run example/main.dart`); `test/example_test.dart` holds it to what it prints.
 - Time: `fakeAsync(..., initialTime: DateTime(...))` whenever time matters; the registry reads time from its `clock`.

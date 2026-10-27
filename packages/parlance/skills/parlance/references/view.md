@@ -29,13 +29,10 @@ this process or reached over remote, so the same widgets serve both.
 Reads the registry itself, only what `by` may read (`mayRead`);
 `changes` filters its ticks; calls as `by`.
 
-## MirrorView(mirror, client)
+## Across a connection
 
-Reads the mirror's copy. It counts who listens for which states and
-facts and subscribes the mirror to their union whenever that changes:
-the feed carries what screens draw and nothing else, and the host knows
-what the participant hears. Calls go through the client; the call waits
-until the mirror has reached the seq it answered at. `settled` completes
-when the mirror has the values of what its listeners ask for now. After a lost
-connection set the new `client` and `mirror.follow(client)`: the
-subscription is kept.
+A `RemoteParticipant` (§22) is the view there: it keeps the states and hears the facts its listeners ask for, and no others, subscribing its session to their union whenever that changes, so the feed carries what screens draw and the host knows what it hears; a call answers once the view has reached what it wrote; after a lost connection the subscription is kept. The mirror and the client beneath are the package's.
+
+## fetch(state)
+
+A read by name, of a state the view may not keep: what a part naming words at run time reads (a plugin, an agent). In this process it is `readAll`, counted as a use (§6.8); across a connection the view keeps the state from then on, and answers once it has it. One it may not read is empty.

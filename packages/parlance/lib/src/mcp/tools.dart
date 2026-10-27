@@ -1,7 +1,7 @@
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/types.dart';
-import 'board.dart';
+import '../participant/participant.dart';
 import 'protocol.dart';
 import 'schema.dart';
 
@@ -29,14 +29,15 @@ How to work:
 String commandToolName(String command) =>
     command.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
 
-/// The curated tools of a parlance (SPEC §16): look and act, on [board].
-/// With [commandTools], each command the board's principal may call is a
-/// tool of its own as well, made from its description.
+/// The curated tools of a parlance (SPEC §16): look and act, as the agent's
+/// participant [p], in this process or across a connection. With
+/// [commandTools], each command it may call is a tool of its own as well,
+/// made from its description.
 Future<List<McpTool>> parlanceTools(
-  IBoard board, {
+  IParticipant p, {
   bool commandTools = false,
 }) async {
-  final d = await board.describe();
+  final d = await p.describe();
   final descriptors = [
     for (final x in d['descriptors'] as List? ?? const [])
       (x as Map).cast<String, Object?>(),
@@ -77,7 +78,7 @@ Future<List<McpTool>> parlanceTools(
     String? id,
   }) async {
     final callId = id ?? newId();
-    return _answer(await board.call(name, params, id: callId), callId);
+    return _answer(await p.call(name, params, id: callId), callId);
   }
 
   final window = switch (d['dedupWindowMs']) {
@@ -101,7 +102,7 @@ Future<List<McpTool>> parlanceTools(
         bool keep(Map<String, Object?> x) =>
             (x['name'] as String).startsWith(prefix);
         // Whether a command can run changes with the states: asked now.
-        final now = await board.describe();
+        final now = await p.describe();
         final unavailable =
             (now['unavailable'] as Map?)?.cast<String, Object?>() ?? const {};
         return McpResult.json({
@@ -168,6 +169,8 @@ Future<List<McpTool>> parlanceTools(
         'prefix': {'type': 'string'},
       },
       run: (a) async {
+        // What it had is not told as if it were now.
+        if (!p.synced) return McpResult.error(_offline);
         if (a['state'] case final String name) {
           if (unreadable.contains(name)) {
             return McpResult.error('you may not read $name');
@@ -175,13 +178,13 @@ Future<List<McpTool>> parlanceTools(
           if (!states.any((s) => s['name'] == name)) {
             return McpResult.error('no state $name');
           }
-          return McpResult.json(await _values(board, name, states));
+          return McpResult.json(await _values(p, name, states));
         }
         final prefix = a['prefix'] as String? ?? '';
         return McpResult.json({
           for (final s in states)
             if ((s['name'] as String).startsWith(prefix))
-              s['name']: await _values(board, s['name'] as String, states),
+              s['name']: await _values(p, s['name'] as String, states),
         });
       },
     ),
@@ -218,17 +221,26 @@ Future<List<McpTool>> parlanceTools(
         'count': {'type': 'integer', 'minimum': 1, 'maximum': 100},
       },
       required: ['fact'],
-      run: (a) async => McpResult.json([
-        for (final f in await board.recentFacts(
-          a['fact'] as String,
-          (a['count'] as num?)?.toInt() ?? 10,
-        ))
-          {
-            'at': f.at.toUtc().toIso8601String(),
-            'payload': f.payload,
-            'by': f.cause.by.selector,
-          },
-      ]),
+      run: (a) async {
+        final name = a['fact'] as String;
+        if (unreadable.contains(name)) {
+          return McpResult.error('you may not hear $name');
+        }
+        if (!facts.any((f) => f['name'] == name)) {
+          return McpResult.error('no fact $name');
+        }
+        return McpResult.json([
+          for (final f in await p.recent(
+            name,
+            (a['count'] as num?)?.toInt() ?? 10,
+          ))
+            {
+              'at': f.at.toUtc().toIso8601String(),
+              'payload': f.payload,
+              'by': f.cause.by.selector,
+            },
+        ]);
+      },
     ),
     McpTool(
       name: 'why',
@@ -243,9 +255,17 @@ Future<List<McpTool>> parlanceTools(
         'key': {'type': 'string'},
       },
       required: ['state'],
-      run: (a) async => McpResult.json(
-        _why(await board.why(a['state'] as String, key: a['key'] as String?)),
-      ),
+      run: (a) async {
+        try {
+          return McpResult.json(
+            _why(
+              await p.explain(a['state'] as String, key: a['key'] as String?),
+            ),
+          );
+        } on NotPermitted catch (e) {
+          return McpResult.error(e.message);
+        }
+      },
     ),
     if (commandTools)
       for (final c in commands) _commandTool(c, schema, callCommand),
@@ -324,12 +344,16 @@ McpResult _answer(CallResult<Object?> r, String id) => switch (r) {
   ),
 };
 
+const _offline =
+    'the registry is not reachable now; what was read before may be old. '
+    'Try again in a moment.';
+
 Future<Object?> _values(
-  IBoard board,
+  IParticipant p,
   String state,
   List<Map<String, Object?>> states,
 ) async {
-  final all = await board.readAll(state);
+  final all = await p.fetch(state);
   final keyed = states.any((s) => s['name'] == state && s['key'] != null);
   return keyed ? {for (final e in all.entries) e.key: e.value} : all[null];
 }
