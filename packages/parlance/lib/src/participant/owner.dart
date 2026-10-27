@@ -42,6 +42,7 @@ final class Handles implements IHandle {
 abstract base class Owner implements IHandle {
   final Handles _handles = Handles();
   IParticipant? _participant;
+  OwnerGroup? _group;
 
   /// The participant it speaks through: the part `main` named it by.
   IParticipant get participant =>
@@ -51,6 +52,7 @@ abstract base class Owner implements IHandle {
   void _attach(IParticipant p, OwnerGroup group) {
     if (_participant != null) throw StateError('$runtimeType is attached');
     _participant = p;
+    _group = group;
     define(p);
     if (changes case final c?) listen(c, (_) => group._changed(this));
   }
@@ -84,9 +86,14 @@ abstract base class Owner implements IHandle {
     return kind;
   }
 
-  /// Withdraws its words.
+  /// Withdraws its words, and leaves the participant it was attached to:
+  /// its `sync` is not asked again. An owner that overrides it calls it.
   @override
-  void dispose() => _handles.dispose();
+  void dispose() {
+    _handles.dispose();
+    _group?._left(this);
+    _group = null;
+  }
 }
 
 /// A kind of entities an owner keeps: it tells the registry when the
@@ -147,7 +154,9 @@ final class OwnerGroup {
 
   /// Attaches each of [owners] to the part of its name
   /// (`participant.child(name)`), so its acts are told as its own, in
-  /// order; then writes what they have now, as one tick.
+  /// order; then writes what they have now, as one tick. All or none: when
+  /// one cannot define its words, those attached here are withdrawn and
+  /// the error goes on.
   void attach(Map<String, Owner> owners) {
     if (_disposed) throw StateError('${participant.who} is gone');
     for (final name in owners.keys) {
@@ -155,23 +164,54 @@ final class OwnerGroup {
         throw StateError('${participant.who} has an owner named $name');
       }
     }
-    for (final MapEntry(key: name, value: o) in owners.entries) {
-      o._attach(participant.child(name), this);
-      _owners[name] = o;
-    }
-    participant.batch(() {
-      for (final o in owners.values) {
-        o.sync();
+    for (final o in owners.values) {
+      if (o._participant != null) {
+        throw StateError('${o.runtimeType} is attached');
       }
-    });
+    }
+    final attached = <Owner>[];
+    try {
+      for (final MapEntry(key: name, value: o) in owners.entries) {
+        attached.add(o);
+        o._attach(participant.child(name), this);
+        _owners[name] = o;
+      }
+    } catch (_) {
+      for (final o in attached.reversed) {
+        o.dispose();
+      }
+      rethrow;
+    }
+    _sync(owners.values);
   }
 
   /// Writes what every owner has now, as one tick.
-  void sync() => participant.batch(() {
-    for (final o in _owners.values) {
-      o.sync();
-    }
-  });
+  void sync() => _sync([..._owners.values]);
+
+  /// Syncs [owners] as one tick, each on its own: one that throws writes
+  /// nothing, the others write what they have, and its error goes on
+  /// after.
+  void _sync(Iterable<Owner> owners) {
+    Object? error;
+    StackTrace? stack;
+    participant.batch(() {
+      for (final o in owners) {
+        try {
+          participant.batch(o.sync);
+        } catch (e, s) {
+          error ??= e;
+          stack ??= s;
+        }
+      }
+    });
+    if (error case final e?) Error.throwWithStackTrace(e, stack!);
+  }
+
+  /// [o] was disposed on its own: it is synced no more.
+  void _left(Owner o) {
+    _owners.removeWhere((_, x) => identical(x, o));
+    _dirty.remove(o);
+  }
 
   void _changed(Owner o) {
     final first = _dirty.isEmpty;
@@ -184,11 +224,7 @@ final class OwnerGroup {
       ];
       _dirty.clear();
       if (_disposed) return;
-      participant.batch(() {
-        for (final o in due) {
-          o.sync();
-        }
-      });
+      _sync(due);
     });
   }
 

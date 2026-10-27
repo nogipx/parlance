@@ -293,9 +293,14 @@ sealed class CallResult<R> {
     final m = json as Map;
     if (m.containsKey('done')) return CallDone(m['value']);
     if (m['refused'] case final String code) {
+      final reason = m['reason'] as String? ?? '';
+      // A refusal of a newer registry this side does not know: not done,
+      // and not to retry, as it would be told if taken for a lost one.
+      final refusal = Refusal.values.asNameMap()[code];
+      if (refusal == null) return CallFailed('refused ($code): $reason');
       return CallRefused(
-        Refusal.values.byName(code),
-        m['reason'] as String? ?? '',
+        refusal,
+        reason,
         guard: m['guard'] as String?,
         overridable: m['overridable'] == true,
       );
@@ -304,7 +309,8 @@ sealed class CallResult<R> {
     if (m['lost'] case final String id) {
       return CallLost(id, m['reason'] as String? ?? '');
     }
-    return const CallTimedOut();
+    if (m['timedOut'] == true) return const CallTimedOut();
+    return CallFailed('an end this side does not know: $m');
   }
 
   bool get ok => this is CallDone;

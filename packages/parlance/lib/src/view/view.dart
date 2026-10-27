@@ -92,10 +92,10 @@ final class ViewStateOf<T> {
   /// Its value (of [key]) now.
   T? read({String? key}) => word.decode(view.read(word.name, key: key));
 
-  /// Every value, by key.
+  /// Every value, by key; a null one too, of a state that may be null.
   Map<String?, T> readAll() => {
     for (final e in view.readAll(word.name).entries)
-      if (e.value != null) e.key: word.shape.fromJson(e.value),
+      if (e.value != null || null is T) e.key: word.shape.fromJson(e.value),
   };
 
   /// Its value (of [key]) now, then whenever it changes; while listened
@@ -189,9 +189,14 @@ final class LocalView implements IRegistryView {
     return registry.readAll(state);
   }
 
+  /// An old name of a word (SPEC §6.4) is told the word's changes.
   @override
   Stream<void> changes(Set<String> states) => registry.ticks
-      .where((t) => t.changes.any((c) => states.contains(c.state)))
+      .where((t) {
+        if (t.changes.isEmpty) return false;
+        final names = {for (final s in states) registry.canonical(s)};
+        return t.changes.any((c) => names.contains(c.state));
+      })
       .map((_) {});
 
   @override

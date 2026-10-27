@@ -53,10 +53,10 @@ enum Access {
   deny,
 }
 
-/// Who may call a command: selectors (`user`, `plugin:hydra`, `*` for
+/// Who may call a command: selectors (`user`, `plugin/hydra`, `*` for
 /// anyone) to access; the most specific selector wins, an unmatched
 /// principal is denied. A selector names the parts of what it names too
-/// (`plugin:hydra` names `plugin:hydra/ui`), so the nearest one wins:
+/// (`plugin/hydra` names `plugin/hydra/ui`), so the nearest one wins:
 /// the part's own, then each whole it is part of, then its kind.
 final class Callers {
   const Callers(this.rules);

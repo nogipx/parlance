@@ -152,6 +152,7 @@ final class RemoteParticipant implements IParticipant {
       await endpoint.close();
       rethrow;
     }
+    p._joined = connection;
     p._connection = connection.state.listen(p._onConnection);
     return p;
   }
@@ -222,6 +223,15 @@ final class RemoteParticipant implements IParticipant {
 
   StreamSubscription<RpcClientConnectionState>? _connection;
 
+  /// The connection it joined over; null for one given an endpoint.
+  RpcClientConnection? _joined;
+
+  /// Asks to join again while the connection is up but joining failed.
+  Timer? _retry;
+  Duration _retryAfter = _firstRetry;
+  static const _firstRetry = Duration(milliseconds: 250);
+  static const _lastRetry = Duration(seconds: 30);
+
   /// Whether its session is there to ask: false from a drop until it has
   /// joined the host's new session.
   bool _online = true;
@@ -279,13 +289,31 @@ final class RemoteParticipant implements IParticipant {
       }
       _mirror.follow(_client);
       _checkAvailability();
+      _retryAfter = _firstRetry;
       await flush();
     } on Object {
-      // Dropped again before it joined: the next time it is online.
+      // Dropped again before it joined: the next time it is online, or,
+      // while the connection says it is, after a while.
       _online = false;
+      _rejoinLater();
     } finally {
       _rejoining = false;
     }
+  }
+
+  /// Joins again after a while, each time later, while the connection is
+  /// up and the session is not: no state of the connection will change to
+  /// say so.
+  void _rejoinLater() {
+    if (_disposed || _retry != null || _joined == null) return;
+    _retry = Timer(_retryAfter, () {
+      _retry = null;
+      if (_disposed || _online) return;
+      if (_joined?.currentState is! RpcClientOnline) return;
+      unawaited(_rejoin());
+    });
+    final next = _retryAfter * 2;
+    _retryAfter = next > _lastRetry ? _lastRetry : next;
   }
 
   /// What it has defined, as it stands now, in the order a session takes
@@ -449,12 +477,19 @@ final class RemoteParticipant implements IParticipant {
           }
         }
       } on Object catch (e) {
-        if (!_disposed) {
+        if (e is RpcStatusException && answeredBySession(e.statusCode)) {
+          // The session answered, failing all of it: each op is told so,
+          // and the session is still there for what comes next.
+          for (final op in ops) {
+            _fail(op, e.statusCode.name, e.message);
+          }
+        } else if (!_disposed) {
           // The connection dropped: a new session gets what it defined as
           // it stands; what it said goes again after, its ids letting the
           // registry drop one it took. What it asked besides is in what it
           // has as it stands.
           _online = false;
+          _rejoinLater();
           final said = [
             for (final op in [...ops, ..._queue])
               if (op['op'] == 'emit') op,
@@ -896,6 +931,12 @@ final class RemoteParticipant implements IParticipant {
   /// endpoint.
   Future<void> close() async {
     if (_disposed) return;
+    _retry?.cancel();
+    _retry = null;
+    // Owners attached to its parts go too, as a local participant's parts'.
+    for (final part in [..._parts.values]) {
+      part._group.dispose();
+    }
     _group.dispose();
     for (final name in [..._own.keys, ..._facts.keys, ..._commands.keys]) {
       _ask({'op': 'undefine', 'name': name});

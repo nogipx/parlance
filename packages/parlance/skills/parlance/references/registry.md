@@ -26,7 +26,7 @@ A type checks a value and fills defaults. Types are values themselves (they seri
 | `duration` | `int`, milliseconds, ≥ 0 | `max` |
 | `ref` | entity id `String` | `kind` |
 | `list` | `List` of one type | `item`, `maxItems` |
-| `object` | `Map` with named fields; unknown ones refused, an optional one given as null left out | fields: type, `optional`, `default`, `description` |
+| `object` | `Map` with named fields; unknown ones refused, an optional one given as null left out (but for a nullable one, where null is its value) | fields: type, `optional`, `default`, `description` |
 | `map` | `Map` from any text to one type (files by path) | `value`, `maxEntries` |
 | `nullable` | null, or a value of `of`: "none" as a value of its own, apart from an empty list | `of` |
 | `oneOf` | one of several objects, told apart by the text in field `key` | `key`, `variants` (objects by tag), `descriptions` |
@@ -76,6 +76,7 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 ```
 
 - A state has exactly one writer: whoever defined it holds the only write handle.
+- A state that goes (its handle disposed, its participant gone) takes its values with it as removals, committed in one tick whoever follows them is told: inside a batch they commit with it, and what the batch wrote of the state goes uncommitted. Its name is free at once.
 - `readers` say who may read its values over remote and to agents, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.
@@ -200,7 +201,7 @@ A call goes through these stages, in order; the first refusal ends it:
 6. **Guards.** Every guard (§10) is asked; the first denial → `denied` with the guard's id and reason. A denial marked overridable lets the call through when `override` is set and the principal's kind is one the host allows to override; the call record says it was overridden.
 7. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id answers that end.
 
-`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
+`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. An end a peer of a newer protocol tells that this side does not know (a refusal code, a shape) is `failed`, saying what came: not done, and nothing to retry. A timed-out call's late end takes the place of its timeout among the call records kept. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
 
 ### 9.2 Logs and telemetry
 
@@ -221,7 +222,7 @@ addGuard(id, check, overridable = true) → handle
 - `check` is synchronous, reads committed state only, makes no calls, and returns nothing or a denial reason.
 - `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies.
 - Guards are asked for every call that reached stage 6.
-- A guard that throws counts as no denial; the error goes to the error sink.
+- A guard that throws denies (`denied`, with its id), as one asked across a connection that cannot answer does: the rule it keeps holds. The error goes to the error sink.
 
 ## 11. Before hooks
 
@@ -237,7 +238,7 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 - Without `since`, or with another epoch, or with a seq older than the retained ticks: first a **snapshot** (every state value, the catalog, the epoch and seq), then live ticks. A snapshot after a gap says `factsLost: true`.
 - With a seq still retained: the retained ticks after it, then live ticks, with no gap and no repeat. What each kind of message is promised across a drop: §14.1.
-- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)`, the call records as many as ticks; each of these histories also keeps no more than about `retainBytes` (default 4 MB) of values, weighed roughly as their JSON. Whichever bound comes first drops the oldest, but the newest of each history is kept however big, so a big value rewritten often is not held in every version. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
+- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)` (none for an `n` of none or less), the call records as many as ticks; each of these histories also keeps no more than about `retainBytes` (default 4 MB) of values, weighed roughly as their JSON. Whichever bound comes first drops the oldest, but the newest of each history is kept however big, so a big value rewritten often is not held in every version. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
 
 ## 17. Versions
 
@@ -255,6 +256,7 @@ The registry keeps names and JSON, as remote participants and agents see it. A h
 - **The word fixes the types.** A call is made on what `command(word)` gives, never by a generic function taking a word and params together: Dart's generics are covariant, so such a function would infer a common supertype of two different records and compile a call with another command's params.
 - An answer that does not decode as the word says is `failed`.
 - A state's value decodes once per value: reads and watches of the same value share one decoded Dart value, so the lists and maps a shape decodes are unmodifiable.
-- A change reaches only the watchers of its state and key: a write costs the same however many watch other states or keys.
+- A change reaches only the watchers of its state and key: a write costs the same however many watch other states or keys. A watcher is told the value when it starts, then only what was committed after: never a tick older than what it read first.
+- `readAll` of a state that may be null (`Nullable`) keeps its null values: null is a value of its own there.
 - **As the core sees them.** The typed handles are the core's interfaces (§21.6): `StateOf.reader`, `StateWriterOf` and its `at`, `CommandOf.caller(by:)` (`CallNotDone` for a call not done), `FactEmitterOf`, `FactOf.listener`. Names and keys of entity kinds stay strings.
 

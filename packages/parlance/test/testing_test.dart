@@ -118,6 +118,14 @@ void main() {
     );
   });
 
+  test('a stand-in takes no namespace of the module under test', () async {
+    host.participant(me, vocabularies: [WordSet.open('weather.inside')]);
+    final outside = host.stateOf(Outside.temperature, 10);
+    outside.set(12);
+    await host.settle();
+    expect(host.written(Outside.temperature), [10, 12]);
+  });
+
   test('a stand-in command answers what it is told', () async {
     host.commandOf(Heater.power, answer: (p) => throw StateError('broken'));
     final r = await host.registry.command(Heater.power).call((

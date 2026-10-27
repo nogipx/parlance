@@ -99,17 +99,26 @@ void main() {
     );
   });
 
-  test('a throwing guard counts as no denial and goes to the sink', () async {
-    final errors = <Object>[];
-    final r = Registry(onError: (e, _) => errors.add(e));
-    r.defineCommand(
-      CommandDescriptor('x.go', callers: Callers.only(['user'])),
-      (_) {},
-    );
-    r.addGuard('bad', (_) => throw StateError('boom'));
-    expect((await r.call('x.go', {}, by: user)).ok, isTrue);
-    expect(errors.single, isA<StateError>());
-  });
+  test(
+    'a guard that cannot judge denies, and its error goes to the sink',
+    () async {
+      final errors = <Object>[];
+      final r = Registry(onError: (e, _) => errors.add(e));
+      r.defineCommand(
+        CommandDescriptor('x.go', callers: Callers.only(['user'])),
+        (_) {},
+      );
+      r.addGuard('bad', (_) => throw StateError('boom'));
+      final result = await r.call('x.go', {}, by: user);
+      expect(
+        result,
+        isA<CallRefused>()
+            .having((x) => x.code, 'code', Refusal.denied)
+            .having((x) => x.guard, 'guard', 'bad'),
+      );
+      expect(errors.single, isA<StateError>());
+    },
+  );
 
   test(
     'a repeated id answers the first result without running again',

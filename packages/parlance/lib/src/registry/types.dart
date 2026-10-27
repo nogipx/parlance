@@ -291,8 +291,10 @@ final class ObjectType extends ValueType<Map<String, Object?>> {
     final out = <String, Object?>{};
     for (final MapEntry(key: k, value: f) in fields.entries) {
       // An optional field given as null is left out, as JSON writers often
-      // say it.
-      if (value.containsKey(k) && !(value[k] == null && f.optional)) {
+      // say it; but where null is a value of its own (a nullable field), it
+      // is that value, not its default.
+      if (value.containsKey(k) &&
+          !(value[k] == null && f.optional && f.type is! NullableType)) {
         out[k] = f.type.check(value[k], ctx, at(k));
       } else if (f.defaultValue != null) {
         out[k] = f.type.check(f.defaultValue, ctx, at(k));

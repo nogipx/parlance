@@ -107,12 +107,16 @@ final class TestHost {
     return p;
   }
 
-  /// The participant standing in for the owner of [name]'s namespace.
+  /// The participant standing in for the owner of [name]: one of a word
+  /// of its own, so it takes no namespace the module under test has
+  /// (`audio.mix.level` beside a module of `audio.voice`).
   LocalParticipant _standInFor(String name) {
-    final namespace = name.split('.').first;
-    return _standIns[namespace] ??= registry.participant(
-      Principal('stand-in', namespace),
-      vocabularies: [WordSet.open(namespace)],
+    for (final p in _standIns.values) {
+      if (p.owns(name)) return p;
+    }
+    return _standIns[name] = registry.participant(
+      Principal('stand-in', name),
+      vocabularies: [WordSet.open(name)],
     );
   }
 

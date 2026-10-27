@@ -284,10 +284,10 @@ final class ParticipantStateOf<T> {
   /// Its value (of [key]) now.
   T? read({String? key}) => word.decode(participant.read(word.name, key: key));
 
-  /// Every value, by key.
+  /// Every value, by key; a null one too, of a state that may be null.
   Map<String?, T> readAll() => {
     for (final e in participant.readAll(word.name).entries)
-      if (e.value != null) e.key: word.shape.fromJson(e.value),
+      if (e.value != null || null is T) e.key: word.shape.fromJson(e.value),
   };
 
   /// Its value now, then on every change.
@@ -311,8 +311,11 @@ final class _ParticipantReader<T> implements IStateReader<T> {
   @override
   T? get value => _state.read(key: _key);
 
+  /// Whether there is a value, a null one of a state that may be null too.
   @override
-  bool get has => value != null;
+  bool get has =>
+      value != null ||
+      _state.participant.readAll(_state.word.name).containsKey(_key);
 
   @override
   Stream<T?> watch() => _state.watch(key: _key);

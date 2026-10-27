@@ -8,7 +8,7 @@ The core is the level everything else stands on: typed values in one process, no
 
 A hub commits the writes of its cells and the emits of its signals in **ticks**.
 
-- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick; batches nest, the outermost commits; one whose body throws commits nothing of it; a batch that returns a future is refused.
+- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick; batches nest, the outermost commits; one whose body throws commits nothing of it, and what waited before it for a cell or signal closed in it stays dropped; a batch that returns a future is refused.
 - Inside a batch (and while a tick is being committed), reads see the batch's own writes; `has` sees only committed values.
 - On commit, a write that leaves a value equal to the one there is, and a remove of a value there is not, are dropped. Each remaining change, then each emit, gets the next **seq** of the hub.
 - A tick is `HubTick { from, to, changes, emits }`; a change says its store, key, value, previous value, whether it removed, and the **tag** its writer gave. The hub never reads a tag: it is how a layer above carries its own data through (the registry carries the cause and a fact's id).
@@ -23,6 +23,7 @@ A `Cell<V>` holds one value; a `KeyedCell<K, V>` one value per key.
 - **Equality** is `==` unless the cell is made with `equals` (the registry gives deep JSON equality).
 - `watch` gives the value now (null when there is none), then every committed change, a remove as null.
 - `close()` drops the writes of the cell waiting in a batch, and lets no one claim it again.
+- A keyed cell's writer `clear()`s it: every committed key is removed, and what the batch running now wrote of it is dropped, so a key written there and never committed leaves nothing.
 
 ## 21.3 Signals
 

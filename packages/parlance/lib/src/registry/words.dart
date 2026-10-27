@@ -462,10 +462,10 @@ final class StateOf<T> {
 
   bool has({String? key}) => registry.has(word.name, key: key);
 
-  /// Every value, by key.
+  /// Every value, by key; a null one too, of a state that may be null.
   Map<String?, T> readAll() => {
     for (final e in registry.readAll(word.name).entries)
-      if (e.value != null) e.key: word.shape.fromJson(e.value),
+      if (e.value != null || null is T) e.key: word.shape.fromJson(e.value),
   };
 
   /// Its value now, then on every change.

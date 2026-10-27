@@ -757,19 +757,30 @@ final class Registry implements ITypeContext {
     return RawFactEmitter._(this, d, by, f.signal.claim(), definer: false);
   }
 
+  /// The cells of states that went inside a batch: their removals commit
+  /// with it, then they go.
+  final Set<KeyedCell<String?, Object?>> _retired = Set.identity();
+
+  void _retire(KeyedCell<String?, Object?> cell) {
+    cell.close();
+    _names.remove(cell);
+  }
+
   void _undefine(String name) {
     if (_states[name] case final s?) {
-      // The values go in one tick, while the entry is still there to
-      // commit against.
-      batch(() {
-        for (final key in [...s.cell.values.keys]) {
-          s.writer.remove(key, tag: Cause(Principal.system));
-        }
-      });
+      // The values go in one tick, as removals everyone who follows them
+      // is told; what was written of them in the batch running now goes
+      // with them, uncommitted.
+      batch(() => s.writer.clear(tag: Cause(Principal.system)));
       _states.remove(name);
-      // Inside an outer batch, its removes go with the state, uncommitted.
-      s.cell.close();
-      _names.remove(s.cell);
+      s.writer.dispose();
+      // Inside an outer batch the removals wait for it: the cell stays for
+      // them to commit against, and goes after.
+      if (_hub.writing) {
+        _retired.add(s.cell);
+      } else {
+        _retire(s.cell);
+      }
       _announce(DescriptorRemoved(s.descriptor));
     } else if (_commands.remove(name) case final c?) {
       c.serving.dispose();
@@ -794,7 +805,18 @@ final class Registry implements ITypeContext {
 
   /// Runs [body] synchronously and commits everything it wrote as one tick
   /// (SPEC §7). Batches nest; the outermost commits.
-  void batch(void Function() body) => _hub.batch(body);
+  void batch(void Function() body) {
+    try {
+      _hub.batch(body);
+    } finally {
+      if (!_hub.writing && _retired.isNotEmpty) {
+        for (final cell in [..._retired]) {
+          _retire(cell);
+        }
+        _retired.clear();
+      }
+    }
+  }
 
   void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
     cause = _correlated(cause);
@@ -881,17 +903,20 @@ final class Registry implements ITypeContext {
     final now = clock.now();
     final changes = <StateChange>[
       for (final c in t.changes)
-        StateChange(
-          seq: c.seq,
-          id: newId(),
-          state: _names[c.store]!,
-          key: c.key as String?,
-          value: c.value,
-          previous: c.previous,
-          removed: c.removed,
-          cause: c.tag! as Cause,
-          at: now,
-        ),
+        // Of a state that went, only its removals: a batch that threw puts
+        // back what was written before it went.
+        if (c.removed || !_retired.contains(c.store))
+          StateChange(
+            seq: c.seq,
+            id: newId(),
+            state: _names[c.store]!,
+            key: c.key as String?,
+            value: c.value,
+            previous: c.previous,
+            removed: c.removed,
+            cause: c.tag! as Cause,
+            at: now,
+          ),
     ];
     final committed = <FactMessage>[
       for (final e in t.emits)
@@ -965,7 +990,9 @@ final class Registry implements ITypeContext {
     out = StreamController<Object?>(
       onListen: () {
         out.add(read(state, key: key));
-        (_watchers[at] ??= {}).add(out);
+        // Ticks committed before it read are on their way to the others'
+        // listener still: what it read is newer than they are.
+        (_watchers[at] ??= {})[out] = seq;
         _watching ??= ticks.listen(_toWatchers);
       },
       onCancel: () {
@@ -982,17 +1009,19 @@ final class Registry implements ITypeContext {
     return out.stream;
   }
 
-  /// Who watches which state (of which key): a change reaches only its own
-  /// watchers, however many watch other states.
-  final Map<(String, String?), Set<StreamController<Object?>>> _watchers = {};
+  /// Who watches which state (of which key), each with the seq it read
+  /// at: a change reaches only its own watchers, however many watch other
+  /// states, and only those that read before it.
+  final Map<(String, String?), Map<StreamController<Object?>, int>> _watchers =
+      {};
   StreamSubscription<Tick>? _watching;
 
   void _toWatchers(Tick t) {
     for (final c in t.changes) {
       final set = _watchers[(c.state, c.key)];
       if (set == null) continue;
-      for (final out in [...set]) {
-        out.add(c.value);
+      for (final e in [...set.entries]) {
+        if (c.seq > e.value) e.key.add(c.value);
       }
     }
   }
@@ -1008,7 +1037,7 @@ final class Registry implements ITypeContext {
   /// The last [n] facts of [fact], oldest first.
   List<FactMessage> recent(String fact, [int? n]) {
     final q = _recent[canonical(fact)];
-    if (q == null) return const [];
+    if (q == null || (n != null && n <= 0)) return const [];
     final all = q.toList();
     return n == null || n >= all.length ? all : all.sublist(all.length - n);
   }
@@ -1233,6 +1262,10 @@ final class Registry implements ITypeContext {
   bool _forgotCalls = false;
 
   void _remember(CallRecord record) {
+    // A late end takes the place of the record of its timeout.
+    if (_recentCalls.remove(record.id) case final before?) {
+      _recentCallBytes -= _callWeight(before);
+    }
     _recentCalls[record.id] = record;
     _recentCallBytes += _callWeight(record);
     while (_recentCalls.length > retainTicks ||
@@ -1437,6 +1470,9 @@ final class Registry implements ITypeContext {
         try {
           why = g.check!(pending);
         } catch (e, s) {
+          // A guard that cannot judge denies, as one asked across a
+          // connection that cannot answer does: the rule it keeps holds.
+          why = 'its guard ${g.id} failed: $e';
           _onError(e, s);
         }
       }

@@ -69,8 +69,10 @@ final class MirrorView implements IRegistryView {
       onListen: () {
         _want(_facts, {fact}, 1);
         sub = mirror.ticks.listen((t) {
+          // An old name of a fact hears the fact (SPEC §6.4).
+          final name = mirror.canonical(fact);
           for (final f in t.facts) {
-            if (f.fact == fact) out.add(f);
+            if (f.fact == name) out.add(f);
           }
         });
       },

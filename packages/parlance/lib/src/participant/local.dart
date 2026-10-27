@@ -113,8 +113,9 @@ final class LocalParticipant implements IParticipant {
   /// What it may do beyond defining in its namespaces.
   final ParticipantRights rights;
 
-  /// What it defined, registered and added, to withdraw on [dispose].
-  final List<IHandle> _handles = [];
+  /// What it defined, registered and added, to withdraw on [dispose]: each
+  /// leaves it when withdrawn on its own.
+  final Set<IHandle> _handles = {};
 
   /// The commands it defined: its guards judge their calls only.
   final Set<String> _commands = {};
@@ -134,6 +135,16 @@ final class LocalParticipant implements IParticipant {
   H _keep<H extends IHandle>(H h) {
     _handles.add(h);
     return h;
+  }
+
+  /// A handle doing [withdraw], kept until it is disposed.
+  IHandle _keepDoing(void Function() withdraw) {
+    late final _Disposer d;
+    d = _Disposer(() {
+      _handles.remove(d);
+      withdraw();
+    });
+    return _keep(d);
   }
 
   /// Whether [name] is in its namespaces.
@@ -264,12 +275,10 @@ final class LocalParticipant implements IParticipant {
     _mayDefine(d);
     final h = _r.defineCommand(d, handler, available: available);
     _commands.add(d.name);
-    return _keep(
-      _Disposer(() {
-        _commands.remove(d.name);
-        h.dispose();
-      }),
-    );
+    return _keepDoing(() {
+      _commands.remove(d.name);
+      h.dispose();
+    });
   }
 
   @override
@@ -281,12 +290,10 @@ final class LocalParticipant implements IParticipant {
     _mayDefine(d);
     final h = _r.defineQuery(d, handler, available: available);
     _commands.add(d.name);
-    return _keep(
-      _Disposer(() {
-        _commands.remove(d.name);
-        h.dispose();
-      }),
-    );
+    return _keepDoing(() {
+      _commands.remove(d.name);
+      h.dispose();
+    });
   }
 
   @override
@@ -309,12 +316,14 @@ final class LocalParticipant implements IParticipant {
   @override
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
     _live();
-    return _keep(
-      _r.addGuard(
-        id,
-        (c) => _commands.contains(c.command.name) ? check(c) : null,
-        overridable: overridable,
-      ),
+    return _keepDoing(
+      _r
+          .addGuard(
+            id,
+            (c) => _commands.contains(c.command.name) ? check(c) : null,
+            overridable: overridable,
+          )
+          .dispose,
     );
   }
 
@@ -327,18 +336,21 @@ final class LocalParticipant implements IParticipant {
     Duration timeout = const Duration(seconds: 2),
   }) {
     _live();
-    return _keep(
-      _r.addAskedGuard(
-        id,
-        (c) async => _commands.contains(c.command.name) ? ask(c) : null,
-        overridable: overridable,
-        timeout: timeout,
-      ),
+    return _keepDoing(
+      _r
+          .addAskedGuard(
+            id,
+            (c) async => _commands.contains(c.command.name) ? ask(c) : null,
+            overridable: overridable,
+            timeout: timeout,
+          )
+          .dispose,
     );
   }
 
   @override
   void availabilityChanged(String command) {
+    _live();
     if (!_commands.contains(_r.canonical(command))) {
       throw NotPermitted('$command is not $who\'s command');
     }
@@ -350,12 +362,10 @@ final class LocalParticipant implements IParticipant {
     _live();
     final h = _r.registerKind(kind);
     _kinds.add(kind.name);
-    return _keep(
-      _Disposer(() {
-        _kinds.remove(kind.name);
-        h.dispose();
-      }),
-    );
+    return _keepDoing(() {
+      _kinds.remove(kind.name);
+      h.dispose();
+    });
   }
 
   @override
@@ -391,7 +401,7 @@ final class LocalParticipant implements IParticipant {
     for (final c in [..._children.values].reversed) {
       c.dispose();
     }
-    for (final h in _handles.reversed) {
+    for (final h in [..._handles].reversed) {
       h.dispose();
     }
     _handles.clear();
@@ -422,7 +432,10 @@ final class _OwnState implements IStateHandle {
       _raw.remove(key: key, cause: _p._as(cause));
 
   @override
-  void dispose() => _raw.dispose();
+  void dispose() {
+    _p._handles.remove(this);
+    _raw.dispose();
+  }
 }
 
 /// A fact a participant says: as itself, or on behalf of another when its
@@ -452,7 +465,10 @@ final class _OwnFact implements IFactHandle {
   }
 
   @override
-  void dispose() => _raw.dispose();
+  void dispose() {
+    _p._handles.remove(this);
+    _raw.dispose();
+  }
 }
 
 final class _Disposer implements IHandle {

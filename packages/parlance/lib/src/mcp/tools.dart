@@ -235,11 +235,10 @@ Future<List<McpTool>> parlanceTools(
         if (!facts.any((f) => f['name'] == name)) {
           return McpResult.error('no fact $name');
         }
+        // As its schema says: an agent's count is not trusted to keep it.
+        final count = ((a['count'] as num?)?.toInt() ?? 10).clamp(1, 100);
         return McpResult.json([
-          for (final f in await p.recent(
-            name,
-            (a['count'] as num?)?.toInt() ?? 10,
-          ))
+          for (final f in await p.recent(name, count))
             {
               'at': f.at.toUtc().toIso8601String(),
               'payload': f.payload,

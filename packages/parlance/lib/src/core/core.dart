@@ -66,6 +66,9 @@ final class _Release implements IHandle {
 /// A cell or a signal a [Hub] commits for.
 abstract class _Member {
   Hub get hub;
+
+  /// Closed: nothing of it commits again.
+  bool get _closed;
 }
 
 /// Commits the writes of its cells and the emits of its signals in ticks
@@ -105,7 +108,7 @@ final class Hub {
     // is committed whole or not at all, never the half written before the
     // throw.
     final before = _pending.isEmpty ? null : LinkedHashMap.of(_pending);
-    final emitted = _emits.length;
+    final emitted = _emits.isEmpty ? null : List.of(_emits);
     _depth++;
     var done = false;
     try {
@@ -116,9 +119,18 @@ final class Hub {
       done = true;
     } finally {
       if (!done) {
+        // What waited for a cell or signal closed in [body] stays dropped:
+        // nothing commits for what is gone.
         _pending.clear();
-        if (before != null) _pending.addAll(before);
-        _emits.length = emitted;
+        if (before != null) {
+          for (final e in before.entries) {
+            if (!e.key.$1._closed) _pending[e.key] = e.value;
+          }
+        }
+        _emits.clear();
+        if (emitted != null) {
+          _emits.addAll(emitted.where((e) => !e.member._closed));
+        }
       }
       _depth--;
       if (_depth == 0) _commit();
@@ -147,6 +159,15 @@ final class Hub {
 
   _Write? _waiting(_Member m, Object? key) =>
       writing ? _pending[(m, key)] : null;
+
+  /// Removes every value of [m]: those committed, and those waiting.
+  void _clear(_Store m, Iterable<Object?> committed, Object? tag) {
+    _pending.removeWhere((k, _) => identical(k.$1, m));
+    for (final key in committed) {
+      _pending[(m, key)] = _Write(null, true, tag);
+    }
+    _after();
+  }
 
   void _drop(_Member m) {
     _pending.removeWhere((k, _) => identical(k.$1, m));
@@ -297,6 +318,7 @@ final class KeyedCell<K, V> implements _Store {
   final bool Function(V a, V b)? _equals;
   final Map<K, V> _values = {};
   KeyedCellWriter<K, V>? _writer;
+  @override
   bool _closed = false;
 
   /// Whether a writer holds it now.
@@ -376,6 +398,13 @@ final class KeyedCellWriter<K, V> implements IHandle {
     _cell.hub._write(_cell, key, null, true, tag);
   }
 
+  /// Removes every value, those committed and those written in the batch
+  /// running now: a key written in it and never committed leaves nothing.
+  void clear({Object? tag}) {
+    _check();
+    _cell.hub._clear(_cell, [..._cell._values.keys], tag);
+  }
+
   /// The value of [key] as a [IStateWriter].
   IStateWriter<V> at(K key) => _KeyedWriter(this, key);
 
@@ -431,6 +460,7 @@ final class Cell<V> implements _Store, IStateReader<V> {
   bool _has = false;
   V? _value;
   CellWriter<V>? _writer;
+  @override
   bool _closed = false;
 
   /// Whether a writer holds it now.
@@ -547,6 +577,7 @@ final class Signal<T> implements _Member, IFactListener<T> {
   /// Whether more than one emitter may claim it.
   final bool open;
   int _emitters = 0;
+  @override
   bool _closed = false;
 
   /// An emitter; a second one fails unless [open].

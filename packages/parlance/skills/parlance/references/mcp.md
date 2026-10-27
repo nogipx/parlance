@@ -13,7 +13,7 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 | `describe` | the commands this principal may call (params as JSON Schema, refs listing their entities, whether it can run now), states, facts, entities (with the JSON Schema of the value one takes, when its meta tells a `type`) |
 | `read` | states now: one, by prefix, or all; a state the principal may not read (§6.1 `readers`) is told as such, and left out of the others (so is a fact it may not hear, from `recent_facts`) |
 | `call` | a command by name; an `id` makes a retry safe |
-| `recent_facts` | the last facts of a name |
+| `recent_facts` | the last facts of a name, from 1 to 100 of them, whatever count the agent gives |
 | `why` | a state's value, last change (when, on whose behalf, the conversation it was part of), the calls that led to it: `Registry.explain`, told without the wire's ids |
 
 With `commandTools`, each command the principal may call is a tool of its own as well. A host adds its own tools beside these.

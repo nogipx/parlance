@@ -210,6 +210,10 @@ final class RemoteSession extends ParlanceContractPeer {
   /// Each feed's catch-up: told the seq of a call answered.
   final Set<void Function(int seq)> _catchUps = {};
 
+  /// How each feed open now is ended, when the session is.
+  final Map<StreamController<WireFeedItem>, Future<void> Function()> _feedEnds =
+      {};
+
   /// The states the session's feeds carry; null for all.
   Set<String>? get states =>
       _stateFilter == null ? null : Set.unmodifiable(_stateFilter!);
@@ -248,8 +252,10 @@ final class RemoteSession extends ParlanceContractPeer {
     // The last seq the feed took: a tick it takes starts after it, so a
     // tick left out (nothing in it the session follows) leaves no gap.
     var last = request.since;
-    // The last seq it handed to the connection.
+    // The last seq it handed to the connection, and of which epoch: the
+    // client's until the feed hands it one of this registry's.
     var sent = request.since;
+    var sentEpoch = request.epoch;
     // The last seq of a tick it saw, sent or left out.
     int? seen;
     // The commands that could not run when the feed last told, and why.
@@ -263,7 +269,10 @@ final class RemoteSession extends ParlanceContractPeer {
 
     void hand((WireFeedItem, int?) i) {
       out.add(i.$1);
-      if (i.$2 case final seq?) sent = seq;
+      if (i.$2 case final seq?) {
+        sent = seq;
+        sentEpoch = registry.epoch;
+      }
     }
 
     late void Function() follow;
@@ -349,45 +358,40 @@ final class RemoteSession extends ParlanceContractPeer {
     }
 
     follow = () {
-      items = registry
-          .feed(
-            epoch: sent == null ? request.epoch : registry.epoch,
-            since: sent,
-          )
-          .listen((i) {
-            switch (i) {
-              case Snapshot():
-                last = i.seq;
-                send(
-                  WireFeedItem('snapshot', {
-                    ...Snapshot(
-                      epoch: i.epoch,
-                      seq: i.seq,
-                      states: {
-                        for (final e in i.states.entries)
-                          if (_carries(e.key)) e.key: e.value,
-                      },
-                      factsLost: i.factsLost || factsDropped,
-                    ).toJson(),
-                    'subscription': _subscription,
-                  }),
-                  i.seq,
-                );
-                factsDropped = false;
-              case Tick():
-                seen = i.to;
-                final t = _tickOf(i, last == null ? i.from : last! + 1);
-                if (t != null) {
-                  last = i.to;
-                  send(WireFeedItem('tick', t.toJson()), i.to);
-                } else if (i.to <= _owed) {
-                  // Nothing in it the session follows, but a call of its
-                  // waits for this seq: told it went by, empty.
-                  catchUp(i.to);
-                }
-                availability();
+      items = registry.feed(epoch: sentEpoch, since: sent).listen((i) {
+        switch (i) {
+          case Snapshot():
+            last = i.seq;
+            send(
+              WireFeedItem('snapshot', {
+                ...Snapshot(
+                  epoch: i.epoch,
+                  seq: i.seq,
+                  states: {
+                    for (final e in i.states.entries)
+                      if (_carries(e.key)) e.key: e.value,
+                  },
+                  factsLost: i.factsLost || factsDropped,
+                ).toJson(),
+                'subscription': _subscription,
+              }),
+              i.seq,
+            );
+            factsDropped = false;
+          case Tick():
+            seen = i.to;
+            final t = _tickOf(i, last == null ? i.from : last! + 1);
+            if (t != null) {
+              last = i.to;
+              send(WireFeedItem('tick', t.toJson()), i.to);
+            } else if (i.to <= _owed) {
+              // Nothing in it the session follows, but a call of its
+              // waits for this seq: told it went by, empty.
+              catchUp(i.to);
             }
-          });
+            availability();
+        }
+      });
     };
 
     out = StreamController<WireFeedItem>(
@@ -402,11 +406,20 @@ final class RemoteSession extends ParlanceContractPeer {
       onCancel: () async {
         _feeds.remove(send);
         _catchUps.remove(catchUp);
+        _feedEnds.remove(out);
         held.clear();
         await items?.cancel();
         await catalog?.cancel();
       },
     );
+    _feedEnds[out] = () async {
+      _feeds.remove(send);
+      _catchUps.remove(catchUp);
+      held.clear();
+      await items?.cancel();
+      await catalog?.cancel();
+      await out.close();
+    };
     return out.stream;
   }
 
@@ -575,7 +588,10 @@ final class RemoteSession extends ParlanceContractPeer {
     registry.usedBy(request.fact, principal);
     return WireJson({
       'facts': [
-        for (final f in registry.recent(request.fact, request.count))
+        for (final f in registry.recent(
+          request.fact,
+          request.count.clamp(0, registry.recentPerFact),
+        ))
           f.toJson(),
       ],
     });
@@ -635,6 +651,13 @@ final class RemoteSession extends ParlanceContractPeer {
           results.add(_op((op as Map).cast<String, Object?>()));
         } on RpcStatusException catch (e) {
           results.add({'error': e.statusCode.name, 'message': e.message});
+        } on Object catch (e) {
+          // An op that is not one (a field of the wrong type, a name that
+          // is no name) is refused alone: the ops around it stand.
+          results.add({
+            'error': RpcStatus.invalidArgument.name,
+            'message': '$e',
+          });
         }
       }
     });
@@ -935,6 +958,11 @@ final class RemoteSession extends ParlanceContractPeer {
     _unavailable.clear();
     _listenTo(const {});
     _p.dispose();
+    // Its feeds end: nothing more goes to a session that ended.
+    for (final end in [..._feedEnds.values]) {
+      unawaited(end());
+    }
+    _feedEnds.clear();
   }
 }
 
@@ -951,6 +979,20 @@ bool _sameMap(Map<String, String> a, Map<String, String> b) =>
     a.length == b.length && a.entries.every((e) => b[e.key] == e.value);
 
 // --- The participant's side ----------------------------------------------------
+
+/// Whether a request that ended with [status] was answered by the session
+/// itself, refusing it (SPEC §14: a word not there, a value of the wrong
+/// type, what the principal may not do, a name taken, too much asked):
+/// any other status may be the way breaking, here or there, and whether
+/// the request was done is not known.
+bool answeredBySession(RpcStatus status) => switch (status) {
+  RpcStatus.permissionDenied ||
+  RpcStatus.invalidArgument ||
+  RpcStatus.notFound ||
+  RpcStatus.alreadyExists ||
+  RpcStatus.resourceExhausted => true,
+  _ => false,
+};
 
 /// What a remote feed gives (SPEC §12, §14).
 sealed class RemoteFeed {
@@ -1124,6 +1166,17 @@ final class ParlanceClient {
         seq: reply.seq,
       );
     } on Object catch (e) {
+      if (e is RpcStatusException && answeredBySession(e.statusCode)) {
+        // The session answered, and not with a result: it refused what was
+        // asked of it (a part that is not its own), or failed itself.
+        return (
+          result: e.statusCode == RpcStatus.permissionDenied
+              ? CallRefused(Refusal.notPermitted, e.message)
+              : CallFailed('${e.statusCode.name}: ${e.message}'),
+          epoch: null,
+          seq: null,
+        );
+      }
       return (result: CallLost(callId, '$e'), epoch: null, seq: null);
     }
   }
@@ -1460,6 +1513,9 @@ final class RegistryMirror {
         if (e.value == Access.deny.name) e.key as String,
     };
     _unavailable = (json['unavailable'] as Map? ?? const {}).cast();
+    // The values of a state that left the catalog go with it, though no
+    // tick removed them.
+    _states.removeWhere((name, _) => _words[name] != 'state');
     _catalogChanges.add(null);
     _statusChanges.add(null);
   }
