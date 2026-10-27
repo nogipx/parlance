@@ -645,6 +645,16 @@ final class RemoteParticipant implements IParticipant {
   @override
   void batch(void Function() writes) => writes();
 
+  /// What it asked done, then the catalog as the host has it now: the feed
+  /// brings the catalog in its own time, a status read after this is the
+  /// host's as of then.
+  @override
+  Future<void> settle() async {
+    _live();
+    await flush();
+    mirror.takeCatalog(await client.describe());
+  }
+
   @override
   void dispose() => unawaited(close());
 
@@ -916,6 +926,9 @@ final class _Part implements IParticipant {
 
   @override
   void batch(void Function() writes) => _root.batch(writes);
+
+  @override
+  Future<void> settle() => _root.settle();
 
   @override
   IParticipant child(String name) => _root._partOf(who.child(name));

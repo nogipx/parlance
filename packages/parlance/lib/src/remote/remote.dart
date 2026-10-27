@@ -1341,22 +1341,28 @@ final class RegistryMirror {
     _changes.add(null);
   }
 
+  /// Takes [json], the catalog as the session's principal sees it
+  /// (`describe` answers it too), as the one it has now.
+  void takeCatalog(Map<String, Object?> json) {
+    _catalog = json;
+    _words = {
+      for (final d in json['descriptors'] as List? ?? const [])
+        (d as Map)['name'] as String: d['is'] as String,
+    };
+    _closed = {
+      ...?(json['unreadable'] as List?)?.cast<String>(),
+      for (final e in (json['access'] as Map? ?? const {}).entries)
+        if (e.value == Access.deny.name) e.key as String,
+    };
+    _unavailable = (json['unavailable'] as Map? ?? const {}).cast();
+    _catalogChanges.add(null);
+    _statusChanges.add(null);
+  }
+
   void _apply(RemoteFeed item) {
     switch (item) {
       case RemoteCatalog(:final json):
-        _catalog = json;
-        _words = {
-          for (final d in json['descriptors'] as List? ?? const [])
-            (d as Map)['name'] as String: d['is'] as String,
-        };
-        _closed = {
-          ...?(json['unreadable'] as List?)?.cast<String>(),
-          for (final e in (json['access'] as Map? ?? const {}).entries)
-            if (e.value == Access.deny.name) e.key as String,
-        };
-        _unavailable = (json['unavailable'] as Map? ?? const {}).cast();
-        _catalogChanges.add(null);
-        _statusChanges.add(null);
+        takeCatalog(json);
         // A feed resumed in the same epoch carries on from the copy's seq:
         // the copy follows again from its first item, though nothing may
         // have happened since to send.

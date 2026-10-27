@@ -115,6 +115,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **Owner**: who defines words and does their work. `define(r)` defines them through typed words and `keep`s each handle; `sync()` writes the states as its devices or ports have them now; `dispose()` withdraws them, the last kept first.
 - **Owners**: a host's owners on one registry, attached in order; `sync()` syncs them all in one batch, so a change is one tick.
+- **Use** (§19.1): a word of another an owner says it uses, `Use.required` or `Use.optional`; `Owners.checkUses()` throws `UnmetUses` at start for a required one missing or not permitted.
+- **IWord**: a word of any kind by its name; every typed word is one.
 - **Handles**: the set of handles an owner keeps, withdrawn together.
 - **`keep`**: keeps a handle and gives it back with its own type.
 - **`trackKind`**: registers a kind of entities the owner keeps; its sync announces `entitiesChanged` only when the list changed, and answers the ids that went, whose keyed values the owner removes.

@@ -327,6 +327,9 @@ final class LocalParticipant implements IParticipant {
   void batch(void Function() writes) => _r.batch(writes);
 
   @override
+  Future<void> settle() async {}
+
+  @override
   void dispose() {
     if (_disposed) return;
     _disposed = true;

@@ -61,6 +61,18 @@ final class Other extends Owner {
   }
 }
 
+/// One that needs the dials' level, and can do without the flag.
+final class Needy extends Owner {
+  @override
+  Iterable<Use> get uses => const [
+    Use.required(Level.of),
+    Use.optional(_Flag.on),
+  ];
+
+  @override
+  void define(IParticipant p) {}
+}
+
 enum _Flag<T> implements IStateWord<T> {
   on<bool>('test.on', Plain(BoolType()));
 
@@ -171,5 +183,44 @@ void main() {
     await pumpEventQueue();
     expect(turns.hasListener, isFalse);
     await turns.close();
+  });
+
+  test('a required word not there stops main, told by part and word; an '
+      'optional one does not', () async {
+    final needy = Owners(module({'needy'}), {'needy': Needy()});
+    await expectLater(
+      needy.checkUses(),
+      throwsA(
+        isA<UnmetUses>().having(
+          (e) => e.message,
+          'message',
+          'host:needy needs test.level: missing',
+        ),
+      ),
+    );
+    Owners(module(), {'dials': Dials()});
+    await needy.checkUses();
+  });
+
+  test('a required word withheld from the part is not met', () async {
+    Owners(
+      r.participant(
+        const Principal('dials'),
+        namespaces: {'test'},
+        access: WordAccess(read: Callers.only(['dials'])),
+      ),
+      {'dials': Dials()},
+    );
+    final needy = Owners(module({'needy'}), {'needy': Needy()});
+    await expectLater(
+      needy.checkUses(),
+      throwsA(
+        isA<UnmetUses>().having(
+          (e) => e.unmet.single.status,
+          'status',
+          const WordNotPermitted(),
+        ),
+      ),
+    );
   });
 }

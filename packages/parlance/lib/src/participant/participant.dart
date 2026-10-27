@@ -169,6 +169,11 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// Runs [writes], its writes and facts committed as one tick.
   void batch(void Function() writes);
 
+  /// Completes when the registry has done all it asked so far, and what it
+  /// sees of the catalog, so [status] too, is as of then: in this process
+  /// at once, across a connection after the host answered.
+  Future<void> settle();
+
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`, in the
   /// same namespaces with the same rights, so what each part does is told
   /// as that part's in causes, records and `explain`. Its guards judge its

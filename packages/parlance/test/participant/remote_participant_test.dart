@@ -154,6 +154,30 @@ void main() {
     expect(crewSide.status('kittens.lamp.turn'), const WordReady());
   });
 
+  test('a remote group checks what it needs against the host\'s catalog '
+      'as it is now', () async {
+    final p = await join();
+    final group = Owners(p, {'on-air': _OnAir()});
+    await expectLater(
+      group.checkUses(),
+      throwsA(
+        isA<UnmetUses>().having(
+          (e) => e.message,
+          'message',
+          '${kittens.child('on-air')} needs studio.program: missing',
+        ),
+      ),
+    );
+    final studio = r.participant(
+      const Principal('studio'),
+      namespaces: {'studio'},
+    );
+    studio.state(_Program.scene).define().set('main');
+    await group.checkUses();
+    studio.dispose();
+    await p.close();
+  });
+
   test(
     'a group of owners works on a remote participant as on a local one',
     () async {
@@ -476,6 +500,15 @@ void main() {
       await h.close();
     }
   });
+}
+
+/// One across a connection that cannot work without the program.
+final class _OnAir extends Owner {
+  @override
+  Iterable<Use> get uses => const [Use.required(_Program.scene)];
+
+  @override
+  void define(IParticipant p) {}
 }
 
 enum _Program<T> implements IStateWord<T> {

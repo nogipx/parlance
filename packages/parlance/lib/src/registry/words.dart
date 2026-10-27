@@ -262,9 +262,15 @@ final class UnionShape<T> extends Shape<T> {
   }
 }
 
+/// A word of any kind, by its name: what an owner says it uses or owns.
+abstract interface class IWord {
+  String get name;
+}
+
 /// A state's name, its value's shape and, for a keyed one, the entity kind
 /// of its keys. A host's enum of its states implements it.
-abstract interface class IStateWord<T> {
+abstract interface class IStateWord<T> implements IWord {
+  @override
   String get name;
   Shape<T> get shape;
   String? get key;
@@ -272,7 +278,8 @@ abstract interface class IStateWord<T> {
 
 /// A command's name, its params and what it answers ([returns] null: it
 /// answers nothing, and [R] is `void`).
-abstract interface class ICommandWord<P, R> {
+abstract interface class ICommandWord<P, R> implements IWord {
+  @override
   String get name;
   RecordShape<P> get params;
   Shape<R>? get returns;
@@ -281,14 +288,16 @@ abstract interface class ICommandWord<P, R> {
 /// A query's name, its params and what it answers (SPEC §6.6, §18): a
 /// question that changes nothing. Not a command: where a command is
 /// called, a query is not passed, and where it is asked, it says so.
-abstract interface class IQueryWord<P, R> {
+abstract interface class IQueryWord<P, R> implements IWord {
+  @override
   String get name;
   RecordShape<P> get params;
   Shape<R> get returns;
 }
 
 /// A fact's name and its payload's shape.
-abstract interface class IFactWord<T> {
+abstract interface class IFactWord<T> implements IWord {
+  @override
   String get name;
   Shape<T> get shape;
 }

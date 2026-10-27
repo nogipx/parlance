@@ -11,4 +11,10 @@ A host's words have owners: one owner writes a state, serves a command, emits a 
 - **`failCall(why)`**: a handler whose device or port said no ends the call as `failed` with `why` (a `CallFailure`, told as it is, no exception type before it). A refusal with a code (`notPermitted`, `unavailable`, `denied`...) comes only from the registry's own stages (§9): to refuse before a call runs, give the command `available`.
 - **`Handles`**: the set an owner keeps, usable on its own. `keep` after `dispose` withdraws the new handle at once and throws.
 
+### 19.1 Words it uses
+
+- **`uses`**: an owner says which words of others it uses, `Use.required(word)` or `Use.optional(word)` (any typed word, `IWord`). An optional one it handles being missing, not permitted or unavailable (§6.5); a required one it cannot work without.
+- **`Owners.checkUses()`**: once every group of the app is attached (a word of one group may be another's, and the order they attach in does not matter), `main` awaits each group's check. It waits until the participant's view of the catalog is the registry's (`settle`, §22), then takes each owner's required words as its part sees them: missing or not permitted is unmet; a command unavailable now is there. It throws `UnmetUses`, a `StateError` naming every unmet word with the part that needs it (`host:needy needs test.level: missing`), so the app stops at start with a clear message rather than a part failing later.
+- It checks at start only. Words come and go while the app runs (a remote owner leaves, a plugin is turned off): then a part reads their status, never the start's answer. It checks names and whether the part may use them, not a word's kind or type.
+
 A host calls `Owners.sync()` when its own model changed: on a listener of its controller, a device callback, a timer.

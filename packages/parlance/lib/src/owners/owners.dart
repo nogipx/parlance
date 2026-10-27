@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../participant/participant.dart';
+import '../registry/cause.dart';
 import '../registry/descriptors.dart';
+import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/words.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
 final class Handles implements IHandle {
@@ -55,6 +58,11 @@ abstract base class Owner implements IHandle {
 
   /// Defines its words through [p]; keep what each returns with [keep].
   void define(IParticipant p);
+
+  /// The words of others it uses (SPEC §19.1): those [Use.required] it
+  /// cannot work without, checked by [Owners.checkUses] once the app's
+  /// owners are attached; the rest it handles while they are missing.
+  Iterable<Use> get uses => const [];
 
   /// Writes its states as they are now. [Owners.sync] calls every owner's
   /// in one batch, so a change is seen whole.
@@ -141,6 +149,27 @@ final class Owners implements IHandle {
   /// The owners by the names of their parts.
   final Map<String, Owner> owners;
 
+  /// Whether every owner has the words it says it needs (SPEC §19.1): each
+  /// [Use.required] there for its part, not missing and not withheld from
+  /// it; a command that cannot run now is there. Call it once every group
+  /// of the app is attached, as words of one may be another's; it throws
+  /// [UnmetUses] naming all that is not met, so `main` stops with a clear
+  /// message rather than a part failing later.
+  Future<void> checkUses() async {
+    await participant.settle();
+    final unmet = <UnmetUse>[];
+    for (final o in owners.values) {
+      for (final u in o.uses) {
+        if (!u.required) continue;
+        final status = o.participant.status(u.word.name);
+        if (status is WordMissing || status is WordNotPermitted) {
+          unmet.add(UnmetUse(o.participant.who, u.word.name, status));
+        }
+      }
+    }
+    if (unmet.isNotEmpty) throw UnmetUses(unmet);
+  }
+
   /// Writes what every owner has now, as one tick.
   void sync() => participant.batch(() {
     for (final o in owners.values) {
@@ -154,6 +183,40 @@ final class Owners implements IHandle {
       o.dispose();
     }
   }
+}
+
+/// A word an owner uses ([Owner.uses]).
+final class Use {
+  /// One it cannot work without: [Owners.checkUses] fails while it is not
+  /// there.
+  const Use.required(this.word) : required = true;
+
+  /// One it handles being missing, not permitted or unavailable.
+  const Use.optional(this.word) : required = false;
+
+  final IWord word;
+  final bool required;
+}
+
+/// A required word an owner does not have: the part that needs it, the
+/// word, and what its status says.
+final class UnmetUse {
+  const UnmetUse(this.by, this.word, this.status);
+  final Principal by;
+  final String word;
+  final WordStatus status;
+
+  @override
+  String toString() => switch (status) {
+    WordNotPermitted() => '$by needs $word: not permitted',
+    _ => '$by needs $word: missing',
+  };
+}
+
+/// The words owners need and do not have, all of them.
+final class UnmetUses extends StateError {
+  UnmetUses(this.unmet) : super(unmet.join('; '));
+  final List<UnmetUse> unmet;
 }
 
 /// Ends the call being served as `failed` with [why]: for a handler whose
