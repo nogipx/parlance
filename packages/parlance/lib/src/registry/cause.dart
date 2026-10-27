@@ -16,6 +16,30 @@ final class Principal {
   /// `kind:id`, or just the kind when there is no id.
   String get selector => id.isEmpty ? kind : '$kind:$id';
 
+  static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
+
+  /// A part of this one, named [name] (SPEC §4): `studio` → `studio:sound`,
+  /// `module:orders` → `module:orders/sync`. What names this one names its
+  /// parts too, unless something names the part.
+  Principal child(String name) {
+    if (!_part.hasMatch(name)) {
+      throw ArgumentError.value(name, 'name', 'lower-case words, - and _');
+    }
+    return Principal(kind, id.isEmpty ? name : '$id/$name');
+  }
+
+  /// Whether this is [other] or a part of it, at any depth.
+  bool isWithin(Principal other) =>
+      kind == other.kind &&
+      (other.id.isEmpty || id == other.id || id.startsWith('${other.id}/'));
+
+  /// The one this is a part of; null for a whole.
+  Principal? get parent {
+    if (id.isEmpty) return null;
+    final i = id.lastIndexOf('/');
+    return i < 0 ? Principal(kind) : Principal(kind, id.substring(0, i));
+  }
+
   Map<String, Object?> toJson() => {'kind': kind, if (id.isNotEmpty) 'id': id};
 
   @override

@@ -56,8 +56,14 @@ final class LocalParticipant implements IParticipant {
     this.who,
     this.namespaces,
     this.rights,
-    this.access,
-  ) : _view = LocalView(_r, by: who);
+    this.access, {
+    this.parent,
+  }) : _view = LocalView(_r, by: who);
+
+  /// The participant this one is a part of ([child]); null for a whole.
+  final LocalParticipant? parent;
+
+  final Map<String, LocalParticipant> _children = {};
 
   @override
   final WordAccess access;
@@ -111,13 +117,45 @@ final class LocalParticipant implements IParticipant {
   }
 
   /// [cause], or its own: what it writes and calls is its own act, or
-  /// follows from a call it serves (`call.causeFor(who)`).
+  /// follows from a call it serves (`call.causeFor(who)`). A part takes a
+  /// cause of a whole it is part of as its own: what it does is its own.
   Cause _as(Cause? cause) {
     if (cause == null) return Cause(who);
-    if (cause.by != who) {
-      throw NotPermitted('$who acts as itself, not as ${cause.by}');
+    if (cause.by == who) return cause;
+    if (_wholeOf(cause.by)) {
+      return Cause(
+        who,
+        parent: cause.parent,
+        chain: cause.chain,
+        test: cause.test,
+      );
     }
-    return cause;
+    throw NotPermitted('$who acts as itself, not as ${cause.by}');
+  }
+
+  /// Whether [p] is a participant this one is a part of.
+  bool _wholeOf(Principal p) {
+    for (var w = parent; w != null; w = w.parent) {
+      if (w.who == p) return true;
+    }
+    return false;
+  }
+
+  /// A part of it, named [name] (SPEC §22.3): it speaks as `who.child(name)`
+  /// in the same namespaces, with the same rights and access; what it
+  /// defines and does is told as its own, and its guards judge its own
+  /// commands. One part per name; it goes with this one.
+  @override
+  LocalParticipant child(String name) {
+    _live();
+    return _children[name] ??= LocalParticipant._(
+      _r,
+      who.child(name),
+      namespaces,
+      rights,
+      access,
+      parent: this,
+    );
   }
 
   // --- Reading and calling, as [who] --------------------------------------
@@ -275,10 +313,17 @@ final class LocalParticipant implements IParticipant {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    for (final c in [..._children.values].reversed) {
+      c.dispose();
+    }
     for (final h in _handles.reversed) {
       h.dispose();
     }
     _handles.clear();
+    if (parent case final p?) {
+      p._children.removeWhere((_, c) => c == this);
+      return;
+    }
     final taken = _namespaces[_r];
     taken?.removeWhere((_, p) => p == this);
   }
@@ -318,7 +363,7 @@ final class _OwnFact implements IFactHandle {
   @override
   bool emit(Object? payload, {String? id, Cause? cause}) {
     final p = _p;
-    if (cause != null && cause.by != p.who) {
+    if (cause != null && cause.by != p.who && !p._wholeOf(cause.by)) {
       final check = p.rights.speakFor;
       if ((check == null
               ? '${p.who} may speak for no one'
@@ -327,7 +372,8 @@ final class _OwnFact implements IFactHandle {
         throw NotPermitted(why);
       }
     }
-    return _raw.emit(payload, id: id, cause: cause ?? Cause(p.who));
+    final own = cause == null || cause.by == p.who || p._wholeOf(cause.by);
+    return _raw.emit(payload, id: id, cause: own ? p._as(cause) : cause);
   }
 
   @override

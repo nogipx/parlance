@@ -70,7 +70,11 @@ final class RegistryResponder extends ParlanceContractPeer {
   final Map<String, String> _unavailable = {};
 
   /// Its entity kinds, with the entities it sent last.
-  final Map<String, ({IHandle handle, List<EntityRef> entities})> _kinds = {};
+  final Map<
+    String,
+    ({IHandle handle, List<EntityRef> entities, LocalParticipant part})
+  >
+  _kinds = {};
 
   /// Its guards, asked across the connection.
   final Map<String, IHandle> _guards = {};
@@ -331,13 +335,15 @@ final class RegistryResponder extends ParlanceContractPeer {
     _open();
     // Ids are the principal's own: another principal reusing one does not
     // get this one's answer.
+    // A part of the session calls as itself (SPEC §22.3).
+    final by = _part(request.as).who;
     final result = await registry.call(
       request.command,
       request.params,
-      by: principal,
+      by: by,
       id: '${principal.selector}/${request.id}',
       override: request.overriding,
-      cause: _cause(parent: request.parent, test: request.test),
+      cause: _cause(parent: request.parent, test: request.test, by: by),
     );
     return SbCallReply(
       result.toJson(),
@@ -487,10 +493,28 @@ final class RegistryResponder extends ParlanceContractPeer {
     return SbJson({'results': results});
   }
 
+  /// The part of the session's principal [as] names (SPEC §22.3); the
+  /// session itself for none. Anything but a part of it is refused.
+  LocalParticipant _part(Object? as) {
+    if (as == null) return _p;
+    final who = Principal.fromJson(as);
+    if (who == principal) return _p;
+    if (!who.isWithin(principal)) _deny('$who is no part of $principal');
+    final rest = principal.id.isEmpty
+        ? who.id
+        : who.id.substring(principal.id.length + 1);
+    var p = _p;
+    for (final name in rest.split('/')) {
+      p = p.child(name);
+    }
+    return p;
+  }
+
   Map<String, Object?> _op(Map<String, Object?> m) {
+    final part = _part(m['as']);
     switch (m['op']) {
       case 'define':
-        _define(_descriptor(_obj(m['descriptor'])));
+        _define(_descriptor(_obj(m['descriptor'])), part);
       case 'undefine':
         _undefine(m['name']! as String);
       case 'set' || 'remove':
@@ -501,6 +525,7 @@ final class RegistryResponder extends ParlanceContractPeer {
           remove: m['op'] == 'remove',
           parent: m['parent'] as String?,
           test: m['test'] == true,
+          part: part,
         );
       case 'emit':
         return {
@@ -511,18 +536,23 @@ final class RegistryResponder extends ParlanceContractPeer {
             by: m['by'] == null ? null : Principal.fromJson(m['by']),
             parent: m['parent'] as String?,
             test: m['test'] == true,
+            part: part,
           ),
         };
       case 'available':
         _available(m['command']! as String, m['why'] as String?);
       case 'kind':
-        _kind(m['name']! as String, m['entities'] as List? ?? const []);
+        _kind(m['name']! as String, m['entities'] as List? ?? const [], part);
       case 'unkind':
         _kinds.remove(m['name'])?.handle.dispose();
       case 'guard':
-        _guard(m['id']! as String, overridable: m['overridable'] != false);
+        _guard(
+          m['id']! as String,
+          overridable: m['overridable'] != false,
+          part: part,
+        );
       case 'unguard':
-        _guards.remove(m['id'])?.dispose();
+        _guards.remove('${part.who.selector}/${m['id']}')?.dispose();
       default:
         throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }
@@ -549,16 +579,17 @@ final class RegistryResponder extends ParlanceContractPeer {
     }
   }
 
-  void _define(Descriptor d) {
+  void _define(Descriptor d, [LocalParticipant? part]) {
+    final p = part ?? _p;
     try {
       _permitted(() {
         switch (d) {
           case StateDescriptor():
-            _states[d.name] = _p.defineState(d);
+            _states[d.name] = p.defineState(d);
           case FactDescriptor():
-            _facts[d.name] = _p.defineFact(d);
+            _facts[d.name] = p.defineFact(d);
           case CommandDescriptor():
-            _commands[d.name] = _p.defineCommand(
+            _commands[d.name] = p.defineCommand(
               d,
               _serve,
               available: () => _unavailable[d.name],
@@ -590,6 +621,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     bool remove = false,
     String? parent,
     bool test = false,
+    LocalParticipant? part,
   }) {
     final w = _states[state];
     if (w == null) {
@@ -598,7 +630,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       }
       _deny('$state is not the session\'s own');
     }
-    final cause = _cause(parent: parent, test: test);
+    final cause = _cause(parent: parent, test: test, by: (part ?? _p).who);
     try {
       remove
           ? w.remove(key: key, cause: cause)
@@ -617,7 +649,9 @@ final class RegistryResponder extends ParlanceContractPeer {
     Principal? by,
     String? parent,
     bool test = false,
+    LocalParticipant? part,
   }) {
+    final p = part ?? _p;
     var e = _facts[fact];
     if (e == null) {
       final d = registry.factDescriptor(fact);
@@ -625,7 +659,9 @@ final class RegistryResponder extends ParlanceContractPeer {
         throw RpcStatusException(RpcStatus.notFound, 'no fact $fact');
       }
       if (!d.open) _deny('$fact is not open');
-      e = _producers[fact] ??= _permitted(() => _p.producer(fact));
+      e = _producers['${p.who.selector}|$fact'] ??= _permitted(
+        () => p.producer(fact),
+      );
     }
     final emitter = e;
     try {
@@ -633,13 +669,13 @@ final class RegistryResponder extends ParlanceContractPeer {
         () => emitter.emit(
           payload,
           id: id == null ? null : '${principal.selector}/$id',
-          cause: _cause(parent: parent, test: test, by: by),
+          cause: _cause(parent: parent, test: test, by: by ?? p.who),
         ),
       );
     } on TypeMismatch catch (x) {
       throw RpcStatusException(RpcStatus.invalidArgument, '$x');
     } on StateError catch (x) {
-      _producers.remove(fact);
+      _producers.remove('${p.who.selector}|$fact');
       throw RpcStatusException(RpcStatus.notFound, x.message);
     }
   }
@@ -653,35 +689,37 @@ final class RegistryResponder extends ParlanceContractPeer {
     registry.availabilityChanged(command);
   }
 
-  void _kind(String name, List<Object?> entities) {
+  void _kind(String name, List<Object?> entities, [LocalParticipant? part]) {
     final list = [
       for (final e in entities.cast<Map<Object?, Object?>>())
         EntityRef(e['id']! as String, e['label'] as String?, _obj(e['meta'])),
     ];
     if (_kinds[name] case final k?) {
-      _kinds[name] = (handle: k.handle, entities: list);
-      _p.entitiesChanged(name);
+      _kinds[name] = (handle: k.handle, entities: list, part: k.part);
+      _permitted(() => k.part.entitiesChanged(name));
       return;
     }
+    final p = part ?? _p;
     try {
-      final handle = _p.registerKind(
+      final handle = p.registerKind(
         EntityKind(name, list: () => _kinds[name]?.entities ?? const []),
       );
-      _kinds[name] = (handle: handle, entities: list);
+      _kinds[name] = (handle: handle, entities: list, part: p);
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }
   }
 
-  /// A guard of the session's, on its commands only, asked in its turn:
-  /// the participant judges the call.
-  void _guard(String id, {required bool overridable}) {
-    final full = '${principal.selector}/$id';
+  /// A guard of the session's or a part's, on its commands only, asked in
+  /// its turn: the participant judges the call. Known as `<speaker>/<id>`.
+  void _guard(String id, {required bool overridable, LocalParticipant? part}) {
+    final p = part ?? _p;
+    final full = '${p.who.selector}/$id';
     try {
-      _guards[id] = _p.addAskedGuard(full, (c) async {
+      _guards[full] = p.addAskedGuard(full, (c) async {
         final r = await _owner.judge(
           SbJson({
-            'guard': id,
+            'guard': full,
             'id': c.id,
             'command': c.command.name,
             'params': c.params,
@@ -912,6 +950,7 @@ final class ParlanceClient {
     bool override = false,
     bool test = false,
     String? parent,
+    Principal? as,
     RpcContext? context,
   }) async {
     final callId = id ?? newId();
@@ -924,6 +963,7 @@ final class ParlanceClient {
           overriding: override,
           test: test,
           parent: parent,
+          as: as?.toJson(),
         ),
         context: context,
       );

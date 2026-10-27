@@ -37,9 +37,11 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 | `produce(who, fact)` | no open fact of another |
 | `speakFor(who, by, fact)` | no one but itself |
 
-### 22.3 Owners
+### 22.3 Parts and owners
 
-An `Owner` (§19) is code that owns words: it defines them in `define(IParticipant p)` and says nothing of who it is or what it may. `main` makes the participant (its principal, namespaces, rights, access) and attaches the owners: one with `owner.attach(p)`, a module of several with `Owners(p, [...])`, which syncs them as one tick. The same owner attaches to a participant in the host's process or across a connection.
+A participant has **parts**: `p.child(name)` speaks as `who.child(name)` (§4), in the same namespaces with the same rights and access. What a part defines, writes, says and calls is told as the part's, so causes, call records and `explain` say which part of a module did it. A cause of a whole it is part of, passed to it (`call.causeFor(studio)` in a handler of `studio:sound`), is taken as its own; a sibling's is refused (`NotPermitted`). A part's guards judge only the commands that part defined. One part per name; it goes with its whole, and going it withdraws what it defined and its own parts. Across a connection a part's acts carry `as` (§14) and the host holds them to that part of the session.
+
+An `Owner` (§19) is code that owns words: it defines them in `define(IParticipant p)` and says nothing of who it is or what it may. `main` makes the participant (its principal, namespaces, rights, access) and attaches the owners: one with `owner.attach(p)`, a module of several with `Owners(p, {'sound': SoundOwner(...), ...})`, which attaches each to the part of its name, so every owner's acts are told as its own, and syncs them as one tick. The names are `main`'s, so an owner cannot pass for another. The same owner attaches to a participant in the host's process or across a connection.
 
 ### 22.4 Across a connection
 

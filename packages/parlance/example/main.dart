@@ -41,7 +41,7 @@ Future<void> main() async {
           : 'only the doorbell speaks for anyone',
     ),
   );
-  final owners = Owners(houseSide, [house]);
+  final owners = Owners(houseSide, {'house': house});
   // Residents press and change links; a run set off by anyone else (a guest
   // at the door) acts with that one's rights, never the link's.
   final links = Links(

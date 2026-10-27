@@ -295,6 +295,86 @@ void main() {
     });
   });
 
+  group('parts', () {
+    test('a selector names the parts of what it names; the nearest wins', () {
+      final sync = orders.child('sync');
+      expect(sync, const Principal('module', 'orders/sync'));
+      expect(sync.child('push').selector, 'module:orders/sync/push');
+      expect(sync.isWithin(orders), isTrue);
+      expect(orders.isWithin(sync), isFalse);
+      final callers = Callers({
+        'module:orders': Access.allow,
+        'module:orders/sync': Access.deny,
+      });
+      expect(callers.allows(orders.child('ui')), isTrue, reason: 'its whole');
+      expect(callers.allows(sync), isFalse, reason: 'its own rule');
+      expect(callers.allows(sync.child('push')), isFalse, reason: 'nearest');
+      expect(callers.allows(cart), isFalse);
+      expect(() => orders.child('Sync'), throwsArgumentError);
+    });
+
+    test('a part writes, says and calls as itself; a cause of its whole is '
+        'its own, a sibling\'s is refused', () async {
+      ordersModule();
+      final c = r.participant(cart, namespaces: {'cart'});
+      final ui = c.child('ui');
+      final flag = ui.state(_Other.flag).define()..set(true);
+      expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
+      flag.set(false, cause: const Cause(cart));
+      expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
+      expect(
+        () => flag.set(true, cause: Cause(cart.child('sync'))),
+        throwsA(isA<NotPermitted>()),
+      );
+      final records = <CallRecord>[];
+      final sub = r.calls.listen(records.add);
+      final done = await ui.command(OrderCommand.place).call((
+        id: 'o9',
+        status: 'new',
+      ));
+      await settle();
+      expect(done.ok, isTrue, reason: 'module:cart names its parts too');
+      expect(records.single.cause.by, cart.child('ui'), reason: 'the record');
+      await sub.cancel();
+    });
+
+    test('a part\'s guard judges its own commands only', () async {
+      final p = r.participant(orders, namespaces: {'orders'});
+      final a = p.child('a');
+      final b = p.child('b');
+      a.defineCommand(
+        CommandDescriptor(
+          'orders.a',
+          callers: const Callers({'*': Access.allow}),
+        ),
+        (_) {},
+      );
+      b.defineCommand(
+        CommandDescriptor(
+          'orders.b',
+          callers: const Callers({'*': Access.allow}),
+        ),
+        (_) {},
+      );
+      a.addGuard('orders.no', (_) => 'no');
+      expect((await r.call('orders.a', {}, by: cart)).ok, isFalse);
+      expect((await r.call('orders.b', {}, by: cart)).ok, isTrue);
+    });
+
+    test('a part going withdraws its words only; its whole going withdraws '
+        'its parts', () {
+      final p = r.participant(orders, namespaces: {'orders'});
+      final a = p.child('a');
+      a.state(OrderState.last).define();
+      p.child('b').fact(OrderFact.placed).define();
+      a.dispose();
+      expect(r.stateDescriptor('orders.last'), isNull);
+      expect(r.factDescriptor('orders.placed'), isNotNull);
+      p.dispose();
+      expect(r.factDescriptor('orders.placed'), isNull);
+    });
+  });
+
   test('its guards judge calls of its own commands only', () async {
     final p = ordersModule();
     p.addGuard('orders.no-o3', (c) => c.params['id'] == 'o3' ? 'no o3' : null);

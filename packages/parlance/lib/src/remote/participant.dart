@@ -161,21 +161,24 @@ final class RemoteParticipant implements IParticipant {
   /// it: kinds before the values that name their entities, states before
   /// the commands that set them.
   List<Map<String, Object?>> _standing() => [
-    for (final k in _kinds.values)
-      {
-        'op': 'kind',
-        'name': k.name,
-        'entities': [for (final e in k.list()) e.toJson()],
-      },
-    for (final d in _states.values) {'op': 'define', 'descriptor': d.toJson()},
-    for (final d in _facts.values) {'op': 'define', 'descriptor': d.toJson()},
+    for (final k in _kinds.values) _kindOp(k.kind, k.as),
+    for (final s in _states.values)
+      {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
+    for (final f in _facts.values)
+      {'op': 'define', 'descriptor': f.d.toJson(), ..._asOf(f.as)},
     for (final c in _commands.values)
-      {'op': 'define', 'descriptor': c.d.toJson()},
+      {'op': 'define', 'descriptor': c.d.toJson(), ..._asOf(c.as)},
     for (final MapEntry(key: state, value: values) in _own.entries)
       for (final MapEntry(:key, :value) in values.entries)
-        {'op': 'set', 'state': state, 'key': ?key, 'value': value},
-    for (final MapEntry(key: id, :value) in _guards.entries)
-      {'op': 'guard', 'id': id, 'overridable': value.overridable},
+        {
+          'op': 'set',
+          'state': state,
+          'key': ?key,
+          'value': value,
+          ..._asOf(_states[state]?.as),
+        },
+    for (final g in _guards.values)
+      {'op': 'guard', 'id': g.id, 'overridable': g.overridable, ..._asOf(g.as)},
   ];
 
   /// The peer endpoint it made on its connection.
@@ -201,13 +204,23 @@ final class RemoteParticipant implements IParticipant {
   /// Its own states, as it wrote them: name, key, value.
   final Map<String, Map<String?, Object?>> _own = {};
 
-  /// Its own states and facts, as defined: what a new session is given.
-  final Map<String, StateDescriptor> _states = {};
-  final Map<String, FactDescriptor> _facts = {};
+  /// Its own states and facts, as defined, and which part defined each
+  /// (`as`, null for itself): what a new session is given.
+  final Map<String, ({StateDescriptor d, Principal? as})> _states = {};
+  final Map<String, ({FactDescriptor d, Principal? as})> _facts = {};
   final Map<String, _Command> _commands = {};
-  final Map<String, ({GuardCheck check, bool overridable})> _guards = {};
-  final Map<String, EntityKind> _kinds = {};
+
+  /// Its guards and its parts', by the id the host knows them by.
+  final Map<
+    String,
+    ({String id, GuardCheck check, bool overridable, Principal? as})
+  >
+  _guards = {};
+  final Map<String, ({EntityKind kind, Principal? as})> _kinds = {};
+  final Map<Principal, _Part> _parts = {};
   bool _disposed = false;
+
+  static Map<String, Object?> _asOf(Principal? as) => {'as': ?as?.toJson()};
 
   @override
   Clock get clock => clock_zone.clock;
@@ -228,9 +241,15 @@ final class RemoteParticipant implements IParticipant {
     }
   }
 
-  Cause? _as(Cause? cause) {
-    if (cause != null && cause.by != who) {
-      throw NotPermitted('$who acts as itself, not as ${cause.by}');
+  /// Whether a cause by [by] is [speaker]'s own act: [speaker] itself, or
+  /// a whole it is part of, up to this participant.
+  bool _ownAct(Principal by, Principal speaker) =>
+      by == speaker || (speaker.isWithin(by) && by.isWithin(who));
+
+  Cause? _as(Cause? cause, [Principal? speaker]) {
+    final s = speaker ?? who;
+    if (cause != null && !_ownAct(cause.by, s)) {
+      throw NotPermitted('$s acts as itself, not as ${cause.by}');
     }
     return cause;
   }
@@ -375,9 +394,17 @@ final class RemoteParticipant implements IParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
+  }) => _call(command, params, id: id, cause: cause);
+
+  Future<CallResult<Object?>> _call(
+    String command,
+    Map<String, Object?> params, {
+    String? id,
+    Cause? cause,
+    Principal? as,
   }) async {
     _live();
-    final c = _as(cause);
+    final c = _as(cause, as);
     await flush();
     final r = await client.callAt(
       command,
@@ -385,6 +412,7 @@ final class RemoteParticipant implements IParticipant {
       id: id,
       parent: c?.parent,
       test: c?.test ?? false,
+      as: as,
     );
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
       await mirror.reach(epoch, seq);
@@ -404,13 +432,15 @@ final class RemoteParticipant implements IParticipant {
   // --- Its own words ------------------------------------------------------
 
   @override
-  IStateHandle defineState(StateDescriptor raw) {
+  IStateHandle defineState(StateDescriptor d) => _defineState(d, null);
+
+  IStateHandle _defineState(StateDescriptor raw, Principal? as) {
     _mayDefine(raw);
     final d = access.state(raw);
-    _ask({'op': 'define', 'descriptor': d.toJson()});
-    _states[d.name] = d;
+    _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
+    _states[d.name] = (d: d, as: as);
     _own[d.name] = {};
-    return _State(this, d);
+    return _State(this, d, as);
   }
 
   @override
@@ -418,13 +448,20 @@ final class RemoteParticipant implements IParticipant {
     CommandDescriptor d,
     CommandHandler handler, {
     Availability? available,
-  }) {
+  }) => _defineCommand(d, handler, available, null);
+
+  IHandle _defineCommand(
+    CommandDescriptor d,
+    CommandHandler handler,
+    Availability? available,
+    Principal? as,
+  ) {
     _mayDefine(d);
     if (d.sets case final s? when !_owns(s.state)) {
       throw NotPermitted('${d.name} sets ${s.state}, a state not $who\'s');
     }
-    _ask({'op': 'define', 'descriptor': d.toJson()});
-    final c = _Command(d, handler, available);
+    _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
+    final c = _Command(d, handler, available, as);
     _commands[d.name] = c;
     return _Disposer(() {
       if (_commands[d.name] != c) return;
@@ -434,61 +471,121 @@ final class RemoteParticipant implements IParticipant {
   }
 
   @override
-  IFactHandle defineFact(FactDescriptor raw) {
+  IFactHandle defineFact(FactDescriptor d) => _defineFact(d, null);
+
+  IFactHandle _defineFact(FactDescriptor raw, Principal? as) {
     _mayDefine(raw);
     final d = access.fact(raw);
-    _ask({'op': 'define', 'descriptor': d.toJson()});
-    _facts[d.name] = d;
-    return _Fact(this, d, own: true);
+    _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
+    _facts[d.name] = (d: d, as: as);
+    return _Fact(this, d, own: true, as: as);
   }
 
   /// Another producer of an open [fact]; the host's rights decide, and a
   /// refusal comes to [errors] with its first fact.
   @override
-  IFactHandle producer(String fact) {
+  IFactHandle producer(String fact) => _producer(fact, null);
+
+  IFactHandle _producer(String fact, Principal? as) {
     _live();
     return _Fact(
       this,
       FactDescriptor(fact, type: const AnyType(), open: true),
       own: false,
+      as: as,
     );
   }
 
   /// A guard on its own commands, asked by the host in its turn (§10); a
   /// call it is not asked about in time is denied there.
   @override
-  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
+  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) =>
+      _addGuard(id, check, overridable, null);
+
+  IHandle _addGuard(
+    String id,
+    GuardCheck check,
+    bool overridable,
+    Principal? as,
+  ) {
     _live();
-    _guards[id] = (check: check, overridable: overridable);
-    _ask({'op': 'guard', 'id': id, 'overridable': overridable});
+    // The host knows it by its speaker and its id, as it registers it.
+    final full = '${(as ?? who).selector}/$id';
+    _guards[full] = (id: id, check: check, overridable: overridable, as: as);
+    _ask({'op': 'guard', 'id': id, 'overridable': overridable, ..._asOf(as)});
     return _Disposer(() {
-      if (_guards.remove(id) == null) return;
-      _ask({'op': 'unguard', 'id': id});
+      if (_guards.remove(full) == null) return;
+      _ask({'op': 'unguard', 'id': id, ..._asOf(as)});
     });
   }
 
   @override
-  IHandle registerKind(EntityKind kind) {
+  IHandle registerKind(EntityKind kind) => _registerKind(kind, null);
+
+  IHandle _registerKind(EntityKind kind, Principal? as) {
     _live();
-    _kinds[kind.name] = kind;
-    _sendKind(kind);
+    _kinds[kind.name] = (kind: kind, as: as);
+    _ask(_kindOp(kind, as));
     return _Disposer(() {
       if (_kinds.remove(kind.name) == null) return;
-      _ask({'op': 'unkind', 'name': kind.name});
+      _ask({'op': 'unkind', 'name': kind.name, ..._asOf(as)});
     });
   }
 
-  void _sendKind(EntityKind kind) => _ask({
+  static Map<String, Object?> _kindOp(EntityKind kind, Principal? as) => {
     'op': 'kind',
     'name': kind.name,
     'entities': [for (final e in kind.list()) e.toJson()],
-  });
+    ..._asOf(as),
+  };
 
   @override
   void entitiesChanged(String kind) {
     final k = _kinds[kind];
     if (k == null) throw NotPermitted('$who registered no kind $kind');
-    _sendKind(k);
+    _ask(_kindOp(k.kind, k.as));
+  }
+
+  /// A part of it (SPEC §22.3): its words, writes, calls and facts go as
+  /// the part's, and the host holds them to the part.
+  @override
+  IParticipant child(String name) => _partOf(who.child(name));
+
+  _Part _partOf(Principal p) {
+    _live();
+    return _parts[p] ??= _Part(this, p);
+  }
+
+  /// Withdraws what [part] and its own parts defined and added.
+  void _withdraw(Principal part) {
+    bool mine(Principal? as) => as != null && as.isWithin(part);
+    for (final e in [..._states.entries]) {
+      if (!mine(e.value.as)) continue;
+      _states.remove(e.key);
+      _own.remove(e.key);
+      _ask({'op': 'undefine', 'name': e.key});
+    }
+    for (final e in [..._facts.entries]) {
+      if (!mine(e.value.as)) continue;
+      _facts.remove(e.key);
+      _ask({'op': 'undefine', 'name': e.key});
+    }
+    for (final e in [..._commands.entries]) {
+      if (!mine(e.value.as)) continue;
+      _commands.remove(e.key);
+      _ask({'op': 'undefine', 'name': e.key});
+    }
+    for (final e in [..._guards.entries]) {
+      if (!mine(e.value.as)) continue;
+      _guards.remove(e.key);
+      _ask({'op': 'unguard', 'id': e.value.id, ..._asOf(e.value.as)});
+    }
+    for (final e in [..._kinds.entries]) {
+      if (!mine(e.value.as)) continue;
+      _kinds.remove(e.key);
+      _ask({'op': 'unkind', 'name': e.key, ..._asOf(e.value.as)});
+    }
+    _parts.removeWhere((p, _) => p.isWithin(part));
   }
 
   @override
@@ -510,7 +607,12 @@ final class RemoteParticipant implements IParticipant {
       c
         ..told = true
         ..why = why;
-      _ask({'op': 'available', 'command': c.d.name, 'why': why});
+      _ask({
+        'op': 'available',
+        'command': c.d.name,
+        'why': why,
+        ..._asOf(c.as),
+      });
     }
   }
 
@@ -527,8 +629,8 @@ final class RemoteParticipant implements IParticipant {
     for (final name in [..._own.keys, ..._facts.keys, ..._commands.keys]) {
       _ask({'op': 'undefine', 'name': name});
     }
-    for (final id in _guards.keys) {
-      _ask({'op': 'unguard', 'id': id});
+    for (final g in _guards.values) {
+      _ask({'op': 'unguard', 'id': g.id, ..._asOf(g.as)});
     }
     for (final k in _kinds.keys) {
       _ask({'op': 'unkind', 'name': k});
@@ -592,10 +694,13 @@ final class RemoteParticipant implements IParticipant {
 }
 
 final class _Command {
-  _Command(this.d, this.handler, this.available);
+  _Command(this.d, this.handler, this.available, this.as);
   final CommandDescriptor d;
   final CommandHandler handler;
   final Availability? available;
+
+  /// The part that defined it; null for the participant itself.
+  final Principal? as;
 
   /// What its check said last, told to the host.
   String? why;
@@ -603,15 +708,18 @@ final class _Command {
 }
 
 final class _State implements IStateHandle {
-  _State(this._p, this.descriptor);
+  _State(this._p, this.descriptor, this._by);
   final RemoteParticipant _p;
+
+  /// The part that defined it; null for the participant itself.
+  final Principal? _by;
 
   @override
   final StateDescriptor descriptor;
 
   @override
   void set(Object? value, {String? key, Cause? cause}) {
-    final c = _p._as(cause);
+    final c = _p._as(cause, _by);
     final v = freezeJson(value);
     _p._ask({
       'op': 'set',
@@ -619,18 +727,20 @@ final class _State implements IStateHandle {
       'key': ?key,
       'value': v,
       ...RemoteParticipant._causeOf(c),
+      ...RemoteParticipant._asOf(_by),
     });
     (_p._own[descriptor.name] ??= {})[key] = v;
   }
 
   @override
   void remove({String? key, Cause? cause}) {
-    final c = _p._as(cause);
+    final c = _p._as(cause, _by);
     _p._ask({
       'op': 'remove',
       'state': descriptor.name,
       'key': ?key,
       ...RemoteParticipant._causeOf(c),
+      ...RemoteParticipant._asOf(_by),
     });
     _p._own[descriptor.name]?.remove(key);
   }
@@ -644,9 +754,13 @@ final class _State implements IStateHandle {
 }
 
 final class _Fact implements IFactHandle {
-  _Fact(this._p, this.descriptor, {required this.own});
+  _Fact(this._p, this.descriptor, {required this.own, Principal? as})
+    : _by = as;
   final RemoteParticipant _p;
   final bool own;
+
+  /// The part that says it; null for the participant itself.
+  final Principal? _by;
 
   @override
   final FactDescriptor descriptor;
@@ -655,7 +769,10 @@ final class _Fact implements IFactHandle {
   /// is dropped there) is not known when it is said.
   @override
   bool emit(Object? payload, {String? id, Cause? cause}) {
-    final by = cause != null && cause.by != _p.who ? cause.by : null;
+    final speaker = _by ?? _p.who;
+    final by = cause != null && !_p._ownAct(cause.by, speaker)
+        ? cause.by
+        : null;
     _p._ask({
       'op': 'emit',
       'fact': descriptor.name,
@@ -663,6 +780,7 @@ final class _Fact implements IFactHandle {
       'id': ?id,
       'by': ?by?.toJson(),
       ...RemoteParticipant._causeOf(cause),
+      ...RemoteParticipant._asOf(_by),
     });
     return true;
   }
@@ -672,6 +790,101 @@ final class _Fact implements IFactHandle {
     if (!own || _p._facts.remove(descriptor.name) == null) return;
     _p._ask({'op': 'undefine', 'name': descriptor.name});
   }
+}
+
+/// A part of a remote participant (SPEC §22.3): the participant's own
+/// machinery, each thing it asks told as the part's (`as`).
+final class _Part implements IParticipant {
+  _Part(this._root, this.who);
+  final RemoteParticipant _root;
+
+  @override
+  final Principal who;
+
+  @override
+  Set<String> get namespaces => _root.namespaces;
+
+  @override
+  WordAccess get access => _root.access;
+
+  @override
+  Clock get clock => _root.clock;
+
+  @override
+  Object? read(String state, {String? key}) => _root.read(state, key: key);
+
+  @override
+  Map<String?, Object?> readAll(String state) => _root.readAll(state);
+
+  @override
+  Stream<Object?> watch(String state, {String? key}) =>
+      _root.watch(state, key: key);
+
+  @override
+  Stream<void> changes(Set<String> states) => _root.changes(states);
+
+  @override
+  Stream<FactMessage> facts(String fact) => _root.facts(fact);
+
+  @override
+  Future<List<FactMessage>> recent(String fact, int count) =>
+      _root.recent(fact, count);
+
+  @override
+  Future<CallResult<Object?>> call(
+    String command,
+    Map<String, Object?> params, {
+    String? id,
+    Cause? cause,
+  }) => _root._call(command, params, id: id, cause: cause, as: who);
+
+  @override
+  bool get synced => _root.synced;
+
+  @override
+  WordStatus status(String word) => _root.status(word);
+
+  @override
+  Stream<WordStatus> statusChanges(String word) => _root.statusChanges(word);
+
+  @override
+  IStateHandle defineState(StateDescriptor d) => _root._defineState(d, who);
+
+  @override
+  IHandle defineCommand(
+    CommandDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) => _root._defineCommand(d, handler, available, who);
+
+  @override
+  IFactHandle defineFact(FactDescriptor d) => _root._defineFact(d, who);
+
+  @override
+  IFactHandle producer(String fact) => _root._producer(fact, who);
+
+  @override
+  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) =>
+      _root._addGuard(id, check, overridable, who);
+
+  @override
+  IHandle registerKind(EntityKind kind) => _root._registerKind(kind, who);
+
+  @override
+  void entitiesChanged(String kind) => _root.entitiesChanged(kind);
+
+  @override
+  void availabilityChanged(String command) =>
+      _root.availabilityChanged(command);
+
+  @override
+  void batch(void Function() writes) => _root.batch(writes);
+
+  @override
+  IParticipant child(String name) => _root._partOf(who.child(name));
+
+  @override
+  void dispose() => _root._withdraw(who);
 }
 
 final class _Served extends ParlanceOwnerContractPeer {

@@ -3,7 +3,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 part 'contract.g.dart';
 
 /// The version of the remote protocol (SPEC §14).
-const parlanceProtocol = 6;
+const parlanceProtocol = 7;
 
 Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();
@@ -77,6 +77,7 @@ final class SbCallRequest implements IRpcSerializable {
     this.overriding = false,
     this.test = false,
     this.parent,
+    this.as,
   });
 
   factory SbCallRequest.fromJson(Map<String, dynamic> m) => SbCallRequest(
@@ -86,6 +87,7 @@ final class SbCallRequest implements IRpcSerializable {
     overriding: m['override'] == true,
     test: m['test'] == true,
     parent: m['parent'] as String?,
+    as: m['as'] == null ? null : _obj(m['as']),
   );
 
   final String id;
@@ -100,6 +102,10 @@ final class SbCallRequest implements IRpcSerializable {
   /// What it follows from: a call the session serves, or a fact.
   final String? parent;
 
+  /// The part of the session's principal that calls (SPEC §22.3), as
+  /// `Principal.toJson` gives it; null for the session's principal.
+  final Map<String, Object?>? as;
+
   @override
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -108,6 +114,7 @@ final class SbCallRequest implements IRpcSerializable {
     if (overriding) 'override': true,
     if (test) 'test': true,
     'parent': ?parent,
+    'as': ?as,
   };
 }
 

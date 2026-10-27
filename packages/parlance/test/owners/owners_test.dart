@@ -86,7 +86,7 @@ void main() {
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
     final dials = Dials();
-    final owners = Owners(module(), [dials, Other()]);
+    final owners = Owners(module(), {'dials': dials, 'other': Other()});
     await pumpEventQueue();
     expect(ticks, hasLength(1));
     expect(r.state(Level.of).readAll(), {'a': 1, 'b': 2});
@@ -98,7 +98,7 @@ void main() {
 
   test('a tracked kind announces a change and names what went', () async {
     final dials = Dials();
-    Owners(module(), [dials]);
+    Owners(module(), {'dials': dials});
     final changes = <CatalogChange>[];
     r.catalogChanges.listen(changes.add);
     dials.dials.remove('a');
@@ -115,7 +115,7 @@ void main() {
 
   test('an owner attaches once; handles withdrawn take no more', () {
     final o = Other();
-    Owners(module(), [o]);
+    Owners(module(), {'other': o});
     expect(() => o.attach(r.participant(me)), throwsStateError);
     final h = Handles()..dispose();
     expect(() => h.keep(r.state(_Flag.on).define(by: me)), throwsStateError);
@@ -124,7 +124,7 @@ void main() {
 
   test('an owner defines only in the namespaces main gave its participant', () {
     expect(
-      () => Owners(module({'test.level'}), [Other()]),
+      () => Owners(module({'test.level'}), {'other': Other()}),
       throwsA(isA<NotPermitted>()),
     );
     expect(r.stateDescriptor('test.on'), isNull);
@@ -137,24 +137,33 @@ void main() {
         namespaces: {'test'},
         access: WordAccess(read: Callers.only(['host'])),
       ),
-      [Dials()],
+      {'dials': Dials()},
     );
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
   });
 
   test('going, the owners leave the participant to main', () {
     final p = module();
-    Owners(p, [Other()]).dispose();
+    Owners(p, {'other': Other()}).dispose();
     expect(r.stateDescriptor('test.on'), isNull);
     expect(p.status('test.on'), const WordMissing());
-    Owners(p, [Other()]);
+    Owners(p, {'other': Other()});
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'p still speaks');
+  });
+
+  test('each owner speaks as its part, named by main: what it writes and '
+      'its calls tell which owner it was', () async {
+    final p = module();
+    Owners(p, {'dials': Dials(), 'other': Other()});
+    expect(r.lastChange('test.level', key: 'a')!.cause.by, me.child('dials'));
+    expect(r.lastChange('test.on'), isNull);
+    expect(me.child('dials').selector, 'host:dials');
   });
 
   test('an owner listens while attached, and stops when it goes', () async {
     final turns = StreamController<num>.broadcast();
     final knob = Knob(turns.stream);
-    final owners = Owners(module(), [knob]);
+    final owners = Owners(module(), {'knob': knob});
     turns.add(1);
     await pumpEventQueue();
     expect(knob.heard, [1]);

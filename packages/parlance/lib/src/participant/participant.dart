@@ -157,7 +157,13 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// Runs [writes], its writes and facts committed as one tick.
   void batch(void Function() writes);
 
-  /// Withdraws everything it defined, registered and added.
+  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`, in the
+  /// same namespaces with the same rights, so what each part does is told
+  /// as that part's in causes, records and `explain`. Its guards judge its
+  /// own commands; a cause of this one passed to it is taken as its own.
+  IParticipant child(String name);
+
+  /// Withdraws everything it defined, registered and added, and its parts.
   @override
   void dispose();
 }

@@ -122,31 +122,35 @@ final class TrackedKind {
   }
 }
 
-/// Owners on one participant: a module of several, attached in order,
-/// synced in one batch, withdrawn the last first. The participant is the
-/// caller's: `main` made it, with the module's principal, namespaces and
-/// rights, and it outlives the group.
+/// Owners on one participant: a module of several, each speaking as its
+/// part of it, named by `main` ([IParticipant.child]: `studio:sound`), so
+/// causes, call records and `explain` tell which owner did what. Attached
+/// in order, synced in one batch, withdrawn the last first. The
+/// participant is the caller's: `main` made it, with the module's
+/// principal, namespaces and rights, and it outlives the group.
 final class Owners implements IHandle {
   Owners(this.participant, this.owners) {
-    for (final o in owners) {
-      o.attach(participant);
+    for (final MapEntry(key: name, value: o) in owners.entries) {
+      o.attach(participant.child(name));
     }
     sync();
   }
 
   final IParticipant participant;
-  final List<Owner> owners;
+
+  /// The owners by the names of their parts.
+  final Map<String, Owner> owners;
 
   /// Writes what every owner has now, as one tick.
   void sync() => participant.batch(() {
-    for (final o in owners) {
+    for (final o in owners.values) {
       o.sync();
     }
   });
 
   @override
   void dispose() {
-    for (final o in owners.reversed) {
+    for (final o in [...owners.values].reversed) {
       o.dispose();
     }
   }

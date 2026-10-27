@@ -55,7 +55,9 @@ enum Access {
 
 /// Who may call a command: selectors (`user`, `plugin:hydra`, `*` for
 /// anyone) to access; the most specific selector wins, an unmatched
-/// principal is denied.
+/// principal is denied. A selector names the parts of what it names too
+/// (`plugin:hydra` names `plugin:hydra/ui`), so the nearest one wins:
+/// the part's own, then each whole it is part of, then its kind.
 final class Callers {
   const Callers(this.rules);
 
@@ -70,8 +72,12 @@ final class Callers {
 
   final Map<String, Access> rules;
 
-  Access accessOf(Principal p) =>
-      rules[p.selector] ?? rules[p.kind] ?? rules['*'] ?? Access.deny;
+  Access accessOf(Principal p) {
+    for (Principal? q = p; q != null; q = q.parent) {
+      if (rules[q.selector] case final a?) return a;
+    }
+    return rules['*'] ?? Access.deny;
+  }
 
   bool allows(Principal p) => accessOf(p) != Access.deny;
 

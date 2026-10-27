@@ -43,6 +43,8 @@ The host registers entity kinds: a name and a function listing the current entit
 
 A **principal** is who acts: a `kind` and an `id` (`user:local`, `plugin:hydra`, `viewer:twitch:123`). Kinds are an open set declared by the host. The package reserves two: `system` (the registry itself) and `link` (the links engine).
 
+A principal has **parts**: `child(name)` names one (`studio` → `studio:sound`, `module:orders` → `module:orders/sync`), so what each part of a module does is told as that part's in causes, call records and `explain`, for audit. `isWithin(other)` tells a part of `other` at any depth, `parent` the whole it is part of. A part has its whole's rights unless something names the part (§6.2).
+
 A **cause** is why something happens:
 
 ```
@@ -88,7 +90,7 @@ CommandDescriptor {
 
 - Exactly one handler per command; defining a command registers its handler.
 - `sets` says the command sets that state: the target key comes from param `key`, the value from param `value`. A state has at most one setter. Layers (§8) and `flip` need the setter, and call it with only those two params, so its other params must be optional.
-- `callers` selectors are a principal kind (`user`), a kind and id (`plugin:hydra`) or `*` for anyone; the most specific selector wins; a principal matched by none is denied. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
+- `callers` selectors are a principal kind (`user`), a kind and id (`plugin:hydra`) or `*` for anyone; the most specific selector wins; a principal matched by none is denied. A selector names the parts of what it names (§4): for `module:orders/sync` the nearest wins, its own, then `module:orders`, then `module`, then `*`. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
 - `deadline` bounds the handler; the default is 30 s.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
 

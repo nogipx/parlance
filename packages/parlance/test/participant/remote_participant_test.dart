@@ -159,7 +159,7 @@ void main() {
     () async {
       final p = await join();
       final lamps = Lamps();
-      final owners = Owners(p, [lamps]);
+      final owners = Owners(p, {'lamps': lamps});
       await p.flush();
       expect(r.read('kittens.lamp'), false);
       lamps.lit = true;
@@ -172,6 +172,44 @@ void main() {
       expect(p.namespaces, {'kittens'}, reason: 'the participant stays');
     },
   );
+
+  test('a part across a connection acts as itself on the host', () async {
+    final p = await join();
+    final lamps = Lamps();
+    Owners(p, {'lamps': lamps});
+    await p.flush();
+    final part = kittens.child('lamps');
+    expect(r.lastChange('kittens.lamp')!.cause.by, part);
+
+    final records = <CallRecord>[];
+    final sub = r.calls.listen(records.add);
+    expect(
+      (await r.call('kittens.lamp.turn', {'on': true}, by: crew)).ok,
+      isTrue,
+    );
+    expect(r.lastChange('kittens.lamp')!.cause.by, part, reason: 'served');
+    expect(r.recent('kittens.purred').last.cause.by, part);
+
+    final ui = p.child('ui');
+    final asked = await ui.call('kittens.lamp.turn', {'on': false});
+    await settle();
+    expect(asked, isA<CallRefused>(), reason: 'only the user calls it');
+    expect(records.last.cause.by, kittens.child('ui'));
+    expect(
+      () => ui.call('kittens.lamp.turn', {}, cause: Cause(part)),
+      throwsA(isA<NotPermitted>()),
+      reason: 'not as a sibling',
+    );
+
+    ui.addGuard('quiet', (_) => 'quiet');
+    await p.flush();
+    expect(
+      (await r.call('kittens.lamp.turn', {'on': true}, by: crew)).ok,
+      isTrue,
+      reason: 'ui\'s guard judges ui\'s commands only',
+    );
+    await sub.cancel();
+  });
 
   test('what it writes in one turn is one tick', () async {
     final p = await join();
