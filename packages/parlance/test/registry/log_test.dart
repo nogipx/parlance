@@ -235,6 +235,25 @@ void main() {
     quiet.dispose();
   });
 
+  test('with spans off a call keeps no span; what its handler logs is told '
+      'as plain events', () async {
+    final off = LogController(spansEnabled: false);
+    final kept = <LogRecord>[];
+    off.stream.listen(kept.add);
+    final r = Registry(log: off.scope('p'), onError: (e, _) {});
+    r.defineCommand(
+      CommandDescriptor('x.go', callers: Callers.only(['user'])),
+      (c) => c.span.event('step'),
+    );
+    expect((await r.call('x.go', {}, by: user)).ok, isTrue);
+    await pumpEventQueue();
+    expect(kept.whereType<LogSpanStart>(), isEmpty);
+    expect(kept.whereType<LogSpan>(), isEmpty);
+    expect(kept.whereType<LogEvent>().map((e) => e.message), contains('step'));
+    await r.dispose();
+    off.dispose();
+  });
+
   test('without a log, a call\'s span is the one of LogScope.noop: ended, '
       'nothing kept', () async {
     final r = Registry();

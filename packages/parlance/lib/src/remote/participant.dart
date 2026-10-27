@@ -926,17 +926,19 @@ final class RemoteParticipant implements IParticipant {
       return WireServed.failed('nothing serves ${request.command}');
     }
     final cause = Cause.fromJson(request.cause);
-    final span = identical(_callLog, LogScope.noop)
-        ? LogScope.noop.startSpan('')
-        : _callLog.startSpan(
-            request.command,
-            parent: request.traceparent,
-            data: {
-              'call': request.id,
-              'by': cause.by.selector,
-              'conversation': cause.conversationOf(request.id),
-            },
-          );
+    final span = _callLog.startSpan(
+      request.command,
+      parent: request.traceparent,
+    );
+    // One the log keeps none of (no log, spans off) has no id: nothing
+    // more is made for it.
+    if (span.spanId.isNotEmpty) {
+      span.addData({
+        'call': request.id,
+        'by': cause.by.selector,
+        'conversation': cause.conversationOf(request.id),
+      });
+    }
     final call = CommandCall(
       request.id,
       request.command,

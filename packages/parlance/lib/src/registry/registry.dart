@@ -1541,7 +1541,16 @@ final class Registry implements ITypeContext {
   }) {
     if (!_traced) return _noSpan;
     final log = _callLog;
-    final data = <String, Object>{
+    final span = switch (_spans[cause.parent]) {
+      final parent? => parent.startSpan(command),
+      // What it follows from is over (a fact said, a call that ended): it
+      // starts a trace of its own, linked to that one.
+      null => log.startSpan(command, links: [?_traces[cause.parent]]),
+    };
+    // A span with no id is one the log keeps none of (spans off, nothing
+    // reading it): nothing more is made for it.
+    if (span.spanId.isEmpty) return span;
+    span.addData({
       'call': id,
       'parent': ?cause.parent,
       // The conversation it is part of: what a trace, one request, does
@@ -1550,17 +1559,7 @@ final class Registry implements ITypeContext {
       'by': cause.by.selector,
       if (query) 'query': true,
       if (log.isDebug) 'params': params,
-    };
-    final span = switch (_spans[cause.parent]) {
-      final parent? => parent.startSpan(command, data: data),
-      // What it follows from is over (a fact said, a call that ended): it
-      // starts a trace of its own, linked to that one.
-      null => log.startSpan(
-        command,
-        data: data,
-        links: [?_traces[cause.parent]],
-      ),
-    };
+    });
     _spans[id] = span;
     return span;
   }
