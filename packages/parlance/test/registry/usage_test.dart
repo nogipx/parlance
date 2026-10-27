@@ -69,4 +69,34 @@ void main() {
     expect(f.r.usesOf('audio.muted').single.reads, 1);
     expect(f.r.usesOf('studio.program').single.by, agent);
   });
+
+  test(
+    'what was counted of a word goes with it, but who listens now',
+    () async {
+      final r = Registry();
+      addTearDown(r.dispose);
+      StateDescriptor word() => StateDescriptor('a.x', type: const IntType());
+      final first = r.defineState(word(), by: owner);
+      r.usedBy('a.x', user);
+      final listening = r.listenedBy('a.x', agent)!;
+      first.dispose();
+      expect(r.usesOf('a.x').map((u) => (u.by, u.listening)), [(agent, 1)]);
+
+      // The word comes again (a plugin reloaded): who listens goes on.
+      r.defineState(word(), by: owner);
+      r.usedBy('a.x', agent);
+      expect(r.usesOf('a.x').map((u) => (u.by, u.reads, u.listening)), [
+        (agent, 1, 1),
+      ]);
+      listening.dispose();
+    },
+  );
+
+  test('what was counted of an old name goes when the old name does', () async {
+    final silence = f.r.alias('audio.silence', 'audio.mute');
+    await f.r.call('audio.silence', {'on': true}, by: agent);
+    silence.dispose();
+    expect(f.r.usesOf('audio.silence'), isEmpty);
+    expect(f.r.usage, isEmpty);
+  });
 }

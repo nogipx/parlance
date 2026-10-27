@@ -588,7 +588,9 @@ final class Registry implements ITypeContext {
     }
     _announce(AliasChanged(old));
     return _Disposer(() {
-      if (_aliases.remove(old) != null) _announce(AliasChanged(old));
+      if (_aliases.remove(old) == null) return;
+      _forgetUses(old);
+      _announce(AliasChanged(old));
     });
   }
 
@@ -624,7 +626,21 @@ final class Registry implements ITypeContext {
       f.signal.close();
       _names.remove(f.signal);
       _announce(DescriptorRemoved(f.descriptor));
+    } else {
+      return;
     }
+    _forgetUses(name);
+  }
+
+  /// What was counted of [name], a name that is no longer a word nor an
+  /// old name of one (SPEC §6.8): there is nothing left to remove that a
+  /// count would warn of. Who listens to it now stays, so a word defined
+  /// again under it (a plugin reloaded) goes on counting them.
+  void _forgetUses(String name) {
+    final users = _uses[name];
+    if (users == null) return;
+    users.removeWhere((_, u) => u.listening == 0);
+    if (users.isEmpty) _uses.remove(name);
   }
 
   // --- Ticks -----------------------------------------------------------------
@@ -926,7 +942,8 @@ final class Registry implements ITypeContext {
   /// Who used [name] (a word, or an old name of one), as it was named:
   /// calls and asks, reads and listeners from outside the build (SPEC
   /// §6.8). What the app's own modules read and watch in this process is
-  /// not counted: the compiler knows it.
+  /// not counted: the compiler knows it. Kept while [name] is a word or an
+  /// old name of one; who listens now, beyond.
   List<WordUse> usesOf(String name) => [
     for (final u in (_uses[name] ?? const {}).values) u.snapshot(),
   ];
