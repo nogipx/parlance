@@ -35,6 +35,7 @@ Reads the mirror's copy. It counts who listens for which states and
 facts and subscribes the mirror to their union whenever that changes:
 the feed carries what screens draw and nothing else, and the host knows
 what the participant hears. Calls go through the client; the call waits
-until the mirror has reached the seq it answered at. After a lost
+until the mirror has reached the seq it answered at. `settled` completes
+when the mirror has the values of what its listeners ask for now. After a lost
 connection set the new `client` and `mirror.follow(client)`: the
 subscription is kept.

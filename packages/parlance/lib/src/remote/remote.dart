@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
 
+import '../participant/local.dart';
+import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
@@ -12,31 +14,14 @@ import 'contract.dart';
 
 // --- The registry's side -------------------------------------------------------
 
-/// What a session may own besides calling and holding layers (SPEC §14):
-/// the host's to say, for the principal it accepted. Each answers null when
-/// the session may, else why not; an absent one lets no session.
-final class SessionRights {
-  const SessionRights({this.define, this.produce, this.speakFor});
+/// What a session may own besides calling and holding layers (SPEC §14,
+/// §22.2): a session is a participant, and these are its rights.
+typedef SessionRights = ParticipantRights;
 
-  /// Define [d] (a state, a command or a fact) as the session's own.
-  final String? Function(Principal session, Descriptor d)? define;
-
-  /// Say [fact], an open fact another defined.
-  final String? Function(Principal session, String fact)? produce;
-
-  /// Say [fact] on behalf of [by]: its cause is theirs, and so are the
-  /// rights of what follows from it.
-  final String? Function(Principal session, Principal by, String fact)?
-  speakFor;
-
-  /// A session that only calls and holds layers.
-  static const none = SessionRights();
-}
-
-/// One session of a remote participant (SPEC §14): the registry as the
-/// principal the host accepted for this connection may see and use it; and,
-/// as far as [rights] let it, an owner of words of its own, whose commands
-/// it serves over the same connection.
+/// One session of a remote participant (SPEC §14, §22.4): the registry as
+/// the principal the host accepted for this connection may see and use it;
+/// and, in its [namespaces] and as far as [rights] let it, an owner of
+/// words of its own, whose commands it serves over the same connection.
 ///
 /// Register it on the connection's peer endpoint; [close] it when the
 /// connection ends, so its layers and its words go.
@@ -46,16 +31,28 @@ final class RegistryResponder extends ParlanceContractPeer {
     this.registry, {
     required this.principal,
     String? session,
-    this.rights = SessionRights.none,
+    Set<String> namespaces = const {},
+    SessionRights rights = SessionRights.none,
   }) : session = session ?? newId(),
-       _owner = ParlanceOwnerContractPeerCaller(endpoint);
+       _owner = ParlanceOwnerContractPeerCaller(endpoint),
+       _p = registry.participant(
+         principal,
+         namespaces: namespaces,
+         rights: rights,
+       );
 
   final Registry registry;
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
   final String session;
-  final SessionRights rights;
+
+  /// The session as a participant in this process: what it defines, writes
+  /// and says goes through it, in its namespaces and with its rights.
+  final LocalParticipant _p;
+
+  Set<String> get namespaces => _p.namespaces;
+  SessionRights get rights => _p.rights;
 
   /// The participant's side, serving the session's commands.
   final ParlanceOwnerContractPeerCaller _owner;
@@ -64,10 +61,19 @@ final class RegistryResponder extends ParlanceContractPeer {
   String get owner => 'remote:$session';
 
   final Map<String, LayerHandle> _layers = {};
-  final Map<String, RawStateWriter> _states = {};
-  final Map<String, RawFactEmitter> _facts = {};
+  final Map<String, IStateHandle> _states = {};
+  final Map<String, IFactHandle> _facts = {};
   final Map<String, IHandle> _commands = {};
-  final Map<String, RawFactEmitter> _producers = {};
+  final Map<String, IFactHandle> _producers = {};
+
+  /// Why each of its commands cannot run now, as the participant told.
+  final Map<String, String> _unavailable = {};
+
+  /// Its entity kinds, with the entities it sent last.
+  final Map<String, ({IHandle handle, List<EntityRef> entities})> _kinds = {};
+
+  /// Its guards, asked across the connection.
+  final Map<String, IHandle> _guards = {};
 
   /// The calls of its commands it is serving now, by id.
   final Map<String, CommandCall> _serving = {};
@@ -105,6 +111,8 @@ final class RegistryResponder extends ParlanceContractPeer {
     return SbDescription({
       ...registry.describeFor(principal),
       'protocol': parlanceProtocol,
+      'principal': principal.toJson(),
+      'namespaces': [..._p.namespaces],
     });
   }
 
@@ -420,89 +428,196 @@ final class RegistryResponder extends ParlanceContractPeer {
   @override
   Future<RpcNull> onDefine(SbDefine request, {RpcContext? context}) async {
     _open();
-    final Descriptor d;
-    try {
-      d = Descriptor.fromJson(request.descriptor);
-    } on Object catch (e) {
-      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
-    }
-    final check = rights.define;
-    if ((check == null ? '$principal may define nothing' : check(principal, d))
-        case final why?) {
-      _deny(why);
-    }
-    try {
-      switch (d) {
-        case StateDescriptor():
-          _states[d.name] = registry.defineState(d, by: principal);
-        case FactDescriptor():
-          _facts[d.name] = registry.defineFact(d, by: principal);
-        case CommandDescriptor():
-          _commands[d.name] = registry.defineCommand(d, _serve);
-      }
-    } on StateError catch (e) {
-      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
-    }
+    _define(_descriptor(request.descriptor));
     return const RpcNull();
   }
 
   @override
   Future<RpcNull> onUndefine(SbName request, {RpcContext? context}) async {
     _open();
-    final h =
-        _states.remove(request.name) ??
-        _facts.remove(request.name) ??
-        _commands.remove(request.name);
-    if (h == null) {
-      throw RpcStatusException(
-        RpcStatus.notFound,
-        'the session defined no ${request.name}',
-      );
-    }
-    h.dispose();
+    _undefine(request.name);
     return const RpcNull();
   }
 
   @override
   Future<RpcNull> onWrite(SbSet request, {RpcContext? context}) async {
     _open();
-    final w = _states[request.state];
-    if (w == null) {
-      if (registry.stateDescriptor(request.state) == null) {
-        throw RpcStatusException(
-          RpcStatus.notFound,
-          'no state ${request.state}',
-        );
-      }
-      _deny('${request.state} is not the session\'s own');
-    }
-    final cause = _cause(parent: request.parent, test: request.test);
-    try {
-      request.remove
-          ? w.remove(key: request.key, cause: cause)
-          : w.set(request.value, key: request.key, cause: cause);
-    } on TypeMismatch catch (e) {
-      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
-    } on ArgumentError catch (e) {
-      throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
-    }
+    _write(
+      request.state,
+      key: request.key,
+      value: request.value,
+      remove: request.remove,
+      parent: request.parent,
+      test: request.test,
+    );
     return const RpcNull();
   }
 
   @override
   Future<SbTaken> onEmit(SbEmit request, {RpcContext? context}) async {
     _open();
-    final fact = request.fact;
-    final by = request.by == null ? null : Principal.fromJson(request.by);
-    if (by != null && by != principal) {
-      final check = rights.speakFor;
-      if ((check == null
-              ? '$principal may speak for no one'
-              : check(principal, by, fact))
-          case final why?) {
-        _deny(why);
+    return SbTaken(
+      _emit(
+        request.fact,
+        request.payload,
+        id: request.id,
+        by: request.by == null ? null : Principal.fromJson(request.by),
+        parent: request.parent,
+        test: request.test,
+      ),
+    );
+  }
+
+  /// What a remote participant asked, in its order, as one tick (SPEC
+  /// §22.4): each op answered on its own, a refusal of one not stopping
+  /// the others.
+  @override
+  Future<SbJson> onApply(SbJson request, {RpcContext? context}) async {
+    _open();
+    final results = <Map<String, Object?>>[];
+    registry.batch(() {
+      for (final op in request.json['ops'] as List? ?? const []) {
+        try {
+          results.add(_op((op as Map).cast<String, Object?>()));
+        } on RpcStatusException catch (e) {
+          results.add({'error': e.statusCode.name, 'message': e.message});
+        }
       }
+    });
+    return SbJson({'results': results});
+  }
+
+  Map<String, Object?> _op(Map<String, Object?> m) {
+    switch (m['op']) {
+      case 'define':
+        _define(_descriptor(_obj(m['descriptor'])));
+      case 'undefine':
+        _undefine(m['name']! as String);
+      case 'set' || 'remove':
+        _write(
+          m['state']! as String,
+          key: m['key'] as String?,
+          value: m['value'],
+          remove: m['op'] == 'remove',
+          parent: m['parent'] as String?,
+          test: m['test'] == true,
+        );
+      case 'emit':
+        return {
+          'taken': _emit(
+            m['fact']! as String,
+            m['payload'],
+            id: m['id'] as String?,
+            by: m['by'] == null ? null : Principal.fromJson(m['by']),
+            parent: m['parent'] as String?,
+            test: m['test'] == true,
+          ),
+        };
+      case 'available':
+        _available(m['command']! as String, m['why'] as String?);
+      case 'kind':
+        _kind(m['name']! as String, m['entities'] as List? ?? const []);
+      case 'unkind':
+        _kinds.remove(m['name'])?.handle.dispose();
+      case 'guard':
+        _guard(m['id']! as String, overridable: m['overridable'] != false);
+      case 'unguard':
+        _guards.remove(m['id'])?.dispose();
+      default:
+        throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }
+    return const {};
+  }
+
+  static Map<String, Object?> _obj(Object? v) =>
+      (v as Map? ?? const {}).cast<String, Object?>();
+
+  static Descriptor _descriptor(Map<String, Object?> json) {
+    try {
+      return Descriptor.fromJson(json);
+    } on Object catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
+    }
+  }
+
+  /// [f], with a participant's refusal as `permissionDenied`.
+  static T _permitted<T>(T Function() f) {
+    try {
+      return f();
+    } on NotPermitted catch (e) {
+      _deny(e.message);
+    }
+  }
+
+  void _define(Descriptor d) {
+    try {
+      _permitted(() {
+        switch (d) {
+          case StateDescriptor():
+            _states[d.name] = _p.defineState(d);
+          case FactDescriptor():
+            _facts[d.name] = _p.defineFact(d);
+          case CommandDescriptor():
+            _commands[d.name] = _p.defineCommand(
+              d,
+              _serve,
+              available: () => _unavailable[d.name],
+            );
+        }
+      });
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
+    }
+  }
+
+  void _undefine(String name) {
+    final h =
+        _states.remove(name) ?? _facts.remove(name) ?? _commands.remove(name);
+    if (h == null) {
+      throw RpcStatusException(
+        RpcStatus.notFound,
+        'the session defined no $name',
+      );
+    }
+    _unavailable.remove(name);
+    h.dispose();
+  }
+
+  void _write(
+    String state, {
+    String? key,
+    Object? value,
+    bool remove = false,
+    String? parent,
+    bool test = false,
+  }) {
+    final w = _states[state];
+    if (w == null) {
+      if (registry.stateDescriptor(state) == null) {
+        throw RpcStatusException(RpcStatus.notFound, 'no state $state');
+      }
+      _deny('$state is not the session\'s own');
+    }
+    final cause = _cause(parent: parent, test: test);
+    try {
+      remove
+          ? w.remove(key: key, cause: cause)
+          : w.set(value, key: key, cause: cause);
+    } on TypeMismatch catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
+    } on ArgumentError catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
+    }
+  }
+
+  bool _emit(
+    String fact,
+    Object? payload, {
+    String? id,
+    Principal? by,
+    String? parent,
+    bool test = false,
+  }) {
     var e = _facts[fact];
     if (e == null) {
       final d = registry.factDescriptor(fact);
@@ -510,21 +625,15 @@ final class RegistryResponder extends ParlanceContractPeer {
         throw RpcStatusException(RpcStatus.notFound, 'no fact $fact');
       }
       if (!d.open) _deny('$fact is not open');
-      final check = rights.produce;
-      if ((check == null
-              ? '$principal may produce nothing'
-              : check(principal, fact))
-          case final why?) {
-        _deny(why);
-      }
-      e = _producers[fact] ??= registry.producer(fact, by: principal);
+      e = _producers[fact] ??= _permitted(() => _p.producer(fact));
     }
+    final emitter = e;
     try {
-      return SbTaken(
-        e.emit(
-          request.payload,
-          id: request.id == null ? null : '${principal.selector}/${request.id}',
-          cause: _cause(parent: request.parent, test: request.test, by: by),
+      return _permitted(
+        () => emitter.emit(
+          payload,
+          id: id == null ? null : '${principal.selector}/$id',
+          cause: _cause(parent: parent, test: test, by: by),
         ),
       );
     } on TypeMismatch catch (x) {
@@ -532,6 +641,58 @@ final class RegistryResponder extends ParlanceContractPeer {
     } on StateError catch (x) {
       _producers.remove(fact);
       throw RpcStatusException(RpcStatus.notFound, x.message);
+    }
+  }
+
+  void _available(String command, String? why) {
+    if (!_commands.containsKey(command)) {
+      _deny('$command is not the session\'s own');
+    }
+    if (_unavailable[command] == why) return;
+    why == null ? _unavailable.remove(command) : _unavailable[command] = why;
+    registry.availabilityChanged(command);
+  }
+
+  void _kind(String name, List<Object?> entities) {
+    final list = [
+      for (final e in entities.cast<Map<Object?, Object?>>())
+        EntityRef(e['id']! as String, e['label'] as String?, _obj(e['meta'])),
+    ];
+    if (_kinds[name] case final k?) {
+      _kinds[name] = (handle: k.handle, entities: list);
+      _p.entitiesChanged(name);
+      return;
+    }
+    try {
+      final handle = _p.registerKind(
+        EntityKind(name, list: () => _kinds[name]?.entities ?? const []),
+      );
+      _kinds[name] = (handle: handle, entities: list);
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
+    }
+  }
+
+  /// A guard of the session's, on its commands only, asked in its turn:
+  /// the participant judges the call.
+  void _guard(String id, {required bool overridable}) {
+    final full = '${principal.selector}/$id';
+    try {
+      _guards[id] = _p.addAskedGuard(full, (c) async {
+        final r = await _owner.judge(
+          SbJson({
+            'guard': id,
+            'id': c.id,
+            'command': c.command.name,
+            'params': c.params,
+            'cause': c.cause.toJson(),
+            'layer': c.layerDispatch,
+          }),
+        );
+        return r.json['why'] as String?;
+      }, overridable: overridable);
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }
   }
 
@@ -577,6 +738,10 @@ final class RegistryResponder extends ParlanceContractPeer {
     _facts.clear();
     _states.clear();
     _producers.clear();
+    _kinds.clear();
+    _guards.clear();
+    _unavailable.clear();
+    _p.dispose();
   }
 }
 
@@ -868,6 +1033,19 @@ final class ParlanceClient {
     context: _ctx(context),
   );
 
+  /// Applies [ops] in their order as one tick (SPEC §22.4); an answer per
+  /// op: `{}`, `{taken}` for an emit, or `{error, message}`.
+  Future<List<Map<String, Object?>>> apply(
+    List<Map<String, Object?>> ops, {
+    RpcContext? context,
+  }) async {
+    final r = await _caller.apply(SbJson({'ops': ops}), context: _ctx(context));
+    return [
+      for (final x in r.json['results'] as List? ?? const [])
+        (x as Map).cast<String, Object?>(),
+    ];
+  }
+
   /// Says [fact]: the session's own, or an open one it produces; [by] when
   /// the host lets it say it for someone else. False when [id] was said
   /// already.
@@ -935,6 +1113,11 @@ final class RemoteOwner extends ParlanceOwnerContractPeer {
     await client.undefine(name);
     _handlers.remove(name);
   }
+
+  /// It keeps no guards: every call it is asked about passes.
+  @override
+  Future<SbJson> onJudge(SbJson request, {RpcContext? context}) async =>
+      const SbJson({});
 
   @override
   Future<SbServed> onServe(SbServe request, {RpcContext? context}) async {

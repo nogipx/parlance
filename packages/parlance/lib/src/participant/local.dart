@@ -24,7 +24,7 @@ extension Participants on Registry {
       checkName(ns, 'namespace');
       for (final e in taken.entries) {
         if (_overlap(ns, e.key)) {
-          throw StateError('namespace $ns: ${e.key} is ${e.value.who}\'s');
+          throw NotPermitted('namespace $ns: ${e.key} is ${e.value.who}\'s');
         }
       }
     }
@@ -61,7 +61,7 @@ final class LocalParticipant implements IParticipant {
   @override
   final Set<String> namespaces;
 
-  @override
+  /// What it may do beyond defining in its namespaces.
   final ParticipantRights rights;
 
   /// What it defined, registered and added, to withdraw on [dispose].
@@ -93,11 +93,11 @@ final class LocalParticipant implements IParticipant {
   void _mayDefine(Descriptor d) {
     _live();
     if (!owns(d.name)) {
-      throw StateError(
+      throw NotPermitted(
         '$who defines in ${namespaces.isEmpty ? 'no namespace' : namespaces.join(', ')}, not ${d.name}',
       );
     }
-    if (rights.define?.call(who, d) case final why?) throw StateError(why);
+    if (rights.define?.call(who, d) case final why?) throw NotPermitted(why);
   }
 
   /// [cause], or its own: what it writes and calls is its own act, or
@@ -105,7 +105,7 @@ final class LocalParticipant implements IParticipant {
   Cause _as(Cause? cause) {
     if (cause == null) return Cause(who);
     if (cause.by != who) {
-      throw StateError('$who acts as itself, not as ${cause.by}');
+      throw NotPermitted('$who acts as itself, not as ${cause.by}');
     }
     return cause;
   }
@@ -169,7 +169,7 @@ final class LocalParticipant implements IParticipant {
   }) {
     _mayDefine(d);
     if (d.sets case final s? when !owns(s.state)) {
-      throw StateError('${d.name} sets ${s.state}, a state not $who\'s');
+      throw NotPermitted('${d.name} sets ${s.state}, a state not $who\'s');
     }
     final h = _r.defineCommand(d, handler, available: available);
     _commands.add(d.name);
@@ -193,7 +193,7 @@ final class LocalParticipant implements IParticipant {
     final check = rights.produce;
     if ((check == null ? '$who may produce nothing' : check(who, fact))
         case final why?) {
-      throw StateError(why);
+      throw NotPermitted(why);
     }
     return _keep(_OwnFact(this, _r.producer(fact, by: who)));
   }
@@ -208,6 +208,33 @@ final class LocalParticipant implements IParticipant {
         overridable: overridable,
       ),
     );
+  }
+
+  /// A guard of its own whose check it makes across a connection (SPEC
+  /// §22.4): the host's side of a remote participant's guard.
+  IHandle addAskedGuard(
+    String id,
+    Future<String?> Function(PendingCall call) ask, {
+    bool overridable = true,
+    Duration timeout = const Duration(seconds: 2),
+  }) {
+    _live();
+    return _keep(
+      _r.addAskedGuard(
+        id,
+        (c) async => _commands.contains(c.command.name) ? ask(c) : null,
+        overridable: overridable,
+        timeout: timeout,
+      ),
+    );
+  }
+
+  @override
+  void availabilityChanged(String command) {
+    if (!_commands.contains(_r.canonical(command))) {
+      throw NotPermitted('$command is not $who\'s command');
+    }
+    _r.availabilityChanged(command);
   }
 
   @override
@@ -226,7 +253,7 @@ final class LocalParticipant implements IParticipant {
   @override
   void entitiesChanged(String kind) {
     if (!_kinds.contains(kind)) {
-      throw StateError('$who registered no kind $kind');
+      throw NotPermitted('$who registered no kind $kind');
     }
     _r.entitiesChanged(kind);
   }
@@ -287,7 +314,7 @@ final class _OwnFact implements IFactHandle {
               ? '${p.who} may speak for no one'
               : check(p.who, cause.by, descriptor.name))
           case final why?) {
-        throw StateError(why);
+        throw NotPermitted(why);
       }
     }
     return _raw.emit(payload, id: id, cause: cause ?? Cause(p.who));

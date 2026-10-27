@@ -55,8 +55,9 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Remote and agents
 
-- A session's principal is fixed by the host when it accepts the connection; call ids are per principal. Both sides are `RpcPeerEndpoint`s: `RegistryResponder(endpoint, registry, principal:, rights:)` on the host's, `ParlanceClient(endpoint)` on the participant's.
-- A remote participant may own words as far as `SessionRights` let it (`define`, `produce`, `speakFor`): `client.define(descriptor)`, `client.write`, `client.emit`; its commands are served by a `RemoteOwner` registered on its endpoint. Pass `parent: call.id` (or a fact's id) so what it does follows from what it answers. Its words go with the session.
+- A session's principal is fixed by the host when it accepts the connection; call ids are per principal. Both sides are `RpcPeerEndpoint`s: `RegistryResponder(endpoint, registry, principal:, namespaces:, rights:)` on the host's, a session being a participant (SPEC §22).
+- **A remote part is a participant too:** `await RemoteParticipant.connect(endpoint)` gives the same `IParticipant` as in the host's process, so an `Owner` attaches to it unchanged (`owner.attach(p)`). What it asks goes in order, one turn as one tick; refusals come to `errors`; `flush()` waits for the host. It reads another's state only while it watches it.
+- The lower level stays: `ParlanceClient(endpoint)` (`client.define`, `client.write`, `client.emit`) and a `RemoteOwner` serving its commands; pass `parent: call.id` (or a fact's id) so what it does follows from what it answers. Its words go with the session.
 - A participant that needs a few states and facts subscribes: `mirror.subscribe(states: {...}, facts: {...})`; its feed then carries only those, without gaps, and the host knows what it hears (`session.hears`).
 - Remote outcomes are data: `CallLost(id)` when the answer did not come back (retry with the id), `BoardOffline` while disconnected, `BoardBehind` when the mirror has not caught up with your call.
 - MCP tools are curated (`parlanceTools`); a host adds its own and must call `McpSession.toolsChanged()` whenever its tools change.

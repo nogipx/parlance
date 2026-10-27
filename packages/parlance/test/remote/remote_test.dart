@@ -15,6 +15,7 @@ final class Link {
     Registry r,
     Principal principal, {
     required bool wire,
+    Set<String> namespaces = const {},
     SessionRights rights = SessionRights.none,
   }) {
     final (c, s) = wire
@@ -25,6 +26,7 @@ final class Link {
       responder,
       r,
       principal: principal,
+      namespaces: namespaces,
       rights: rights,
     );
     responder
@@ -646,8 +648,6 @@ void main() {
         // The host's rights: words under its id, open facts it produces,
         // a viewer it speaks for.
         final rights = SessionRights(
-          define: (p, d) =>
-              d.name.startsWith('${p.id}.') ? null : 'only ${p.id}.*',
           produce: (p, fact) => fact == 'platform.follow' ? null : 'not $fact',
           speakFor: (p, by, fact) => by.kind == 'viewer' ? null : 'not $by',
         );
@@ -655,7 +655,13 @@ void main() {
         late RemoteOwner o;
 
         setUp(() {
-          k = Link.open(f.r, plugin, wire: wire, rights: rights);
+          k = Link.open(
+            f.r,
+            plugin,
+            wire: wire,
+            namespaces: {plugin.id},
+            rights: rights,
+          );
           o = RemoteOwner(k.endpoint, k.client);
           k.endpoint.registerServiceContract(o);
         });

@@ -44,9 +44,10 @@ typedef BeforeHook = Future<void> Function(PendingCall call, Cause cause);
 /// Where errors of guards, hooks and timers go.
 typedef ErrorSink = void Function(Object error, StackTrace stack);
 
-/// A call being served: what a handler gets.
+/// A call being served: what a handler gets. The registry makes it; a
+/// remote participant (SPEC §22.4) makes it of what the host sent.
 final class CommandCall {
-  const CommandCall._(
+  const CommandCall(
     this.id,
     this.command,
     this.params,
@@ -76,7 +77,7 @@ final class CommandCall {
 
 /// A call on its way, as guards and before hooks see it.
 final class PendingCall {
-  const PendingCall._(
+  const PendingCall(
     this.id,
     this.command,
     this.params,
@@ -286,9 +287,15 @@ final class _FactEntry {
 }
 
 final class _Guard {
-  _Guard(this.id, this.check, this.overridable);
+  _Guard(this.id, this.check, this.overridable) : ask = null, timeout = null;
+  _Guard.asked(this.id, this.ask, this.overridable, this.timeout)
+    : check = null;
   final String id;
-  final GuardCheck check;
+  final GuardCheck? check;
+
+  /// A guard another judges, across a connection.
+  final Future<String?> Function(PendingCall call)? ask;
+  final Duration? timeout;
   final bool overridable;
 }
 
@@ -439,6 +446,18 @@ final class Registry implements ITypeContext {
   /// Additions, removals and entity changes, in order.
   Stream<CatalogChange> get catalogChanges => _catalog.stream;
 
+  final StreamController<String> _availability = StreamController.broadcast();
+
+  /// Commands whose availability check would answer otherwise now, though
+  /// no tick says so: an owner across a connection told it, or one whose
+  /// check reads what the registry does not keep.
+  Stream<String> get availabilityChanges => _availability.stream;
+
+  /// [command]'s availability may have changed without a tick (SPEC §6.5).
+  void availabilityChanged(String command) {
+    if (!_availability.isClosed) _availability.add(canonical(command));
+  }
+
   /// Every descriptor there is now.
   List<Descriptor> get catalog => [
     for (final s in _states.values) s.descriptor,
@@ -489,6 +508,7 @@ final class Registry implements ITypeContext {
     late StreamController<WordStatus> out;
     StreamSubscription<CatalogChange>? catalog;
     StreamSubscription<Tick>? ticks;
+    StreamSubscription<String>? availability;
     WordStatus? last;
     void tell() {
       final now = statusOf(name, by: by);
@@ -502,10 +522,12 @@ final class Registry implements ITypeContext {
         tell();
         catalog = catalogChanges.listen((_) => tell());
         ticks = this.ticks.listen((_) => tell());
+        availability = availabilityChanges.listen((_) => tell());
       },
       onCancel: () async {
         await catalog?.cancel();
         await ticks?.cancel();
+        await availability?.cancel();
       },
     );
     return out.stream;
@@ -1206,7 +1228,7 @@ final class Registry implements ITypeContext {
     if (entry.available?.call() case final why?) {
       return finish(CallRefused(Refusal.unavailable, why));
     }
-    final pending = PendingCall._(
+    final pending = PendingCall(
       id,
       d,
       params,
@@ -1215,10 +1237,20 @@ final class Registry implements ITypeContext {
     );
     for (final g in [..._guards.values]) {
       String? why;
-      try {
-        why = g.check(pending);
-      } catch (e, s) {
-        _onError(e, s);
+      if (g.ask case final ask?) {
+        // Asked across a connection: no answer in time, or none at all,
+        // denies, since the one who keeps the rule could not say.
+        try {
+          why = await ask(pending).timeout(g.timeout!);
+        } on Object catch (e) {
+          why = 'its guard ${g.id} could not be asked: $e';
+        }
+      } else {
+        try {
+          why = g.check!(pending);
+        } catch (e, s) {
+          _onError(e, s);
+        }
       }
       if (why == null) continue;
       if (override && g.overridable && overriders.contains(cause.by.kind)) {
@@ -1301,7 +1333,7 @@ final class Registry implements ITypeContext {
     final expired = Completer<void>();
     final work = Future.sync(
       () => entry.port.call(
-        CommandCall._(id, command, params, cause, expired.future),
+        CommandCall(id, command, params, cause, expired.future),
       ),
     );
     CallResult<Object?> result;
@@ -1336,6 +1368,23 @@ final class Registry implements ITypeContext {
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
     if (_guards.containsKey(id)) throw StateError('guard $id exists');
     final g = _Guard(id, check, overridable);
+    _guards[id] = g;
+    return _Disposer(() {
+      if (_guards[id] == g) _guards.remove(id);
+    });
+  }
+
+  /// Adds a guard whose check another makes across a connection (SPEC
+  /// §22.4): asked in its turn with the guards; no answer within [timeout]
+  /// denies.
+  IHandle addAskedGuard(
+    String id,
+    Future<String?> Function(PendingCall call) ask, {
+    bool overridable = true,
+    Duration timeout = const Duration(seconds: 2),
+  }) {
+    if (_guards.containsKey(id)) throw StateError('guard $id exists');
+    final g = _Guard.asked(id, ask, overridable, timeout);
     _guards[id] = g;
     return _Disposer(() {
       if (_guards[id] == g) _guards.remove(id);
@@ -1682,6 +1731,7 @@ final class Registry implements ITypeContext {
     }
     await Future.wait([
       _ticks.close(),
+      _availability.close(),
       _hub.dispose(),
       _catalog.close(),
       _records.close(),

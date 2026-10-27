@@ -26,6 +26,7 @@ class ParlanceContractNames {
   static const undefine = 'undefine';
   static const write = 'set';
   static const emit = 'emit';
+  static const apply = 'apply';
 }
 
 class ParlanceContractCodecs {
@@ -162,6 +163,12 @@ abstract class ParlanceContractPeer extends RpcPeerContract
       handler: onEmit,
       requestCodec: ParlanceContractCodecs.codecSbEmit,
       responseCodec: ParlanceContractCodecs.codecSbTaken,
+    );
+    addUnaryMethod<SbJson, SbJson>(
+      methodName: ParlanceContractNames.apply,
+      handler: onApply,
+      requestCodec: ParlanceContractCodecs.codecSbJson,
+      responseCodec: ParlanceContractCodecs.codecSbJson,
     );
   }
 
@@ -319,6 +326,17 @@ abstract class ParlanceContractPeer extends RpcPeerContract
     );
   }
 
+  @override
+  Future<SbJson> apply(SbJson request, {RpcContext? context}) {
+    return callUnary<SbJson, SbJson>(
+      methodName: ParlanceContractNames.apply,
+      requestCodec: ParlanceContractCodecs.codecSbJson,
+      responseCodec: ParlanceContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
+
   Future<SbDescription> onDescribe(RpcNull request, {RpcContext? context});
 
   Stream<SbFeedItem> onFeed(SbFeedRequest request, {RpcContext? context});
@@ -346,6 +364,8 @@ abstract class ParlanceContractPeer extends RpcPeerContract
   Future<RpcNull> onWrite(SbSet request, {RpcContext? context});
 
   Future<SbTaken> onEmit(SbEmit request, {RpcContext? context});
+
+  Future<SbJson> onApply(SbJson request, {RpcContext? context});
 }
 
 class ParlanceContractPeerCaller extends RpcPeerContract
@@ -517,6 +537,17 @@ class ParlanceContractPeerCaller extends RpcPeerContract
       context: context,
     );
   }
+
+  @override
+  Future<SbJson> apply(SbJson request, {RpcContext? context}) {
+    return callUnary<SbJson, SbJson>(
+      methodName: ParlanceContractNames.apply,
+      requestCodec: ParlanceContractCodecs.codecSbJson,
+      responseCodec: ParlanceContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
 }
 
 // ignore_for_file: type=lint, unused_element
@@ -526,10 +557,12 @@ class ParlanceOwnerContractNames {
   static const service = 'ParlanceOwner';
   static String instance(String suffix) => '$service\_$suffix';
   static const serve = 'serve';
+  static const judge = 'judge';
 }
 
 class ParlanceOwnerContractCodecs {
   const ParlanceOwnerContractCodecs._();
+  static const codecSbJson = RpcCodec<SbJson>(SbJson.fromJson);
   static const codecSbServe = RpcCodec<SbServe>(SbServe.fromJson);
   static const codecSbServed = RpcCodec<SbServed>(SbServed.fromJson);
 }
@@ -555,6 +588,12 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
       requestCodec: ParlanceOwnerContractCodecs.codecSbServe,
       responseCodec: ParlanceOwnerContractCodecs.codecSbServed,
     );
+    addUnaryMethod<SbJson, SbJson>(
+      methodName: ParlanceOwnerContractNames.judge,
+      handler: onJudge,
+      requestCodec: ParlanceOwnerContractCodecs.codecSbJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecSbJson,
+    );
   }
 
   @override
@@ -568,7 +607,20 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
     );
   }
 
+  @override
+  Future<SbJson> judge(SbJson request, {RpcContext? context}) {
+    return callUnary<SbJson, SbJson>(
+      methodName: ParlanceOwnerContractNames.judge,
+      requestCodec: ParlanceOwnerContractCodecs.codecSbJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecSbJson,
+      request: request,
+      context: context,
+    );
+  }
+
   Future<SbServed> onServe(SbServe request, {RpcContext? context});
+
+  Future<SbJson> onJudge(SbJson request, {RpcContext? context});
 }
 
 class ParlanceOwnerContractPeerCaller extends RpcPeerContract
@@ -593,6 +645,17 @@ class ParlanceOwnerContractPeerCaller extends RpcPeerContract
       methodName: ParlanceOwnerContractNames.serve,
       requestCodec: ParlanceOwnerContractCodecs.codecSbServe,
       responseCodec: ParlanceOwnerContractCodecs.codecSbServed,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<SbJson> judge(SbJson request, {RpcContext? context}) {
+    return callUnary<SbJson, SbJson>(
+      methodName: ParlanceOwnerContractNames.judge,
+      requestCodec: ParlanceOwnerContractCodecs.codecSbJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecSbJson,
       request: request,
       context: context,
     );

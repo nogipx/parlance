@@ -4,5 +4,6 @@
 library;
 
 export 'src/remote/contract.dart';
+export 'src/remote/participant.dart';
 export 'src/remote/remote.dart';
 export 'src/remote/typed.dart';

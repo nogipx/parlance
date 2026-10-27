@@ -122,7 +122,7 @@ Words come and go while the app runs (a plugin starts, a remote owner leaves, a 
 | `WordUnavailable(why)` | a command whose availability check says why it cannot run now |
 | `WordReady` | otherwise |
 
-An old name has the status of its word. `statusChanges(name, by:)` gives the status now, then each change: on a catalog change and after every tick, since the availability check reads committed state; a tick that leaves it as it was tells nothing. Nothing about an absent word fails: a read of it is null and a listener of it hears nothing until it comes, so parts start in any order; its status is how a part tells absent from silent. `unavailable` lists the commands that cannot run now, with why.
+An old name has the status of its word. `statusChanges(name, by:)` gives the status now, then each change: on a catalog change, after every tick, since the availability check reads committed state, and on `availabilityChanged(command)`, for a check that changes with no tick (a remote owner's, §22.4); a tick that leaves it as it was tells nothing. Nothing about an absent word fails: a read of it is null and a listener of it hears nothing until it comes, so parts start in any order; its status is how a part tells absent from silent. `unavailable` lists the commands that cannot run now, with why.
 
 ## 7. Ticks
 
@@ -179,6 +179,7 @@ addGuard(id, check, overridable = true) → handle
 ```
 
 - `check` is synchronous, reads committed state only, makes no calls, and returns nothing or a denial reason.
+- `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies.
 - Guards are asked for every call that reached stage 6, layer dispatches included.
 - A guard that throws counts as no denial; the error goes to the error sink.
 

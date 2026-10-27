@@ -9,6 +9,12 @@ import '../registry/registry.dart';
 import '../registry/words.dart';
 import '../view/view.dart';
 
+/// A participant asked for what it may not do: a word outside its
+/// namespaces, a right it lacks, an act as someone else (SPEC §22.2).
+final class NotPermitted extends StateError {
+  NotPermitted(super.message);
+}
+
 /// What a participant may do beyond defining words in its namespaces
 /// (SPEC §22.2). Each check answers why not, or null to allow.
 final class ParticipantRights {
@@ -45,8 +51,6 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// The first words of the names it may define: `orders` for
   /// `orders.cancel` and `orders.list.page`.
   Set<String> get namespaces;
-
-  ParticipantRights get rights;
 
   /// Where it reads the time: the registry's clock in this process.
   Clock get clock;
@@ -90,6 +94,10 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
 
   /// The entities of [kind], one it registered, changed.
   void entitiesChanged(String kind);
+
+  /// The availability check of [command], its own, would answer otherwise
+  /// now, though no tick says so: it reads what the registry does not keep.
+  void availabilityChanged(String command);
 
   /// Runs [writes], its writes and facts committed as one tick.
   void batch(void Function() writes);

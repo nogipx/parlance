@@ -241,6 +241,8 @@ final class Links {
       registry.ticks.listen(_onTick),
       registry.catalogChanges.listen((_) => _reconcile()),
       registry.layerEvents.listen(_onLayer),
+      // A remote owner's command came to run or stopped, with no tick.
+      registry.availabilityChanges.listen((_) => _publishControls()),
     ]);
     if (_own.isNotEmpty) _compose();
   }

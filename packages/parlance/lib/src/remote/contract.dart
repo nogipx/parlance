@@ -3,7 +3,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 part 'contract.g.dart';
 
 /// The version of the remote protocol (SPEC §14).
-const parlanceProtocol = 5;
+const parlanceProtocol = 6;
 
 Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();
@@ -455,6 +455,11 @@ abstract class IParlanceContract {
 
   @RpcMethod.unary(name: 'emit')
   Future<SbTaken> emit(SbEmit request, {RpcContext? context});
+
+  /// What a remote participant asked, in its order, applied as one tick
+  /// (SPEC §22.4): `{ops: [...]}`, answered `{results: [...]}`, one each.
+  @RpcMethod.unary(name: 'apply')
+  Future<SbJson> apply(SbJson request, {RpcContext? context});
 }
 
 /// The participant's side of the connection (SPEC §14): it serves the calls
@@ -463,4 +468,10 @@ abstract class IParlanceContract {
 abstract class IParlanceOwnerContract {
   @RpcMethod.unary(name: 'serve')
   Future<SbServed> serve(SbServe request, {RpcContext? context});
+
+  /// Asks a guard of the participant's own about a call of its command
+  /// (SPEC §22.4): `{guard, id, command, params, cause, layer}`, answered
+  /// `{why}`, null to let it pass.
+  @RpcMethod.unary(name: 'judge')
+  Future<SbJson> judge(SbJson request, {RpcContext? context});
 }

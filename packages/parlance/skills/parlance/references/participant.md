@@ -24,6 +24,7 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 - **Say an open fact of another** (`producer(fact)`) only when `rights.produce(who, fact)` allows.
 - **Guards on its own commands** (`addGuard`): a guard it adds judges only calls of commands it defined, never another's.
 - **Entity kinds** (`registerKind`, §3) it keeps, and `entitiesChanged` of those only.
+- **`availabilityChanged(command)`**: a check of its own command that reads what the registry does not keep answers otherwise now; watchers of its status are told (§6.5).
 - **`batch(writes)`**: its writes and facts in one tick (§7).
 - **`clock`**: where it reads the time; the registry's in this process.
 - **`dispose()`** withdraws everything it defined, registered and added, and frees its namespaces; its words are then missing to everyone (§6.5).
@@ -40,4 +41,14 @@ An `Owner` (§19) is a participant's code: it says `who`, `namespaces` and `righ
 
 ### 22.4 Across a connection
 
-A remote participant is the same interface over a session (§14), with the host giving it its principal, namespaces and rights. To be specified with it: what it defines returns its handle at once and what it asks goes in order; a batch is one tick on the host; a guard of its own refuses from its handler as `denied`; it registers its kinds by sending their entities. Until then a remote part uses `ParlanceClient`, `RemoteOwner` and `MirrorView` (§14, §20).
+`RemoteParticipant.connect(endpoint)` (`package:parlance/remote.dart`) is the same `IParticipant` over a session (§14). The host makes the session as it makes a local participant: `RegistryResponder(endpoint, registry, principal:, namespaces:, rights:)`; the session is a participant in the host's process, so namespaces are shared with the local ones and its rights are checked there. The participant learns its principal and namespaces from `describe`.
+
+- **What it asks goes in its order, and one turn of its event loop is one tick.** A define, a write, a fact, a kind, a guard, an availability: each returns at once (its handle, `true` for a fact) and is queued; the queue goes as one `apply` the host runs in one batch. A name outside its namespaces, or an act as another, is refused at once (`NotPermitted`); what the host refuses comes after, to `errors` (`ParticipantError`: the op, the session's status, why). `flush()` completes when the host has answered all it asked so far.
+- **Its calls come after what it asked.** A call waits for the queue first, so it sees what the participant wrote; it answers once the mirror has reached what the call wrote (§14).
+- **What it does in answer follows from the call.** A handler's writes, facts and calls with `call.causeFor(who)` reach the host before the handler's answer, so their parent is the call being served.
+- **It reads its own states as it wrote them, and another's as its mirror has them.** The mirror keeps what it watches (`watch`, `changes`), nothing else: a read of another's state it does not watch is null. A watch tells the first value once the mirror has it.
+- **Its guards are asked in their turn.** A guard it adds is registered on the host as `<principal>/<id>` for its own commands, and the host asks it across the connection at the guards' stage (§9, §10), before the hooks; no answer within its time (2 s) denies.
+- **Its commands' availability is data.** Its checks run in its process; when one answers otherwise (after a tick it hears, after its own writes, or on `availabilityChanged`), it tells the host, which answers `unavailable` with that reason and says so to watchers (§6.5).
+- **Its kinds are lists it sends.** `registerKind` sends the entities, `entitiesChanged` sends them again; the host keeps the last.
+- **It goes with its session**, or by `close()`, which withdraws its words, guards and kinds. A lost connection ends it: a new connection is a new participant.
+- A fact's `true` does not say the host took it: a repeat of an id is dropped there.

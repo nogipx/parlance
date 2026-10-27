@@ -83,12 +83,17 @@ final class MirrorView implements IRegistryView {
       }
     }
     if (!changed) return;
-    unawaited(
-      mirror
-          .subscribe(states: {..._states.keys}, facts: {..._facts.keys})
-          .catchError((Object _) {}),
-    );
+    _settled = mirror
+        .subscribe(states: {..._states.keys}, facts: {..._facts.keys})
+        .catchError((Object _) {});
   }
+
+  Future<void>? _settled;
+
+  /// Completes when the mirror has the values of what its listeners ask
+  /// for now: a read after it reads them, not null for not having them
+  /// yet.
+  Future<void> get settled => _settled ?? Future.value();
 
   @override
   Future<CallResult<Object?>> call(
