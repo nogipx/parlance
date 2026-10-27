@@ -100,7 +100,7 @@ void main() {
       h,
       r,
       principal: kittens,
-      namespaces: namespaces,
+      vocabularies: [for (final n in namespaces) WordSet.open(n)],
       rights: rights,
     );
     h
@@ -170,7 +170,7 @@ void main() {
     );
     final studio = r.participant(
       const Principal('studio'),
-      namespaces: {'studio'},
+      vocabularies: [WordSet.open('studio')],
     );
     studio.state(_Program.scene).define().set('main');
     await group.checkUses();
@@ -443,7 +443,7 @@ void main() {
   });
 
   test('it watches another\'s state through its mirror', () async {
-    final owner = r.participant(crew, namespaces: {'studio'});
+    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
     final program = owner.state(_Program.scene).define()..set('main');
     final p = await join();
     final seen = <String?>[];
@@ -502,7 +502,7 @@ void main() {
           h,
           r,
           principal: kittens,
-          namespaces: {'kittens'},
+          vocabularies: [WordSet.open('kittens')],
         );
         h
           ..registerServiceContract(session)

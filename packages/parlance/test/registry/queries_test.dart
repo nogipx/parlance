@@ -102,7 +102,7 @@ void main() {
   test('through a participant: typed, and asked by whoever may read', () async {
     final p = r.participant(
       owner,
-      namespaces: {'orders'},
+      vocabularies: [WordSet.open('orders')],
       access: WordAccess(read: Callers.only(['module'])),
     );
     p.query(OrdersQuery.page).define((c) => ['o${c.params.from}']);
@@ -115,7 +115,7 @@ void main() {
     final open = Registry();
     addTearDown(open.dispose);
     open
-        .participant(owner, namespaces: {'orders'})
+        .participant(owner, vocabularies: [WordSet.open('orders')])
         .query(OrdersQuery.page)
         .define((c) => const []);
     expect(

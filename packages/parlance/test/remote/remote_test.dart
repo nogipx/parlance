@@ -15,7 +15,7 @@ final class Link {
     Registry r,
     Principal principal, {
     required bool wire,
-    Set<String> namespaces = const {},
+    Iterable<WordSet> vocabularies = const [],
     SessionRights rights = SessionRights.none,
   }) {
     final (c, s) = wire
@@ -26,7 +26,7 @@ final class Link {
       responder,
       r,
       principal: principal,
-      namespaces: namespaces,
+      vocabularies: vocabularies,
       rights: rights,
     );
     responder
@@ -659,7 +659,7 @@ void main() {
             f.r,
             plugin,
             wire: wire,
-            namespaces: {plugin.id},
+            vocabularies: [WordSet.open(plugin.id)],
             rights: rights,
           );
           o = RemoteOwner(k.endpoint, k.client);

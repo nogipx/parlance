@@ -61,7 +61,7 @@ void main() {
   /// The orders module: its state, a command that writes it and says a
   /// fact, callable by the cart.
   LocalParticipant ordersModule() {
-    final p = r.participant(orders, namespaces: {'orders'});
+    final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
     final last = p.state(OrderState.last).define();
     final placed = p.fact(OrderFact.placed).define();
     p.command(OrderCommand.place).define((c) {
@@ -77,7 +77,7 @@ void main() {
       'words in its namespaces, used by others through typed words',
       () async {
         ordersModule();
-        final c = r.participant(cart, namespaces: {'cart'});
+        final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
         final heard = <Order>[];
         final sub = c
             .fact(OrderFact.placed)
@@ -100,7 +100,7 @@ void main() {
     );
 
     test('nothing outside its namespaces', () {
-      final p = r.participant(orders, namespaces: {'orders'});
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(() => p.state(_Other.flag).define(), throwsA(isA<StateError>()));
       expect(r.stateDescriptor('cart.flag'), isNull);
       final none = r.participant(const Principal('module', 'x'));
@@ -112,8 +112,11 @@ void main() {
     });
 
     test('no command that sets a state of another', () {
-      r.participant(cart, namespaces: {'cart'}).state(_Other.flag).define();
-      final p = r.participant(orders, namespaces: {'orders'});
+      r
+          .participant(cart, vocabularies: [WordSet.open('cart')])
+          .state(_Other.flag)
+          .define();
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(
         () => p.defineCommand(
           CommandDescriptor(
@@ -131,7 +134,7 @@ void main() {
     test('only as far as its rights let it', () {
       final p = r.participant(
         orders,
-        namespaces: {'orders'},
+        vocabularies: [WordSet.open('orders')],
         rights: ParticipantRights(
           define: (_, d) => d is FactDescriptor ? 'no facts' : null,
         ),
@@ -146,20 +149,22 @@ void main() {
 
   group('namespaces', () {
     test('are one participant\'s, until it goes', () {
-      final a = r.participant(orders, namespaces: {'orders'});
+      final a = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(
-        () => r.participant(cart, namespaces: {'orders'}),
+        () => r.participant(cart, vocabularies: [WordSet.open('orders')]),
         throwsA(isA<StateError>()),
       );
       expect(
-        () => r.participant(cart, namespaces: {'orders.archive'}),
+        () =>
+            r.participant(cart, vocabularies: [WordSet.open('orders.archive')]),
         throwsA(isA<StateError>()),
         reason: 'inside another\'s',
       );
       a.dispose();
-      expect(r.participant(cart, namespaces: {'orders'}).namespaces, {
-        'orders',
-      });
+      expect(
+        r.participant(cart, vocabularies: [WordSet.open('orders')]).namespaces,
+        {'orders'},
+      );
     });
   });
 
@@ -182,7 +187,7 @@ void main() {
         () => p.call('orders.place', {}, cause: const Cause(someone)),
         throwsA(isA<StateError>()),
       );
-      final q = r.participant(cart, namespaces: {'cart'});
+      final q = r.participant(cart, vocabularies: [WordSet.open('cart')]);
       final flag = q.state(_Other.flag).define();
       expect(
         () => flag.set(true, cause: const Cause(someone)),
@@ -191,7 +196,10 @@ void main() {
     });
 
     test('speaks for another only when its rights let it', () async {
-      final mute = r.participant(orders, namespaces: {'orders'});
+      final mute = r.participant(
+        orders,
+        vocabularies: [WordSet.open('orders')],
+      );
       final a = mute.fact(OrderFact.placed).define();
       expect(
         () => a.emit((id: 'o', status: 'new'), cause: const Cause(someone)),
@@ -200,7 +208,7 @@ void main() {
       mute.dispose();
       final voice = r.participant(
         orders,
-        namespaces: {'orders'},
+        vocabularies: [WordSet.open('orders')],
         rights: ParticipantRights(
           speakFor: (_, by, _) => by.kind == 'viewer' ? null : 'viewers only',
         ),
@@ -214,7 +222,7 @@ void main() {
 
     test('says an open fact of another only when its rights let it', () {
       r
-          .participant(orders, namespaces: {'orders'})
+          .participant(orders, vocabularies: [WordSet.open('orders')])
           .fact(OrderFact.placed)
           .define(open: true);
       expect(
@@ -232,7 +240,7 @@ void main() {
     });
 
     test('reads only what it may', () {
-      final p = r.participant(orders, namespaces: {'orders'});
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       p
           .state(OrderState.last)
           .define(readers: Callers.only(['module:orders']))
@@ -249,7 +257,7 @@ void main() {
         'it whole', () async {
       final p = r.participant(
         orders,
-        namespaces: {'orders'},
+        vocabularies: [WordSet.open('orders')],
         access: WordAccess(
           read: Callers.only(['module:orders', 'module:cart']),
           call: Callers.only(['module:cart']),
@@ -279,7 +287,7 @@ void main() {
     });
 
     test('a command with no callers anywhere is refused at once', () {
-      final p = r.participant(orders, namespaces: {'orders'});
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(
         () => p.command(OrderCommand.place).define((c) => c.params.id),
         throwsArgumentError,
@@ -288,7 +296,9 @@ void main() {
     });
 
     test('without it, a state is everyone\'s to read', () {
-      r.participant(orders, namespaces: {'orders'}).state(OrderState.last)
+      r
+          .participant(orders, vocabularies: [WordSet.open('orders')])
+          .state(OrderState.last)
         ..define()
         ..read();
       expect(r.stateDescriptor('orders.last')!.readers, isNull);
@@ -316,7 +326,7 @@ void main() {
     test('a part writes, says and calls as itself; a cause of its whole is '
         'its own, a sibling\'s is refused', () async {
       ordersModule();
-      final c = r.participant(cart, namespaces: {'cart'});
+      final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
       final ui = c.child('ui');
       final flag = ui.state(_Other.flag).define()..set(true);
       expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
@@ -339,7 +349,7 @@ void main() {
     });
 
     test('a part\'s guard judges its own commands only', () async {
-      final p = r.participant(orders, namespaces: {'orders'});
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       final a = p.child('a');
       final b = p.child('b');
       a.defineCommand(
@@ -363,7 +373,7 @@ void main() {
 
     test('a part going withdraws its words only; its whole going withdraws '
         'its parts', () {
-      final p = r.participant(orders, namespaces: {'orders'});
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       final a = p.child('a');
       a.state(OrderState.last).define();
       p.child('b').fact(OrderFact.placed).define();
@@ -378,7 +388,7 @@ void main() {
   test('its guards judge calls of its own commands only', () async {
     final p = ordersModule();
     p.addGuard('orders.no-o3', (c) => c.params['id'] == 'o3' ? 'no o3' : null);
-    final c = r.participant(cart, namespaces: {'cart'});
+    final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
     var flagged = 0;
     c.defineCommand(
       CommandDescriptor(
@@ -395,7 +405,7 @@ void main() {
   });
 
   test('watching a state starts with its value now', () async {
-    final p = r.participant(orders, namespaces: {'orders'});
+    final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
     final last = p.state(OrderState.last).define()
       ..set((id: 'o1', status: 'new'));
     final seen = <Order?>[];
@@ -426,7 +436,7 @@ void main() {
   });
 
   test('tells of entities only of a kind it registered', () {
-    final p = r.participant(orders, namespaces: {'orders'});
+    final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
     p.registerKind(EntityKind('order', list: () => const []));
     p.entitiesChanged('order');
     expect(() => p.entitiesChanged('scene'), throwsA(isA<StateError>()));

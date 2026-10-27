@@ -115,11 +115,7 @@ final class Player extends Owner {
   late final StateWriterOf<int> _level;
 
   @override
-  Iterable<IWord> get words => [
-    ...PlayerState.values,
-    ...PlayerCommand.values,
-    ...PlayerFact.values,
-  ];
+  Iterable<IWord> get words => playerWords.words;
 
   @override
   void define(IParticipant p) {
@@ -139,13 +135,20 @@ final class Player extends Owner {
   void sync() => _level.set(_volume);
 }
 
-/// Starts the player in [r]: its participant, in the namespace `player`,
+/// The player's vocabulary: its namespace and words, for main to grant.
+const playerWords = WordSet('player', [
+  ...PlayerState.values,
+  ...PlayerCommand.values,
+  ...PlayerFact.values,
+]);
+
+/// Starts the player in [r]: its participant, given the player's words,
 /// its commands called by [Who.turners] unless one says otherwise, and its
 /// owner as the part `deck` (what it writes is told as `player:deck`).
 Owners startPlayer(Registry r) => Owners(
   r.participant(
     Who.player,
-    namespaces: {'player'},
+    vocabularies: [playerWords],
     access: const WordAccess(call: Who.turners),
   ),
   {'deck': Player()},

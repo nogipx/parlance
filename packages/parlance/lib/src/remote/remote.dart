@@ -33,7 +33,6 @@ final class RegistryResponder extends ParlanceContractPeer {
     required this.principal,
     String? session,
     Iterable<WordSet> vocabularies = const [],
-    Set<String> namespaces = const {},
     SessionRights rights = SessionRights.none,
     this.feedBacklog = 256,
   }) : session = session ?? newId(),
@@ -41,7 +40,6 @@ final class RegistryResponder extends ParlanceContractPeer {
        _p = registry.participant(
          principal,
          vocabularies: vocabularies,
-         namespaces: namespaces,
          rights: rights,
        );
 

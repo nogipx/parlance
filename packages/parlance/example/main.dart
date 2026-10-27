@@ -208,7 +208,7 @@ Future<void> main() async {
   // A garden that needs a weather station the house does not have: main
   // learns it at start, by name, rather than when it would water.
   final garden = Owners(
-    registry.participant(Who.garden, namespaces: {'garden'}),
+    registry.participant(Who.garden, vocabularies: [WordSet.open('garden')]),
     {'sprinkler': Sprinkler()},
   );
   try {

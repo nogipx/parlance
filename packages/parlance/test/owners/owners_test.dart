@@ -125,7 +125,10 @@ void main() {
 
   /// The module's participant, as `main` makes it.
   IParticipant module([Set<String> namespaces = const {'test'}]) =>
-      r.participant(me, namespaces: namespaces);
+      r.participant(
+        me,
+        vocabularies: [for (final n in namespaces) WordSet.open(n)],
+      );
 
   test('owners define, sync as one tick, and withdraw their words', () async {
     final ticks = <Tick>[];
@@ -179,7 +182,7 @@ void main() {
     Owners(
       r.participant(
         me,
-        namespaces: {'test'},
+        vocabularies: [WordSet.open('test')],
         access: WordAccess(read: Callers.only(['host'])),
       ),
       {'dials': Dials()},
@@ -239,7 +242,7 @@ void main() {
     Owners(
       r.participant(
         const Principal('dials'),
-        namespaces: {'test'},
+        vocabularies: [WordSet.open('test')],
         access: WordAccess(read: Callers.only(['dials'])),
       ),
       {'dials': Dials()},

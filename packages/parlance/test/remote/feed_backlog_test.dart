@@ -41,7 +41,7 @@ void main() {
   }
 
   Future<void> count(int n) async {
-    final p = r.participant(host, namespaces: {'count'});
+    final p = r.participant(host, vocabularies: [WordSet.open('count')]);
     final at = p.defineState(
       StateDescriptor(
         'count.at',

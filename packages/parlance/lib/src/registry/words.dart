@@ -267,15 +267,24 @@ abstract interface class IWord {
   String get name;
 }
 
-/// A vocabulary: a module's words, all in its one [namespace] (SPEC §23).
-/// `main` grants it to a participant (`participant(who, vocabularies:)`),
-/// so the namespace is written once, where the words are; the generator
-/// makes one per `@Vocabulary` class.
+/// A vocabulary: a module's words, all in its one [namespace] (SPEC §22.1,
+/// §23). It is the only way a participant gets a namespace: `main` grants
+/// it (`participant(who, vocabularies:)`), so the namespace is written
+/// once, where the words are. The generator makes one per `@Vocabulary`
+/// class; one of hand-written enums is `WordSet('audio', [...])`.
 final class WordSet {
-  const WordSet(this.namespace, this.words);
+  const WordSet(this.namespace, this.words) : open = false;
+
+  /// A namespace whose words are not known before they come: a plugin's,
+  /// a guest's in another language, a module's named at run time. Said
+  /// so, never a vocabulary left out by mistake.
+  const WordSet.open(this.namespace) : words = const [], open = true;
 
   final String namespace;
   final List<IWord> words;
+
+  /// Whether its words come at run time ([WordSet.open]).
+  final bool open;
 
   /// Throws when a word lies outside [namespace].
   void check() {
