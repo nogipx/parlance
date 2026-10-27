@@ -38,6 +38,15 @@ abstract interface class IRegistryView {
   /// Whether what it reads is the registry's now: false while a remote
   /// view is cut off from it.
   bool get synced;
+
+  /// Whether the view's principal can use the word [word] now (SPEC §6.5):
+  /// missing, not permitted, a command unavailable, or ready. Words come
+  /// and go while the app runs, so a part asks this, or listens to
+  /// [statusChanges], rather than checking once at start.
+  WordStatus status(String word);
+
+  /// [status] now, then whenever it changes.
+  Stream<WordStatus> statusChanges(String word);
 }
 
 /// A view through typed words (SPEC §18): the word fixes the types.
@@ -63,6 +72,9 @@ final class ViewStateOf<T> {
     for (final e in view.readAll(word.name).entries)
       if (e.value != null) e.key: word.shape.fromJson(e.value),
   };
+
+  WordStatus get status => view.status(word.name);
+  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
 }
 
 /// A command through a view, typed.
@@ -75,6 +87,9 @@ final class ViewCommandOf<P, R> {
   /// Calls it; its answer decoded as the word says.
   Future<CallResult<R>> call(P params) async =>
       word.answer(await view.call(word.name, word.params.toJson(params)));
+
+  WordStatus get status => view.status(word.name);
+  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
 }
 
 /// A fact through a view, typed.
@@ -93,6 +108,9 @@ final class ViewFactOf<T> {
   /// Those said from now on.
   Stream<Fact<T>> get stream =>
       view.facts(word.name).map((m) => Fact(word.shape.fromJson(m.payload), m));
+
+  WordStatus get status => view.status(word.name);
+  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
 }
 
 /// A view of a registry in this process, calling as [by].
@@ -134,6 +152,13 @@ final class LocalView implements IRegistryView {
 
   @override
   bool get synced => true;
+
+  @override
+  WordStatus status(String word) => registry.statusOf(word, by: by);
+
+  @override
+  Stream<WordStatus> statusChanges(String word) =>
+      registry.statusChanges(word, by: by);
 
   /// Views of one registry for one principal are the same view.
   @override
@@ -246,4 +271,29 @@ final class MirrorView implements IRegistryView {
 
   @override
   bool get synced => mirror.synced;
+
+  @override
+  WordStatus status(String word) => mirror.statusOf(word);
+
+  @override
+  Stream<WordStatus> statusChanges(String word) {
+    late StreamController<WordStatus> out;
+    StreamSubscription<void>? sub;
+    WordStatus? last;
+    void tell() {
+      final now = mirror.statusOf(word);
+      if (now == last) return;
+      last = now;
+      out.add(now);
+    }
+
+    out = StreamController<WordStatus>(
+      onListen: () {
+        tell();
+        sub = mirror.statusChanges.listen((_) => tell());
+      },
+      onCancel: () => sub?.cancel(),
+    );
+    return out.stream;
+  }
 }

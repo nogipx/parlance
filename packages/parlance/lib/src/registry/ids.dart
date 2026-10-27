@@ -1,6 +1,9 @@
 import 'dart:math';
 
-final Random _random = Random.secure();
+/// A plain source: an id must be unique, not secret. `Random.secure()`
+/// costs 3-6 times as much per id (every write takes one) and is missing
+/// in dart2js under Node (no `self.crypto`).
+final Random _random = Random();
 
 /// `1 << 32`, as a literal: dart2js shifts are 32-bit, so `1 << 32` is 0
 /// in JavaScript and `nextInt(0)` throws.

@@ -29,6 +29,7 @@ A host names its words once, typed (SPEC §18), and never types a name or a para
 - **Command:** `r.command(XCommand.b).define((c) => ..., callers:, sets:?, interceptable:?, deadline:?, available:?)`; `c.params` is the record. `available` answers why it cannot run now (shown before anyone calls).
 - **Fact:** `r.fact(XFact.c).define(by: producer)`; `emit(record, cause:)`.
 - **Call and read:** `r.command(XCommand.b).call(params, by:)` answers `CallResult<R>`; `r.state(XState.a).read()`, `.watch()`; `r.fact(XFact.c).stream`. Never a generic helper taking a word and params together: it loses the types (SPEC §18).
+- **Is a word there for me:** `view.status(word)` / `statusChanges(word)` (`registry.statusOf(name, by:)`): `WordMissing`, `WordNotPermitted`, `WordUnavailable(why)`, `WordReady` (SPEC §6.5). An absent word never fails a read or a listener; ask its status instead of checking the catalog once at start.
 - The string API (`defineState(StateDescriptor(...))`, `call(name, map)`) is for names known only at run time: own words, links, remote, MCP.
 - **Callers** decide who may call: selectors `kind:id`, `kind`, `*`; the most specific wins; unmatched is denied; `warn` allows but tells editors. In Tephra use `Who.crew`, `Who.crewAndViewers`, `Who.streamerAtTheMac`.
 - **Causes:** inside a handler, write and call with `cause: call.causeFor(owner)`, so the trail shows which call led to it. Never pass causes through zones.

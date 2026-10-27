@@ -441,6 +441,51 @@ final class Registry implements ITypeContext {
     return c.available?.call();
   }
 
+  /// Whether [by] can use the word [name] now (SPEC §6.5): missing from
+  /// the catalog, not permitted to it, a command unavailable now, or
+  /// ready. An old name stands for its word.
+  WordStatus statusOf(String name, {required Principal by}) {
+    final n = canonical(name);
+    if (_commands[n] case final c?) {
+      if (!c.descriptor.callers.allows(by)) return const WordNotPermitted();
+      if (c.available?.call() case final why?) return WordUnavailable(why);
+      return const WordReady();
+    }
+    if (!_states.containsKey(n) && !_facts.containsKey(n)) {
+      return const WordMissing();
+    }
+    return mayRead(by, n) ? const WordReady() : const WordNotPermitted();
+  }
+
+  /// [statusOf] now, then whenever it changes: a word comes or goes, an
+  /// old name moves, or a tick changes what a command's availability check
+  /// reads.
+  Stream<WordStatus> statusChanges(String name, {required Principal by}) {
+    late StreamController<WordStatus> out;
+    StreamSubscription<CatalogChange>? catalog;
+    StreamSubscription<Tick>? ticks;
+    WordStatus? last;
+    void tell() {
+      final now = statusOf(name, by: by);
+      if (now == last) return;
+      last = now;
+      out.add(now);
+    }
+
+    out = StreamController<WordStatus>(
+      onListen: () {
+        tell();
+        catalog = catalogChanges.listen((_) => tell());
+        ticks = this.ticks.listen((_) => tell());
+      },
+      onCancel: () async {
+        await catalog?.cancel();
+        await ticks?.cancel();
+      },
+    );
+    return out.stream;
+  }
+
   /// The command that sets [state], if there is one.
   String? setterOf(String state) => _states[canonical(state)]?.setter;
 
@@ -475,9 +520,12 @@ final class Registry implements ITypeContext {
       for (final c in _commands.values)
         c.descriptor.name: c.descriptor.callers.accessOf(by).name,
     },
-    'unavailable': {
-      for (final name in _commands.keys) name: ?whyUnavailable(name),
-    },
+    'unavailable': unavailable,
+  };
+
+  /// The commands that cannot run now, and why their owners say so.
+  Map<String, String> get unavailable => {
+    for (final name in _commands.keys) name: ?whyUnavailable(name),
   };
 
   List<String> _unreadable(Principal by) => [

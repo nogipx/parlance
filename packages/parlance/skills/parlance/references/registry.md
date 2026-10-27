@@ -57,7 +57,7 @@ Cause { by: Principal, parent: message id?, chain: [link or hook ids], test: boo
 
 ## 5. Messages, sequence and epoch
 
-- Every message has an **id**: 128 random bits as 32 hex digits, unless the sender gives its own.
+- Every message has an **id**: 128 random bits as 32 hex digits, unless the sender gives its own. An id is unique, not secret: nothing is granted by knowing one (over remote, ids are per principal, §14), so the bits come from a plain random source, cheaper than a secure one and there on every platform.
 - A registry has an **epoch**: an id made when it starts. Sequence numbers are only comparable within one epoch; a client that sees a new epoch starts over from a snapshot.
 - Every committed state change and fact gets the next **sequence number** (`seq`) of the epoch. Within a registry, seq is a total order consistent with causality.
 
@@ -101,6 +101,7 @@ FactDescriptor { name, type, open: bool, readers: { selector: allow | deny }?, m
 - `readers` say who may hear it over remote and the MCP board, as a state's (§6.1).
 - The definer holds an emit handle. When `open`, the host may hand more emit handles for the same fact to other producers (the chat of several platforms).
 - A fact has an id. A fact whose id was already seen within the dedup window is dropped: producers may retry.
+- One id is one message, of whatever kind: a cause's `parent` and `recentFact(id)` find the message by it. A random id (§5) is that by itself. A sender that gives its own ids keeps them apart; the registry drops a repeat only among facts (and among calls, §9), never a call and a fact of one id. One event said as two facts (two versions of a word) takes an id per fact, each stable across retries (`<id>` and `<id>:v1`), and one cause.
 
 ### 6.4 Catalog
 
@@ -109,6 +110,19 @@ Descriptors come and go at runtime (a plugin starts or stops).
 **Old names.** Words are a public API: links the user keeps, plugins and agents name them. A word renamed keeps its old name as an **alias**: `alias(old, now)` makes `old` stand for the word in calls, reads, watches, facts, layers, `explain`, subscriptions over remote and links (their triggers, conditions, references and steps); `canonical(name)` tells what a name stands for. An alias is not a word: it cannot be defined, nor be one already. `describe` lists the aliases (`aliases: {old: now}`); a mirror reads through them; the agent's `describe` says them as `renamed`. Adding or dropping one is a catalog change (`AliasChanged`).
 
  The catalog is the current set of descriptors and entity kinds; every addition, removal and `entitiesChanged` is a catalog change with its own stream. Removing a command fails the calls waiting in its before stage with `unknownCommand`; a running handler finishes.
+
+### 6.5 Word status
+
+Words come and go while the app runs (a plugin starts, a remote owner leaves, a flag turns a feature off), so a part that uses a word asks whether it can, not once at start but whenever it matters. `statusOf(name, by:)` answers for one principal:
+
+| Status | When |
+|---|---|
+| `WordMissing` | no word of that name in the catalog |
+| `WordNotPermitted` | a state or a fact whose `readers` do not let it read; a command whose `callers` deny it (`warn` allows) |
+| `WordUnavailable(why)` | a command whose availability check says why it cannot run now |
+| `WordReady` | otherwise |
+
+An old name has the status of its word. `statusChanges(name, by:)` gives the status now, then each change: on a catalog change and after every tick, since the availability check reads committed state; a tick that leaves it as it was tells nothing. Nothing about an absent word fails: a read of it is null and a listener of it hears nothing until it comes, so parts start in any order; its status is how a part tells absent from silent. `unavailable` lists the commands that cannot run now, with why.
 
 ## 7. Ticks
 

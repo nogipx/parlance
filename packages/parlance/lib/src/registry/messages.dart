@@ -214,6 +214,74 @@ enum Refusal {
   idConflict,
 }
 
+/// Whether one principal can use a word now (SPEC §6.5): it is in the
+/// catalog, the principal may read it (a state, a fact) or call it (a
+/// command), and a command's owner says it can run.
+sealed class WordStatus {
+  const WordStatus();
+
+  bool get ready => this is WordReady;
+}
+
+/// No word of that name in the catalog: never defined, or its owner left.
+final class WordMissing extends WordStatus {
+  const WordMissing();
+
+  @override
+  bool operator ==(Object other) => other is WordMissing;
+
+  @override
+  int get hashCode => (WordMissing).hashCode;
+
+  @override
+  String toString() => 'missing';
+}
+
+/// The word is there, but the principal may not read it (its `readers`)
+/// or call it (its `callers` deny it).
+final class WordNotPermitted extends WordStatus {
+  const WordNotPermitted();
+
+  @override
+  bool operator ==(Object other) => other is WordNotPermitted;
+
+  @override
+  int get hashCode => (WordNotPermitted).hashCode;
+
+  @override
+  String toString() => 'notPermitted';
+}
+
+/// A command its owner says cannot run now, and [why].
+final class WordUnavailable extends WordStatus {
+  const WordUnavailable(this.why);
+
+  final String why;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WordUnavailable && other.why == why;
+
+  @override
+  int get hashCode => why.hashCode;
+
+  @override
+  String toString() => 'unavailable($why)';
+}
+
+final class WordReady extends WordStatus {
+  const WordReady();
+
+  @override
+  bool operator ==(Object other) => other is WordReady;
+
+  @override
+  int get hashCode => (WordReady).hashCode;
+
+  @override
+  String toString() => 'ready';
+}
+
 /// How a call ended; a typed call ([CommandOf.call]) answers [R].
 ///
 /// Only [CallDone] carries an answer; the other ends are `CallResult<Never>`,

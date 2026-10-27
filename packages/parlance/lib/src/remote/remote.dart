@@ -182,13 +182,28 @@ final class RegistryResponder extends ParlanceContractPeer {
     // The last seq the feed sent: a tick it sends starts after it, so a
     // tick left out (nothing in it the session follows) leaves no gap.
     var last = request.since;
+    // The commands that could not run when the feed last told, and why.
+    var unavailable = const <String, String>{};
+    void describe() {
+      final d = registry.describeFor(principal);
+      unavailable = d['unavailable']! as Map<String, String>;
+      out.add(SbFeedItem('catalog', d));
+    }
+
+    // After a tick: whether a command came to run or stopped, told as the
+    // whole set when it moved.
+    void availability() {
+      final now = registry.unavailable;
+      if (_sameMap(now, unavailable)) return;
+      unavailable = now;
+      out.add(SbFeedItem('unavailable', {'unavailable': now}));
+    }
+
     out = StreamController<SbFeedItem>(
       onListen: () {
         _feeds.add(out);
-        out.add(SbFeedItem('catalog', registry.describe()));
-        catalog = registry.catalogChanges.listen(
-          (_) => out.add(SbFeedItem('catalog', registry.describe())),
-        );
+        describe();
+        catalog = registry.catalogChanges.listen((_) => describe());
         items = registry
             .feed(epoch: request.epoch, since: request.since)
             .listen((i) {
@@ -211,9 +226,11 @@ final class RegistryResponder extends ParlanceContractPeer {
                   );
                 case Tick():
                   final t = _tickOf(i, last == null ? i.from : last! + 1);
-                  if (t == null) return;
-                  last = i.to;
-                  out.add(SbFeedItem('tick', t.toJson()));
+                  if (t != null) {
+                    last = i.to;
+                    out.add(SbFeedItem('tick', t.toJson()));
+                  }
+                  availability();
               }
             });
       },
@@ -572,6 +589,9 @@ final class _Failed implements Exception {
   String toString() => why;
 }
 
+bool _sameMap(Map<String, String> a, Map<String, String> b) =>
+    a.length == b.length && a.entries.every((e) => b[e.key] == e.value);
+
 // --- The participant's side ----------------------------------------------------
 
 /// What a remote feed gives (SPEC §12, §14).
@@ -579,7 +599,8 @@ sealed class RemoteFeed {
   const RemoteFeed();
 }
 
-/// The catalog, as `describe` gives it; first, and on every change.
+/// The catalog as the session's principal sees it (`describeFor`); first,
+/// and on every change.
 final class RemoteCatalog extends RemoteFeed {
   const RemoteCatalog(this.json);
   final Map<String, Object?> json;
@@ -596,6 +617,13 @@ final class RemoteSnapshot extends RemoteFeed {
 final class RemoteTick extends RemoteFeed {
   const RemoteTick(this.tick);
   final Tick tick;
+}
+
+/// The commands that cannot run now, and why: after a tick that changed
+/// it, the whole set (the catalog item carries it too).
+final class RemoteUnavailable extends RemoteFeed {
+  const RemoteUnavailable(this.unavailable);
+  final Map<String, String> unavailable;
 }
 
 /// The session subscribed ([ParlanceClient.subscribe]): the values of the
@@ -658,9 +686,16 @@ final class ParlanceClient {
                 subscription: i.json['subscription'] as int? ?? 0,
               ),
               'values' => RemoteValues.fromJson(i.json),
-              _ => RemoteTick(Tick.fromJson(i.json)),
+              'unavailable' => RemoteUnavailable(
+                (i.json['unavailable']! as Map).cast(),
+              ),
+              'tick' => RemoteTick(Tick.fromJson(i.json)),
+              // An item of a newer protocol this client does not know.
+              _ => null,
             },
-          );
+          )
+          .where((i) => i != null)
+          .cast();
 
   /// Makes the session's feeds carry only [states] and [facts] (null: all
   /// of them, as before the first subscription). A feed open now gets the
@@ -941,12 +976,36 @@ final class RegistryMirror {
   final StreamController<Tick> _ticks = StreamController.broadcast();
   final StreamController<void> _changes = StreamController.broadcast();
   final StreamController<void> _catalogChanges = StreamController.broadcast();
+  final StreamController<void> _statusChanges = StreamController.broadcast();
+
+  /// From the catalog: each word's kind by name, the words the session's
+  /// principal may not read or call, the commands that cannot run now.
+  Map<String, String> _words = const {};
+  Set<String> _closed = const {};
+  Map<String, String> _unavailable = const {};
 
   String? get epoch => _epoch;
   int get seq => _seq;
 
-  /// The catalog as `describe` gives it.
+  /// The catalog as the session's principal sees it (`describeFor`).
   Map<String, Object?> get catalog => _catalog;
+
+  /// Whether the session's principal can use the word [name] now (SPEC
+  /// §6.5), as the catalog and the availability the feed brought last say.
+  WordStatus statusOf(String name) {
+    final n = canonical(name);
+    final kind = _words[n];
+    if (kind == null) return const WordMissing();
+    if (_closed.contains(n)) return const WordNotPermitted();
+    if (kind == 'command') {
+      if (_unavailable[n] case final why?) return WordUnavailable(why);
+    }
+    return const WordReady();
+  }
+
+  /// The catalog came, or a command came to run or stopped: a word's
+  /// [statusOf] may have changed.
+  Stream<void> get statusChanges => _statusChanges.stream;
 
   /// Whether the copy follows the registry now.
   bool get synced => _synced;
@@ -1057,7 +1116,18 @@ final class RegistryMirror {
     switch (item) {
       case RemoteCatalog(:final json):
         _catalog = json;
+        _words = {
+          for (final d in json['descriptors'] as List? ?? const [])
+            (d as Map)['name'] as String: d['is'] as String,
+        };
+        _closed = {
+          ...?(json['unreadable'] as List?)?.cast<String>(),
+          for (final e in (json['access'] as Map? ?? const {}).entries)
+            if (e.value == Access.deny.name) e.key as String,
+        };
+        _unavailable = (json['unavailable'] as Map? ?? const {}).cast();
         _catalogChanges.add(null);
+        _statusChanges.add(null);
         // A feed resumed in the same epoch carries on from the copy's seq:
         // the copy follows again from its first item, though nothing may
         // have happened since to send.
@@ -1089,6 +1159,10 @@ final class RegistryMirror {
         _seq = tick.to;
         _synced = true;
         _ticks.add(tick);
+      case RemoteUnavailable(:final unavailable):
+        _unavailable = unavailable;
+        _statusChanges.add(null);
+        return;
       case RemoteValues(:final subscription, :final states, :final keep):
         _subscription = subscription;
         if (keep != null) _states.removeWhere((k, _) => !keep.contains(k));
@@ -1104,5 +1178,6 @@ final class RegistryMirror {
     await _ticks.close();
     await _changes.close();
     await _catalogChanges.close();
+    await _statusChanges.close();
   }
 }

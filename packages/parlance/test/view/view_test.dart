@@ -130,6 +130,106 @@ void main() {
     });
   });
 
+  group('word statuses', () {
+    // One story told to a view: a command comes, stops being able to run
+    // when the state it reads changes, and goes; [after] lets a remote
+    // view catch up.
+    Future<void> story(
+      IRegistryView view,
+      Future<void> Function() after,
+    ) async {
+      final seen = <WordStatus>[];
+      final sub = view.statusChanges('x.go').listen(seen.add);
+      await after();
+      expect(view.status('x.go'), const WordMissing());
+      final go = f.r.defineCommand(
+        CommandDescriptor('x.go', callers: Callers.only(['user'])),
+        (_) {},
+        available: () => f.r.read('audio.muted') == true ? 'muted' : null,
+      );
+      await after();
+      expect(view.status('x.go'), const WordReady());
+      f.muted.set(true);
+      await after();
+      expect(view.status('x.go'), const WordUnavailable('muted'));
+      f.muted.set(true);
+      f.program.set('main');
+      await after();
+      go.dispose();
+      await after();
+      expect(seen, const [
+        WordMissing(),
+        WordReady(),
+        WordUnavailable('muted'),
+        WordMissing(),
+      ], reason: 'a tick that leaves the status as it was tells nothing');
+      await sub.cancel();
+    }
+
+    void closed(IRegistryView view) {
+      expect(view.status('host.secret'), const WordNotPermitted());
+      expect(view.status('audio.mute'), const WordReady());
+      expect(view.status('audio.muted'), const WordReady());
+    }
+
+    void defineSecret() => f.r.defineState(
+      StateDescriptor(
+        'host.secret',
+        type: const TextType(),
+        readers: const Callers({'host': Access.allow}),
+      ),
+      by: owner,
+    );
+
+    test('in this process: missing, ready, unavailable, gone', () async {
+      await story(LocalView(f.r, by: user), settle);
+    });
+
+    test('in this process: what the principal may not read or call is '
+        'not permitted', () {
+      defineSecret();
+      closed(LocalView(f.r, by: user));
+      final asViewer = LocalView(f.r, by: viewer);
+      expect(asViewer.status('audio.mute'), const WordNotPermitted());
+      expect(asViewer.status('studio.show'), const WordReady(), reason: 'warn');
+    });
+
+    test('an old name has the status of its word', () {
+      f.r.alias('audio.silent', 'audio.muted');
+      expect(
+        LocalView(f.r, by: user).status('audio.silent'),
+        const WordReady(),
+      );
+    });
+
+    group('over remote', () {
+      late Link link;
+      late RegistryMirror mirror;
+      late MirrorView view;
+
+      setUp(() {
+        link = Link.open(f.r, user, wire: false);
+        mirror = RegistryMirror()..follow(link.client);
+        view = MirrorView(mirror, link.client);
+      });
+      tearDown(() async {
+        await mirror.dispose();
+        await link.close();
+      });
+
+      test('missing, ready, unavailable, gone: the feed tells it', () async {
+        await settle();
+        await story(view, settle);
+      });
+
+      test('what the session may not read or call is not permitted', () async {
+        defineSecret();
+        await settle();
+        closed(view);
+      });
+    });
+  });
+
   test('a typed command through a view answers as its word says', () async {
     final view = LocalView(f.r, by: user);
     final done = Completer<void>();

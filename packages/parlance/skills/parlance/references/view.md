@@ -17,9 +17,12 @@ this process or reached over remote, so the same widgets serve both.
   after it reads what it wrote.
 - `synced`: false while a remote view is cut off; what it reads is then
   the last it had, and a screen says so rather than show it as now.
+- `status(word)`, `statusChanges(word)`: whether the view's principal
+  can use the word now (§6.5), and each change of it; a part shows a
+  missing or unavailable command for what it is rather than fail on it.
 - Typed (§18): `view.state(word).read()`, `.readAll()`;
   `view.command(word).call(params)`; `view.fact(word).stream`,
-  `.recent(count)`.
+  `.recent(count)`; `.status`, `.statusChanges` on each.
 
 ## LocalView(registry, by:)
 
