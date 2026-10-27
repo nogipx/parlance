@@ -30,7 +30,7 @@ The session asks for the tools once and again after `toolsChanged()` (or when as
 
 `parlance-mcp --connect unix:/path | tcp://host/port [--command-tools]` is an agent's participant across a connection as a stdio server: it joins the host, joins again after a drop, and lists no tools while the host is away.
 
-**On this machine.** `package:parlance/mcp_io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone, opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `mcp.dart` because it needs `dart:io`.
+**On this machine.** `package:parlance/mcp_io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone (`start` fails rather than serve one it could not make so), opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `mcp.dart` because it needs `dart:io`.
 
 **A host's own tools.** `McpTool.typed(name:, description:, params: RecordShape<P>, run:)` derives the tool's JSON Schema from the shape (§18): field types, `description`s, defaults, `oneOf` for a `UnionShape` with each variant's description, `additionalProperties: false`. `run` gets the arguments checked and typed; what does not pass is the agent's error, by path (`ops.2.frame: missing`). The description says only what a schema cannot: one undo step, how refs work. `jsonSchema(type)` is the same conversion on its own.
 

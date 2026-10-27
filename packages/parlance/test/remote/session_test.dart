@@ -190,6 +190,22 @@ void main() {
     await responder.close();
   });
 
+  test('a call as no principal at all is refused as such, not lost', () async {
+    final r = Registry();
+    final (c, t) = RpcChannelTransport.memoryPair();
+    final responder = RpcPeerEndpoint(transport: t);
+    final s = r.participant(viewer).serve(responder);
+    responder.start();
+    final caller = RpcPeerEndpoint(transport: c)..start();
+    final answer = await ParlanceClient(
+      caller,
+    ).callAt('host.go', const {}, as: const Principal('Not A Kind'));
+    expect(answer.result, isA<CallFailed>());
+    s.close();
+    await caller.close();
+    await responder.close();
+  });
+
   test('a participant whose words were all withdrawn can be served', () {
     final r = Registry();
     final fresh = r.participant(

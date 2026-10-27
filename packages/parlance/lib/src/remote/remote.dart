@@ -632,7 +632,7 @@ final class RemoteSession extends ParlanceContractPeer {
         request.fact,
         request.payload,
         id: request.id,
-        by: request.by == null ? null : Principal.fromJson(request.by),
+        by: request.by == null ? null : _principal(request.by),
         parent: request.parent,
       ),
     );
@@ -668,7 +668,7 @@ final class RemoteSession extends ParlanceContractPeer {
   /// session itself for none. Anything but a part of it is refused.
   LocalParticipant _part(Object? as) {
     if (as == null) return _p;
-    final who = Principal.fromJson(as);
+    final who = _principal(as);
     if (who == principal) return _p;
     if (!who.isWithin(principal)) _deny('$who is no part of $principal');
     final rest = principal.id.isEmpty
@@ -703,7 +703,7 @@ final class RemoteSession extends ParlanceContractPeer {
             m['fact']! as String,
             m['payload'],
             id: m['id'] as String?,
-            by: m['by'] == null ? null : Principal.fromJson(m['by']),
+            by: m['by'] == null ? null : _principal(m['by']),
             parent: m['parent'] as String?,
             part: part,
           ),
@@ -726,6 +726,15 @@ final class RemoteSession extends ParlanceContractPeer {
         throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }
     return const {};
+  }
+
+  /// The principal a peer named in [json], or `invalidArgument`.
+  static Principal _principal(Object? json) {
+    try {
+      return Principal.fromJson(json);
+    } on Object catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, 'no principal: $e');
+    }
   }
 
   static Map<String, Object?> _obj(Object? v) =>

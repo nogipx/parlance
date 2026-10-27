@@ -120,6 +120,55 @@ void main() {
     w.set(3, key: 'b');
     expect(r.state(Maybe.level).readAll(), {'a': null, 'b': 3});
   });
+
+  test('a call whose asked guard took a while is refused when its command '
+      'cannot run by then', () async {
+    final r = Registry();
+    String? why;
+    r.defineCommand(
+      CommandDescriptor('a.go', callers: Callers.only(['user'])),
+      (_) {},
+      available: () => why,
+    );
+    r.addAskedGuard('slow', (_) async {
+      why = 'it stopped';
+      return null;
+    });
+    final result = await r.call('a.go', {}, by: user);
+    expect(
+      result,
+      isA<CallRefused>().having((x) => x.code, 'code', Refusal.unavailable),
+    );
+  });
+
+  test('what follows a registry ends when it is disposed', () async {
+    final r = Registry();
+    r.defineState(StateDescriptor('a.x', type: const IntType()), by: owner);
+    final watch = Completer<void>();
+    final status = Completer<void>();
+    final feed = Completer<void>();
+    r.watch('a.x').listen((_) {}, onDone: watch.complete);
+    r.statusChanges('a.x', by: user).listen((_) {}, onDone: status.complete);
+    r.feed().listen((_) {}, onDone: feed.complete);
+    await pump();
+    await r.dispose();
+    await Future.wait([
+      watch.future,
+      status.future,
+      feed.future,
+    ]).timeout(const Duration(seconds: 1));
+  });
+
+  test('a command takes a while to answer, not none', () {
+    expect(
+      () => CommandDescriptor(
+        'a.go',
+        callers: Callers.only(['user']),
+        deadline: Duration.zero,
+      ),
+      throwsArgumentError,
+    );
+  });
 }
 
 enum Maybe<T> implements IStateWord<T> {

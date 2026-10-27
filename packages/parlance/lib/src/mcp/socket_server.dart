@@ -49,7 +49,13 @@ final class McpSocketServer {
       InternetAddress(path, type: InternetAddressType.unix),
       0,
     );
-    await Process.run('chmod', ['600', path]);
+    final chmod = await Process.run('chmod', ['600', path]);
+    if (chmod.exitCode != 0) {
+      // A socket others may reach is not served.
+      await server.close();
+      _server = null;
+      throw FileSystemException('cannot make it its owner\'s alone', path);
+    }
     server.listen(_serve, onError: (Object e) => log?.call('mcp: $e'));
     log?.call('mcp: listening on $path');
   }

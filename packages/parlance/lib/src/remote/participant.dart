@@ -985,12 +985,16 @@ final class RemoteParticipant implements IParticipant {
         'conversation': cause.conversationOf(request.id),
       });
     }
+    // Its deadline passes, unless the call ends first: no timer stays for
+    // a call that is over.
+    final expired = Completer<void>();
+    final deadline = Timer(c.d.deadline, expired.complete);
     final call = CommandCall(
       request.id,
       request.command,
       request.params,
       cause,
-      Future<void>.delayed(c.d.deadline),
+      expired.future,
       span: span,
     );
     try {
@@ -1006,6 +1010,8 @@ final class RemoteParticipant implements IParticipant {
       await flush();
       span.end(status: LogSpanStatus.error, error: e);
       return WireServed.failed('$e');
+    } finally {
+      deadline.cancel();
     }
   }
 

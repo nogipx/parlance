@@ -184,6 +184,9 @@ sealed class CallableDescriptor extends Descriptor {
     required this.deadline,
   }) {
     callers.check();
+    if (deadline <= Duration.zero) {
+      throw ArgumentError.value(deadline, 'deadline', 'a while, not none');
+    }
   }
 
   final ObjectType params;

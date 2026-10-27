@@ -77,6 +77,7 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 
 - A state has exactly one writer: whoever defined it holds the only write handle.
 - A state that goes (its handle disposed, its participant gone) takes its values with it as removals, committed in one tick whoever follows them is told: inside a batch they commit with it, and what the batch wrote of the state goes uncommitted. Its name is free at once.
+- `dispose()` ends what follows the registry: its watches, status streams and feeds are done.
 - `readers` say who may read its values over remote and to agents, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.
@@ -95,7 +96,7 @@ CommandDescriptor {
 - Exactly one handler per command; defining a command registers its handler.
 - **A command asks; its owner writes.** A state is written by its owner only (§6.1), never by the registry on someone's behalf. A command says nothing of which states its handler writes: that is the owner's to decide and to change, and what it did is told after, by the causes of the writes (§5, `explain`).
 - `callers` are **selectors**: `*` (anyone), or a path (§4): a kind (`user`), a principal (`plugin/hydra`), a part (`module/orders/sync`), any level between (`viewer/twitch`, every viewer of one platform). A selector names everything under it. For a principal the nearest said wins: its own path, then each level up to its kind, then `*` (for `viewer/twitch/123`: `viewer/twitch/123`, `viewer/twitch`, `viewer`, `*`); a principal matched by none is denied. A nearer rule overrides a wider one either way (`module/orders: allow`, `module/orders/sync: deny`). A selector that is not a path (`plugin:hydra`) is refused where it is said (`ArgumentError`), rather than matching nobody. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
-- `deadline` bounds the handler; the default is 30 s.
+- `deadline` bounds the handler; the default is 30 s, and none (zero or less) is refused.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
 - A word that only answers is not a command but a query (§6.6).
 
@@ -220,7 +221,7 @@ addGuard(id, check, overridable = true) → handle
 ```
 
 - `check` is synchronous, reads committed state only, makes no calls, and returns nothing or a denial reason.
-- `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies.
+- `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies. Since it takes a while, the command's `available` is asked again after: one that cannot run by then is `unavailable`.
 - Guards are asked for every call that reached stage 6.
 - A guard that throws denies (`denied`, with its id), as one asked across a connection that cannot answer does: the rule it keeps holds. The error goes to the error sink.
 

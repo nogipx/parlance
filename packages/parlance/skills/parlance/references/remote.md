@@ -20,7 +20,7 @@ Two peer services over one connection (`RpcPeerEndpoint` on both sides), generat
 | `undefine(name)` | unary | withdraws a word the session defined |
 | `set(state, key?, value, remove, parent?, test)` | unary | writes a state the session owns |
 | `emit(fact, payload, id?, by?, parent?, test)` | unary | says a fact the session owns, or an open one it produces; `by` when it speaks for someone |
-| `apply(ops)` | unary | what a remote participant asked (§22.4), in order, as one tick: `define`, `undefine`, `set`, `remove`, `emit`, `available`, `kind`, `unkind`, `guard`, `unguard`; an answer per op, a refusal of one not stopping the rest: an op that is not one (a field of the wrong type, a name that is no name) is refused alone, `invalidArgument` |
+| `apply(ops)` | unary | what a remote participant asked (§22.4), in order, as one tick: `define`, `undefine`, `set`, `remove`, `emit`, `available`, `kind`, `unkind`, `guard`, `unguard`; an answer per op, a refusal of one not stopping the rest: an op that is not one (a field of the wrong type, a name that is no name, an `as` or `by` that is no principal) is refused alone, `invalidArgument`, as a call's or an emit's such `as` or `by` is |
 
 `ParlanceOwner`, the participant's side:
 

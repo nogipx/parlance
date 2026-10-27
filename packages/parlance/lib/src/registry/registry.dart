@@ -556,7 +556,8 @@ final class Registry implements ITypeContext {
     out = StreamController<WordStatus>(
       onListen: () {
         tell();
-        catalog = catalogChanges.listen((_) => tell());
+        // It ends with the registry.
+        catalog = catalogChanges.listen((_) => tell(), onDone: out.close);
         ticks = this.ticks.listen((_) => tell());
         availability = availabilityChanges.listen((_) => tell());
       },
@@ -993,7 +994,7 @@ final class Registry implements ITypeContext {
         // Ticks committed before it read are on their way to the others'
         // listener still: what it read is newer than they are.
         (_watchers[at] ??= {})[out] = seq;
-        _watching ??= ticks.listen(_toWatchers);
+        _watching ??= ticks.listen(_toWatchers, onDone: _endWatchers);
       },
       onCancel: () {
         final set = _watchers[at];
@@ -1015,6 +1016,17 @@ final class Registry implements ITypeContext {
   final Map<(String, String?), Map<StreamController<Object?>, int>> _watchers =
       {};
   StreamSubscription<Tick>? _watching;
+
+  /// The registry was disposed: every watch ends.
+  void _endWatchers() {
+    for (final set in [..._watchers.values]) {
+      for (final out in [...set.keys]) {
+        unawaited(out.close());
+      }
+    }
+    _watchers.clear();
+    _watching = null;
+  }
 
   void _toWatchers(Tick t) {
     for (final c in t.changes) {
@@ -1087,7 +1099,7 @@ final class Registry implements ITypeContext {
           if (t.to <= last) return;
           last = t.to;
           out.add(t);
-        });
+        }, onDone: out.close);
       },
       onCancel: () => sub?.cancel(),
     );
@@ -1449,9 +1461,11 @@ final class Registry implements ITypeContext {
       return finish(CallRefused(Refusal.unavailable, why));
     }
     final pending = PendingCall(id, d, params, cause);
+    var asked = false;
     for (final g in [..._guards.values]) {
       String? why;
       if (g.ask case final ask?) {
+        asked = true;
         // Asked across a connection: no answer in time, or none at all,
         // denies, since the one who keeps the rule could not say.
         try {
@@ -1491,9 +1505,15 @@ final class Registry implements ITypeContext {
       );
     }
 
-    // An asked guard may take a while: the command may be gone by now.
+    // An asked guard may take a while: the command may be gone by now, or
+    // unable to run.
     if (_commands[command] != entry) {
       return finish(CallRefused(Refusal.unknownCommand, '$command is gone'));
+    }
+    if (asked) {
+      if (entry.available?.call() case final why?) {
+        return finish(CallRefused(Refusal.unavailable, why));
+      }
     }
 
     CallResult<Object?> answered(Object? answer) {
