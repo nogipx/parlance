@@ -801,7 +801,9 @@ final class _State implements IStateHandle {
   @override
   void set(Object? value, {String? key, Cause? cause}) {
     final c = _p._as(cause, _by);
-    final v = freezeJson(value);
+    _checkKey(key);
+    // Refused here, as in the host's process, not later in errors.
+    final v = freezeJson(descriptor.type.check(value, const _Unseen()));
     _p._ask({
       'op': 'set',
       'state': descriptor.name,
@@ -816,6 +818,7 @@ final class _State implements IStateHandle {
   @override
   void remove({String? key, Cause? cause}) {
     final c = _p._as(cause, _by);
+    _checkKey(key);
     _p._ask({
       'op': 'remove',
       'state': descriptor.name,
@@ -824,6 +827,17 @@ final class _State implements IStateHandle {
       ...RemoteParticipant._asOf(_by),
     });
     _p._own[descriptor.name]?.remove(key);
+  }
+
+  void _checkKey(String? key) {
+    if (descriptor.keyed && (key == null || key.isEmpty)) {
+      throw ArgumentError(
+        '${descriptor.name} is keyed by ${descriptor.key}: give a key',
+      );
+    }
+    if (!descriptor.keyed && key != null) {
+      throw ArgumentError('${descriptor.name} has no keys');
+    }
   }
 
   @override
@@ -857,7 +871,7 @@ final class _Fact implements IFactHandle {
     _p._ask({
       'op': 'emit',
       'fact': descriptor.name,
-      'payload': freezeJson(payload),
+      'payload': freezeJson(descriptor.type.check(payload, const _Unseen())),
       'id': ?id,
       'by': ?by?.toJson(),
       ...RemoteParticipant._causeOf(cause),
@@ -871,6 +885,22 @@ final class _Fact implements IFactHandle {
     if (!own || _p._facts.remove(descriptor.name) == null) return;
     _p._ask({'op': 'undefine', 'name': descriptor.name});
   }
+}
+
+/// What a value is checked against before it is sent: its type, as the
+/// host checks it. Entities and the host's own types are the host's to
+/// know: they pass here, and the host checks them.
+final class _Unseen implements ITypeContext {
+  const _Unseen();
+
+  @override
+  bool hasKind(String kind) => true;
+
+  @override
+  bool hasEntity(String kind, String id) => true;
+
+  @override
+  String? checkCustom(String name, Object? value) => null;
 }
 
 /// A part of a remote participant (SPEC §22.3): the participant's own

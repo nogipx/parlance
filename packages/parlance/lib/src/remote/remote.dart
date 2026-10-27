@@ -33,6 +33,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     String? session,
     Set<String> namespaces = const {},
     SessionRights rights = SessionRights.none,
+    this.feedBacklog = 256,
   }) : session = session ?? newId(),
        _owner = ParlanceOwnerContractPeerCaller(endpoint),
        _p = registry.participant(
@@ -42,6 +43,12 @@ final class RegistryResponder extends ParlanceContractPeer {
        );
 
   final Registry registry;
+
+  /// How many items a feed holds for a client slower than the registry
+  /// (SPEC §14): past it, the ticks held are dropped and the feed takes up
+  /// again from the last one sent, as the registry still has it, or from a
+  /// snapshot.
+  final int feedBacklog;
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
@@ -156,8 +163,8 @@ final class RegistryResponder extends ParlanceContractPeer {
   /// The facts the session read the recent of.
   final Set<String> _read = {};
 
-  /// The feeds open now.
-  final Set<StreamController<SbFeedItem>> _feeds = {};
+  /// The feeds open now, each by what sends to it.
+  final Set<void Function(SbFeedItem)> _feeds = {};
 
   /// The states the session's feeds carry; null for all.
   Set<String>? get states =>
@@ -194,15 +201,71 @@ final class RegistryResponder extends ParlanceContractPeer {
     late StreamController<SbFeedItem> out;
     StreamSubscription<FeedItem>? items;
     StreamSubscription<CatalogChange>? catalog;
-    // The last seq the feed sent: a tick it sends starts after it, so a
+    // The last seq the feed took: a tick it takes starts after it, so a
     // tick left out (nothing in it the session follows) leaves no gap.
     var last = request.since;
+    // The last seq it handed to the connection.
+    var sent = request.since;
     // The commands that could not run when the feed last told, and why.
     var unavailable = const <String, String>{};
+    // What waits while the connection is not taking more: it applies
+    // backpressure, so a slow client pauses the feed. Ticks carry their
+    // seq; held past [feedBacklog], they are dropped.
+    final held = <(SbFeedItem, int?)>[];
+    var behind = false;
+    var factsDropped = false;
+
+    void hand((SbFeedItem, int?) i) {
+      out.add(i.$1);
+      if (i.$2 case final seq?) sent = seq;
+    }
+
+    late void Function() follow;
+
+    // Too far behind: what it holds of ticks goes, the rest stays (the
+    // catalog last told, a subscription's values), and the feed follows
+    // again from the last seq sent once the client takes more.
+    void drop() {
+      factsDropped |= held.any(
+        (i) =>
+            i.$1.kind == 'tick' &&
+            (i.$1.json['facts'] as List? ?? const []).isNotEmpty,
+      );
+      // Of the catalog and of what cannot run, only the last told counts.
+      final lastOf = {
+        for (final i in held)
+          if (i.$1.kind == 'catalog' || i.$1.kind == 'unavailable')
+            i.$1.kind: i,
+      };
+      held.retainWhere((i) => i.$1.kind == 'values' || lastOf[i.$1.kind] == i);
+      if (!behind) {
+        behind = true;
+        unawaited(items?.cancel());
+        items = null;
+      }
+    }
+
+    void send(SbFeedItem item, [int? seq]) {
+      if (!out.isPaused && held.isEmpty) return hand((item, seq));
+      held.add((item, seq));
+      if (held.length > feedBacklog) drop();
+    }
+
+    void drain() {
+      while (held.isNotEmpty && !out.isPaused) {
+        hand(held.removeAt(0));
+      }
+      if (held.isEmpty && behind && !out.isPaused) {
+        behind = false;
+        last = sent;
+        follow();
+      }
+    }
+
     void describe() {
       final d = registry.describeFor(principal);
       unavailable = d['unavailable']! as Map<String, String>;
-      out.add(SbFeedItem('catalog', d));
+      send(SbFeedItem('catalog', d));
     }
 
     // After a tick: whether a command came to run or stopped, told as the
@@ -211,46 +274,57 @@ final class RegistryResponder extends ParlanceContractPeer {
       final now = registry.unavailable;
       if (_sameMap(now, unavailable)) return;
       unavailable = now;
-      out.add(SbFeedItem('unavailable', {'unavailable': now}));
+      send(SbFeedItem('unavailable', {'unavailable': now}));
     }
+
+    follow = () {
+      items = registry
+          .feed(
+            epoch: sent == null ? request.epoch : registry.epoch,
+            since: sent,
+          )
+          .listen((i) {
+            switch (i) {
+              case Snapshot():
+                last = i.seq;
+                send(
+                  SbFeedItem('snapshot', {
+                    ...Snapshot(
+                      epoch: i.epoch,
+                      seq: i.seq,
+                      states: {
+                        for (final e in i.states.entries)
+                          if (_carries(e.key)) e.key: e.value,
+                      },
+                      factsLost: i.factsLost || factsDropped,
+                    ).toJson(),
+                    'subscription': _subscription,
+                  }),
+                  i.seq,
+                );
+                factsDropped = false;
+              case Tick():
+                final t = _tickOf(i, last == null ? i.from : last! + 1);
+                if (t != null) {
+                  last = i.to;
+                  send(SbFeedItem('tick', t.toJson()), i.to);
+                }
+                availability();
+            }
+          });
+    };
 
     out = StreamController<SbFeedItem>(
       onListen: () {
-        _feeds.add(out);
+        _feeds.add(send);
         describe();
         catalog = registry.catalogChanges.listen((_) => describe());
-        items = registry
-            .feed(epoch: request.epoch, since: request.since)
-            .listen((i) {
-              switch (i) {
-                case Snapshot():
-                  last = i.seq;
-                  out.add(
-                    SbFeedItem('snapshot', {
-                      ...Snapshot(
-                        epoch: i.epoch,
-                        seq: i.seq,
-                        states: {
-                          for (final e in i.states.entries)
-                            if (_carries(e.key)) e.key: e.value,
-                        },
-                        factsLost: i.factsLost,
-                      ).toJson(),
-                      'subscription': _subscription,
-                    }),
-                  );
-                case Tick():
-                  final t = _tickOf(i, last == null ? i.from : last! + 1);
-                  if (t != null) {
-                    last = i.to;
-                    out.add(SbFeedItem('tick', t.toJson()));
-                  }
-                  availability();
-              }
-            });
+        follow();
       },
+      onResume: drain,
       onCancel: () async {
-        _feeds.remove(out);
+        _feeds.remove(send);
+        held.clear();
         await items?.cancel();
         await catalog?.cancel();
       },
@@ -319,8 +393,8 @@ final class RegistryResponder extends ParlanceContractPeer {
       },
       'keep': ?now?.toList(),
     });
-    for (final f in _feeds) {
-      f.add(item);
+    for (final send in _feeds) {
+      send(item);
     }
     return SbJson({'subscription': n});
   }

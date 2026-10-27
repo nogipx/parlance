@@ -338,6 +338,31 @@ void main() {
     expect((hooked, served), (1, 1));
   });
 
+  test('its guard is told when the registry calls to apply a layer', () async {
+    final p = await join();
+    final lamp = p.state(Lamp.on).define()..set(false);
+    p
+        .command(LampCommand.turn)
+        .define(
+          (c) => lamp.set(c.params.on, cause: c.causeFor(kittens)),
+          callers: Callers.only(['user']),
+          sets: const Sets('kittens.lamp', value: 'on'),
+        );
+    final seen = <bool>[];
+    p.addGuard('seen', (c) {
+      seen.add(c.layerDispatch);
+      return null;
+    });
+    await p.flush();
+    expect(
+      (await r.call('kittens.lamp.turn', {'on': true}, by: crew)).ok,
+      isTrue,
+    );
+    r.pushLayer('kittens.lamp', value: false, owner: 'link:night', by: crew);
+    await settle();
+    expect(seen, [false, true]);
+  });
+
   test('a command\'s availability follows what its check reads', () async {
     final p = await join();
     final lamp = p.state(Lamp.on).define()..set(false);
@@ -394,6 +419,27 @@ void main() {
     await settle();
     expect(r.recent('kittens.purred').single.cause.by, someone);
     expect(errors.single.message, 'viewers only');
+  });
+
+  test('a value its state or fact cannot hold is refused at once, as in '
+      'the host\'s process', () async {
+    final p = await join();
+    final lamp = p.defineState(
+      StateDescriptor('kittens.lamp', type: const BoolType()),
+    );
+    final errors = <ParticipantError>[];
+    p.errors.listen(errors.add);
+    expect(() => lamp.set('on'), throwsA(isA<TypeMismatch>()));
+    expect(() => lamp.set(true, key: 'a'), throwsArgumentError);
+    final purr = p.defineFact(
+      FactDescriptor('kittens.purred', type: const BoolType()),
+    );
+    expect(() => purr.emit(1), throwsA(isA<TypeMismatch>()));
+    await p.flush();
+    await settle();
+    expect(errors, isEmpty, reason: 'nothing went to the host');
+    expect(r.read('kittens.lamp'), isNull);
+    expect(r.recent('kittens.purred'), isEmpty);
   });
 
   test('it watches another\'s state through its mirror', () async {
