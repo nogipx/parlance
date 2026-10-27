@@ -1,0 +1,290 @@
+{
+  "player.volume": {
+    "is": "state",
+    "type": {
+      "type": "int",
+      "min": 0,
+      "max": 100
+    }
+  },
+  "player.repeat": {
+    "is": "state",
+    "type": {
+      "type": "enum",
+      "values": [
+        "off",
+        "one",
+        "all"
+      ]
+    }
+  },
+  "player.playing": {
+    "is": "state",
+    "type": {
+      "type": "nullable",
+      "of": {
+        "type": "object",
+        "fields": {
+          "title": {
+            "type": {
+              "type": "text"
+            }
+          },
+          "length": {
+            "type": {
+              "type": "nullable",
+              "of": {
+                "type": "int"
+              }
+            },
+            "optional": true
+          },
+          "artist": {
+            "type": {
+              "type": "nullable",
+              "of": {
+                "type": "object",
+                "fields": {
+                  "name": {
+                    "type": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
+            },
+            "optional": true
+          }
+        }
+      }
+    }
+  },
+  "player.speaker.level": {
+    "is": "state",
+    "type": {
+      "type": "num",
+      "min": 0,
+      "max": 1
+    },
+    "key": "speaker"
+  },
+  "player.volume.set": {
+    "is": "command",
+    "params": {
+      "type": "object",
+      "fields": {
+        "volume": {
+          "type": {
+            "type": "int",
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    }
+  },
+  "player.play": {
+    "is": "command",
+    "params": {
+      "type": "object",
+      "fields": {
+        "track": {
+          "type": {
+            "type": "object",
+            "fields": {
+              "title": {
+                "type": {
+                  "type": "text"
+                }
+              },
+              "length": {
+                "type": {
+                  "type": "nullable",
+                  "of": {
+                    "type": "int"
+                  }
+                },
+                "optional": true
+              },
+              "artist": {
+                "type": {
+                  "type": "nullable",
+                  "of": {
+                    "type": "object",
+                    "fields": {
+                      "name": {
+                        "type": {
+                          "type": "text"
+                        }
+                      }
+                    }
+                  }
+                },
+                "optional": true
+              }
+            }
+          }
+        },
+        "repeat": {
+          "type": {
+            "type": "enum",
+            "values": [
+              "off",
+              "one",
+              "all"
+            ]
+          },
+          "optional": true,
+          "default": "off"
+        },
+        "on": {
+          "type": {
+            "type": "nullable",
+            "of": {
+              "type": "ref",
+              "kind": "speaker"
+            }
+          },
+          "optional": true
+        }
+      }
+    }
+  },
+  "player.skip": {
+    "is": "command",
+    "params": {
+      "type": "object",
+      "fields": {
+        "count": {
+          "type": {
+            "type": "int"
+          },
+          "optional": true,
+          "default": 1
+        }
+      }
+    },
+    "returns": {
+      "type": "int"
+    }
+  },
+  "player.stop": {
+    "is": "command",
+    "params": {
+      "type": "object",
+      "fields": {}
+    }
+  },
+  "player.search": {
+    "is": "query",
+    "params": {
+      "type": "object",
+      "fields": {
+        "text": {
+          "type": {
+            "type": "text",
+            "maxLength": 40
+          }
+        },
+        "limit": {
+          "type": {
+            "type": "nullable",
+            "of": {
+              "type": "int"
+            }
+          },
+          "optional": true
+        }
+      }
+    },
+    "returns": {
+      "type": "list",
+      "item": {
+        "type": "object",
+        "fields": {
+          "title": {
+            "type": {
+              "type": "text"
+            }
+          },
+          "length": {
+            "type": {
+              "type": "nullable",
+              "of": {
+                "type": "int"
+              }
+            },
+            "optional": true
+          },
+          "artist": {
+            "type": {
+              "type": "nullable",
+              "of": {
+                "type": "object",
+                "fields": {
+                  "name": {
+                    "type": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
+            },
+            "optional": true
+          }
+        }
+      }
+    }
+  },
+  "player.clipped": {
+    "is": "fact",
+    "type": {
+      "type": "object",
+      "fields": {
+        "volume": {
+          "type": {
+            "type": "int"
+          }
+        }
+      }
+    }
+  },
+  "player.finished": {
+    "is": "fact",
+    "type": {
+      "type": "object",
+      "fields": {
+        "title": {
+          "type": {
+            "type": "text"
+          }
+        },
+        "length": {
+          "type": {
+            "type": "nullable",
+            "of": {
+              "type": "int"
+            }
+          },
+          "optional": true
+        },
+        "artist": {
+          "type": {
+            "type": "nullable",
+            "of": {
+              "type": "object",
+              "fields": {
+                "name": {
+                  "type": {
+                    "type": "text"
+                  }
+                }
+              }
+            }
+          },
+          "optional": true
+        }
+      }
+    }
+  }
+}

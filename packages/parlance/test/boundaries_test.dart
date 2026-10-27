@@ -81,6 +81,14 @@ void main() {
     }
   });
 
+  test('the schema uses the registry\'s words only', () {
+    for (final f in dartIn('lib/src/schema')) {
+      for (final i in importsOf(f)) {
+        expect(i.startsWith('../registry/'), isTrue, reason: '${f.path}: $i');
+      }
+    }
+  });
+
   test('owners use the registry and participants, and Dart', () {
     for (final f in dartIn('lib/src/owners')) {
       for (final i in importsOf(f)) {

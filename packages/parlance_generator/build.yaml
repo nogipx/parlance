@@ -1,0 +1,17 @@
+targets:
+  $default:
+    builders:
+      parlance_generator|parlance:
+        enabled: true
+        generate_for: ["test/fixtures/**"]
+      json_serializable:
+        generate_for: ["test/fixtures/**"]
+
+builders:
+  parlance:
+    import: "package:parlance_generator/builder.dart"
+    builder_factories: ["parlanceBuilder"]
+    build_extensions: {".dart": [".parlance.g.part"]}
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"]
