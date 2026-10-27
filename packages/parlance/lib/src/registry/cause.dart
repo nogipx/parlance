@@ -9,7 +9,7 @@ final class Principal {
     return Principal(m['kind'] as String, m['id'] as String? ?? '')..check();
   }
 
-  /// The registry itself: layer dispatches, expiry.
+  /// The registry itself: the values of a word that went, removed with it.
   static const system = Principal('system');
 
   final String kind;
@@ -53,7 +53,8 @@ final class Principal {
       h ^= b;
       // h * 0x01000193 by shifts and adds: exact in JavaScript too, where
       // a product past 2^53 would not be.
-      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) &
+      h =
+          (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) &
           0xffffffff;
     }
     return h.toRadixString(16).padLeft(8, '0');
@@ -133,16 +134,11 @@ final class Principal {
 
 /// Why something happens (SPEC §4).
 final class Cause {
-  const Cause(this.by, {this.parent, this.chain = const [], this.test = false});
+  const Cause(this.by, {this.parent});
 
   factory Cause.fromJson(Object? json) {
     final m = json as Map;
-    return Cause(
-      Principal.fromJson(m['by']),
-      parent: m['parent'] as String?,
-      chain: [for (final c in m['chain'] as List? ?? const []) c as String],
-      test: m['test'] == true,
-    );
+    return Cause(Principal.fromJson(m['by']), parent: m['parent'] as String?);
   }
 
   /// On whose behalf.
@@ -151,37 +147,16 @@ final class Cause {
   /// The message this one follows from: the call whose handler wrote it.
   final String? parent;
 
-  /// The links and hooks this came through, oldest first; how loops are
-  /// found.
-  final List<String> chain;
-
-  /// Everything a trial run caused.
-  final bool test;
-
-  /// The cause of what a message caused: [parent] is that message, the
-  /// chain and the test mark carry over, [by] and [through] may change.
-  Cause child(String parentId, {Principal? by, String? through}) => Cause(
-    by ?? this.by,
-    parent: parentId,
-    chain: through == null ? chain : [...chain, through],
-    test: test,
-  );
-
-  bool came(String through) => chain.contains(through);
+  /// The cause of what a message caused: [parent] is that message, [by]
+  /// may change.
+  Cause child(String parentId, {Principal? by}) =>
+      Cause(by ?? this.by, parent: parentId);
 
   /// The same cause, on behalf of [by].
-  Cause withBy(Principal by) =>
-      Cause(by, parent: parent, chain: chain, test: test);
+  Cause withBy(Principal by) => Cause(by, parent: parent);
 
-  Map<String, Object?> toJson() => {
-    'by': by.toJson(),
-    'parent': ?parent,
-    if (chain.isNotEmpty) 'chain': chain,
-    if (test) 'test': true,
-  };
+  Map<String, Object?> toJson() => {'by': by.toJson(), 'parent': ?parent};
 
   @override
-  String toString() =>
-      'Cause($by${parent == null ? '' : ' <- $parent'}'
-      '${chain.isEmpty ? '' : ' via ${chain.join('>')}'}${test ? ' test' : ''})';
+  String toString() => 'Cause($by${parent == null ? '' : ' <- $parent'})';
 }

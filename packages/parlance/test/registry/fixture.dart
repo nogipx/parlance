@@ -39,12 +39,9 @@ base class Fixture {
         callers: const Callers({
           'user': Access.allow,
           'agent': Access.allow,
-          'link': Access.allow,
           'viewer': Access.warn,
           'system': Access.allow,
         }),
-        sets: const Sets('studio.program', value: 'scene'),
-        interceptable: true,
       ),
       (c) {
         shown.add(c.params['scene'] as String);
@@ -55,8 +52,7 @@ base class Fixture {
       CommandDescriptor(
         'audio.mute',
         params: const ObjectType({'on': Field(BoolType())}),
-        callers: Callers.only(['user', 'agent', 'link', 'system']),
-        sets: const Sets('audio.muted', value: 'on'),
+        callers: Callers.only(['user', 'agent', 'system']),
       ),
       (c) {
         mutes.add(c.params['on'] as bool);
@@ -70,8 +66,7 @@ base class Fixture {
           'input': Field(RefType('input')),
           'db': Field(NumType(min: -60, max: 12), defaultValue: 0),
         }),
-        callers: Callers.only(['user', 'link', 'system']),
-        sets: const Sets('audio.gain', key: 'input', value: 'db'),
+        callers: Callers.only(['user', 'system']),
       ),
       (c) => gain.set(
         c.params['db'],

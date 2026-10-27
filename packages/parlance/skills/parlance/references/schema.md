@@ -54,11 +54,10 @@ abstract class Player {
 
 Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract base class` extending `Owner` (§19). An owner extends it (`final class Deck extends PlayerOwner`) and writes only its handlers and `sync()`; a handler it forgets does not compile.
 
-- `words` is `<class>Words.words`, so the part declares every word it owns (§6.7).
 - Each state has a writer by the member's name (`volume.set(50)`), and each fact a method of its own params and a `cause` (`clipped(volume: 95, cause: call.inReply)`), defined in `define(p)`, kept with the owner. A fact's param named `cause` is refused.
 - Each command and query is served by an abstract method of the member's name, returning what the class declares, taking the call: `void setVolume(CommandCallOf<PlayerSetVolume> call)`, `List<Track> search(QueryAsk<PlayerSearch> ask)`. It takes the call, not bare params, for its cause: `call.inReply` is the cause of what the owner writes, says and calls in reply (`causeFor` the part that serves it), so the trail shows the call led to it; causes never go through zones.
-- What the class says of a word, its define is given: `readers` (`@StateWord`, `@FactWord`), `callers`, `sets` (`@CommandWord(sets: 'volume')`, the state by its member; the key is the one param that names an entity of the state's kind, by `@Ref(kind)` or by its name, the value the one param left; when either is not one, `setsKey` / `setsValue` say it, and are checked against the params and the state's keys), `interceptable`, `deadline`, `askers` (`@QueryWord`). With `available: true` it asks `String? whyNot<Member>()`, an abstract method too. Callers left unsaid are the participant's default (§22.2).
-- After the words, `define` calls `defineMore(p)`, empty by default, for what the class does not say: kinds, guards, words named at run time. A member named as one of `Owner`'s own (`words`, `sync`, `keep`...) is refused.
+- What the class says of a word, its define is given: `readers` (`@StateWord`, `@FactWord`), `callers`, `deadline`, `askers` (`@QueryWord`). With `available: true` it asks `String? whyNot<Member>()`, an abstract method too. Callers left unsaid are the participant's default (§22.2).
+- After the words, `define` calls `defineMore(p)`, empty by default, for what the class does not say: kinds, guards, words named at run time. A member named as one of `Owner`'s own (`sync`, `keep`, `define`...) is refused.
 
 ### 23.5 The client
 

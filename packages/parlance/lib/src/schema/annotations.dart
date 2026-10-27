@@ -47,10 +47,6 @@ final class CommandWord {
   const CommandWord({
     this.name,
     this.callers,
-    this.sets,
-    this.setsKey,
-    this.setsValue,
-    this.interceptable = false,
     this.deadline,
     this.available = false,
     this.meta = const {},
@@ -63,15 +59,6 @@ final class CommandWord {
   /// Who may call it, when not the participant's default (SPEC §22.2).
   final Callers? callers;
 
-  /// The state it sets (SPEC §8), by its member in the class; the param
-  /// that carries the value is [setsValue] (by default the only one), the
-  /// key [setsKey].
-  final String? sets;
-  final String? setsKey;
-  final String? setsValue;
-
-  /// Whether links may run steps before it (SPEC §11).
-  final bool interceptable;
   final Duration? deadline;
 
   /// Whether it may be unavailable now: the owner base then asks a

@@ -10,8 +10,8 @@ import 'types.dart';
 
 // Typed words (SPEC §18): a host names its states, commands and facts once,
 // with their Dart types, and reads, writes and calls through them. The
-// registry underneath keeps names and JSON, as links, remote and agents see
-// it.
+// registry underneath keeps names and JSON, as remote participants and
+// agents see it.
 
 /// How a value the registry keeps (JSON, checked by [type]) is the Dart
 /// type [T].
@@ -263,7 +263,7 @@ final class UnionShape<T> extends Shape<T> {
   }
 }
 
-/// A word of any kind, by its name: what an owner says it uses or owns.
+/// A word of any kind, by its name: what a vocabulary lists.
 abstract interface class IWord {
   String get name;
 }
@@ -472,10 +472,6 @@ final class StateOf<T> {
   Stream<T?> watch({String? key}) =>
       registry.watch(word.name, key: key).map(_decode);
 
-  /// What it is with its layers on.
-  T? effective({String? key}) =>
-      _decode(registry.effective(word.name, key: key));
-
   /// Its value (of [key]) as the core reads a cell (SPEC §21.6): code
   /// that only reads takes a [IStateReader] and does not change when a cell
   /// becomes a state.
@@ -566,6 +562,10 @@ final class CommandCallOf<P> {
   Future<void> get expired => raw.expired;
   Cause causeFor(Principal by) => raw.causeFor(by);
 
+  /// The call's span in the registry's log: its events and spans go with
+  /// the call; `LogScope.noop`'s without a log.
+  LogSpanHandle get span => raw.span;
+
   /// The cause of what its server writes, says and calls in reply:
   /// `causeFor(servedBy)`, so the trail shows the call led to it. Through
   /// a participant only; on the registry itself, `causeFor(owner)`.
@@ -597,6 +597,10 @@ final class QueryAsk<P> {
 
   /// The cause of a query [by] asks in turn while answering this one.
   Cause askingFor(Principal by) => raw.causeFor(by);
+
+  /// The question's span in the registry's log; `LogScope.noop`'s without
+  /// a log.
+  LogSpanHandle get span => raw.span;
 }
 
 /// A command, typed.
@@ -610,8 +614,6 @@ final class CommandOf<P, R> {
   IHandle define(
     FutureOr<R> Function(CommandCallOf<P> call) handler, {
     required Callers callers,
-    Sets? sets,
-    bool interceptable = false,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     Availability? available,
@@ -623,8 +625,6 @@ final class CommandOf<P, R> {
         params: word.params.type,
         returns: word.returns?.type,
         callers: callers,
-        sets: sets,
-        interceptable: interceptable,
         deadline: deadline,
         meta: meta,
       ),

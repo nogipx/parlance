@@ -8,7 +8,7 @@ part of 'words.dart';
 
 /// The states of [House].
 enum HouseState<T> implements IStateWord<T> {
-  light<bool>('house.light.on', Plain(BoolType()), key: 'room'),
+  light<bool>('house.light.on', Plain(BoolType()), key: room),
   heat<num>('house.heat.target', Plain(NumType(min: 10, max: 28))),
   mode<Mode>('house.mode', EnumShape(Mode.values)),
   locked<bool>('house.door.locked', Plain(BoolType()));
@@ -27,7 +27,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   setLight<HouseSetLight, void>(
     'house.light.set',
     RecordShape<HouseSetLight>(
-      {'room': Part(Plain(RefType('room'))), 'on': Part(Plain(BoolType()))},
+      {'room': Part(Plain(RefType(room))), 'on': Part(Plain(BoolType()))},
       to: _$HouseSetLightTo,
       from: _$HouseSetLightFrom,
     ),
@@ -122,9 +122,6 @@ enum HouseFact<T> implements IFactWord<T> {
 /// params, and serves each command and query by a handler to
 /// write (`call.inReply`: the cause of what it does in reply).
 abstract base class HouseOwner extends Owner {
-  @override
-  Iterable<IWord> get words => houseWords.words;
-
   /// Writes house.light.on.
   late final StateWriterOf<bool> light;
 
@@ -148,41 +145,11 @@ abstract base class HouseOwner extends Owner {
     _rang = keep(p.fact(HouseFact.rang).define());
     _motion = keep(p.fact(HouseFact.motion).define());
     keep(
-      p
-          .command(HouseCommand.setLight)
-          .define(
-            setLight,
-            callers: const Callers({
-              'resident': Access.allow,
-              'phone': Access.allow,
-              'agent': Access.allow,
-              'link': Access.allow,
-              'house': Access.allow,
-              'system': Access.allow,
-              'guest': Access.warn,
-            }),
-            sets: Sets('house.light.on', key: 'room', value: 'on'),
-          ),
+      p.command(HouseCommand.setLight).define(setLight, callers: Who.anyone),
     );
-    keep(
-      p
-          .command(HouseCommand.setHeat)
-          .define(setHeat, sets: Sets('house.heat.target', value: 'target')),
-    );
-    keep(
-      p
-          .command(HouseCommand.setMode)
-          .define(setMode, sets: Sets('house.mode', value: 'mode')),
-    );
-    keep(
-      p
-          .command(HouseCommand.lock)
-          .define(
-            lock,
-            sets: Sets('house.door.locked', value: 'on'),
-            available: whyNotLock,
-          ),
-    );
+    keep(p.command(HouseCommand.setHeat).define(setHeat));
+    keep(p.command(HouseCommand.setMode).define(setMode));
+    keep(p.command(HouseCommand.lock).define(lock, available: whyNotLock));
     keep(p.query(HouseQuery.rooms).define(rooms));
     defineMore(p);
   }
@@ -307,8 +274,8 @@ final class HouseClient {
 }
 
 /// The vocabulary of [House]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
+/// `main` to grant a participant (`vocabularies:`) and for
+/// `schemaOf`.
 const houseWords = WordSet('house', [
   ...HouseState.values,
   ...HouseCommand.values,
@@ -404,9 +371,6 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// params, and serves each command and query by a handler to
 /// write (`call.inReply`: the cause of what it does in reply).
 abstract base class VisitOwner extends Owner {
-  @override
-  Iterable<IWord> get words => visitWords.words;
-
   /// Writes visit.guests.
   late final StateWriterOf<List<String>> guests;
 
@@ -454,8 +418,8 @@ final class VisitClient {
 }
 
 /// The vocabulary of [Visit]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
+/// `main` to grant a participant (`vocabularies:`) and for
+/// `schemaOf`.
 const visitWords = WordSet('visit', [
   ...VisitState.values,
   ...VisitCommand.values,
@@ -467,21 +431,3 @@ Map<String, Object?> _$VisitLeaveTo(VisitLeave p) => {'who': p.who};
 
 VisitLeave _$VisitLeaveFrom(Map<String, Object?> m) =>
     (who: m['who']! as String);
-
-/// The states of [Weather].
-enum WeatherState<T> implements IStateWord<T> {
-  rain<bool>('weather.rain', Plain(BoolType()));
-
-  const WeatherState(this.name, this.shape, {this.key});
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  final String? key;
-}
-
-/// The vocabulary of [Weather]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
-const weatherWords = WordSet('weather', [...WeatherState.values]);

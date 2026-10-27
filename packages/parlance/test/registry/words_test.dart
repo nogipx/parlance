@@ -197,7 +197,7 @@ void main() {
     expect(f.r.state(TestState.tune).readAll().keys, ['mic']);
   });
 
-  test('a nullable state is held over none, and none comes back', () async {
+  test('a nullable state takes none, a list, and none again', () async {
     final only = f.r.state(NullableState.only).define(by: owner);
     only.set(null);
     f.r
@@ -205,19 +205,7 @@ void main() {
         .define(
           (c) => only.set(c.params.apps, cause: c.causeFor(owner)),
           callers: Callers.only(['user', 'system']),
-          sets: const Sets('test.only', value: 'apps'),
         );
-    expect(f.r.has('test.only'), isTrue);
-    f.r.pushLayer(
-      'test.only',
-      value: ['iina'],
-      owner: 'scene',
-      by: Principal.system,
-    );
-    await pumpEventQueue();
-    expect(f.r.state(NullableState.only).read(), ['iina']);
-    f.r.dropLayersOf('scene');
-    await pumpEventQueue();
     expect(f.r.has('test.only'), isTrue);
     expect(f.r.state(NullableState.only).read(), isNull);
     expect(

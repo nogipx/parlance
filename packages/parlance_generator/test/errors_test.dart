@@ -79,8 +79,8 @@ $body
       'a version is the last word only',
     ),
     'a word named as a member of Owner': (
-      '@StateWord() int get words;',
-      'words is a member of Owner',
+      '@StateWord() int get sync;',
+      'sync is a member of Owner',
     ),
     'two members of the client of one name': (
       '@StateWord() int get total;\n@CommandWord() void totalChanges();',
@@ -89,20 +89,6 @@ $body
     'a fact with a param named cause': (
       '@FactWord() void said({required String cause});',
       "a fact's param is not named cause",
-    ),
-    'setting a state the class has not': (
-      '@CommandWord(sets: "total") void put({required int to});',
-      'put sets total, which is no state of Orders',
-    ),
-    'setting a state from one of several params, unsaid': (
-      '@StateWord() int get total;\n'
-          '@CommandWord(sets: "total") void put({required int to, int? by});',
-      'say which param is the value',
-    ),
-    'setting a keyed state without its key': (
-      '@StateWord(key: "order") int get total;\n'
-          '@CommandWord(sets: "total") void put({required int to});',
-      'total is keyed by order; no param names one, so say which (setsKey)',
     ),
   };
   for (final MapEntry(key: what, value: (body, says)) in cases.entries) {

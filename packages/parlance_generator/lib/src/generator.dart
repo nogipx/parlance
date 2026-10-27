@@ -149,7 +149,7 @@ final class _Word {
   final Element element;
 
   /// What the owner base passes to its `define`, as code: `readers:`,
-  /// `callers:`, `sets:`...
+  /// `callers:`, `deadline:`...
   final List<String> options = [];
 
   /// Whether the owner base asks `whyNot<Member>()` before a call.
@@ -286,12 +286,6 @@ final class _Emitter {
         if (r.peek('callers')?.objectValue case final o?) {
           c.options.add('callers: ${_callers(o)}');
         }
-        if (r.peek('sets')?.stringValue case final member?) {
-          c.options.add('sets: ${_sets(m, r, member, states)}');
-        }
-        if (r.peek('interceptable')?.boolValue ?? false) {
-          c.options.add('interceptable: true');
-        }
         _common(c, r);
         _meta(c, r);
         named(c);
@@ -343,8 +337,8 @@ final class _Emitter {
       ..writeln(
         '/// The vocabulary of [$_c]: its namespace and every word, for',
       )
-      ..writeln('/// `main` to grant a participant (`vocabularies:`), for')
-      ..writeln('/// `Owner.words` and `schemaOf`.')
+      ..writeln('/// `main` to grant a participant (`vocabularies:`) and for')
+      ..writeln('/// `schemaOf`.')
       ..writeln('const $_words = WordSet(${_quote(namespace)}, [')
       ..writeln(
         [
@@ -472,82 +466,6 @@ final class _Emitter {
         '${_quote(key!.toStringValue()!)}: Access.${value!.variable?.name}',
     ];
     return 'const Callers({${entries.join(', ')}})';
-  }
-
-  /// What a command sets: the state of [member]; its key the param that
-  /// names an entity of the state's kind (or `setsKey`), its value the one
-  /// param left (or `setsValue`).
-  String _sets(
-    MethodElement m,
-    ConstantReader r,
-    String member,
-    List<_State> states,
-  ) {
-    final state = states.where((s) => s.member == member).firstOrNull;
-    if (state == null) {
-      throw InvalidGenerationSourceError(
-        '${m.displayName} sets $member, which is no state of $_c',
-        element: m,
-      );
-    }
-    final ps = m.formalParameters;
-    final params = [for (final p in ps) p.displayName];
-    // The key: said, or the one param that names an entity of the state's
-    // kind (`@Ref(kind)`) or is named as it.
-    var key = r.peek('setsKey')?.stringValue;
-    if (key == null && state.key != null) {
-      final named = [
-        for (final p in ps)
-          if (p.displayName == state.key || _refKind(p) == state.key)
-            p.displayName,
-      ];
-      if (named.length != 1) {
-        throw InvalidGenerationSourceError(
-          '${m.displayName}: $member is keyed by ${state.key}; '
-          '${named.isEmpty ? 'no param names one' : 'several params name one'}, '
-          'so say which (setsKey)',
-          element: m,
-        );
-      }
-      key = named.single;
-    }
-    // The value: said, or the one param left.
-    final rest = [
-      for (final p in params)
-        if (p != key) p,
-    ];
-    final value =
-        r.peek('setsValue')?.stringValue ??
-        (rest.length == 1
-            ? rest.single
-            : throw InvalidGenerationSourceError(
-                '${m.displayName} sets $member: say which param is the value '
-                '(setsValue)',
-                element: m,
-              ));
-    for (final p in [value, ?key]) {
-      if (!params.contains(p)) {
-        throw InvalidGenerationSourceError(
-          '${m.displayName} has no param $p',
-          element: m,
-        );
-      }
-    }
-    if ((state.key == null) != (key == null)) {
-      throw InvalidGenerationSourceError(
-        state.key == null
-            ? '${m.displayName}: $member has no keys, so no setsKey'
-            : '${m.displayName}: $member is keyed by ${state.key}, give '
-                  'it a key param',
-        element: m,
-      );
-    }
-    // Said by their names in JSON, as the params are.
-    String json(String dart) =>
-        _jsonName(ps.firstWhere((p) => p.displayName == dart));
-    return 'Sets(${_quote(state.name)}, '
-        '${key == null ? '' : 'key: ${_quote(json(key))}, '}'
-        'value: ${_quote(json(value))})';
   }
 
   /// `<Class>Client` (SPEC §23.5): the words as a consumer uses them, over
@@ -681,13 +599,6 @@ final class _Emitter {
       ? '()'
       : '(${[for (final p in ps) '${p.displayName}: ${p.displayName}'].join(', ')})';
 
-  /// The kind [p] names (`@Ref(kind)`), if any.
-  String? _refKind(FormalParameterElement p) =>
-      switch (_ref.firstAnnotationOf(p)) {
-        final a? => ConstantReader(a).read('kind').stringValue,
-        null => null,
-      };
-
   /// A key's parameter: the kind's name in camel case.
   String _keyParam(String kind) {
     final parts = kind.split(RegExp('[._-]'));
@@ -696,8 +607,6 @@ final class _Emitter {
 
   /// The names an owner base has of [Owner]'s own.
   static const _ownerMembers = {
-    'words',
-    'uses',
     'define',
     'defineMore',
     'sync',
@@ -743,10 +652,7 @@ final class _Emitter {
       ..writeln(
         '/// write (`call.inReply`: the cause of what it does in reply).',
       )
-      ..writeln('abstract base class ${_c}Owner extends Owner {')
-      ..writeln('  @override')
-      ..writeln('  Iterable<IWord> get words => $_words.words;')
-      ..writeln();
+      ..writeln('abstract base class ${_c}Owner extends Owner {');
     for (final st in states) {
       out
         ..writeln('  /// Writes ${st.name}.')

@@ -92,6 +92,7 @@ void main() {
     Set<String> namespaces = const {'kittens'},
     SessionRights rights = SessionRights.none,
     WordAccess access = WordAccess.none,
+    LogScope? log,
   }) {
     final (c, s) = RpcChannelTransport.memoryPair();
     final h = host = RpcPeerEndpoint(transport: s);
@@ -109,7 +110,7 @@ void main() {
       transportFactory: (_) async => c,
       shouldReconnect: (_) => false,
     );
-    return RemoteParticipant.join(link, access: access);
+    return RemoteParticipant.join(link, access: access, log: log);
   }
 
   setUp(() => r = Registry(overriders: {'user'}));
@@ -149,35 +150,6 @@ void main() {
     expect(purr.cause.parent, change.cause.parent);
     expect(p.state(Lamp.on).read(), true, reason: 'its own, as it wrote it');
     expect(crewSide.status('kittens.lamp.turn'), const WordReady());
-  });
-
-  test('a remote group checks what it needs against the host\'s catalog '
-      'as it is now', () async {
-    final p = await join();
-    p.attach({'on_air': _OnAir()});
-    await expectLater(
-      p.checkUses(),
-      throwsA(
-        isA<UnmetUses>().having(
-          (e) => e.message,
-          'message',
-          '${kittens.child('on_air')} needs studio.program: missing',
-        ),
-      ),
-    );
-    final studio = r.participant(
-      const Principal('studio'),
-      vocabularies: [WordSet.open('studio')],
-    );
-    studio.state(_Program.scene).define().set('main');
-    await p.checkUses();
-    expect(r.declarations[kittens.child('on_air')]!.toJson(), {
-      'owns': ['kittens.lamp'],
-      'uses': {'studio.program': 'required'},
-    });
-    await p.close();
-    expect(r.declarations, isEmpty);
-    studio.dispose();
   });
 
   test(
@@ -295,65 +267,56 @@ void main() {
     expect(r.factDescriptor('kittens.purred'), isNull);
   });
 
-  test('its guard is asked in its turn, before the hooks', () async {
+  test('a call it serves is a span in the host\'s trace, and how it goes '
+      'is told', () async {
+    final logs = LogController();
+    final records = <LogRecord>[];
+    logs.stream.listen(records.add);
+    await r.dispose();
+    r = Registry(overriders: {'user'}, log: logs.scope('host'));
+    final p = await join(log: logs.scope('kittens'));
+    p.attach({'lamps': Lamps()});
+    await p.flush();
+    expect(
+      (await r.call('kittens.lamp.turn', {'on': true}, by: crew)).ok,
+      isTrue,
+    );
+    await settle();
+    final spans = records.whereType<LogSpan>();
+    final there = spans.singleWhere((s) => s.scope == 'kittens.calls');
+    final here = spans.singleWhere((s) => s.scope == 'host.calls');
+    expect(there.name, 'kittens.lamp.turn');
+    expect(there.traceId, here.traceId);
+    expect(there.parentSpanId, here.spanId, reason: 'a child across it');
+    final told = records.whereType<LogEvent>().map((e) => e.message);
+    expect(told, contains('joined'));
+    expect(told, contains('session opened'));
+    logs.dispose();
+  });
+
+  test('its guard is asked in its turn', () async {
     final p = await join();
     var served = 0;
     p
         .command(LampCommand.turn)
-        .define(
-          (_) => served++,
-          callers: Callers.only(['user']),
-          interceptable: true,
-        );
+        .define((_) => served++, callers: Callers.only(['user']));
     p.addGuard(
       'night',
       (c) => c.params['on'] == true ? 'the kittens sleep' : null,
     );
     await p.flush();
-    var hooked = 0;
-    r.addBefore(
-      'kittens.lamp.turn',
-      'h',
-      (_, _) async => hooked++,
-      timeout: const Duration(seconds: 1),
-    );
 
     final denied = await r.call('kittens.lamp.turn', {'on': true}, by: crew);
     expect(denied, isA<CallRefused>());
     expect((denied as CallRefused).code, Refusal.denied);
     expect(denied.reason, 'the kittens sleep');
     expect(denied.guard, 'plugin/kittens#night');
-    expect((hooked, served), (0, 0), reason: 'denied before the hooks');
+    expect(served, 0, reason: 'denied before the handler');
     expect(
       (await r.call('kittens.lamp.turn', {'on': false}, by: crew)).ok,
       isTrue,
     );
-    expect((hooked, served), (1, 1));
-  });
-
-  test('its guard is told when the registry calls to apply a layer', () async {
-    final p = await join();
-    final lamp = p.state(Lamp.on).define()..set(false);
-    p
-        .command(LampCommand.turn)
-        .define(
-          (c) => lamp.set(c.params.on, cause: c.causeFor(kittens)),
-          callers: Callers.only(['user']),
-          sets: const Sets('kittens.lamp', value: 'on'),
-        );
-    final seen = <bool>[];
-    p.addGuard('seen', (c) {
-      seen.add(c.layerDispatch);
-      return null;
-    });
-    await p.flush();
-    expect(
-      (await r.call('kittens.lamp.turn', {'on': true}, by: crew)).ok,
-      isTrue,
-    );
-    r.pushLayer('kittens.lamp', value: false, owner: 'link:night', by: crew);
-    await settle();
-    expect(seen, [false, true]);
+    expect(served, 1);
   });
 
   test('a command\'s availability follows what its check reads', () async {
@@ -455,7 +418,6 @@ void main() {
     expect(r.commandDescriptor('kittens.lamp.turn'), isNotNull);
     await p.close();
     expect(r.commandDescriptor('kittens.lamp.turn'), isNull);
-    expect(r.declarations, isEmpty);
     expect(r.stateDescriptor('kittens.lamp'), isNull);
   });
   test('its access by default goes with what it defines', () async {
@@ -509,7 +471,6 @@ void main() {
     final p = await RemoteParticipant.join(connection);
     final lamps = Lamps();
     p.attach({'lamps': lamps});
-    final told = p.declare(const Declaration(owns: {'kittens.lamp'}));
     await p.flush();
     expect(r.read('kittens.lamp'), false);
 
@@ -538,8 +499,6 @@ void main() {
     final served = await r.call('kittens.lamp.turn', {'on': false}, by: crew);
     expect(served.ok, isTrue, reason: '$served');
     expect(lamps.lit, isFalse, reason: 'served over the new connection');
-    expect(r.declarations[kittens]!.owns, {'kittens.lamp'});
-    told.dispose();
 
     await p.close();
     await connection.dispose();
@@ -550,18 +509,6 @@ void main() {
       await h.close();
     }
   });
-}
-
-/// One across a connection that cannot work without the program.
-final class _OnAir extends Owner {
-  @override
-  Iterable<Use> get uses => const [Use.required(_Program.scene)];
-
-  @override
-  Iterable<IWord> get words => Lamp.values;
-
-  @override
-  void define(IParticipant p) {}
 }
 
 enum _Program<T> implements IStateWord<T> {

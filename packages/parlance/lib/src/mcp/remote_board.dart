@@ -68,8 +68,5 @@ final class RemoteBoard implements IBoard {
       client.why(state, key: key);
 
   @override
-  Future<List<LayerInfo>> layers() => client.layers();
-
-  @override
   Stream<void> get catalogChanges => mirror.catalogChanges;
 }

@@ -51,7 +51,7 @@ abstract class Player {
   @Range(min: 0, max: 1)
   num get speakerLevel;
 
-  @CommandWord(name: 'volume.set', sets: 'volume')
+  @CommandWord(name: 'volume.set')
   void setVolume({@Range(min: 0, max: 100) required int volume});
 
   /// Cannot play while nothing is loaded.

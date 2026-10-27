@@ -59,7 +59,15 @@ final class RemoteParticipant implements IParticipant {
     this.namespaces,
     this.access,
     this._onError,
-  ) : _view = MirrorView(mirror, client);
+    this.log,
+  ) : _view = MirrorView(mirror, client),
+      _callLog = log.child('calls');
+
+  /// Where it logs: how its connection goes, what the host refused, and a
+  /// span for each call it serves, in the host's trace; `LogScope.noop`
+  /// unless given.
+  final LogScope log;
+  final LogScope _callLog;
 
   @override
   final WordAccess access;
@@ -73,6 +81,7 @@ final class RemoteParticipant implements IParticipant {
     RpcClientConnection connection, {
     WordAccess access = WordAccess.none,
     void Function(ParticipantError error)? onError,
+    LogScope? log,
   }) async {
     final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
     final online = connection.currentState is RpcClientOnline
@@ -95,7 +104,11 @@ final class RemoteParticipant implements IParticipant {
       {...(d['namespaces'] as List? ?? const []).cast<String>()},
       access,
       onError,
+      log ?? LogScope.noop,
     );
+    if (p.log.isEnabled(RpcLogLevel.info)) {
+      p.log.info('joined', data: {'as': p.who.selector});
+    }
     endpoint.registerServiceContract(_Served(endpoint, p));
     // It keeps of another's only what it watches: nothing to start with.
     unawaited(p.mirror.subscribe(states: const {}, facts: const {}));
@@ -117,6 +130,7 @@ final class RemoteParticipant implements IParticipant {
       case RpcClientOnline():
         if (!_online) unawaited(_rejoin());
       case RpcClientOffline() || RpcClientConnecting():
+        if (_online && log.isEnabled(RpcLogLevel.info)) log.info('offline');
         _online = false;
       case RpcClientDisconnected(:final reason):
         // The connection gave up: nothing it asks reaches the registry.
@@ -147,6 +161,7 @@ final class RemoteParticipant implements IParticipant {
         c.told = false;
       }
       _online = true;
+      if (log.isEnabled(RpcLogLevel.info)) log.info('joined again');
       mirror.follow(client);
       _checkAvailability();
       await flush();
@@ -163,8 +178,6 @@ final class RemoteParticipant implements IParticipant {
   /// the commands that set them.
   List<Map<String, Object?>> _standing() => [
     for (final k in _kinds.values) _kindOp(k.kind, k.as),
-    for (final MapEntry(key: part, value: d) in _declared.entries)
-      _declareOp(d, part),
     for (final s in _states.values)
       {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
     for (final f in _facts.values)
@@ -221,8 +234,6 @@ final class RemoteParticipant implements IParticipant {
   _guards = {};
   final Map<String, ({EntityKind kind, Principal? as})> _kinds = {};
 
-  /// What it and each part said of itself, by the part (null: itself).
-  final Map<Principal?, Declaration> _declared = {};
   final Map<Principal, _Part> _parts = {};
   bool _disposed = false;
 
@@ -331,13 +342,18 @@ final class RemoteParticipant implements IParticipant {
 
   void _fail(Map<String, Object?> op, String code, String message) {
     final e = ParticipantError(op, code, message);
+    if (log.isEnabled(RpcLogLevel.warning)) {
+      log.warning(
+        'refused by the host',
+        data: {'op': '${op['op']}', 'code': code, 'message': message},
+      );
+    }
     _onError?.call(e);
     if (!_errors.isClosed) _errors.add(e);
   }
 
   static Map<String, Object?> _causeOf(Cause? cause) => {
     'parent': ?cause?.parent,
-    if (cause?.test ?? false) 'test': true,
   };
 
   // --- Reading and calling, as [who] --------------------------------------
@@ -426,7 +442,6 @@ final class RemoteParticipant implements IParticipant {
       params,
       id: id,
       parent: c?.parent,
-      test: c?.test ?? false,
       as: as,
     );
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
@@ -489,9 +504,6 @@ final class RemoteParticipant implements IParticipant {
     Principal? as,
   ) {
     _mayDefine(d);
-    if (d case CommandDescriptor(sets: final s?) when !_owns(s.state)) {
-      throw NotPermitted('${d.name} sets ${s.state}, a state not $who\'s');
-    }
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
     final c = _Command(d, handler, available, as);
     _commands[d.name] = c;
@@ -550,33 +562,6 @@ final class RemoteParticipant implements IParticipant {
       _ask({'op': 'unguard', 'id': id, ..._asOf(as)});
     });
   }
-
-  @override
-  IHandle declare(Declaration d) => _declare(d, null);
-
-  IHandle _declare(Declaration d, Principal? as) {
-    _live();
-    for (final name in d.owns) {
-      if (!_owns(name)) {
-        throw NotPermitted(
-          '${as ?? who} owns words in ${namespaces.join(', ')}, not $name',
-        );
-      }
-    }
-    _declared[as] = d;
-    _ask(_declareOp(d, as));
-    return _Disposer(() {
-      if (_declared[as] != d) return;
-      _declared.remove(as);
-      _ask({'op': 'undeclare', ..._asOf(as)});
-    });
-  }
-
-  static Map<String, Object?> _declareOp(Declaration d, Principal? as) => {
-    'op': 'declare',
-    'declaration': d.toJson(),
-    ..._asOf(as),
-  };
 
   @override
   IHandle registerKind(EntityKind kind) => _registerKind(kind, null);
@@ -644,11 +629,6 @@ final class RemoteParticipant implements IParticipant {
       _kinds.remove(e.key);
       _ask({'op': 'unkind', 'name': e.key, ..._asOf(e.value.as)});
     }
-    for (final as in [..._declared.keys]) {
-      if (!mine(as)) continue;
-      _declared.remove(as);
-      _ask({'op': 'undeclare', ..._asOf(as)});
-    }
     _parts.removeWhere((p, _) => p.isWithin(part));
   }
 
@@ -694,9 +674,6 @@ final class RemoteParticipant implements IParticipant {
   @override
   void sync() => _group.sync();
 
-  @override
-  Future<void> checkUses() => _group.checkUses();
-
   /// What it asked done, then the catalog as the host has it now: the feed
   /// brings the catalog in its own time, a status read after this is the
   /// host's as of then.
@@ -724,9 +701,6 @@ final class RemoteParticipant implements IParticipant {
     for (final k in _kinds.keys) {
       _ask({'op': 'unkind', 'name': k});
     }
-    for (final as in _declared.keys) {
-      _ask({'op': 'undeclare', ..._asOf(as)});
-    }
     _disposed = true;
     _own.clear();
     _states.clear();
@@ -734,7 +708,6 @@ final class RemoteParticipant implements IParticipant {
     _commands.clear();
     _guards.clear();
     _kinds.clear();
-    _declared.clear();
     await flush();
     await _connection?.cancel();
     await _changes?.cancel();
@@ -752,12 +725,21 @@ final class RemoteParticipant implements IParticipant {
     if (c == null) {
       return WireServed.failed('nothing serves ${request.command}');
     }
+    final cause = Cause.fromJson(request.cause);
+    final span = identical(_callLog, LogScope.noop)
+        ? LogScope.noop.startSpan('')
+        : _callLog.startSpan(
+            request.command,
+            parent: request.traceparent,
+            data: {'call': request.id, 'by': cause.by.selector},
+          );
     final call = CommandCall(
       request.id,
       request.command,
       request.params,
-      Cause.fromJson(request.cause),
+      cause,
       Future<void>.delayed(c.d.deadline),
+      span: span,
     );
     try {
       final value = await (c.d is QueryDescriptor
@@ -766,9 +748,11 @@ final class RemoteParticipant implements IParticipant {
       // What it wrote in answer reaches the registry before the answer,
       // so it follows from the call.
       await flush();
+      span.end();
       return WireServed.done(value);
     } on Object catch (e) {
       await flush();
+      span.end(status: LogSpanStatus.error, error: e);
       return WireServed.failed('$e');
     }
   }
@@ -783,7 +767,6 @@ final class RemoteParticipant implements IParticipant {
         c.d,
         (m['params'] as Map? ?? const {}).cast<String, Object?>(),
         Cause.fromJson(m['cause']),
-        layerDispatch: m['layer'] == true,
       ),
     );
     return WireJson({'why': ?why});
@@ -1007,9 +990,6 @@ final class _Part implements IParticipant {
   IHandle registerKind(EntityKind kind) => _root._registerKind(kind, who);
 
   @override
-  IHandle declare(Declaration d) => _root._declare(d, who);
-
-  @override
   void entitiesChanged(String kind) => _root.entitiesChanged(kind);
 
   @override
@@ -1029,9 +1009,6 @@ final class _Part implements IParticipant {
 
   @override
   void sync() => _group.sync();
-
-  @override
-  Future<void> checkUses() => _group.checkUses();
 
   @override
   IParticipant child(String name) => _root._partOf(who.child(name));

@@ -8,7 +8,7 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 
 **Names** are lower-case words split by `.`, each from a letter, its parts joined by `_` or `-`: `^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$` (`audio.voice.muted_talk`, `kitten-daycare.lights`). The two joiners are different signs: `muted-talk` and `muted_talk` are two names; `.` only ever splits; every other sign is reserved. The same holds for namespaces, entity kinds, type names, and what becomes a first word: a plugin's id is the namespace of its words. The first word is the owner's namespace by convention; the registry does not enforce ownership by name, only by handle (participants do, §22.1).
 
-**Versions** are optional and per word. A breaking change to a word that must live beside the old one is a new word, the same name with `.v<N>`: `orders.order.v2` is version 2 of `orders.order`. A name without a version is version 1; `.v1` is refused, and so are `.v0` and leading zeros, so a word has one name, never two spellings. A version is the last word only: `orders.v2.cancel` is refused, so no name reads as a version it is not. `wordVersion(name)` tells the word and the version. Versions are words like any other: each has its type, owner, readers and callers; nothing projects one into another. The owner serves every version it keeps until none is used: a command by a handler per version, a state by writing each version in one batch, a fact by saying each, every one with an id of its own (§6.3). Inside one build the compiler shows what still uses an old version; versions matter at the boundaries that outlive a build (participants across a connection, plugins, the user's links, agents).
+**Versions** are optional and per word. A breaking change to a word that must live beside the old one is a new word, the same name with `.v<N>`: `orders.order.v2` is version 2 of `orders.order`. A name without a version is version 1; `.v1` is refused, and so are `.v0` and leading zeros, so a word has one name, never two spellings. A version is the last word only: `orders.v2.cancel` is refused, so no name reads as a version it is not. `wordVersion(name)` tells the word and the version. Versions are words like any other: each has its type, owner, readers and callers; nothing projects one into another. The owner serves every version it keeps until none is used: a command by a handler per version, a state by writing each version in one batch, a fact by saying each, every one with an id of its own (§6.3). Inside one build the compiler shows what still uses an old version; versions matter at the boundaries that outlive a build (participants across a connection, plugins, stored calls, agents).
 
 **Keys** (of keyed states) are entity ids: non-empty strings.
 
@@ -43,7 +43,7 @@ The host registers entity kinds: a name and a function listing the current entit
 
 ## 4. Principals and causes
 
-A **principal** is who acts: a `kind` and an `id`. Kinds are an open set declared by the host. The package reserves two: `system` (the registry itself) and `link` (the links engine).
+A **principal** is who acts: a `kind` and an `id`. Kinds are an open set declared by the host. The package reserves one: `system` (the registry itself).
 
 **A principal is a path.** Its selector is its kind, then each level of its id after `/`: `user/local`, `plugin/hydra`, `viewer/twitch/123`, `module/orders/sync`. `/` is the only separator and every level is one: the path of a principal tells where it stands, and nothing else does. A level holds letters, digits, `.`, `-` and `_` only, as gRPC names do; every other sign is reserved (`/` and `#` have their uses, the rest are kept for later). A kind (from a letter) and a part's name are ours, as names are: lower-case letters and digits joined by `_` or `-` (`studio/layer_fields`); a level of an id may come from outside, letters, digits, `.`, `-` and `_`, and keeps its case (`UCabc` and `UCAbc` are two channels). A text from outside becomes a level by `Principal.levelOf`, the rule Kubernetes and Helm name things by: one that is a level already stays as it is; else every run of other signs becomes `_` and an FNV-1a hash of the whole text is added after a `.` (`ann@mail.com` → `ann_mail.com.877b4e30`), so it stays readable and two texts never become one. A principal from outside (`Principal.parse`, `fromJson`, a participant's, a session's) is checked (`ArgumentError`); a host makes its ids from outside with `levelOf` (Tephra: `Who.viewer`, `Who.remote`).
 
@@ -52,14 +52,12 @@ A principal has **parts**: `child(name)` adds a level (`studio` → `studio/soun
 A **cause** is why something happens:
 
 ```
-Cause { by: Principal, parent: message id?, chain: [link or hook ids], test: bool }
+Cause { by: Principal, parent: message id? }
 ```
 
 - Every message carries a cause.
-- Causes are passed explicitly, never through zones (the only zone mark is a query's, §6.6, and it carries no cause). A handler gets its call and takes `call.causeFor(by)` for what it does: nested calls, writes, facts. Its `parent` is the call; `chain` and `test` carry over. A before hook gets the cause for its own calls as an argument. A write or call without a cause starts a new chain on behalf of whoever acts.
-- An owner that writes without the call's cause still works, but loses the trail: the journal cannot tell why, and a layer recognises the write as its echo only by the value (§8).
-- `chain` is how loops are found: a link or hook never runs for a message whose chain already holds its id.
-- `test` marks everything a trial run caused; consumers may show it differently.
+- Causes are passed explicitly, never through zones (the only zone mark is a query's, §6.6, and it carries no cause). A handler gets its call and takes `call.causeFor(by)` for what it does: nested calls, writes, facts. Its `parent` is the call. A write or call without a cause starts a new chain on behalf of whoever acts.
+- An owner that writes without the call's cause still works, but loses the trail: the journal cannot tell why.
 
 ## 5. Messages, sequence and epoch
 
@@ -86,14 +84,13 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 ```
 CommandDescriptor {
   name, params: object type, returns: type?, owner,
-  sets: { state, key: param name?, value: param name }?,
   callers: { selector: allow | warn | deny },
-  interceptable: bool, deadline: duration, meta
+  deadline: duration, meta
 }
 ```
 
 - Exactly one handler per command; defining a command registers its handler.
-- `sets` says the command sets that state: the target key comes from param `key`, the value from param `value`. A state has at most one setter. Layers (§8) and `flip` need the setter, and call it with only those two params, so its other params must be optional.
+- **A command asks; its owner writes.** A state is written by its owner only (§6.1), never by the registry on someone's behalf. A command says nothing of which states its handler writes: that is the owner's to decide and to change, and what it did is told after, by the causes of the writes (§5, `explain`).
 - `callers` are **selectors**: `*` (anyone), or a path (§4): a kind (`user`), a principal (`plugin/hydra`), a part (`module/orders/sync`), any level between (`viewer/twitch`, every viewer of one platform). A selector names everything under it. For a principal the nearest said wins: its own path, then each level up to its kind, then `*` (for `viewer/twitch/123`: `viewer/twitch/123`, `viewer/twitch`, `viewer`, `*`); a principal matched by none is denied. A nearer rule overrides a wider one either way (`module/orders: allow`, `module/orders/sync: deny`). A selector that is not a path (`plugin:hydra`) is refused where it is said (`ArgumentError`), rather than matching nobody. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
 - `deadline` bounds the handler; the default is 30 s.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
@@ -114,7 +111,7 @@ FactDescriptor { name, type, open: bool, readers: { selector: allow | deny }?, m
 
 Descriptors come and go at runtime (a plugin starts or stops).
 
-**Old names.** Words are a public API: links the user keeps, plugins and agents name them. A word renamed keeps its old name as an **alias**: `alias(old, now)` makes `old` stand for the word in calls, reads, watches, facts, layers, `explain`, subscriptions over remote and links (their triggers, conditions, references and steps); `canonical(name)` tells what a name stands for. An alias is not a word: it cannot be defined, nor be one already. `describe` lists the aliases (`aliases: {old: now}`); a mirror reads through them; the agent's `describe` says them as `renamed`. Adding or dropping one is a catalog change (`AliasChanged`).
+**Old names.** Words are a public API: plugins, agents and the calls a host stores name them. A word renamed keeps its old name as an **alias**: `alias(old, now)` makes `old` stand for the word in calls, reads, watches, facts, `explain` and subscriptions over remote; `canonical(name)` tells what a name stands for. An alias is not a word: it cannot be defined, nor be one already. `describe` lists the aliases (`aliases: {old: now}`); a mirror reads through them; the agent's `describe` says them as `renamed`. Adding or dropping one is a catalog change (`AliasChanged`).
 
  The catalog is the current set of descriptors and entity kinds; every addition, removal and `entitiesChanged` is a catalog change with its own stream. Removing a command fails the calls waiting in its before stage with `unknownCommand`; a running handler finishes.
 
@@ -143,18 +140,16 @@ QueryDescriptor {
 
 A **query** only answers: a search, a page, a snapshot by params that no state holds. It is a word of its own kind (`is: query` in `describe`), beside states, commands and facts, so a reader of the catalog, an agent or a generator never mistakes it for a command. Many consumers of one value that changes is a state; one asker's answer by its own params is a query; anything that changes the world is a command.
 
-- It is called through the stages of a command (§9), less what a question has no use for: no dedup (an id is not held to a first answer, asking again asks again) and no call record, so its answers take no memory. It has no `sets` and no before hooks: its descriptor has nowhere to say them, and `addBefore` on it is refused.
+- It is called through the stages of a command (§9), less what a question has no use for: no dedup (an id is not held to a first answer, asking again asks again) and no call record, so its answers take no memory.
 - `askers` are who may ask, selectors as `callers` (§6.2); availability and guards apply as to a command. Through a participant they default as readers do: its `access.read`, else everyone (§22.2). `returns` is required: a query answers.
 - In Dart it is `IQueryWord<P, R>` (§18): defined with `query(word).define(handler, askers:)`, asked with `.ask(params)`; its handler gets a `QueryAsk` (params, who asks, `askingFor(by)` for a query it asks in turn), not a call to write with.
-- **It is held to changing nothing.** The registry runs its handler marked as the query's (`asQuery`, a Dart zone: it goes with the handler's code through awaits and the timers it starts). A write, a removal, a fact, a layer or a command call made there is refused where it is tried (`QueryEffect`: `orders.page is a query, it changes nothing: it tried to write orders.last`), so the query ends `failed` and nothing changed; it may ask other queries. The mark hides nothing: a closure still sees what it captured, and what it tries through parlance is refused. What goes past parlance (a request over the network, a file, a device's port) the registry cannot see: that a query changes nothing there is the owner's promise. A remote participant runs its queries' handlers the same way and refuses what they ask.
+- **It is held to changing nothing.** The registry runs its handler marked as the query's (`asQuery`, a Dart zone: it goes with the handler's code through awaits and the timers it starts). A write, a removal, a fact or a command call made there is refused where it is tried (`QueryEffect`: `orders.page is a query, it changes nothing: it tried to write orders.last`), so the query ends `failed` and nothing changed; it may ask other queries. The mark hides nothing: a closure still sees what it captured, and what it tries through parlance is refused. What goes past parlance (a request over the network, a file, a device's port) the registry cannot see: that a query changes nothing there is the owner's promise. A remote participant runs its queries' handlers the same way and refuses what they ask.
 
 | | command | query |
 | --- | --- | --- |
 | does | changes something: writes, says, calls | only answers |
 | a repeated id (§9.1) | answers the first result, runs once | runs again |
 | call record | kept | none |
-| `sets` (§8 layers, `flip`) | may | has none |
-| before hooks (§11) | when interceptable | none |
 | who may, through a participant (§22.2) | `callers`, else `access.call`, else refused | `askers`, else `access.read`, else everyone |
 | `describe`, MCP | `is: command`, an action | `is: query`, safe to ask |
 | what its handler tries to change | done | refused (`QueryEffect`), the query fails |
@@ -162,7 +157,7 @@ A **query** only answers: a search, a page, a snapshot by params that no state h
 
 ### 6.7 What a part says of itself
 
-A part may say which words it owns and which of others it uses, each required or optional: a `Declaration { owns: [name], uses: { name: required | optional } }`, one per principal, a new one in place of the last. `describe` tells them all as `declared: { selector: declaration }`, so a reader of the catalog sees who owns what and who needs it, and `catalogChanges` tells `DeclarationChanged(by)` when one comes, changes or goes. It is told, not enforced: what a part may define its namespaces say (§22), what it may read and call the words' readers and callers; a part may own words it has not defined yet, and use words not there (§6.5). A participant refuses a declaration that owns a word outside its namespaces; it goes with the participant, across a connection with its session, and comes back when it rejoins. `Owner.words` and `Owner.uses` (§19.1) make one when it attaches.
+Removed: what a part owns, the registry knows from what it defined; what it needs of others, it asks by the word's status (§6.5), when it needs it.
 
 ## 7. Ticks
 
@@ -172,25 +167,11 @@ A **tick** is the unit of change: every state write and fact made in it is commi
 - Inside a batch, reads see the batch's own writes (read your writes); everyone else sees nothing until the commit.
 - On commit, writes that leave a value unchanged are dropped; each remaining change and each fact gets its seq; the tick is delivered as one message: `Tick { epoch, from, to, changes, facts }`.
 - Delivery is asynchronous and in seq order. A subscriber that throws does not stop the others; the error goes to the host's error sink.
-- Observers (links, conditions, the remote feed) evaluate per tick, never in the middle of one: two states the owner changed together are never seen half-changed.
+- Observers (a host's rules, the remote feed) evaluate per tick, never in the middle of one: two states the owner changed together are never seen half-changed.
 
 ## 8. Layers
 
-A layer is a lease on a state value: "while I hold this, the value is X".
-
-```
-pushLayer(state, key?, value, owner: { id, by: Principal }, priority = 0, ttl?) → handle
-```
-
-- The state must have a setter. The layer's value must pass the state's type.
-- **Effective value**: the value of the top layer: the highest priority, among equals the latest pushed. Without layers, the **base**.
-- **Base**: captured from the committed value when the first layer on the target is pushed.
-- When the effective value changes, the registry calls the setter with it, on behalf of the top layer's principal (so policy and guards apply), with the layer's owner in the cause chain. This is a **layer dispatch**.
-- When the last layer goes, the registry dispatches the base, if there is one and it differs from the current value.
-- **An explicit set clears layers.** A setter call that is not a layer dispatch and succeeds makes its value the new base and drops every layer on the target. So does a committed change of the state that is not an echo of a layer dispatch (its cause is not a dispatch for this target) and differs from the effective value. Dropped layers are reported to their owners (`dropped: overridden`).
-- A refused layer dispatch keeps the layer and reports `refused` with the reason.
-- `ttl` drops the layer after that long (`dropped: expired`).
-- Layers survive restarts as leases: `exportLayers()` gives their owners, values, priorities, bases and absolute expiry; `importLayers()` restores them **unclaimed**. An owner reclaims its layers with `claim(ownerId)` within the grace period (default 30 s); unclaimed layers are dropped (`dropped: unclaimed`), expired ones are dropped on import.
+Removed: a state is written by its owner only (§6.2). "While this holds, keep that" is the host's to do with its own rules, or the owner's.
 
 ## 9. Calls
 
@@ -206,11 +187,19 @@ A call goes through these stages, in order; the first refusal ends it:
 4. **Policy.** `callers` for the principal → `notPermitted`.
 5. **Availability.** The owner's check → `unavailable`.
 6. **Guards.** Every guard (§10) is asked; the first denial → `denied` with the guard's id and reason. A denial marked overridable lets the call through when `override` is set and the principal's kind is one the host allows to override; the call record says it was overridden.
-7. **Before hooks.** For interceptable commands, the hooks (§11) run one by one.
-8. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id answers that end.
-9. **Sets.** A successful explicit setter call updates the base and clears layers (§8).
+7. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id answers that end.
 
-`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals.
+`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
+
+### 9.2 Logs and telemetry
+
+The registry logs to a `LogScope` of rpc_dart's logger (`package:rpc_dart/logger.dart`, `Registry(log:)`, `LogScope.noop` unless given), the only part of rpc_dart it uses, held as rpc_dart holds it. Without one nothing is logged and nothing of it is made: every line is built behind its level's guard (`isDebug`, `isEnabled(level)`), false on `noop`, and the registry keeps no span and no trace of a message. Its parts log as children of that scope, so their levels are set apart: `calls`, `ticks`, `catalog`.
+
+- **Spans are telemetry, not log lines.** Every call its handler serves is a span, whatever the level (the logger lets spans past its level filter; `LogController.spansEnabled` turns them off). It opens with the command's name and carries the call's id (`call`), what it follows from (`parent`) and who calls; its params only when `calls` takes debug. It ends when the handler ends: `ok`, or `error` with what failed. A call that timed out gets a `timed out` event and stays open until its handler ends, then is marked `late`. A query is a span too.
+- **Traces follow causes.** A call whose cause's parent is a call still running is a child span of that call's; else its span starts a trace of its own, with a W3C trace id. Across a connection the call to a remote owner carries its span as a W3C `traceparent` (`WireServe.traceparent`), and the participant serves it in a child span of that one, in the host's trace (`startSpan(parent:)`). With the OTel bridge given `LogSpanIds`, the backend sees one trace across both. Inside an RPC handler a call's span is a child of the RPC's when the log's controller has `ambientParent: otelTraceparent`.
+- **What answers a message links it.** A call whose cause's parent is over by the time it is served (a fact, a call that ended) starts a trace of its own and links the span that said it (`startSpan(links:)`, an OTel span link): the registry keeps the trace of each fact said in a call's span, or following a message that had one, and of each call that ended, as many as ticks are retained. A viewer's chat line, the plugin's command that answers it: two traces, linked.
+- **Events by level, made only when taken.** A span keeps every event it is given, whatever the level, so an event is made only behind the level's guard: at debug, each write and fact made with the call's cause is an event of its span (`wrote`, `removed`, `said`). The handler gets the span, `call.span` (`ask.span`); without a log it is the one span of `LogScope.noop`, ended, taking nothing. It logs `call.span.event(...)`, an event whose message or data costs something behind `span.isEnabled(level)`; the span drops an event its level does not take. Passed explicitly, as causes are, never through zones.
+- **Messages are constant; what varies is in `data`** (`refused` with `command`, `code`, `reason`, `guard`, `by`, `id`), so a line is searched and counted by its fields. Each is made behind `isEnabled(level)`, so a level the logger does not take costs neither a string nor a map. Refusals are `info` (a refusal is an answer, not an error); an asked guard that could not answer is a `warning`; ticks are `debug` (`seq`, the states written, the facts said), the catalog `info` (`defined`, `removed`, `alias changed`; `kind changed` at debug), and every error that goes to `onError` an `error`.
 
 ## 10. Guards
 
@@ -220,19 +209,12 @@ addGuard(id, check, overridable = true) → handle
 
 - `check` is synchronous, reads committed state only, makes no calls, and returns nothing or a denial reason.
 - `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies.
-- Guards are asked for every call that reached stage 6, layer dispatches included.
+- Guards are asked for every call that reached stage 6.
 - A guard that throws counts as no denial; the error goes to the error sink.
 
 ## 11. Before hooks
 
-```
-addBefore(command, id, run, priority = 0, timeout) → handle
-```
-
-- Only for interceptable commands; `timeout` is required.
-- Hooks run one at a time, highest priority first. `run` is asynchronous and may make calls; those calls carry the hook's id in their chain, so the same hook never intercepts them.
-- A hook that times out or throws is abandoned; the call goes on. A hook cannot cancel the call or change its params: that is what guards are for.
-- **Hurry.** While a call is in its before stage, a new call of the same command with equal params from a principal allowed to override skips the remaining hooks of the waiting call and receives its result; it is not run twice.
+Removed: what should happen before or after a command is its owner's to do, or the host's rules on ticks and facts (§7). Guards (§10) say whether a call may go on.
 
 ## 12. The feed
 
@@ -248,13 +230,13 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 ## 17. Versions
 
-`describe` over remote carries the protocol version (now 2: calls answer their seq, `recent` was added); the registry's own `describe` does not. Exported layers, own states and link definitions carry a format version; the importer refuses a newer major version and migrates older ones.
+`describe` over remote carries the protocol version (now 2: calls answer their seq, `recent` was added); the registry's own `describe` does not. What a host exports in the registry's terms carries a format version; the importer refuses a newer major version and migrates older ones.
 
 ## 18. Typed words
 
-The registry keeps names and JSON, as links, remote and agents see it. A host names its words once, with their Dart types, and works through them; nothing else in its code types a name or a param key.
+The registry keeps names and JSON, as remote participants and agents see it. A host names its words once, with their Dart types, and works through them; nothing else in its code types a name or a param key.
 
-- **Words.** `IStateWord<T>` (name, shape, key kind), `ICommandWord<P, R>` (name, params as a `RecordShape<P>`, answer as a `Shape<R>` or none, then `R` is `void`), `IQueryWord<P, R>` (name, params, answer as a `Shape<R>`, always), `IFactWord<T>` (name, shape). A query is not a command in Dart: it is defined with `query(word).define(handler, askers:)` and asked with `.ask(params)`, never called, and where a command is wanted (a link's step) it does not fit. A host's enum of its words implements them; each value carries its own types (`enum ScenesCommand<P, R> implements ICommandWord<P, R> { show<({String scene}), void>(...) }`).
+- **Words.** `IStateWord<T>` (name, shape, key kind), `ICommandWord<P, R>` (name, params as a `RecordShape<P>`, answer as a `Shape<R>` or none, then `R` is `void`), `IQueryWord<P, R>` (name, params, answer as a `Shape<R>`, always), `IFactWord<T>` (name, shape). A query is not a command in Dart: it is defined with `query(word).define(handler, askers:)` and asked with `.ask(params)`, never called, and where a command is wanted it does not fit. A host's enum of its words implements them; each value carries its own types (`enum ScenesCommand<P, R> implements ICommandWord<P, R> { show<({String scene}), void>(...) }`).
 - **Shapes** say how a JSON value is a Dart one, and give the registry its type: `Plain(BoolType())` is a `Shape<bool>` (the value type's own Dart type: `ValueType<T>`), `EnumShape(values)` a Dart enum kept as its name, `ListShape(item)`, `RecordShape(fields, to:, from:)` an object as a record, its field names written beside the fields and nowhere else. `RecordShape.none` is the params of a command that takes none.
 - **More shapes:** `Nullable(shape)` for null or a value (a state whose "none" means something, such as every app), `MapShape(value)` for a map from text, and `UnionShape(key, {tag: RecordShape}, tagOf:, descriptions:)` for one of several objects as a sealed class. `Part(description:)` describes a field.
 - **A class that serializes itself** (json_serializable, freezed): `JsonShape(Order.fromJson, (o) => o.toJson(), type:)`. Its `type` (an `ObjectType` of its fields) lets the registry check writes and `describe` tell the shape; without one any object passes. `toJson` must give plain JSON all the way down (`explicitToJson: true`), or the write is refused with that said. A generator may make the `type` from the class's fields.

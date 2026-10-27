@@ -3,9 +3,12 @@ import 'dart:collection';
 
 import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
+import 'package:rpc_dart/logger.dart';
 
 import '../core/core.dart';
 
+export 'package:rpc_dart/logger.dart'
+    show LogScope, LogSpanHandle, LogSpanStatus, RpcLogLevel;
 export '../core/core.dart'
     show
         ICommandCaller,
@@ -36,16 +39,11 @@ typedef Availability = String? Function();
 /// committed state; makes no calls.
 typedef GuardCheck = String? Function(PendingCall call);
 
-/// Runs before an interceptable command (SPEC §11). [cause] is for the
-/// calls the hook makes: the intercepted call is its parent and the hook's
-/// id is in its chain, so the hook never intercepts its own calls.
-typedef BeforeHook = Future<void> Function(PendingCall call, Cause cause);
-
-/// Where errors of guards, hooks and timers go.
+/// Where errors of guards and timers go.
 typedef ErrorSink = void Function(Object error, StackTrace stack);
 
 /// What a query's handler tried that would change something (SPEC §6.6):
-/// a write, a fact, a layer, a command. Thrown where it was tried, so the
+/// a write, a fact, a command. Thrown where it was tried, so the
 /// query ends `failed` and nothing changed.
 final class QueryEffect extends StateError {
   QueryEffect(this.query, this.tried)
@@ -83,8 +81,9 @@ final class CommandCall {
     this.command,
     this.params,
     this.cause,
-    this.expired,
-  );
+    this.expired, {
+    LogSpanHandle? span,
+  }) : _span = span;
 
   final String id;
   final String command;
@@ -101,20 +100,23 @@ final class CommandCall {
   final Future<void> expired;
 
   /// The cause of what the handler does on behalf of [by]: nested calls
-  /// and writes. Its parent is this call; the chain and the test mark
-  /// carry over.
+  /// and writes. Its parent is this call.
   Cause causeFor(Principal by) => cause.child(id, by: by);
+
+  /// The span of this call in the registry's log (SPEC §9.2): what the
+  /// handler logs in it, events and spans of its own, goes with the call
+  /// and its trace. Without a log it is `LogScope.noop`'s, ended and
+  /// keeping nothing; an event whose message or data costs something is
+  /// built behind `span.isEnabled(level)`, false then.
+  LogSpanHandle get span => _span ?? _noSpan;
+  final LogSpanHandle? _span;
 }
 
-/// A call on its way, as guards and before hooks see it.
+final LogSpanHandle _noSpan = LogScope.noop.startSpan('');
+
+/// A call on its way, as guards see it.
 final class PendingCall {
-  const PendingCall(
-    this.id,
-    this.command,
-    this.params,
-    this.cause, {
-    required this.layerDispatch,
-  });
+  const PendingCall(this.id, this.command, this.params, this.cause);
 
   final String id;
 
@@ -122,9 +124,6 @@ final class PendingCall {
   final CallableDescriptor command;
   final Map<String, Object?> params;
   final Cause cause;
-
-  /// The registry made it to apply a layer.
-  final bool layerDispatch;
 
   Principal get by => cause.by;
 }
@@ -154,48 +153,6 @@ final class KindChanged extends CatalogChange {
 final class AliasChanged extends CatalogChange {
   const AliasChanged(this.alias);
   final String alias;
-}
-
-/// What a part says it owns and uses came, changed or went (SPEC §6.7).
-final class DeclarationChanged extends CatalogChange {
-  const DeclarationChanged(this.by);
-  final Principal by;
-}
-
-/// What a part says of itself (SPEC §6.7): the words it owns and the words
-/// of others it uses, each required or not. Told, not enforced: what it
-/// may define its namespaces say; what it may use, the words' readers and
-/// callers.
-final class Declaration {
-  const Declaration({this.owns = const {}, this.uses = const {}});
-
-  factory Declaration.fromJson(Object? json) {
-    final m = (json! as Map).cast<String, Object?>();
-    return Declaration(
-      owns: {...(m['owns'] as List? ?? const []).cast<String>()},
-      uses: {
-        for (final MapEntry(:key, :value)
-            in (m['uses'] as Map? ?? const {}).entries)
-          key as String: value == 'required',
-      },
-    );
-  }
-
-  final Set<String> owns;
-
-  /// Each word it uses, and whether it is required.
-  final Map<String, bool> uses;
-
-  bool get isEmpty => owns.isEmpty && uses.isEmpty;
-
-  Map<String, Object?> toJson() => {
-    if (owns.isNotEmpty) 'owns': [...owns],
-    if (uses.isNotEmpty)
-      'uses': {
-        for (final MapEntry(:key, :value) in uses.entries)
-          key: value ? 'required' : 'optional',
-      },
-  };
 }
 
 /// The only write handle of a state: the registry's own, or a remote
@@ -316,24 +273,6 @@ final class _Disposer implements IHandle {
   }
 }
 
-/// A layer a participant holds (SPEC §8).
-final class LayerHandle implements IHandle {
-  LayerHandle._(this._r, this.id, this.state, this.key);
-
-  final Registry _r;
-  final String id;
-  final String state;
-  final String? key;
-
-  /// Whether the layer is still there.
-  bool get active => _r._layerById.containsKey(id);
-
-  @override
-  void dispose() => _r._dropLayer(id, LayerOutcome.removed);
-}
-
-typedef _Target = (String state, String? key);
-
 final class _StateEntry {
   _StateEntry(this.descriptor, this.cell) : writer = cell.claim();
   final StateDescriptor descriptor;
@@ -342,7 +281,6 @@ final class _StateEntry {
   /// cell's only writer.
   final KeyedCell<String?, Object?> cell;
   final KeyedCellWriter<String?, Object?> writer;
-  String? setter;
 }
 
 final class _CommandEntry {
@@ -351,14 +289,6 @@ final class _CommandEntry {
   /// A command's or a query's: both are called through the same stages.
   final CallableDescriptor descriptor;
 
-  Sets? get sets => switch (descriptor) {
-    CommandDescriptor(:final sets) => sets,
-    QueryDescriptor() => null,
-  };
-  bool get interceptable => switch (descriptor) {
-    CommandDescriptor(:final interceptable) => interceptable,
-    QueryDescriptor() => false,
-  };
   bool get query => descriptor is QueryDescriptor;
   final Port<CommandCall, Object?> port;
   final IHandle serving;
@@ -386,76 +316,7 @@ final class _Guard {
   final bool overridable;
 }
 
-final class _Hook {
-  _Hook(this.id, this.run, this.priority, this.timeout, this.order);
-  final String id;
-  final BeforeHook run;
-  final int priority;
-  final Duration timeout;
-  final int order;
-}
-
-/// A call waiting in its before stage, which a hurry may join (SPEC §11).
-final class _Waiting {
-  _Waiting(this.params, this.hooks);
-  final Map<String, Object?> params;
-
-  /// The ids of the hooks it may run, so their own calls do not join it.
-  final List<String> hooks;
-  final Completer<void> hurry = Completer();
-  final Completer<CallResult<Object?>> result = Completer();
-}
-
-final class _Layer {
-  _Layer({
-    required this.id,
-    required this.target,
-    required this.owner,
-    required this.by,
-    required this.value,
-    required this.priority,
-    required this.order,
-    required this.chain,
-    this.expiresAt,
-    this.claimed = true,
-  });
-
-  final String id;
-  final _Target target;
-  final String owner;
-  final Principal by;
-  final Object? value;
-  final int priority;
-  final int order;
-  final List<String> chain;
-  final DateTime? expiresAt;
-  bool claimed;
-  Timer? timer;
-}
-
-final class _Stack {
-  final List<_Layer> layers = [];
-  bool hasBase = false;
-  Object? base;
-
-  /// Calls dispatching a layer's value now; writes they cause are echoes.
-  final Set<String> inflight = {};
-
-  _Layer? get top {
-    _Layer? best;
-    for (final l in layers) {
-      if (best == null ||
-          l.priority > best.priority ||
-          (l.priority == best.priority && l.order > best.order)) {
-        best = l;
-      }
-    }
-    return best;
-  }
-}
-
-/// The registry: the vocabulary, its values, calls, guards, before hooks,
-/// layers and the feed (SPEC §§5–12).
+/// The registry: the vocabulary, its values, calls, guards and the feed (SPEC §§5–12).
 ///
 /// One isolate, one writer: every commit happens here in order, so seq is a
 /// total order. Participants hold handles and never each other.
@@ -465,13 +326,18 @@ final class Registry implements ITypeContext {
     this.retainTicks = 1000,
     this.recentPerFact = 100,
     this.retainBytes = 4 << 20,
-    this.claimGrace = const Duration(seconds: 30),
     Set<String> overriders = const {},
     Clock? clock,
     ErrorSink? onError,
+    LogScope? log,
   }) : clock = clock ?? clock_zone.clock,
        overriders = Set.unmodifiable(overriders),
-       _onError = onError ?? Zone.current.handleUncaughtError,
+       log = log ?? LogScope.noop,
+       _traced = log != null && !identical(log, LogScope.noop),
+       _callLog = (log ?? LogScope.noop).child('calls'),
+       _tickLog = (log ?? LogScope.noop).child('ticks'),
+       _catalogLog = (log ?? LogScope.noop).child('catalog'),
+       _onError = _logged(log, onError ?? Zone.current.handleUncaughtError),
        epoch = newId() {
     _hub = Hub(onCommit: _committed);
   }
@@ -495,11 +361,7 @@ final class Registry implements ITypeContext {
   /// resumes from a snapshot. Values are weighed as their JSON, roughly.
   final int retainBytes;
 
-  /// How long imported layers wait to be claimed (SPEC §8).
-  final Duration claimGrace;
-
-  /// The principal kinds that may override a guard's overridable denial and
-  /// hurry an interceptable call.
+  /// The principal kinds that may override a guard's overridable denial.
   final Set<String> overriders;
 
   /// This registry's run; seq counts within it.
@@ -510,6 +372,27 @@ final class Registry implements ITypeContext {
   final Clock clock;
 
   final ErrorSink _onError;
+
+  /// Where the registry logs (SPEC §9.2): a span for every call its
+  /// handler serves, whatever the level, and refusals, ticks, the
+  /// catalog's changes and errors, by level. `LogScope.noop` unless given:
+  /// then nothing is logged, and nothing of it is made. Its parts log as
+  /// its children: `calls`, `ticks`, `catalog`.
+  final LogScope log;
+  final LogScope _callLog;
+  final LogScope _tickLog;
+  final LogScope _catalogLog;
+
+  /// Whether it has a log to keep spans and traces for.
+  final bool _traced;
+
+  static ErrorSink _logged(LogScope? log, ErrorSink sink) =>
+      log == null || identical(log, LogScope.noop)
+      ? sink
+      : (e, s) {
+          log.error('error', error: e, stackTrace: s);
+          sink(e, s);
+        };
 
   /// The seq of the last commit.
   int get seq => _hub.seq;
@@ -527,6 +410,24 @@ final class Registry implements ITypeContext {
   final StreamController<CatalogChange> _catalog = StreamController.broadcast();
 
   void _announce(CatalogChange c) {
+    switch (c) {
+      case DescriptorAdded(:final descriptor):
+        if (_catalogLog.isEnabled(RpcLogLevel.info)) {
+          _catalogLog.info('defined', data: {'word': descriptor.name});
+        }
+      case DescriptorRemoved(:final descriptor):
+        if (_catalogLog.isEnabled(RpcLogLevel.info)) {
+          _catalogLog.info('removed', data: {'word': descriptor.name});
+        }
+      case AliasChanged(:final alias):
+        if (_catalogLog.isEnabled(RpcLogLevel.info)) {
+          _catalogLog.info('alias changed', data: {'alias': alias});
+        }
+      case KindChanged(:final kind):
+        if (_catalogLog.isDebug) {
+          _catalogLog.debug('kind changed', data: {'kind': kind});
+        }
+    }
     if (!_catalog.isClosed) _catalog.add(c);
   }
 
@@ -633,9 +534,6 @@ final class Registry implements ITypeContext {
     return out.stream;
   }
 
-  /// The command that sets [state], if there is one.
-  String? setterOf(String state) => _states[canonical(state)]?.setter;
-
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
   /// answers its first result, the descriptors and the entity kinds.
   Map<String, Object?> describe() => {
@@ -645,11 +543,6 @@ final class Registry implements ITypeContext {
     'descriptors': [for (final d in catalog) d.toJson()],
     'kinds': [for (final k in _kinds.values) k.toJson()],
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
-    if (_declared.isNotEmpty)
-      'declared': {
-        for (final MapEntry(:key, :value) in _declared.entries)
-          key.selector: value.toJson(),
-      },
   };
 
   /// Whether [by] may read state [name]'s values, or hear fact [name], over
@@ -705,27 +598,6 @@ final class Registry implements ITypeContext {
   /// The entities of [kind] changed.
   void entitiesChanged(String kind) => _announce(KindChanged(kind));
 
-  final Map<Principal, Declaration> _declared = {};
-
-  /// What each part says it owns and uses (SPEC §6.7).
-  Map<Principal, Declaration> get declarations => Map.unmodifiable(_declared);
-
-  /// Takes [d] as what [by] says of itself, in place of what it said
-  /// before; withdrawn with the handle.
-  IHandle declare(Principal by, Declaration d) {
-    for (final name in [...d.owns, ...d.uses.keys]) {
-      checkWordName(name);
-    }
-    _declared[by] = d;
-    _announce(DeclarationChanged(by));
-    return _Disposer(() {
-      if (_declared[by] == d) {
-        _declared.remove(by);
-        _announce(DeclarationChanged(by));
-      }
-    });
-  }
-
   /// Registers the host's type [name] with its checker (SPEC §2).
   IHandle registerType(String name, String? Function(Object? value) check) {
     checkName(name, 'type');
@@ -767,8 +639,8 @@ final class Registry implements ITypeContext {
   String canonical(String name) => _aliases[name] ?? name;
 
   /// Makes [old] another name of the word [now] (SPEC §6.4): a word
-  /// renamed goes on answering to its old name, in calls, reads, facts and
-  /// links, so what names it (the user's links, a plugin) keeps working.
+  /// renamed goes on answering to its old name, in calls, reads and facts,
+  /// so what names it (a plugin, an agent, a stored call) keeps working.
   /// `describe` lists it under `aliases`. Dispose the handle to drop it.
   IHandle alias(String old, String now) {
     checkWordName(old, 'old');
@@ -797,12 +669,8 @@ final class Registry implements ITypeContext {
   RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
     _checkFree(d.name);
     final cell = KeyedCell<String?, Object?>(hub: _hub, equals: jsonEquals);
-    final e = _StateEntry(d, cell);
     _names[cell] = d.name;
-    for (final c in _commands.values) {
-      if (c.sets?.state == d.name) e.setter = c.descriptor.name;
-    }
-    _states[d.name] = e;
+    _states[d.name] = _StateEntry(d, cell);
     _announce(DescriptorAdded(d));
     return RawStateWriter._(this, d, by);
   }
@@ -814,18 +682,6 @@ final class Registry implements ITypeContext {
     Availability? available,
   }) {
     _checkFree(d.name);
-    if (d.sets case final s?) {
-      final st = _states[s.state];
-      if (st != null && st.setter != null) {
-        throw StateError('${s.state} already has a setter, ${st.setter}');
-      }
-      for (final c in _commands.values) {
-        if (c.sets?.state == s.state) {
-          throw StateError('${s.state} already has a setter');
-        }
-      }
-      st?.setter = d.name;
-    }
     final port = Port<CommandCall, Object?>();
     _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
     _announce(DescriptorAdded(d));
@@ -879,28 +735,9 @@ final class Registry implements ITypeContext {
       // Inside an outer batch, its removes go with the state, uncommitted.
       s.cell.close();
       _names.remove(s.cell);
-      for (final t in [..._stacks.keys]) {
-        if (t.$1 == name) _orphan(t);
-      }
       _announce(DescriptorRemoved(s.descriptor));
     } else if (_commands.remove(name) case final c?) {
       c.serving.dispose();
-      if (c.sets case final s?) {
-        _states[s.state]?.setter = null;
-        for (final t in [..._stacks.keys]) {
-          if (t.$1 == s.state) _orphan(t);
-        }
-      }
-      for (final w in _waiting[name] ?? const <_Waiting>[]) {
-        if (!w.result.isCompleted) {
-          w.result.complete(
-            CallRefused(Refusal.unknownCommand, '$name is gone'),
-          );
-        }
-        if (!w.hurry.isCompleted) w.hurry.complete();
-      }
-      _waiting.remove(name);
-      _hooks.remove(name);
       _announce(DescriptorRemoved(c.descriptor));
     } else if (_facts.remove(name) case final f?) {
       f.signal.close();
@@ -954,6 +791,53 @@ final class Registry implements ITypeContext {
     }
   }
 
+  /// Logs [t]: in brief at debug, and each write and fact made in reply to
+  /// a call as an event of the call's span.
+  void _logTick(Tick t) {
+    // A fact said in a call's span, or following a message that had one,
+    // is in that trace: what answers it links there.
+    if (_traced) {
+      for (final f in t.facts) {
+        final p = f.cause.parent;
+        if (_spans[p]?.traceparent ?? _traces[p] case final tp?) {
+          _rememberTrace(f.id, tp);
+        }
+      }
+    }
+    String what(StateChange c) =>
+        c.key == null ? c.state : '${c.state}[${c.key}]';
+    if (_tickLog.isDebug) {
+      _tickLog.debug(
+        'tick',
+        data: {
+          'seq': t.to,
+          'changes': [for (final c in t.changes) what(c)],
+          'facts': [for (final f in t.facts) f.fact],
+        },
+      );
+    }
+    if (_spans.isEmpty || !_callLog.isDebug) return;
+    for (final c in t.changes) {
+      _spans[c.cause.parent]?.event(
+        c.removed ? 'removed' : 'wrote',
+        level: RpcLogLevel.debug,
+        data: {
+          'state': c.state,
+          'key': ?c.key,
+          'by': c.cause.by.selector,
+          'seq': c.seq,
+        },
+      );
+    }
+    for (final f in t.facts) {
+      _spans[f.cause.parent]?.event(
+        'said',
+        level: RpcLogLevel.debug,
+        data: {'fact': f.fact, 'by': f.cause.by.selector, 'seq': f.seq},
+      );
+    }
+  }
+
   /// Turns what the hub committed into the registry's tick: names, ids,
   /// causes and the time.
   void _committed(HubTick t) {
@@ -991,6 +875,7 @@ final class Registry implements ITypeContext {
       changes: List.unmodifiable(changes),
       facts: List.unmodifiable(committed),
     );
+    _logTick(tick);
     var weight = 0;
     for (final c in changes) {
       weight += jsonWeight(c.value) + jsonWeight(c.previous);
@@ -1016,9 +901,6 @@ final class Registry implements ITypeContext {
       }
     }
     if (!_ticks.isClosed) _ticks.add(tick);
-    for (final c in changes) {
-      _checkOverride(c);
-    }
   }
 
   // --- Reading ---------------------------------------------------------------
@@ -1185,13 +1067,20 @@ final class Registry implements ITypeContext {
 
   final LinkedHashMap<String, _Seen> _calls = LinkedHashMap();
   final Map<String, _Guard> _guards = {};
-  final Map<String, List<_Hook>> _hooks = {};
-  final Map<String, List<_Waiting>> _waiting = {};
-  int _hookOrder = 0;
   final StreamController<CallRecord> _records = StreamController.broadcast();
+  final StreamController<CallStarted> _starts = StreamController.broadcast();
+  final Map<String, CallStarted> _running = {};
 
   /// Every finished call (SPEC §9).
   Stream<CallRecord> get calls => _records.stream;
+
+  /// Every call whose handler begins, as it begins (SPEC §9); its end comes
+  /// on [calls]. A query is not told, as it is not recorded.
+  Stream<CallStarted> get callStarts => _starts.stream;
+
+  /// The calls whose handlers run now, oldest first: one that timed out
+  /// too, until its handler ends.
+  List<CallStarted> get running => List.unmodifiable(_running.values);
 
   final LinkedHashMap<String, CallRecord> _recentCalls = LinkedHashMap();
   int _recentCallBytes = 0;
@@ -1248,10 +1137,6 @@ final class Registry implements ITypeContext {
       forgotten: change == null && _forgotTicks,
       trail: trail,
       trailCut: cut,
-      layers: [
-        for (final l in layers())
-          if (l.state == state && l.key == key) l,
-      ],
     );
   }
 
@@ -1269,7 +1154,7 @@ final class Registry implements ITypeContext {
 
   /// Calls [command] on behalf of [by] (SPEC §9). A repeated [id] within
   /// the dedup window answers the first call's result without running it
-  /// again. A call made by a handler or a hook passes [cause]; without it,
+  /// again. A call made by a handler passes [cause]; without it,
   /// the call starts a new chain.
   Future<CallResult<Object?>> call(
     String command,
@@ -1292,7 +1177,6 @@ final class Registry implements ITypeContext {
         params,
         cause ?? Cause(by),
         override: override,
-        layer: null,
         record: false,
       );
     }
@@ -1319,7 +1203,6 @@ final class Registry implements ITypeContext {
       params,
       cause ?? Cause(by),
       override: override,
-      layer: null,
     );
     _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
     return result;
@@ -1331,15 +1214,28 @@ final class Registry implements ITypeContext {
     Map<String, Object?> rawParams,
     Cause cause, {
     required bool override,
-    required _Target? layer,
     bool record = true,
   }) async {
     final started = clock.now();
     final overridden = <String>[];
-    final hooksRan = <String>[];
     var params = rawParams;
 
     CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
+      if (r case CallRefused(:final code, :final reason, :final guard)) {
+        if (_callLog.isEnabled(RpcLogLevel.info)) {
+          _callLog.info(
+            'refused',
+            data: {
+              'command': command,
+              'code': code.name,
+              'id': id,
+              'by': cause.by.selector,
+              'reason': reason,
+              'guard': ?guard,
+            },
+          );
+        }
+      }
       if (record && !_records.isClosed) {
         _remember(
           CallRecord(
@@ -1349,8 +1245,6 @@ final class Registry implements ITypeContext {
             cause: cause,
             result: r,
             overridden: overridden,
-            hooks: hooksRan,
-            layerDispatch: layer != null,
             started: started,
             finished: clock.now(),
             late: late,
@@ -1376,24 +1270,10 @@ final class Registry implements ITypeContext {
         CallRefused(Refusal.notPermitted, '${cause.by} may not call $command'),
       );
     }
-    if (overriders.contains(cause.by.kind)) {
-      for (final w in _waiting[command] ?? const <_Waiting>[]) {
-        if (jsonEquals(w.params, params) && !w.hooks.any(cause.came)) {
-          if (!w.hurry.isCompleted) w.hurry.complete();
-          return w.result.future;
-        }
-      }
-    }
     if (entry.available?.call() case final why?) {
       return finish(CallRefused(Refusal.unavailable, why));
     }
-    final pending = PendingCall(
-      id,
-      d,
-      params,
-      cause,
-      layerDispatch: layer != null,
-    );
+    final pending = PendingCall(id, d, params, cause);
     for (final g in [..._guards.values]) {
       String? why;
       if (g.ask case final ask?) {
@@ -1403,6 +1283,13 @@ final class Registry implements ITypeContext {
           why = await ask(pending).timeout(g.timeout!);
         } on Object catch (e) {
           why = 'its guard ${g.id} could not be asked: $e';
+          if (_callLog.isEnabled(RpcLogLevel.warning)) {
+            _callLog.warning(
+              'guard could not be asked',
+              error: e,
+              data: {'guard': g.id, 'command': command, 'id': id},
+            );
+          }
         }
       } else {
         try {
@@ -1426,47 +1313,9 @@ final class Registry implements ITypeContext {
       );
     }
 
-    final hooks = entry.interceptable ? [...?_hooks[command]] : const <_Hook>[];
-    _Waiting? waiting;
-    if (hooks.isNotEmpty) {
-      hooks.sort(
-        (a, b) => a.priority != b.priority
-            ? b.priority.compareTo(a.priority)
-            : a.order.compareTo(b.order),
-      );
-      waiting = _Waiting(params, [for (final h in hooks) h.id]);
-      (_waiting[command] ??= []).add(waiting);
-      for (final h in hooks) {
-        if (waiting.hurry.isCompleted || waiting.result.isCompleted) break;
-        if (cause.came(h.id)) continue;
-        if (_hooks[command]?.contains(h) != true) continue;
-        hooksRan.add(h.id);
-        final hookCause = Cause(
-          cause.by,
-          parent: id,
-          chain: [...cause.chain, h.id],
-          test: cause.test,
-        );
-        try {
-          await Future.any([
-            h.run(pending, hookCause).timeout(h.timeout),
-            waiting.hurry.future,
-          ]);
-        } catch (e, s) {
-          if (e is! TimeoutException) _onError(e, s);
-        }
-      }
-      _waiting[command]?.remove(waiting);
-      if (waiting.result.isCompleted) {
-        return finish(await waiting.result.future);
-      }
-    }
-
-    final current = _commands[command];
-    if (current != entry) {
-      final r = CallRefused(Refusal.unknownCommand, '$command is gone');
-      waiting?.result.complete(r);
-      return finish(r);
+    // An asked guard may take a while: the command may be gone by now.
+    if (_commands[command] != entry) {
+      return finish(CallRefused(Refusal.unknownCommand, '$command is gone'));
     }
 
     CallResult<Object?> answered(Object? answer) {
@@ -1480,17 +1329,27 @@ final class Registry implements ITypeContext {
       return const CallDone(null);
     }
 
-    void explicit(CallResult<Object?> r) {
-      if (!r.ok || layer != null) return;
-      if (entry.sets case final s?) {
-        final key = s.key == null ? null : params[s.key] as String?;
-        _explicitSet((s.state, key), params[s.value]);
-      }
-    }
-
-    if (layer != null) _stacks[layer]?.inflight.add(id);
     final expired = Completer<void>();
-    final served = CommandCall(id, command, params, cause, expired.future);
+    final span = _open(id, command, params, cause, query: entry.query);
+    final served = CommandCall(
+      id,
+      command,
+      params,
+      cause,
+      expired.future,
+      span: span,
+    );
+    if (record) {
+      final s = CallStarted(
+        id: id,
+        command: command,
+        params: params,
+        cause: cause,
+        started: started,
+      );
+      _running[id] = s;
+      if (!_starts.isClosed) _starts.add(s);
+    }
     final work = Future.sync(
       () => entry.query
           ? asQuery(command, () => entry.port.call(served))
@@ -1502,25 +1361,91 @@ final class Registry implements ITypeContext {
     } on TimeoutException {
       result = const CallTimedOut();
       expired.complete();
+      span.event('timed out', level: RpcLogLevel.warning);
       // The handler goes on: its end is recorded as late, and a retry with
       // the call's id answers it.
       unawaited(
         work.then(answered, onError: (Object e) => CallFailed(e)).then((r) {
-          explicit(r);
           if (_calls[id] case final c?) {
             c.result = Future.value(r);
           }
+          _running.remove(id);
+          _close(id, span, r, late: true);
           finish(r, late: true);
         }),
       );
     } catch (e) {
       result = CallFailed(e);
-    } finally {
-      if (layer != null) _stacks[layer]?.inflight.remove(id);
     }
-    explicit(result);
-    waiting?.result.complete(result);
+    if (result is! CallTimedOut) {
+      _running.remove(id);
+      _close(id, span, result);
+    }
     return finish(result);
+  }
+
+  /// The spans of the calls whose handlers run now, by call id.
+  final Map<String, LogSpanHandle> _spans = {};
+
+  /// Opens the span of a call its handler begins to serve: a child of the
+  /// span of the call it follows from, if that one still runs, else the
+  /// first of a trace named by what it follows from, or by itself.
+  LogSpanHandle _open(
+    String id,
+    String command,
+    Map<String, Object?> params,
+    Cause cause, {
+    required bool query,
+  }) {
+    if (!_traced) return _noSpan;
+    final log = _callLog;
+    final data = <String, Object>{
+      'call': id,
+      'parent': ?cause.parent,
+      'by': cause.by.selector,
+      if (query) 'query': true,
+      if (log.isDebug) 'params': params,
+    };
+    final span = switch (_spans[cause.parent]) {
+      final parent? => parent.startSpan(command, data: data),
+      // What it follows from is over (a fact said, a call that ended): it
+      // starts a trace of its own, linked to that one.
+      null => log.startSpan(
+        command,
+        data: data,
+        links: [?_traces[cause.parent]],
+      ),
+    };
+    _spans[id] = span;
+    return span;
+  }
+
+  /// The trace of each message a span may follow from once its own span is
+  /// over: facts said in a call's span, calls that ended. As many as ticks
+  /// are retained.
+  final LinkedHashMap<String, String> _traces = LinkedHashMap();
+
+  void _rememberTrace(String message, String traceparent) {
+    _traces[message] = traceparent;
+    if (_traces.length > retainTicks) _traces.remove(_traces.keys.first);
+  }
+
+  void _close(
+    String id,
+    LogSpanHandle span,
+    CallResult<Object?> r, {
+    bool late = false,
+  }) {
+    if (!_traced) return;
+    _spans.remove(id);
+    if (span.traceparent case final tp?) _rememberTrace(id, tp);
+    if (late) span.addData({'late': true});
+    switch (r) {
+      case CallFailed(:final error):
+        span.end(status: LogSpanStatus.error, error: error);
+      case _:
+        span.end();
+    }
   }
 
   /// Adds a guard (SPEC §10), asked for every call in the order guards
@@ -1551,352 +1476,17 @@ final class Registry implements ITypeContext {
     });
   }
 
-  /// Adds a before hook to the interceptable [command] (SPEC §11).
-  IHandle addBefore(
-    String command,
-    String id,
-    BeforeHook run, {
-    int priority = 0,
-    required Duration timeout,
-  }) {
-    final c = _commands[command];
-    if (c == null) throw StateError('no command $command');
-    if (!c.interceptable) {
-      throw StateError('$command is not interceptable');
-    }
-    final list = _hooks.putIfAbsent(command, () => []);
-    if (list.any((h) => h.id == id)) throw StateError('hook $id exists');
-    final h = _Hook(id, run, priority, timeout, _hookOrder++);
-    list.add(h);
-    return _Disposer(() => _hooks[command]?.remove(h));
-  }
-
-  // --- Layers ----------------------------------------------------------------
-
-  final Map<_Target, _Stack> _stacks = {};
-  final Map<String, _Layer> _layerById = {};
-  final StreamController<LayerEvent> _layerEvents =
-      StreamController.broadcast();
-  int _layerOrder = 0;
-  Timer? _graceTimer;
-
-  /// What happened to layers: dropped, refused (SPEC §8).
-  Stream<LayerEvent> get layerEvents => _layerEvents.stream;
-
-  /// The value [state] (of [key]) is held at by layers, or its base;
-  /// `(has: false)` when neither is known.
-  ({bool has, Object? value}) effective(String state, {String? key}) {
-    final s = _stacks[(state, key)];
-    if (s == null || s.layers.isEmpty) {
-      return (has: has(state, key: key), value: read(state, key: key));
-    }
-    return (has: true, value: s.top!.value);
-  }
-
-  /// Holds [state] (of [key]) at [value] for [owner] (SPEC §8).
-  LayerHandle pushLayer(
-    String state, {
-    String? key,
-    required Object? value,
-    required String owner,
-    required Principal by,
-    int priority = 0,
-    Duration? ttl,
-    List<String> chain = const [],
-  }) {
-    refuseInQuery('hold $state');
-    state = canonical(state);
-    final e = _states[state];
-    if (e == null) throw StateError('no state $state');
-    if (e.setter == null) throw StateError('$state has no setter');
-    _checkKey(e.descriptor, key);
-    final v = freezeJson(e.descriptor.type.check(value, this));
-    final layer = _Layer(
-      id: newId(),
-      target: (state, key),
-      owner: owner,
-      by: by,
-      value: v,
-      priority: priority,
-      order: _layerOrder++,
-      chain: chain,
-      expiresAt: ttl == null ? null : clock.now().add(ttl),
-    );
-    _addLayer(layer);
-    _resolve(layer.target);
-    return LayerHandle._(this, layer.id, state, key);
-  }
-
-  void _addLayer(_Layer layer, {Object? base, bool? hasBase}) {
-    final stack = _stacks.putIfAbsent(layer.target, _Stack.new);
-    if (stack.layers.isEmpty && !stack.hasBase) {
-      if (hasBase ?? has(layer.target.$1, key: layer.target.$2)) {
-        stack.hasBase = true;
-        stack.base = hasBase == null
-            ? read(layer.target.$1, key: layer.target.$2)
-            : base;
-      }
-    }
-    stack.layers.add(layer);
-    _layerById[layer.id] = layer;
-    if (layer.expiresAt case final at?) {
-      final left = at.difference(clock.now());
-      layer.timer = Timer(
-        left.isNegative ? Duration.zero : left,
-        () => _dropLayer(layer.id, LayerOutcome.expired),
-      );
-    }
-  }
-
-  void _dropLayer(String id, LayerOutcome outcome, {String? reason}) {
-    final layer = _layerById.remove(id);
-    if (layer == null) return;
-    layer.timer?.cancel();
-    final stack = _stacks[layer.target];
-    stack?.layers.remove(layer);
-    _event(layer, outcome, reason);
-    _resolve(layer.target);
-  }
-
-  void _event(_Layer l, LayerOutcome outcome, String? reason) {
-    if (_layerEvents.isClosed) return;
-    _layerEvents.add(
-      LayerEvent(
-        layer: l.id,
-        owner: l.owner,
-        state: l.target.$1,
-        key: l.target.$2,
-        outcome: outcome,
-        reason: reason,
-      ),
-    );
-  }
-
-  /// Dispatches the effective value of [t] when it differs from the value
-  /// there is.
-  void _resolve(_Target t) {
-    final stack = _stacks[t];
-    if (stack == null) return;
-    final setter = _states[t.$1]?.setter;
-    if (stack.layers.isEmpty) {
-      _stacks.remove(t);
-      if (setter != null &&
-          stack.hasBase &&
-          !jsonEquals(read(t.$1, key: t.$2), stack.base)) {
-        _dispatch(t, setter, stack.base, Principal.system, const [], null);
-      }
-      return;
-    }
-    if (setter == null) return;
-    final top = stack.top!;
-    if (has(t.$1, key: t.$2) && jsonEquals(read(t.$1, key: t.$2), top.value)) {
-      return;
-    }
-    _dispatch(t, setter, top.value, top.by, [...top.chain, top.owner], top);
-  }
-
-  void _dispatch(
-    _Target t,
-    String setter,
-    Object? value,
-    Principal by,
-    List<String> chain,
-    _Layer? layer,
-  ) {
-    final sets = _commands[setter]?.sets;
-    if (sets == null) return;
-    final params = <String, Object?>{sets.value: value, ?sets.key: t.$2};
-    _run(
-      newId(),
-      setter,
-      params,
-      Cause(by, chain: chain),
-      override: false,
-      layer: t,
-    ).then((r) {
-      if (r is CallRefused && layer != null && _layerById[layer.id] != null) {
-        _event(layer, LayerOutcome.refused, r.reason);
-      }
-    });
-  }
-
-  /// An explicit set of [t] succeeded: [value] is the new base, layers go.
-  void _explicitSet(_Target t, Object? value) {
-    final stack = _stacks[t];
-    if (stack == null || stack.layers.isEmpty) return;
-    _stacks.remove(t);
-    for (final l in [...stack.layers]) {
-      _layerById.remove(l.id);
-      l.timer?.cancel();
-      _event(l, LayerOutcome.overridden, null);
-    }
-  }
-
-  /// A committed change that is not an echo of a dispatch and differs from
-  /// the layers' value clears them (SPEC §8).
-  void _checkOverride(StateChange c) {
-    final t = (c.state, c.key);
-    final stack = _stacks[t];
-    if (stack == null || stack.layers.isEmpty) return;
-    if (c.cause.parent != null && stack.inflight.contains(c.cause.parent)) {
-      return;
-    }
-    if (!c.removed && jsonEquals(c.value, stack.top!.value)) return;
-    _explicitSet(t, c.value);
-  }
-
-  void _orphan(_Target t) {
-    final stack = _stacks.remove(t);
-    if (stack == null) return;
-    for (final l in stack.layers) {
-      _layerById.remove(l.id);
-      l.timer?.cancel();
-      _event(l, LayerOutcome.orphaned, null);
-    }
-  }
-
-  /// The layers there are, to restore after a restart (SPEC §8).
-  Map<String, Object?> exportLayers() => {
-    'version': 1,
-    'stacks': [
-      for (final MapEntry(key: t, value: s) in _stacks.entries)
-        if (s.layers.isNotEmpty)
-          {
-            'state': t.$1,
-            'key': ?t.$2,
-            if (s.hasBase) 'base': s.base,
-            'hasBase': s.hasBase,
-            'layers': [
-              for (final l in s.layers)
-                {
-                  'id': l.id,
-                  'owner': l.owner,
-                  'by': l.by.toJson(),
-                  'value': l.value,
-                  'priority': l.priority,
-                  'order': l.order,
-                  if (l.chain.isNotEmpty) 'chain': l.chain,
-                  if (l.expiresAt case final at?)
-                    'expiresAt': at.toUtc().millisecondsSinceEpoch,
-                },
-            ],
-          },
-    ],
-  };
-
-  /// Restores exported layers, unclaimed: owners [claim] them within
-  /// [claimGrace], or they go (SPEC §8). Expired ones are dropped now.
-  void importLayers(Map<String, Object?> json) {
-    final version = json['version'] as int? ?? 0;
-    if (version > 1) throw FormatException('layers of version $version');
-    final now = clock.now();
-    final touched = <_Target>{};
-    for (final s in json['stacks'] as List? ?? const []) {
-      final m = s as Map;
-      final t = (m['state'] as String, m['key'] as String?);
-      final e = _states[t.$1];
-      if (e == null || e.setter == null) continue;
-      for (final raw in m['layers'] as List) {
-        final l = raw as Map;
-        final exp = l['expiresAt'] as int?;
-        final expiresAt = exp == null
-            ? null
-            : DateTime.fromMillisecondsSinceEpoch(exp, isUtc: true);
-        if (expiresAt != null && !expiresAt.isAfter(now)) continue;
-        Object? value;
-        try {
-          value = freezeJson(e.descriptor.type.check(l['value'], this));
-        } on TypeMismatch {
-          continue;
-        }
-        final order = l['order'] as int? ?? 0;
-        if (order >= _layerOrder) _layerOrder = order + 1;
-        _addLayer(
-          _Layer(
-            id: l['id'] as String,
-            target: t,
-            owner: l['owner'] as String,
-            by: Principal.fromJson(l['by']),
-            value: value,
-            priority: l['priority'] as int? ?? 0,
-            order: order,
-            chain: [
-              for (final c in l['chain'] as List? ?? const []) c as String,
-            ],
-            expiresAt: expiresAt,
-            claimed: false,
-          ),
-          base: m['base'],
-          // Without a saved base, the value there is now is the base.
-          hasBase: m['hasBase'] == true ? true : null,
-        );
-        touched.add(t);
-      }
-    }
-    for (final t in touched) {
-      _resolve(t);
-    }
-    _graceTimer?.cancel();
-    _graceTimer = Timer(claimGrace, () {
-      for (final l in [..._layerById.values]) {
-        if (!l.claimed) _dropLayer(l.id, LayerOutcome.unclaimed);
-      }
-    });
-  }
-
-  /// Claims the imported layers of [owner]; answers their handles.
-  List<LayerHandle> claim(String owner) => [
-    for (final l in _layerById.values)
-      if (l.owner == owner && !l.claimed)
-        LayerHandle._(this, (l..claimed = true).id, l.target.$1, l.target.$2),
-  ];
-
-  /// Every layer there is now: what holds which state at which value.
-  List<LayerInfo> layers() => [
-    for (final MapEntry(key: t, value: s) in _stacks.entries)
-      for (final l in s.layers)
-        LayerInfo(
-          id: l.id,
-          state: t.$1,
-          key: t.$2,
-          value: l.value,
-          owner: l.owner,
-          by: l.by,
-          priority: l.priority,
-          top: identical(s.top, l),
-          expiresAt: l.expiresAt,
-          claimed: l.claimed,
-        ),
-  ];
-
-  /// The layers [owner] holds now.
-  List<LayerHandle> layersOf(String owner) => [
-    for (final l in _layerById.values)
-      if (l.owner == owner) LayerHandle._(this, l.id, l.target.$1, l.target.$2),
-  ];
-
-  /// Drops every layer of [owner].
-  void dropLayersOf(String owner) {
-    for (final l in [..._layerById.values]) {
-      if (l.owner == owner) _dropLayer(l.id, LayerOutcome.removed);
-    }
-  }
-
   // --- Lifetime --------------------------------------------------------------
 
   /// Closes the streams and stops the timers.
   Future<void> dispose() async {
-    _graceTimer?.cancel();
-    for (final l in _layerById.values) {
-      l.timer?.cancel();
-    }
     await Future.wait([
       _ticks.close(),
       _availability.close(),
       _hub.dispose(),
       _catalog.close(),
       _records.close(),
-      _layerEvents.close(),
+      _starts.close(),
     ]);
   }
 }

@@ -137,7 +137,7 @@ void main() {
     expect(d.containsKey('protocol'), isFalse, reason: "remote's to say");
   });
 
-  test('explain, layers and call records go to JSON and back', () async {
+  test('explain and call records go to JSON and back', () async {
     await f.r.call('audio.mute', {'on': true}, by: user, id: 'c1');
     await pumpEventQueue();
     final e = f.r.explain('audio.muted');
@@ -146,15 +146,6 @@ void main() {
     expect(back.toJson(), e.toJson());
     expect(back.trail.single.cause.by, user);
     expect(back.change?.seq, e.change?.seq);
-
-    f.r.pushLayer('audio.muted', value: false, owner: 'quiet', by: user);
-    await pumpEventQueue();
-    final held = f.r.explain('audio.muted');
-    expect(held.layers.single.owner, 'quiet');
-    expect(held.layers.single.top, isTrue);
-    final layer = LayerInfo.fromJson(held.layers.single.toJson());
-    expect(layer.toJson(), held.layers.single.toJson());
-    expect(layer.by, user);
   });
 
   test('describe lists the catalog and the kinds', () {

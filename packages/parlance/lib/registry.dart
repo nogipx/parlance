@@ -1,5 +1,5 @@
 /// The registry: states, commands and facts that participants share
-/// without knowing each other, layers, guards, before hooks and the feed.
+/// without knowing each other, guards and the feed.
 ///
 /// The contract: skills/parlance/references/registry.md (§1–12).
 library;

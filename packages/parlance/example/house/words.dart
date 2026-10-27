@@ -16,19 +16,17 @@ abstract final class Who {
   static Principal phone(String name) => Principal('phone', name);
   static Principal agent(String session) => Principal('agent', session);
 
-  /// The module that keeps a visit, and the garden's.
+  /// The module that keeps a visit.
   static const visit = Principal('module', 'visit');
-  static const garden = Principal('module', 'garden');
 
   /// The kinds that may override an overridable guard.
   static const overriders = {'resident'};
 
-  /// Residents, their phones and agents, links, and the house itself.
+  /// Residents, their phones and agents, and the house itself.
   static const household = Callers({
     'resident': Access.allow,
     'phone': Access.allow,
     'agent': Access.allow,
-    'link': Access.allow,
     'house': Access.allow,
     'system': Access.allow,
   });
@@ -38,16 +36,9 @@ abstract final class Who {
     'resident': Access.allow,
     'phone': Access.allow,
     'agent': Access.allow,
-    'link': Access.allow,
     'house': Access.allow,
     'system': Access.allow,
     'guest': Access.warn,
-  });
-
-  /// The residents and their phones: who changes links.
-  static const residents = Callers({
-    'resident': Access.allow,
-    'phone': Access.allow,
   });
 }
 
@@ -75,18 +66,18 @@ abstract class House {
   bool get locked;
 
   /// Anyone may light a room; a guest's call is shown in an editor.
-  @CommandWord(name: 'light.set', callers: Who.anyone, sets: 'light')
+  @CommandWord(name: 'light.set', callers: Who.anyone)
   void setLight({@Ref(room) required String room, required bool on});
 
-  @CommandWord(name: 'heat.set', sets: 'heat')
+  @CommandWord(name: 'heat.set')
   void setHeat({@Range(min: 10, max: 28) required num target});
 
-  @CommandWord(name: 'mode.set', sets: 'mode')
+  @CommandWord(name: 'mode.set')
   void setMode({required Mode mode});
 
   /// Locks (on) or unlocks the door; it says why it cannot, before anyone
   /// tries.
-  @CommandWord(name: 'door.lock', sets: 'locked', available: true)
+  @CommandWord(name: 'door.lock', available: true)
   void lock({required bool on});
 
   /// The rooms whose light is on ([lit]) or off: a question that changes
@@ -112,12 +103,4 @@ abstract class Visit {
 
   @CommandWord()
   void leave({required String who});
-}
-
-/// A weather station's word, of a house that has none: only its name and
-/// type, for one that would use it.
-@Vocabulary('weather', owner: false, client: false)
-abstract class Weather {
-  @StateWord()
-  bool get rain;
 }

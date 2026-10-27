@@ -154,14 +154,6 @@ void main() {
         },
       );
 
-      test('the test mark travels', () async {
-        final changes = <StateChange>[];
-        f.r.ticks.listen((t) => changes.addAll(t.changes));
-        await link.client.call('audio.mute', {'on': true}, test: true);
-        await settle();
-        expect(changes.single.cause.test, isTrue);
-      });
-
       test(
         'feed: the catalog, a snapshot, then ticks; catalog changes too',
         () async {
@@ -383,16 +375,6 @@ void main() {
             ),
             by: owner,
           )..set({'channel': 'kittens'});
-          // A setter, for a layer to hold it.
-          f.r.defineCommand(
-            CommandDescriptor(
-              'kittens.settings.set',
-              params: const ObjectType({'value': Field(MapType(AnyType()))}),
-              callers: Callers.only(['user']),
-              sets: const Sets('kittens.settings'),
-            ),
-            (c) => secret.set(c.params['value']),
-          );
         });
 
         Future<RpcStatus?> status(Future<Object?> f) async {
@@ -405,7 +387,7 @@ void main() {
         }
 
         test('a session it does not name sees no value of it: not in a '
-            'snapshot, a tick, a subscription, why or the layers', () async {
+            'snapshot, a tick, a subscription or why', () async {
           final other = Link.open(
             f.r,
             const Principal('plugin', 'daycare'),
@@ -438,16 +420,6 @@ void main() {
           expect(
             await status(other.client.why('kittens.settings')),
             RpcStatus.permissionDenied,
-          );
-          f.r.pushLayer(
-            'kittens.settings',
-            value: {'channel': 'held'},
-            owner: 'test',
-            by: user,
-          );
-          expect(
-            (await other.client.layers()).map((l) => l.state),
-            isNot(contains('kittens.settings')),
           );
           expect((await other.client.describe())['unreadable'], [
             'kittens.settings',
@@ -527,32 +499,6 @@ void main() {
         });
       });
 
-      test('a layer holds while the session lasts', () async {
-        f.muted.set(false);
-        final events = <LayerEvent>[];
-        // The stream ends with CANCELLED when the connection drops.
-        final sub = link.client.layerEvents().listen(
-          events.add,
-          onError: (Object _) {},
-        );
-        await settle();
-        final id = await link.client.pushLayer('audio.muted', value: true);
-        await settle();
-        expect(f.r.read('audio.muted'), true);
-        await link.client.popLayer(id);
-        await settle();
-        expect(f.r.read('audio.muted'), false);
-
-        await link.client.pushLayer('audio.muted', value: true);
-        await settle();
-        await link.close();
-        await settle();
-        expect(f.r.read('audio.muted'), false, reason: 'gone with the session');
-        expect(events.map((e) => e.outcome), contains(LayerOutcome.removed));
-        await sub.cancel();
-        link = Link.open(f.r, user, wire: wire);
-      });
-
       test(
         'a lost answer is CallLost with the id; the retry runs once',
         () async {
@@ -616,33 +562,6 @@ void main() {
         },
       );
 
-      test('layer errors carry rpc statuses', () async {
-        Future<RpcStatus?> status(Future<Object?> f) async {
-          try {
-            await f;
-            return null;
-          } on RpcStatusException catch (e) {
-            return e.statusCode;
-          }
-        }
-
-        expect(
-          await status(link.client.pushLayer('nope', value: 1)),
-          RpcStatus.notFound,
-        );
-        expect(
-          await status(link.client.pushLayer('audio.muted', value: 'yes')),
-          RpcStatus.invalidArgument,
-        );
-        expect(await status(link.client.popLayer('nope')), RpcStatus.notFound);
-        final v = Link.open(f.r, viewer, wire: wire);
-        addTearDown(v.close);
-        expect(
-          await status(v.client.pushLayer('audio.muted', value: true)),
-          RpcStatus.permissionDenied,
-        );
-      });
-
       group('a session that owns words', () {
         const plugin = Principal('plugin', 'kittens');
         // The host's rights: words under its id, open facts it produces,
@@ -685,7 +604,6 @@ void main() {
               'kittens.lights.set',
               params: const ObjectType({'on': Field(BoolType())}),
               callers: Callers.only(['user', 'plugin']),
-              sets: const Sets('kittens.lights', value: 'on'),
             ),
             (c) async {
               await k.client.write(
@@ -701,7 +619,6 @@ void main() {
         test('its words are the registry\'s: others call its command, '
             'it serves it, and what it writes follows from the call', () async {
           await lamps();
-          expect(f.r.setterOf('kittens.lights'), 'kittens.lights.set');
           final r = await f.r.call('kittens.lights.set', {
             'on': true,
           }, by: user);

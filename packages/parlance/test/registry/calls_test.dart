@@ -184,6 +184,48 @@ void main() {
     });
   });
 
+  test('a call is told as its handler begins, and runs until it ends, past '
+      'its deadline too; a refused call or a query never begins', () {
+    fakeAsync((t) {
+      final r = Registry();
+      final slow = Completer<void>();
+      r.defineCommand(
+        CommandDescriptor(
+          'x.slow',
+          callers: Callers.only(['user']),
+          deadline: const Duration(seconds: 1),
+        ),
+        (_) => slow.future,
+      );
+      r.defineQuery(
+        QueryDescriptor(
+          'x.ask',
+          returns: const IntType(),
+          askers: Callers.only(['user']),
+        ),
+        (_) => 1,
+      );
+      final starts = <CallStarted>[];
+      final ends = <CallRecord>[];
+      r.callStarts.listen(starts.add);
+      r.calls.listen(ends.add);
+      r.call('x.slow', {}, by: user, id: 'a');
+      r.call('x.slow', {}, by: agent);
+      r.call('x.ask', {}, by: user);
+      t.flushMicrotasks();
+      expect([for (final s in starts) s.id], ['a']);
+      expect(starts.single.cause.by, user);
+      expect([for (final c in r.running) c.id], ['a']);
+      t.elapse(const Duration(seconds: 2));
+      expect(ends.last.result, isA<CallTimedOut>());
+      expect(r.running, hasLength(1), reason: 'its handler goes on');
+      slow.complete();
+      t.flushMicrotasks();
+      expect(r.running, isEmpty);
+      expect(ends.last.late, isTrue);
+    });
+  });
+
   test('timedOut is no end: the handler is told, its end is recorded late, '
       'a retry with the id answers it', () {
     fakeAsync((t) {
@@ -292,18 +334,24 @@ void main() {
     expect(inner.cause.by, Principal.system);
   });
 
-  test('test marks and chains carry over to what a call causes', () async {
-    final changes = <StateChange>[];
-    f.r.ticks.listen((t) => changes.addAll(t.changes));
-    await f.r.call(
-      'audio.mute',
-      {'on': true},
-      by: user,
-      cause: const Cause(user, chain: ['link-a'], test: true),
-    );
-    await pumpEventQueue();
-    expect(changes.single.cause.test, isTrue);
-    expect(changes.single.cause.chain, ['link-a']);
+  test('a command gone while its guard was asked answers unknownCommand', () {
+    fakeAsync((t) {
+      final r = Registry();
+      final served = r.defineCommand(
+        CommandDescriptor('x.go', callers: Callers.only(['user'])),
+        (_) {},
+      );
+      r.addAskedGuard(
+        'far',
+        (_) => Future.delayed(const Duration(seconds: 1), () => null),
+      );
+      CallResult<Object?>? result;
+      r.call('x.go', {}, by: user).then((x) => result = x);
+      t.flushMicrotasks();
+      served.dispose();
+      t.elapse(const Duration(seconds: 1));
+      expect(result, refused(Refusal.unknownCommand));
+    });
   });
 
   test('whyUnavailable tells without calling', () {

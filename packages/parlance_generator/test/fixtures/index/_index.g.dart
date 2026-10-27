@@ -24,9 +24,6 @@ enum DoorsState<T> implements IStateWord<T> {
 /// params, and serves each command and query by a handler to
 /// write (`call.inReply`: the cause of what it does in reply).
 abstract base class DoorsOwner extends Owner {
-  @override
-  Iterable<IWord> get words => doorsWords.words;
-
   /// Writes door.room.
   late final StateWriterOf<Room> room;
 
@@ -66,8 +63,8 @@ final class DoorsClient {
 }
 
 /// The vocabulary of [Doors]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
+/// `main` to grant a participant (`vocabularies:`) and for
+/// `schemaOf`.
 const doorsWords = WordSet('door', [...DoorsState.values]);
 
 const _$RoomShape = RecordShape<Room>(
@@ -111,9 +108,6 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
 /// write (`call.inReply`: the cause of what it does in reply).
 abstract base class LightsOwner extends Owner {
   @override
-  Iterable<IWord> get words => lightsWords.words;
-
-  @override
   void define(IParticipant p) {
     keep(p.command(LightsCommand.on).define(on));
     defineMore(p);
@@ -149,8 +143,8 @@ final class LightsClient {
 }
 
 /// The vocabulary of [Lights]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
+/// `main` to grant a participant (`vocabularies:`) and for
+/// `schemaOf`.
 const lightsWords = WordSet('light', [...LightsCommand.values]);
 
 typedef LightsOn = ({Room room});

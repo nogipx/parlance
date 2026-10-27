@@ -28,9 +28,6 @@ abstract interface class IBoard {
   /// Why [state] (of [key]) is as it is (Registry.explain).
   Future<Explanation> why(String state, {String? key});
 
-  /// Every layer there is.
-  Future<List<LayerInfo>> layers();
-
   /// The catalog changed: the tools may be others.
   Stream<void> get catalogChanges;
 }
@@ -105,12 +102,6 @@ final class LocalBoard implements IBoard {
     _mayRead(state);
     return registry.explain(state, key: key);
   }
-
-  @override
-  Future<List<LayerInfo>> layers() async => [
-    for (final l in registry.layers())
-      if (registry.mayRead(by, l.state)) l,
-  ];
 
   @override
   Stream<void> get catalogChanges => registry.catalogChanges;

@@ -94,9 +94,6 @@ enum BoardFact<T> implements IFactWord<T> {
 /// params, and serves each command and query by a handler to
 /// write (`call.inReply`: the cause of what it does in reply).
 abstract base class BoardOwner extends Owner {
-  @override
-  Iterable<IWord> get words => boardWords.words;
-
   /// Writes note.
   late final StateWriterOf<Note> notes;
 
@@ -200,8 +197,8 @@ final class BoardClient {
 }
 
 /// The vocabulary of [Board]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
+/// `main` to grant a participant (`vocabularies:`) and for
+/// `schemaOf`.
 const boardWords = WordSet('note', [
   ...BoardState.values,
   ...BoardCommand.values,

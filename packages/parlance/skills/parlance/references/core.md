@@ -2,7 +2,7 @@
 
 Part of the contract the code and its tests follow; sections keep their numbers across these files (`SPEC §n` in the code), and SKILL.md maps them. Where code and contract disagree, the contract is fixed first.
 
-The core is the level everything else stands on: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. A small task takes it alone (`package:parlance/core.dart`); the registry (§1–12) is built on it, and links, remote, the MCP board and views on the registry. Nothing above writes a value, emits or serves a command any other way.
+The core is the level everything else stands on: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. A small task takes it alone (`package:parlance/core.dart`); the registry (§1–12) is built on it, and remote, the MCP board and views on the registry. Nothing above writes a value, emits or serves a command any other way.
 
 ## 21.1 Hub
 

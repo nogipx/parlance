@@ -1,16 +1,15 @@
-import 'package:parlance/links.dart' hide Link;
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
-import '../links/fixture.dart';
 import '../remote/remote_test.dart' show Link, settle;
+import 'fixture.dart';
 
 /// A word renamed answers to its old name: what named it keeps working.
 void main() {
-  late LinksFixture f;
-  setUp(() => f = LinksFixture());
-  tearDown(() => f.links.dispose());
+  late Fixture f;
+  setUp(() => f = Fixture());
+  tearDown(() => f.r.dispose());
 
   test('calls, reads, watches and the catalog take an old name', () async {
     final h = f.r.alias('audio.silenced', 'audio.muted');
@@ -43,38 +42,6 @@ void main() {
       ),
       throwsStateError,
     );
-  });
-
-  test('a link written with an old name triggers, reads and calls the '
-      'word', () async {
-    f.r
-      ..alias('audio.silenced', 'audio.muted')
-      ..alias('stage.now', 'studio.program');
-    f.muted.set(false);
-    f.program.set('main');
-    await settle();
-    f.use([
-      {
-        'id': 'old',
-        'when': [
-          {'state': 'audio.silenced', 'becomes': true},
-        ],
-        'only': [
-          {'state': 'stage.now', 'is': 'main'},
-        ],
-        'do': [
-          {
-            'call': 'test.say',
-            'params': {'text': r'$state.stage.now'},
-          },
-        ],
-      },
-    ]);
-    expect(f.stateOf('old'), LinkState.active);
-    f.muted.set(true);
-    await settle();
-    expect(f.said, ['main']);
-    expect(f.links.uses('audio.muted'), [(link: 'old', how: 'trigger')]);
   });
 
   test('over remote, an old name subscribes to and reads the word', () async {

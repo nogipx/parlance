@@ -15,7 +15,7 @@ import 'contract.dart';
 
 // --- The registry's side -------------------------------------------------------
 
-/// What a session may own besides calling and holding layers (SPEC §14,
+/// What a session may own besides calling (SPEC §14,
 /// §22.2): a session is a participant, and these are its rights.
 typedef SessionRights = ParticipantRights;
 
@@ -25,7 +25,7 @@ typedef SessionRights = ParticipantRights;
 /// words of its own, whose commands it serves over the same connection.
 ///
 /// Register it on the connection's peer endpoint; [close] it when the
-/// connection ends, so its layers and its words go.
+/// connection ends, so its words go.
 final class RegistryResponder extends ParlanceContractPeer {
   RegistryResponder(
     super.endpoint,
@@ -35,13 +35,24 @@ final class RegistryResponder extends ParlanceContractPeer {
     Iterable<WordSet> vocabularies = const [],
     SessionRights rights = SessionRights.none,
     this.feedBacklog = 256,
+    LogScope? log,
   }) : session = session ?? newId(),
        _owner = ParlanceOwnerContractPeerCaller(endpoint),
        _p = registry.participant(
          principal,
          vocabularies: vocabularies,
          rights: rights,
-       );
+       ) {
+    this.log = (log ?? registry.log.child('sessions')).withData({
+      'session': this.session,
+      'principal': principal.selector,
+    });
+    if (this.log.isEnabled(RpcLogLevel.info)) this.log.info('session opened');
+  }
+
+  /// Where the session logs: when it opens and ends, what it was denied;
+  /// the registry's `sessions` unless given.
+  late final LogScope log;
 
   final Registry registry;
 
@@ -65,10 +76,6 @@ final class RegistryResponder extends ParlanceContractPeer {
   /// The participant's side, serving the session's commands.
   final ParlanceOwnerContractPeerCaller _owner;
 
-  /// The owner of the layers the session pushes.
-  String get owner => 'remote:$session';
-
-  final Map<String, LayerHandle> _layers = {};
   final Map<String, IStateHandle> _states = {};
   final Map<String, IFactHandle> _facts = {};
   final Map<String, IHandle> _commands = {};
@@ -87,9 +94,6 @@ final class RegistryResponder extends ParlanceContractPeer {
   /// Its guards, asked across the connection.
   final Map<String, IHandle> _guards = {};
 
-  /// What it and its parts said of themselves (SPEC §6.7), by the part.
-  final Map<Principal, IHandle> _declared = {};
-
   /// The calls of its commands it is serving now, by id.
   final Map<String, CommandCall> _serving = {};
   bool _closed = false;
@@ -100,12 +104,14 @@ final class RegistryResponder extends ParlanceContractPeer {
     }
   }
 
-  static Never _deny(String why) =>
-      throw RpcStatusException(RpcStatus.permissionDenied, why);
+  Never _deny(String why) {
+    if (log.isEnabled(RpcLogLevel.info)) log.info('denied', data: {'why': why});
+    throw RpcStatusException(RpcStatus.permissionDenied, why);
+  }
 
   /// The cause of what the session does: following from [parent] (a call
   /// it serves, or a fact the registry still keeps), else a new chain.
-  Cause _cause({String? parent, bool test = false, Principal? by}) {
+  Cause _cause({String? parent, Principal? by}) {
     final who = by ?? principal;
     if (parent != null) {
       if (_serving[parent] case final c?) return c.causeFor(who);
@@ -113,7 +119,7 @@ final class RegistryResponder extends ParlanceContractPeer {
         return f.cause.child(f.id, by: who);
       }
     }
-    return Cause(who, test: test);
+    return Cause(who);
   }
 
   @override
@@ -139,17 +145,6 @@ final class RegistryResponder extends ParlanceContractPeer {
     }
     if (!_reads(request.state)) _deny(_unreadable(request.state));
     return WireJson(registry.explain(request.state, key: request.key).toJson());
-  }
-
-  @override
-  Future<WireJson> onLayers(RpcNull request, {RpcContext? context}) async {
-    _open();
-    return WireJson({
-      'layers': [
-        for (final l in registry.layers())
-          if (_reads(l.state)) l.toJson(),
-      ],
-    });
   }
 
   /// What the session's feeds carry ([onSubscribe]): these states and
@@ -424,7 +419,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       by: by,
       id: '${principal.selector}#${request.id}',
       override: request.overriding,
-      cause: _cause(parent: request.parent, test: request.test, by: by),
+      cause: _cause(parent: request.parent, by: by),
     );
     return WireCallReply(
       result.toJson(),
@@ -453,69 +448,6 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   @override
-  Future<WireLayerRef> onPushLayer(
-    WireLayerRequest request, {
-    RpcContext? context,
-  }) async {
-    _open();
-    if (registry.stateDescriptor(request.state) == null) {
-      throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
-    }
-    final setter = registry.setterOf(request.state);
-    if (setter == null) {
-      throw RpcStatusException(
-        RpcStatus.failedPrecondition,
-        '${request.state} has no setter',
-      );
-    }
-    if (registry.commandDescriptor(setter)?.callers.allows(principal) != true) {
-      _deny('$principal may not set ${request.state}');
-    }
-    try {
-      final h = registry.pushLayer(
-        request.state,
-        key: request.key,
-        value: request.value,
-        owner: owner,
-        by: principal,
-        priority: request.priority,
-        ttl: request.ttlMs == null
-            ? null
-            : Duration(milliseconds: request.ttlMs!),
-        chain: [owner],
-      );
-      _layers[h.id] = h;
-      return WireLayerRef(h.id);
-    } on TypeMismatch catch (e) {
-      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
-    } on ArgumentError catch (e) {
-      throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
-    }
-  }
-
-  @override
-  Future<RpcNull> onPopLayer(
-    WireLayerRef request, {
-    RpcContext? context,
-  }) async {
-    _open();
-    final h = _layers.remove(request.layer);
-    if (h == null) {
-      throw RpcStatusException(RpcStatus.notFound, 'no layer ${request.layer}');
-    }
-    h.dispose();
-    return const RpcNull();
-  }
-
-  @override
-  Stream<WireLayerEvent> onLayerEvents(RpcNull request, {RpcContext? context}) {
-    _open();
-    return registry.layerEvents
-        .where((e) => e.owner == owner)
-        .map((e) => WireLayerEvent(e.toJson()));
-  }
-
-  @override
   Future<RpcNull> onDefine(WireDefine request, {RpcContext? context}) async {
     _open();
     _define(_descriptor(request.descriptor));
@@ -538,7 +470,6 @@ final class RegistryResponder extends ParlanceContractPeer {
       value: request.value,
       remove: request.remove,
       parent: request.parent,
-      test: request.test,
     );
     return const RpcNull();
   }
@@ -553,7 +484,6 @@ final class RegistryResponder extends ParlanceContractPeer {
         id: request.id,
         by: request.by == null ? null : Principal.fromJson(request.by),
         parent: request.parent,
-        test: request.test,
       ),
     );
   }
@@ -608,7 +538,6 @@ final class RegistryResponder extends ParlanceContractPeer {
           value: m['value'],
           remove: m['op'] == 'remove',
           parent: m['parent'] as String?,
-          test: m['test'] == true,
           part: part,
         );
       case 'emit':
@@ -619,7 +548,6 @@ final class RegistryResponder extends ParlanceContractPeer {
             id: m['id'] as String?,
             by: m['by'] == null ? null : Principal.fromJson(m['by']),
             parent: m['parent'] as String?,
-            test: m['test'] == true,
             part: part,
           ),
         };
@@ -629,13 +557,6 @@ final class RegistryResponder extends ParlanceContractPeer {
         _kind(m['name']! as String, m['entities'] as List? ?? const [], part);
       case 'unkind':
         _kinds.remove(m['name'])?.handle.dispose();
-      case 'declare':
-        _declared.remove(part.who)?.dispose();
-        _declared[part.who] = _permitted(
-          () => part.declare(Declaration.fromJson(m['declaration'])),
-        );
-      case 'undeclare':
-        _declared.remove(part.who)?.dispose();
       case 'guard':
         _guard(
           m['id']! as String,
@@ -662,7 +583,7 @@ final class RegistryResponder extends ParlanceContractPeer {
   }
 
   /// [f], with a participant's refusal as `permissionDenied`.
-  static T _permitted<T>(T Function() f) {
+  T _permitted<T>(T Function() f) {
     try {
       return f();
     } on NotPermitted catch (e) {
@@ -717,7 +638,6 @@ final class RegistryResponder extends ParlanceContractPeer {
     Object? value,
     bool remove = false,
     String? parent,
-    bool test = false,
     LocalParticipant? part,
   }) {
     final w = _states[state];
@@ -727,7 +647,7 @@ final class RegistryResponder extends ParlanceContractPeer {
       }
       _deny('$state is not the session\'s own');
     }
-    final cause = _cause(parent: parent, test: test, by: (part ?? _p).who);
+    final cause = _cause(parent: parent, by: (part ?? _p).who);
     try {
       remove
           ? w.remove(key: key, cause: cause)
@@ -745,7 +665,6 @@ final class RegistryResponder extends ParlanceContractPeer {
     String? id,
     Principal? by,
     String? parent,
-    bool test = false,
     LocalParticipant? part,
   }) {
     final p = part ?? _p;
@@ -766,7 +685,7 @@ final class RegistryResponder extends ParlanceContractPeer {
         () => emitter.emit(
           payload,
           id: id == null ? null : '${principal.selector}#$id',
-          cause: _cause(parent: parent, test: test, by: by ?? p.who),
+          cause: _cause(parent: parent, by: by ?? p.who),
         ),
       );
     } on TypeMismatch catch (x) {
@@ -821,7 +740,6 @@ final class RegistryResponder extends ParlanceContractPeer {
             'command': c.command.name,
             'params': c.params,
             'cause': c.cause.toJson(),
-            'layer': c.layerDispatch,
           }),
         );
         return r.json['why'] as String?;
@@ -842,6 +760,7 @@ final class RegistryResponder extends ParlanceContractPeer {
           command: c.command,
           params: c.params,
           cause: c.cause.toJson(),
+          traceparent: c.span.traceparent,
         ),
         context: deadline == null
             ? null
@@ -856,12 +775,11 @@ final class RegistryResponder extends ParlanceContractPeer {
     }
   }
 
-  /// Ends the session: its layers and its words go, its calls are refused.
+  /// Ends the session: its words go, its calls are refused.
   void close() {
     if (_closed) return;
     _closed = true;
-    _layers.clear();
-    registry.dropLayersOf(owner);
+    if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
     for (final h in [
       ..._commands.values,
       ..._facts.values,
@@ -875,7 +793,6 @@ final class RegistryResponder extends ParlanceContractPeer {
     _producers.clear();
     _kinds.clear();
     _guards.clear();
-    _declared.clear();
     _unavailable.clear();
     _p.dispose();
   }
@@ -960,7 +877,7 @@ final class ParlanceClient {
   final ParlanceContractPeerCaller _caller;
 
   /// The deadline of a request the registry answers at once (describe,
-  /// why, layers, pushing and popping one), without a context of its own.
+  /// why, recent facts), without a context of its own.
   /// A [call] has none: the registry bounds it itself, its hooks and its
   /// handler, and answers a timeout.
   final Duration timeout;
@@ -1025,7 +942,6 @@ final class ParlanceClient {
     Map<String, Object?> params, {
     String? id,
     bool override = false,
-    bool test = false,
     String? parent,
     RpcContext? context,
   }) async => (await callAt(
@@ -1033,7 +949,6 @@ final class ParlanceClient {
     params,
     id: id,
     override: override,
-    test: test,
     parent: parent,
     context: context,
   )).result;
@@ -1046,7 +961,6 @@ final class ParlanceClient {
     Map<String, Object?> params, {
     String? id,
     bool override = false,
-    bool test = false,
     String? parent,
     Principal? as,
     RpcContext? context,
@@ -1059,7 +973,6 @@ final class ParlanceClient {
           command: command,
           params: params,
           overriding: override,
-          test: test,
           parent: parent,
           as: as?.toJson(),
         ),
@@ -1090,29 +1003,6 @@ final class ParlanceClient {
       FactMessage.fromJson(f),
   ];
 
-  /// Holds [state] (of [key]) at [value] while the session lasts, or for
-  /// [ttl]; answers the layer's id.
-  Future<String> pushLayer(
-    String state, {
-    String? key,
-    required Object? value,
-    int priority = 0,
-    Duration? ttl,
-    RpcContext? context,
-  }) async => (await _caller.pushLayer(
-    WireLayerRequest(
-      state: state,
-      key: key,
-      value: value,
-      priority: priority,
-      ttlMs: ttl?.inMilliseconds,
-    ),
-    context: _ctx(context),
-  )).layer;
-
-  Future<void> popLayer(String layer, {RpcContext? context}) =>
-      _caller.popLayer(WireLayerRef(layer), context: _ctx(context));
-
   /// Why [state] (of [key]) is as it is (Registry.explain).
   Future<Explanation> why(
     String state, {
@@ -1124,22 +1014,6 @@ final class ParlanceClient {
       context: _ctx(context),
     )).json,
   );
-
-  /// Every layer there is.
-  Future<List<LayerInfo>> layers({RpcContext? context}) async => [
-    for (final l
-        in (await _caller.layers(
-              const RpcNull(),
-              context: _ctx(context),
-            )).json['layers']
-            as List)
-      LayerInfo.fromJson(l),
-  ];
-
-  /// What happens to the session's layers.
-  Stream<LayerEvent> layerEvents({RpcContext? context}) => _caller
-      .layerEvents(const RpcNull(), context: context)
-      .map((e) => LayerEvent.fromJson(e.json));
 
   /// Defines [d] as the session's own, as far as the host lets it. A
   /// command's calls come to the session's [RemoteOwner].
@@ -1157,7 +1031,6 @@ final class ParlanceClient {
     Object? value,
     bool remove = false,
     String? parent,
-    bool test = false,
     RpcContext? context,
   }) => _caller.write(
     WireSet(
@@ -1166,7 +1039,6 @@ final class ParlanceClient {
       value: value,
       remove: remove,
       parent: parent,
-      test: test,
     ),
     context: _ctx(context),
   );
@@ -1196,7 +1068,6 @@ final class ParlanceClient {
     String? id,
     Principal? by,
     String? parent,
-    bool test = false,
     RpcContext? context,
   }) async => (await _caller.emit(
     WireEmit(
@@ -1205,7 +1076,6 @@ final class ParlanceClient {
       id: id,
       by: by?.toJson(),
       parent: parent,
-      test: test,
     ),
     context: _ctx(context),
   )).taken;

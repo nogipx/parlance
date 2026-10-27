@@ -4,7 +4,6 @@ import 'package:test/test.dart';
 
 import '../example/levels/level0_core.dart' as core;
 import '../example/levels/level1_registry.dart' as registry;
-import '../example/levels/level2_links.dart' as links;
 import '../example/levels/level3_remote.dart' as remote;
 import '../example/levels/level4_agent.dart' as agent;
 
@@ -41,16 +40,7 @@ void main() {
         '150: volume: above 100',
         'why 95: listener/ann called player.volume.set, and player/deck '
             'wrote it',
-        'player/deck owns: {player.volume, player.volume.set, '
-            'player.clipped}',
-      ],
-    ),
-    'links': (
-      links.main,
-      [
-        'links taken: 1, problems: 0',
-        'after the link: 80',
-        'why 80: link/limiter',
+        'words: [player.volume, player.volume.set, player.clipped]',
       ],
     ),
     'remote': (
@@ -69,7 +59,7 @@ void main() {
         'player_volume_set: player.volume.set',
         "{volume: {type: integer, minimum: 0, maximum: 100}}",
         'the agent turns it to 20: Done.',
-        "a guest's tools: describe, read, call, recent_facts, why, layers\n",
+        "a guest's tools: describe, read, call, recent_facts, why\n",
         'the volume: 20',
       ],
     ),

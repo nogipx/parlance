@@ -167,11 +167,6 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// now, though no tick says so: it reads what the registry does not keep.
   void availabilityChanged(String command);
 
-  /// Says what it owns and uses (SPEC §6.7), in place of what it said
-  /// before; each word it owns must lie in its [namespaces]. Told in
-  /// `describe`, withdrawn with the handle or with it.
-  IHandle declare(Declaration d);
-
   /// Runs [writes], its writes and facts committed as one tick.
   void batch(void Function() writes);
 
@@ -188,11 +183,6 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
 
   /// Writes what every owner attached to it has now, as one tick.
   void sync();
-
-  /// Whether its owners have the words they say they need (SPEC §19.1);
-  /// throws [UnmetUses] naming every one that is not met. Call it once
-  /// every participant of the app has its owners.
-  Future<void> checkUses();
 
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`, in the
   /// same namespaces with the same rights, so what each part does is told
@@ -328,8 +318,6 @@ final class ParticipantCommandOf<P, R> {
   IHandle define(
     FutureOr<R> Function(CommandCallOf<P> call) handler, {
     Callers? callers,
-    Sets? sets,
-    bool interceptable = false,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     Availability? available,
@@ -341,8 +329,6 @@ final class ParticipantCommandOf<P, R> {
         params: word.params.type,
         returns: word.returns?.type,
         callers: participant.access.callersOf(word.name, callers),
-        sets: sets,
-        interceptable: interceptable,
         deadline: deadline,
         meta: meta,
       ),

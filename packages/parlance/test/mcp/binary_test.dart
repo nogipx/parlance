@@ -10,7 +10,7 @@ import 'package:rpc_dart_socket/rpc_dart_socket.dart';
 import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
-import '../links/fixture.dart';
+import '../registry/fixture.dart';
 
 /// The binary itself: a host serves its registry on a Unix socket, an agent
 /// speaks MCP to parlance-mcp on stdio.
@@ -19,7 +19,7 @@ void main() {
     'parlance-mcp serves a host over a socket on stdio',
     timeout: const Timeout(Duration(minutes: 2)),
     () async {
-      final f = LinksFixture();
+      final f = Fixture();
       final dir = Directory.systemTemp.createTempSync('sbmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
       final path = '${dir.path}/r.sock';

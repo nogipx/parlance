@@ -2,13 +2,30 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:rpc_dart/rpc_dart.dart';
-import 'package:parlance/links.dart';
 import 'package:parlance/mcp.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
-import '../links/fixture.dart';
+import '../registry/fixture.dart';
+
+/// The registry fixture with a fact to hear.
+final class Board extends Fixture {
+  Board() {
+    raid = r.defineFact(
+      FactDescriptor(
+        'platform.raid',
+        type: const ObjectType({
+          'from': Field(TextType()),
+          'viewers': Field(IntType(min: 0)),
+        }),
+      ),
+      by: const Principal('plugin', 'twitch'),
+    );
+  }
+
+  late final RawFactEmitter raid;
+}
 
 /// A client of an MCP session in memory: sends requests, reads answers.
 final class Client {
@@ -82,50 +99,7 @@ final class Client {
   }
 }
 
-const break_ = {
-  'id': 'break',
-  'when': [
-    {'manual': <String, Object?>{}},
-  ],
-  'do': [
-    {
-      'call': 'studio.show',
-      'params': {'scene': 'break'},
-    },
-  ],
-};
-
 void main() {
-  group('the links tools follow the engine', () {
-    test('no links engine, no links tools', () async {
-      final f = Fixture();
-      final c = Client(LocalBoard(f.r, by: agent));
-      addTearDown(c.close);
-      expect(await c.tools(), [
-        'describe',
-        'read',
-        'call',
-        'recent_facts',
-        'why',
-        'layers',
-      ]);
-    });
-
-    test('a principal who may press but not write links', () async {
-      final f = Fixture();
-      final links = Links(f.r, managers: const Callers({'user': Access.allow}));
-      addTearDown(links.dispose);
-      final c = Client(LocalBoard(f.r, by: agent));
-      addTearDown(c.close);
-      final names = await c.tools();
-      expect(names, containsAll(['links', 'link_press']));
-      expect(
-        names,
-        isNot(anyOf(contains('link_upsert'), contains('link_guide'))),
-      );
-    });
-  });
-
   test('whether a command can run is told now, not when the tools were '
       'listed', () async {
     final f = Fixture();
@@ -176,11 +150,11 @@ void main() {
   );
 
   group('a local board', () {
-    late LinksFixture f;
+    late Board f;
     late Client c;
 
     setUp(() {
-      f = LinksFixture();
+      f = Board();
       c = Client(LocalBoard(f.r, by: agent));
     });
     tearDown(() => c.close());
@@ -268,23 +242,7 @@ void main() {
 
     test('the curated tools, and no command tools unless asked', () async {
       final names = await c.tools();
-      expect(names, [
-        'describe',
-        'read',
-        'call',
-        'recent_facts',
-        'why',
-        'layers',
-        'links',
-        'link_guide',
-        'link_check',
-        'link_upsert',
-        'link_remove',
-        'links_set',
-        'link_uses',
-        'link_try',
-        'link_press',
-      ]);
+      expect(names, ['describe', 'read', 'call', 'recent_facts', 'why']);
       final withCommands = Client(
         LocalBoard(f.r, by: agent),
         commandTools: true,
@@ -315,8 +273,6 @@ void main() {
           ((show['params'] as Map)['properties'] as Map)['scene'],
           containsPair('enum', ['main', 'break', 'test']),
         );
-        expect(show['sets'], 'studio.program');
-        expect(show['interceptable'], isTrue);
         expect((d['entities'] as Map)['scene'], contains('main (main)'));
         final audio = await c.json('describe', {'prefix': 'audio.'}) as Map;
         expect(
@@ -343,67 +299,16 @@ void main() {
       expect(bad.text, startsWith('invalidParams'));
     });
 
-    test(
-      'why tells the last change, the calls that led to it, the layers',
-      () async {
-        await c.call('call', {
-          'command': 'audio.mute',
-          'params': {'on': true},
-        });
-        final why = await c.json('why', {'state': 'audio.muted'}) as Map;
-        expect(why['value'], true);
-        expect((why['changed'] as Map)['by'], 'host/studio');
-        expect(((why['trail'] as List).first as Map)['call'], 'audio.mute');
-        expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
-        f.r.pushLayer(
-          'audio.muted',
-          value: false,
-          owner: 'quiet',
-          by: Principal.system,
-        );
-        await pumpEventQueue();
-        final layers = await c.json('layers') as List;
-        expect((layers.single as Map)['owner'], 'quiet');
-      },
-    );
-
-    test('links: check, upsert, press, remove', () async {
-      final missing =
-          await c.json('link_check', {
-                'link': {
-                  'id': 'later',
-                  'when': [
-                    {'fact': 'plugin.thing'},
-                  ],
-                  'do': <Object?>[],
-                },
-              })
-              as Map;
-      expect(missing['missing'], ['plugin.thing']);
-      expect((await c.call('link_upsert', {'link': break_})).error, isFalse);
-      final links = await c.json('links') as Map;
-      expect((links['own'] as List).single, containsPair('id', 'break'));
-      expect(
-        (links['statuses'] as Map)['break'],
-        containsPair('state', 'active'),
-      );
-      expect(await c.json('link_press', {'id': 'break'}), {'ran': true});
-      expect(f.r.read('studio.program'), 'break');
-      expect((await c.call('link_remove', {'id': 'break'})).error, isFalse);
-      expect((await c.json('links') as Map)['own'], isEmpty);
-      final bad = await c.call('links_set', {
-        'links': [
-          {
-            'id': 'x',
-            'when': [
-              {'fact': 'Not A Name'},
-            ],
-            'do': <Object?>[],
-          },
-        ],
+    test('why tells the last change and the calls that led to it', () async {
+      await c.call('call', {
+        'command': 'audio.mute',
+        'params': {'on': true},
       });
-      expect(bad.error, isTrue);
-      expect((await c.call('link_guide')).text, contains('Reaction:'));
+      final why = await c.json('why', {'state': 'audio.muted'}) as Map;
+      expect(why['value'], true);
+      expect((why['changed'] as Map)['by'], 'host/studio');
+      expect(((why['trail'] as List).first as Map)['call'], 'audio.mute');
+      expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
     });
 
     test('recent facts', () async {
@@ -416,7 +321,7 @@ void main() {
   });
 
   group('a remote board', () {
-    late LinksFixture f;
+    late Board f;
     late RegistryResponder session;
     late RpcPeerEndpoint responder;
     late RpcPeerEndpoint caller;
@@ -424,7 +329,7 @@ void main() {
     late Client c;
 
     setUp(() async {
-      f = LinksFixture();
+      f = Board();
       final (client, server) = RpcChannelTransport.pair();
       responder = RpcPeerEndpoint(transport: server);
       session = RegistryResponder(responder, f.r, principal: agent);
@@ -458,20 +363,12 @@ void main() {
       expect(await c.json('read', {'state': 'studio.program'}), 'test');
       final why = await c.json('why', {'state': 'studio.program'}) as Map;
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
-      expect((await c.call('link_upsert', {'link': break_})).error, isFalse);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(
-        ((await c.json('links') as Map)['own'] as List).single,
-        containsPair('id', 'break'),
-      );
-      expect(await c.json('link_press', {'id': 'break'}), {'ran': true});
       f.raid.emit({'from': 'b', 'viewers': 1});
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(
         (await c.json('recent_facts', {'fact': 'platform.raid'}) as List),
         hasLength(1),
       );
-      expect(await c.json('layers'), isEmpty);
     });
 
     test('a read right after a call reads what it wrote', () async {
@@ -505,7 +402,7 @@ void main() {
 
     test('a copy that cannot catch up with a call says so on read', () async {
       // The mirror follows another registry: it never reaches the call.
-      final other = LinksFixture();
+      final other = Board();
       final (c2, s2) = RpcChannelTransport.pair();
       final otherResponder = RpcPeerEndpoint(transport: s2);
       final otherSession = RegistryResponder(
@@ -537,23 +434,17 @@ void main() {
       );
     });
 
-    test(
-      'a link engine added later is a catalog change the tools follow',
-      () async {
-        final seen = <void>[];
-        final sub = RemoteBoard(
-          ParlanceClient(caller),
-          mirror,
-        ).catalogChanges.listen(seen.add);
-        f.r.defineFact(
-          FactDescriptor('x.new', type: const AnyType()),
-          by: owner,
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 80));
-        expect(seen, isNotEmpty);
-        await sub.cancel();
-      },
-    );
+    test('a word added later is a catalog change the tools follow', () async {
+      final seen = <void>[];
+      final sub = RemoteBoard(
+        ParlanceClient(caller),
+        mirror,
+      ).catalogChanges.listen(seen.add);
+      f.r.defineFact(FactDescriptor('x.new', type: const AnyType()), by: owner);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(seen, isNotEmpty);
+      await sub.cancel();
+    });
   });
 }
 
@@ -586,9 +477,6 @@ final class _Counting implements IBoard {
   @override
   Future<Explanation> why(String state, {String? key}) =>
       inner.why(state, key: key);
-
-  @override
-  Future<List<LayerInfo>> layers() => inner.layers();
 
   @override
   Stream<void> get catalogChanges => inner.catalogChanges;

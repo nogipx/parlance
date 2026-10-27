@@ -76,7 +76,6 @@ final class WireCallRequest implements IRpcSerializable {
     required this.command,
     this.params = const {},
     this.overriding = false,
-    this.test = false,
     this.parent,
     this.as,
   });
@@ -86,7 +85,6 @@ final class WireCallRequest implements IRpcSerializable {
     command: m['command'] as String,
     params: _obj(m['params']),
     overriding: m['override'] == true,
-    test: m['test'] == true,
     parent: m['parent'] as String?,
     as: m['as'] == null ? null : _obj(m['as']),
   );
@@ -98,7 +96,6 @@ final class WireCallRequest implements IRpcSerializable {
   /// Override overridable denials (SPEC §9); named so it does not hide the
   /// `@override` annotation.
   final bool overriding;
-  final bool test;
 
   /// What it follows from: a call the session serves, or a fact.
   final String? parent;
@@ -113,7 +110,6 @@ final class WireCallRequest implements IRpcSerializable {
     'command': command,
     'params': params,
     if (overriding) 'override': true,
-    if (test) 'test': true,
     'parent': ?parent,
     'as': ?as,
   };
@@ -157,66 +153,7 @@ final class WireRecentRequest implements IRpcSerializable {
   Map<String, dynamic> toJson() => {'fact': fact, 'count': count};
 }
 
-/// Holds a state at a value for the session (SPEC §8, §14).
-final class WireLayerRequest implements IRpcSerializable {
-  const WireLayerRequest({
-    required this.state,
-    this.key,
-    required this.value,
-    this.priority = 0,
-    this.ttlMs,
-  });
-
-  factory WireLayerRequest.fromJson(Map<String, dynamic> m) => WireLayerRequest(
-    state: m['state'] as String,
-    key: m['key'] as String?,
-    value: m['value'],
-    priority: m['priority'] as int? ?? 0,
-    ttlMs: m['ttlMs'] as int?,
-  );
-
-  final String state;
-  final String? key;
-  final Object? value;
-  final int priority;
-  final int? ttlMs;
-
-  @override
-  Map<String, dynamic> toJson() => {
-    'state': state,
-    'key': ?key,
-    'value': value,
-    if (priority != 0) 'priority': priority,
-    'ttlMs': ?ttlMs,
-  };
-}
-
-/// A layer of the session, by id.
-final class WireLayerRef implements IRpcSerializable {
-  const WireLayerRef(this.layer);
-
-  factory WireLayerRef.fromJson(Map<String, dynamic> m) =>
-      WireLayerRef(m['layer'] as String);
-
-  final String layer;
-
-  @override
-  Map<String, dynamic> toJson() => {'layer': layer};
-}
-
-/// What happened to a layer of the session, as `LayerEvent.toJson` gives it.
-final class WireLayerEvent implements IRpcSerializable {
-  const WireLayerEvent(this.json);
-
-  factory WireLayerEvent.fromJson(Map<String, dynamic> m) => WireLayerEvent(m);
-
-  final Map<String, Object?> json;
-
-  @override
-  Map<String, dynamic> toJson() => json;
-}
-
-/// Any JSON object: what `why`, `layers` and `recent` answer.
+/// Any JSON object: what `why` and `recent` answer.
 final class WireJson implements IRpcSerializable {
   const WireJson(this.json);
 
@@ -276,7 +213,6 @@ final class WireSet implements IRpcSerializable {
     this.value,
     this.remove = false,
     this.parent,
-    this.test = false,
   });
 
   factory WireSet.fromJson(Map<String, dynamic> m) => WireSet(
@@ -285,7 +221,6 @@ final class WireSet implements IRpcSerializable {
     value: m['value'],
     remove: m['remove'] == true,
     parent: m['parent'] as String?,
-    test: m['test'] == true,
   );
 
   final String state;
@@ -295,7 +230,6 @@ final class WireSet implements IRpcSerializable {
 
   /// What it follows from: a call the session serves, or a fact.
   final String? parent;
-  final bool test;
 
   @override
   Map<String, dynamic> toJson() => {
@@ -304,7 +238,6 @@ final class WireSet implements IRpcSerializable {
     'value': value,
     if (remove) 'remove': true,
     'parent': ?parent,
-    if (test) 'test': true,
   };
 }
 
@@ -317,7 +250,6 @@ final class WireEmit implements IRpcSerializable {
     this.id,
     this.by,
     this.parent,
-    this.test = false,
   });
 
   factory WireEmit.fromJson(Map<String, dynamic> m) => WireEmit(
@@ -326,7 +258,6 @@ final class WireEmit implements IRpcSerializable {
     id: m['id'] as String?,
     by: m['by'] == null ? null : _obj(m['by']),
     parent: m['parent'] as String?,
-    test: m['test'] == true,
   );
 
   final String fact;
@@ -338,7 +269,6 @@ final class WireEmit implements IRpcSerializable {
   /// On whose behalf, as `Principal.toJson` gives it.
   final Map<String, Object?>? by;
   final String? parent;
-  final bool test;
 
   @override
   Map<String, dynamic> toJson() => {
@@ -347,7 +277,6 @@ final class WireEmit implements IRpcSerializable {
     'id': ?id,
     'by': ?by,
     'parent': ?parent,
-    if (test) 'test': true,
   };
 }
 
@@ -371,6 +300,7 @@ final class WireServe implements IRpcSerializable {
     required this.command,
     required this.params,
     required this.cause,
+    this.traceparent,
   });
 
   factory WireServe.fromJson(Map<String, dynamic> m) => WireServe(
@@ -378,6 +308,7 @@ final class WireServe implements IRpcSerializable {
     command: m['command'] as String,
     params: _obj(m['params']),
     cause: _obj(m['cause']),
+    traceparent: m['traceparent'] as String?,
   );
 
   final String id;
@@ -389,12 +320,17 @@ final class WireServe implements IRpcSerializable {
   /// As `Cause.toJson` gives it.
   final Map<String, Object?> cause;
 
+  /// The call's span on the host as a W3C `traceparent` (SPEC §9.2): the
+  /// participant serves it in a child span, in the host's trace.
+  final String? traceparent;
+
   @override
   Map<String, dynamic> toJson() => {
     'id': id,
     'command': command,
     'params': params,
     'cause': cause,
+    'traceparent': ?traceparent,
   };
 }
 
@@ -429,23 +365,8 @@ abstract class IParlanceContract {
   @RpcMethod.unary(name: 'call')
   Future<WireCallReply> invoke(WireCallRequest request, {RpcContext? context});
 
-  @RpcMethod.unary(name: 'pushLayer')
-  Future<WireLayerRef> pushLayer(
-    WireLayerRequest request, {
-    RpcContext? context,
-  });
-
-  @RpcMethod.unary(name: 'popLayer')
-  Future<RpcNull> popLayer(WireLayerRef request, {RpcContext? context});
-
-  @RpcMethod.serverStream(name: 'layerEvents')
-  Stream<WireLayerEvent> layerEvents(RpcNull request, {RpcContext? context});
-
   @RpcMethod.unary(name: 'why')
   Future<WireJson> why(WireWhyRequest request, {RpcContext? context});
-
-  @RpcMethod.unary(name: 'layers')
-  Future<WireJson> layers(RpcNull request, {RpcContext? context});
 
   @RpcMethod.unary(name: 'recent')
   Future<WireJson> recent(WireRecentRequest request, {RpcContext? context});
@@ -481,7 +402,7 @@ abstract class IParlanceOwnerContract {
   Future<WireServed> serve(WireServe request, {RpcContext? context});
 
   /// Asks a guard of the participant's own about a call of its command
-  /// (SPEC §22.4): `{guard, id, command, params, cause, layer}`, answered
+  /// (SPEC §22.4): `{guard, id, command, params, cause}`, answered
   /// `{why}`, null to let it pass.
   @RpcMethod.unary(name: 'judge')
   Future<WireJson> judge(WireJson request, {RpcContext? context});

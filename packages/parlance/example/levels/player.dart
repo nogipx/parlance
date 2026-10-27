@@ -102,19 +102,15 @@ abstract final class Who {
     'listener': Access.allow,
     'phone': Access.allow,
     'agent': Access.allow,
-    'link': Access.allow,
   });
 }
 
 /// The player part of the app, as the registry sees it: an owner that
 /// defines its words through the participant main gives it and serves
-/// its command. It says what it owns; who it is and what it may, main says.
+/// its command. Who it is and what it may, main says.
 final class Player extends Owner {
   int _volume = 50;
   late final StateWriterOf<int> _level;
-
-  @override
-  Iterable<IWord> get words => playerWords.words;
 
   @override
   void define(IParticipant p) {
@@ -150,5 +146,5 @@ LocalParticipant startPlayer(Registry r) => r.participant(
   access: const WordAccess(call: Who.turners),
 )..attach({'deck': Player()});
 
-/// Lets ticks, links and remote work through what was just done.
+/// Lets ticks and remote work through what was just done.
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));

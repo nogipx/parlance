@@ -100,35 +100,6 @@ final class Callers {
   };
 }
 
-/// A command sets a state: which, and from which params (SPEC §6.2).
-final class Sets {
-  const Sets(this.state, {this.key, this.value = 'value'});
-
-  factory Sets.fromJson(Object? json) {
-    final m = json as Map;
-    return Sets(
-      m['state'] as String,
-      key: m['key'] as String?,
-      value: m['value'] as String? ?? 'value',
-    );
-  }
-
-  /// The state set.
-  final String state;
-
-  /// The param holding the key, for a keyed state.
-  final String? key;
-
-  /// The param holding the value.
-  final String value;
-
-  Map<String, Object?> toJson() => {
-    'state': state,
-    'key': ?key,
-    'value': value,
-  };
-}
-
 /// What everything in the catalog has.
 sealed class Descriptor {
   Descriptor(this.name, this.meta) {
@@ -234,20 +205,9 @@ final class CommandDescriptor extends CallableDescriptor {
     ObjectType params = const ObjectType({}),
     super.returns,
     required super.callers,
-    this.sets,
-    this.interceptable = false,
     super.deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-  }) : super(name, meta, params: params) {
-    if (sets case final s?) {
-      if (!params.fields.containsKey(s.value)) {
-        throw ArgumentError('sets: no param ${s.value} in $name');
-      }
-      if (s.key case final k? when !params.fields.containsKey(k)) {
-        throw ArgumentError('sets: no param $k in $name');
-      }
-    }
-  }
+  }) : super(name, meta, params: params);
 
   factory CommandDescriptor.fromJson(Map<Object?, Object?> m) =>
       CommandDescriptor(
@@ -255,16 +215,9 @@ final class CommandDescriptor extends CallableDescriptor {
         params: ValueType.fromJson(m['params']) as ObjectType,
         returns: m['returns'] == null ? null : ValueType.fromJson(m['returns']),
         callers: Callers.fromJson(m['callers']),
-        sets: m['sets'] == null ? null : Sets.fromJson(m['sets']),
-        interceptable: m['interceptable'] == true,
         deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
         meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
       );
-
-  final Sets? sets;
-
-  /// Before hooks may run ahead of it (SPEC §11).
-  final bool interceptable;
 
   @override
   Map<String, Object?> toJson() => {
@@ -273,16 +226,13 @@ final class CommandDescriptor extends CallableDescriptor {
     'params': params.toJson(),
     if (returns != null) 'returns': returns!.toJson(),
     'callers': callers.toJson(),
-    if (sets != null) 'sets': sets!.toJson(),
-    if (interceptable) 'interceptable': true,
     'deadline': deadline.inMilliseconds,
     if (meta.isNotEmpty) 'meta': meta,
   };
 }
 
-/// A question one handler answers (SPEC §6.6): it changes nothing. It
-/// sets no state and no hook runs ahead of it, as it has neither to say;
-/// asked again it runs again, and no call record keeps it.
+/// A question one handler answers (SPEC §6.6): it changes nothing.
+/// Asked again it runs again, and no call record keeps it.
 final class QueryDescriptor extends CallableDescriptor {
   QueryDescriptor(
     String name, {

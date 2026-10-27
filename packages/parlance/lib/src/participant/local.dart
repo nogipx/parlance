@@ -133,12 +133,7 @@ final class LocalParticipant implements IParticipant {
     if (cause == null) return Cause(who);
     if (cause.by == who) return cause;
     if (_wholeOf(cause.by)) {
-      return Cause(
-        who,
-        parent: cause.parent,
-        chain: cause.chain,
-        test: cause.test,
-      );
+      return Cause(who, parent: cause.parent);
     }
     throw NotPermitted('$who acts as itself, not as ${cause.by}');
   }
@@ -226,9 +221,6 @@ final class LocalParticipant implements IParticipant {
     Availability? available,
   }) {
     _mayDefine(d);
-    if (d.sets case final s? when !owns(s.state)) {
-      throw NotPermitted('${d.name} sets ${s.state}, a state not $who\'s');
-    }
     final h = _r.defineCommand(d, handler, available: available);
     _commands.add(d.name);
     return _keep(
@@ -334,24 +326,6 @@ final class LocalParticipant implements IParticipant {
   }
 
   @override
-  IHandle declare(Declaration d) {
-    _live();
-    _mayOwn(d);
-    return _keep(_r.declare(who, d));
-  }
-
-  /// Each word [d] owns lies in its namespaces.
-  void _mayOwn(Declaration d) {
-    for (final name in d.owns) {
-      if (!owns(name)) {
-        throw NotPermitted(
-          '$who owns words in ${namespaces.isEmpty ? 'no namespace' : namespaces.join(', ')}, not $name',
-        );
-      }
-    }
-  }
-
-  @override
   void batch(void Function() writes) => _r.batch(writes);
 
   @override
@@ -367,9 +341,6 @@ final class LocalParticipant implements IParticipant {
 
   @override
   void sync() => _group.sync();
-
-  @override
-  Future<void> checkUses() => _group.checkUses();
 
   @override
   void dispose() {

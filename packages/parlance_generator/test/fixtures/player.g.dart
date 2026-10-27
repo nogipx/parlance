@@ -199,9 +199,6 @@ enum PlayerFact<T> implements IFactWord<T> {
 /// params, and serves each command and query by a handler to
 /// write (`call.inReply`: the cause of what it does in reply).
 abstract base class PlayerOwner extends Owner {
-  @override
-  Iterable<IWord> get words => playerWords.words;
-
   /// Writes player.volume.
   late final StateWriterOf<int> volume;
 
@@ -233,11 +230,7 @@ abstract base class PlayerOwner extends Owner {
     speakerLevel = keep(p.state(PlayerState.speakerLevel).define());
     _clipped = keep(p.fact(PlayerFact.clipped).define());
     _finished = keep(p.fact(PlayerFact.finished).define());
-    keep(
-      p
-          .command(PlayerCommand.setVolume)
-          .define(setVolume, sets: Sets('player.volume', value: 'volume')),
-    );
+    keep(p.command(PlayerCommand.setVolume).define(setVolume));
     keep(
       p
           .command(PlayerCommand.play)
@@ -394,8 +387,8 @@ final class PlayerClient {
 }
 
 /// The vocabulary of [Player]: its namespace and every word, for
-/// `main` to grant a participant (`vocabularies:`), for
-/// `Owner.words` and `schemaOf`.
+/// `main` to grant a participant (`vocabularies:`) and for
+/// `schemaOf`.
 const playerWords = WordSet('player', [
   ...PlayerState.values,
   ...PlayerCommand.values,

@@ -79,24 +79,10 @@ void main() {
     expect(r.commandDescriptor('orders.page'), isNull);
     final d = r.queryDescriptor('orders.page')!;
     expect(d.toJson()['is'], 'query');
-    expect(d.toJson().containsKey('sets'), isFalse);
     final back = Descriptor.fromJson(d.toJson());
     expect(back, isA<QueryDescriptor>());
     expect((back as QueryDescriptor).askers.toJson(), d.askers.toJson());
     expect(r.catalog.whereType<QueryDescriptor>().single.name, 'orders.page');
-  });
-
-  test('a hook cannot run ahead of it, as it says it takes none', () {
-    define();
-    expect(
-      () => r.addBefore(
-        'orders.page',
-        'h',
-        (_, _) async {},
-        timeout: const Duration(seconds: 1),
-      ),
-      throwsStateError,
-    );
   });
 
   test('through a participant: typed, and asked by whoever may read', () async {

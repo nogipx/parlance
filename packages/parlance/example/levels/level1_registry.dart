@@ -55,12 +55,8 @@ Future<void> main() async {
     'and ${why.change?.cause.by} wrote it',
   );
 
-  // The catalog: what anyone joining can learn without knowing the player,
-  // and who says it owns what.
+  // The catalog: what anyone joining can learn without knowing the player.
   print('  words: ${[for (final d in r.catalog) d.name]}');
-  print(
-    '  ${Who.player.child('deck')} owns: ${r.declarations.values.single.owns}',
-  );
   player.dispose();
   await r.dispose();
 }

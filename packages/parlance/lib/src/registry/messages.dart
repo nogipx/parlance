@@ -396,6 +396,38 @@ final class CallLost extends CallResult<Never> {
   String toString() => 'lost($reason)';
 }
 
+/// A call whose handler began (SPEC §9): it passed every stage. Its end
+/// comes as the [CallRecord] of the same id; one that timed out runs on
+/// until its late record.
+final class CallStarted {
+  const CallStarted({
+    required this.id,
+    required this.command,
+    required this.params,
+    required this.cause,
+    required this.started,
+  });
+
+  final String id;
+  final String command;
+  final Map<String, Object?> params;
+  final Cause cause;
+
+  /// When the call came, as its record says.
+  final DateTime started;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'command': command,
+    'params': params,
+    'cause': cause.toJson(),
+    'started': started.toUtc().toIso8601String(),
+  };
+
+  @override
+  String toString() => 'Started $command $params ($cause)';
+}
+
 /// A finished call, for journals (SPEC §9).
 final class CallRecord {
   const CallRecord({
@@ -405,8 +437,6 @@ final class CallRecord {
     required this.cause,
     required this.result,
     required this.overridden,
-    required this.hooks,
-    required this.layerDispatch,
     required this.started,
     required this.finished,
     this.late = false,
@@ -421,11 +451,6 @@ final class CallRecord {
   /// The guards that denied it and that the caller overrode.
   final List<String> overridden;
 
-  /// The before hooks that ran, in order.
-  final List<String> hooks;
-
-  /// The registry made it to apply a layer.
-  final bool layerDispatch;
   final DateTime started;
   final DateTime finished;
 
@@ -442,8 +467,6 @@ final class CallRecord {
       cause: Cause.fromJson(m['cause']),
       result: CallResult.fromJson(m['result']),
       overridden: [for (final g in m['overridden'] as List? ?? const []) '$g'],
-      hooks: [for (final h in m['hooks'] as List? ?? const []) '$h'],
-      layerDispatch: m['layerDispatch'] == true,
       started: _at(m['started']),
       finished: _at(m['finished']),
       late: m['late'] == true,
@@ -457,8 +480,6 @@ final class CallRecord {
     'cause': cause.toJson(),
     'result': result.toJson(),
     if (overridden.isNotEmpty) 'overridden': overridden,
-    if (hooks.isNotEmpty) 'hooks': hooks,
-    if (layerDispatch) 'layerDispatch': true,
     'started': started.toUtc().toIso8601String(),
     'finished': finished.toUtc().toIso8601String(),
     if (late) 'late': true,
@@ -468,74 +489,9 @@ final class CallRecord {
   String toString() => 'Call $command $params -> $result ($cause)';
 }
 
-/// One layer as it stands (SPEC §8): what holds which state at which value.
-final class LayerInfo {
-  const LayerInfo({
-    required this.id,
-    required this.state,
-    required this.key,
-    required this.value,
-    required this.owner,
-    required this.by,
-    required this.priority,
-    required this.top,
-    this.expiresAt,
-    this.claimed = true,
-  });
-
-  factory LayerInfo.fromJson(Object? json) {
-    final m = json as Map;
-    return LayerInfo(
-      id: m['id'] as String,
-      state: m['state'] as String,
-      key: m['key'] as String?,
-      value: m['value'],
-      owner: m['owner'] as String,
-      by: Principal.fromJson(m['by']),
-      priority: m['priority'] as int? ?? 0,
-      top: m['top'] == true,
-      expiresAt: m['expiresAt'] == null ? null : _at(m['expiresAt']),
-      claimed: m['claimed'] != false,
-    );
-  }
-
-  final String id;
-  final String state;
-  final String? key;
-  final Object? value;
-  final String owner;
-  final Principal by;
-  final int priority;
-
-  /// Its value is the one in force.
-  final bool top;
-  final DateTime? expiresAt;
-
-  /// False for a layer restored after a restart that its owner has not
-  /// claimed yet.
-  final bool claimed;
-
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'state': state,
-    'key': ?key,
-    'value': value,
-    'owner': owner,
-    'by': by.toJson(),
-    'priority': priority,
-    'top': top,
-    if (expiresAt case final at?) 'expiresAt': at.toUtc().toIso8601String(),
-    if (!claimed) 'claimed': false,
-  };
-
-  @override
-  String toString() =>
-      'Layer $id of $owner on $state${key == null ? '' : '[$key]'} = $value';
-}
-
 /// Why a state (of a key) is as it is (SPEC §9): its value, its last
-/// change still retained, the calls that led to it, nearest first, as far
-/// as they are remembered, and the layers holding it.
+/// change still retained, and the calls that led to it, nearest first, as
+/// far as they are remembered.
 final class Explanation {
   const Explanation({
     required this.state,
@@ -543,7 +499,6 @@ final class Explanation {
     required this.value,
     required this.change,
     required this.trail,
-    required this.layers,
     this.forgotten = false,
     this.trailCut = false,
   });
@@ -557,9 +512,6 @@ final class Explanation {
       change: m['change'] == null ? null : StateChange.fromJson(m['change']),
       trail: [
         for (final c in m['trail'] as List? ?? const []) CallRecord.fromJson(c),
-      ],
-      layers: [
-        for (final l in m['layers'] as List? ?? const []) LayerInfo.fromJson(l),
       ],
       forgotten: m['forgotten'] == true,
       trailCut: m['trailCut'] == true,
@@ -583,7 +535,6 @@ final class Explanation {
 
   /// The trail goes on further back than the registry remembers.
   final bool trailCut;
-  final List<LayerInfo> layers;
 
   Map<String, Object?> toJson() => {
     'state': state,
@@ -593,72 +544,5 @@ final class Explanation {
     if (forgotten) 'forgotten': true,
     if (trail.isNotEmpty) 'trail': [for (final c in trail) c.toJson()],
     if (trailCut) 'trailCut': true,
-    if (layers.isNotEmpty) 'layers': [for (final l in layers) l.toJson()],
   };
-}
-
-/// Why a layer went away or did not apply (SPEC §8).
-enum LayerOutcome {
-  /// Its owner removed it.
-  removed,
-
-  /// An explicit set cleared it.
-  overridden,
-
-  /// Its time ran out.
-  expired,
-
-  /// Nobody claimed it after a restart.
-  unclaimed,
-
-  /// Its state or setter is gone.
-  orphaned,
-
-  /// The dispatch of its value was refused; the layer stays.
-  refused,
-}
-
-/// Something that happened to a layer, for its owner.
-final class LayerEvent {
-  const LayerEvent({
-    required this.layer,
-    required this.owner,
-    required this.state,
-    required this.key,
-    required this.outcome,
-    this.reason,
-  });
-
-  factory LayerEvent.fromJson(Object? json) {
-    final m = json as Map;
-    return LayerEvent(
-      layer: m['layer'] as String,
-      owner: m['owner'] as String,
-      state: m['state'] as String,
-      key: m['key'] as String?,
-      outcome: LayerOutcome.values.byName(m['outcome'] as String),
-      reason: m['reason'] as String?,
-    );
-  }
-
-  final String layer;
-  final String owner;
-  final String state;
-  final String? key;
-  final LayerOutcome outcome;
-  final String? reason;
-
-  Map<String, Object?> toJson() => {
-    'layer': layer,
-    'owner': owner,
-    'state': state,
-    'key': ?key,
-    'outcome': outcome.name,
-    'reason': ?reason,
-  };
-
-  @override
-  String toString() =>
-      'LayerEvent $layer of $owner on $state${key == null ? '' : '[$key]'}: '
-      '${outcome.name}${reason == null ? '' : ' ($reason)'}';
 }

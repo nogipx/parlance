@@ -15,11 +15,7 @@ class ParlanceContractNames {
   static const describe = 'describe';
   static const feed = 'feed';
   static const invoke = 'call';
-  static const pushLayer = 'pushLayer';
-  static const popLayer = 'popLayer';
-  static const layerEvents = 'layerEvents';
   static const why = 'why';
-  static const layers = 'layers';
   static const recent = 'recent';
   static const subscribe = 'subscribe';
   static const define = 'define';
@@ -50,15 +46,6 @@ class ParlanceContractCodecs {
     WireFeedRequest.fromJson,
   );
   static const codecWireJson = RpcCodec<WireJson>(WireJson.fromJson);
-  static const codecWireLayerEvent = RpcCodec<WireLayerEvent>(
-    WireLayerEvent.fromJson,
-  );
-  static const codecWireLayerRef = RpcCodec<WireLayerRef>(
-    WireLayerRef.fromJson,
-  );
-  static const codecWireLayerRequest = RpcCodec<WireLayerRequest>(
-    WireLayerRequest.fromJson,
-  );
   static const codecWireName = RpcCodec<WireName>(WireName.fromJson);
   static const codecWireRecentRequest = RpcCodec<WireRecentRequest>(
     WireRecentRequest.fromJson,
@@ -106,34 +93,10 @@ abstract class ParlanceContractPeer extends RpcPeerContract
       requestCodec: ParlanceContractCodecs.codecWireCallRequest,
       responseCodec: ParlanceContractCodecs.codecWireCallReply,
     );
-    addUnaryMethod<WireLayerRequest, WireLayerRef>(
-      methodName: ParlanceContractNames.pushLayer,
-      handler: onPushLayer,
-      requestCodec: ParlanceContractCodecs.codecWireLayerRequest,
-      responseCodec: ParlanceContractCodecs.codecWireLayerRef,
-    );
-    addUnaryMethod<WireLayerRef, RpcNull>(
-      methodName: ParlanceContractNames.popLayer,
-      handler: onPopLayer,
-      requestCodec: ParlanceContractCodecs.codecWireLayerRef,
-      responseCodec: ParlanceContractCodecs.codecRpcNull,
-    );
-    addServerStreamMethod<RpcNull, WireLayerEvent>(
-      methodName: ParlanceContractNames.layerEvents,
-      handler: onLayerEvents,
-      requestCodec: ParlanceContractCodecs.codecRpcNull,
-      responseCodec: ParlanceContractCodecs.codecWireLayerEvent,
-    );
     addUnaryMethod<WireWhyRequest, WireJson>(
       methodName: ParlanceContractNames.why,
       handler: onWhy,
       requestCodec: ParlanceContractCodecs.codecWireWhyRequest,
-      responseCodec: ParlanceContractCodecs.codecWireJson,
-    );
-    addUnaryMethod<RpcNull, WireJson>(
-      methodName: ParlanceContractNames.layers,
-      handler: onLayers,
-      requestCodec: ParlanceContractCodecs.codecRpcNull,
       responseCodec: ParlanceContractCodecs.codecWireJson,
     );
     addUnaryMethod<WireRecentRequest, WireJson>(
@@ -214,57 +177,10 @@ abstract class ParlanceContractPeer extends RpcPeerContract
   }
 
   @override
-  Future<WireLayerRef> pushLayer(
-    WireLayerRequest request, {
-    RpcContext? context,
-  }) {
-    return callUnary<WireLayerRequest, WireLayerRef>(
-      methodName: ParlanceContractNames.pushLayer,
-      requestCodec: ParlanceContractCodecs.codecWireLayerRequest,
-      responseCodec: ParlanceContractCodecs.codecWireLayerRef,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
-  Future<RpcNull> popLayer(WireLayerRef request, {RpcContext? context}) {
-    return callUnary<WireLayerRef, RpcNull>(
-      methodName: ParlanceContractNames.popLayer,
-      requestCodec: ParlanceContractCodecs.codecWireLayerRef,
-      responseCodec: ParlanceContractCodecs.codecRpcNull,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
-  Stream<WireLayerEvent> layerEvents(RpcNull request, {RpcContext? context}) {
-    return callServerStream<RpcNull, WireLayerEvent>(
-      methodName: ParlanceContractNames.layerEvents,
-      requestCodec: ParlanceContractCodecs.codecRpcNull,
-      responseCodec: ParlanceContractCodecs.codecWireLayerEvent,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
   Future<WireJson> why(WireWhyRequest request, {RpcContext? context}) {
     return callUnary<WireWhyRequest, WireJson>(
       methodName: ParlanceContractNames.why,
       requestCodec: ParlanceContractCodecs.codecWireWhyRequest,
-      responseCodec: ParlanceContractCodecs.codecWireJson,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
-  Future<WireJson> layers(RpcNull request, {RpcContext? context}) {
-    return callUnary<RpcNull, WireJson>(
-      methodName: ParlanceContractNames.layers,
-      requestCodec: ParlanceContractCodecs.codecRpcNull,
       responseCodec: ParlanceContractCodecs.codecWireJson,
       request: request,
       context: context,
@@ -357,18 +273,7 @@ abstract class ParlanceContractPeer extends RpcPeerContract
     RpcContext? context,
   });
 
-  Future<WireLayerRef> onPushLayer(
-    WireLayerRequest request, {
-    RpcContext? context,
-  });
-
-  Future<RpcNull> onPopLayer(WireLayerRef request, {RpcContext? context});
-
-  Stream<WireLayerEvent> onLayerEvents(RpcNull request, {RpcContext? context});
-
   Future<WireJson> onWhy(WireWhyRequest request, {RpcContext? context});
-
-  Future<WireJson> onLayers(RpcNull request, {RpcContext? context});
 
   Future<WireJson> onRecent(WireRecentRequest request, {RpcContext? context});
 
@@ -435,57 +340,10 @@ class ParlanceContractPeerCaller extends RpcPeerContract
   }
 
   @override
-  Future<WireLayerRef> pushLayer(
-    WireLayerRequest request, {
-    RpcContext? context,
-  }) {
-    return callUnary<WireLayerRequest, WireLayerRef>(
-      methodName: ParlanceContractNames.pushLayer,
-      requestCodec: ParlanceContractCodecs.codecWireLayerRequest,
-      responseCodec: ParlanceContractCodecs.codecWireLayerRef,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
-  Future<RpcNull> popLayer(WireLayerRef request, {RpcContext? context}) {
-    return callUnary<WireLayerRef, RpcNull>(
-      methodName: ParlanceContractNames.popLayer,
-      requestCodec: ParlanceContractCodecs.codecWireLayerRef,
-      responseCodec: ParlanceContractCodecs.codecRpcNull,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
-  Stream<WireLayerEvent> layerEvents(RpcNull request, {RpcContext? context}) {
-    return callServerStream<RpcNull, WireLayerEvent>(
-      methodName: ParlanceContractNames.layerEvents,
-      requestCodec: ParlanceContractCodecs.codecRpcNull,
-      responseCodec: ParlanceContractCodecs.codecWireLayerEvent,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
   Future<WireJson> why(WireWhyRequest request, {RpcContext? context}) {
     return callUnary<WireWhyRequest, WireJson>(
       methodName: ParlanceContractNames.why,
       requestCodec: ParlanceContractCodecs.codecWireWhyRequest,
-      responseCodec: ParlanceContractCodecs.codecWireJson,
-      request: request,
-      context: context,
-    );
-  }
-
-  @override
-  Future<WireJson> layers(RpcNull request, {RpcContext? context}) {
-    return callUnary<RpcNull, WireJson>(
-      methodName: ParlanceContractNames.layers,
-      requestCodec: ParlanceContractCodecs.codecRpcNull,
       responseCodec: ParlanceContractCodecs.codecWireJson,
       request: request,
       context: context,

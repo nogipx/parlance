@@ -192,13 +192,6 @@ void main() {
         'steps': [0, 50, 100],
       });
       expect(r.state(PlayerState.volume).read(), 50);
-      expect(r.declarations[me.child('deck')]!.owns, {
-        for (final w in playerWords.words) w.name,
-      });
-      expect(
-        r.commandDescriptor('player.volume.set')!.sets!.state,
-        'player.volume',
-      );
       expect(
         r.commandDescriptor('player.play')!.deadline,
         const Duration(seconds: 5),

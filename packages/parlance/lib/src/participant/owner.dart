@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../registry/cause.dart';
 import '../registry/descriptors.dart';
-import '../registry/messages.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart';
 import 'participant.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
@@ -50,16 +47,9 @@ abstract base class Owner implements IHandle {
   IParticipant get participant =>
       _participant ?? (throw StateError('$runtimeType is not attached'));
 
-  /// Attached by [group] to [p], its part: says there what it owns and
-  /// uses, and defines its words; once. A word of [words] outside the
-  /// participant's namespaces is refused before anything is defined.
+  /// Attached by [group] to [p], its part: defines its words; once.
   void _attach(IParticipant p, OwnerGroup group) {
     if (_participant != null) throw StateError('$runtimeType is attached');
-    final d = Declaration(
-      owns: {for (final w in words) w.name},
-      uses: {for (final u in uses) u.word.name: u.required},
-    );
-    if (!d.isEmpty) keep(p.declare(d));
     _participant = p;
     define(p);
     if (changes case final c?) listen(c, (_) => group._changed(this));
@@ -71,20 +61,8 @@ abstract base class Owner implements IHandle {
   /// whoever changes the model calls `IParticipant.sync`.
   Stream<void>? get changes => null;
 
-  /// The words it owns (SPEC §6.7): `[...OrdersState.values, ...]`, told
-  /// in `describe` with what it [uses]. It may define others too, within
-  /// its namespaces (a name known only at run time); a word listed here
-  /// outside them is refused when it attaches.
-  Iterable<IWord> get words => const [];
-
   /// Defines its words through [p]; keep what each returns with [keep].
   void define(IParticipant p);
-
-  /// The words of others it uses (SPEC §19.1): those [Use.required] it
-  /// cannot work without, checked by `IParticipant.checkUses` once the
-  /// app's owners are attached; the rest it handles while they are
-  /// missing.
-  Iterable<Use> get uses => const [];
 
   /// Writes its states as they are now. `IParticipant.sync` calls every
   /// owner's in one batch, so a change is seen whole.
@@ -154,8 +132,8 @@ final class TrackedKind {
 
 /// The owners attached to one participant (SPEC §22.3): each to the part
 /// of its name, synced as one tick, withdrawn with the participant. A
-/// participant's own; code reaches it through `IParticipant.attach`,
-/// `sync` and `checkUses`.
+/// participant's own; code reaches it through `IParticipant.attach` and
+/// `sync`.
 final class OwnerGroup {
   OwnerGroup(this.participant);
 
@@ -214,27 +192,6 @@ final class OwnerGroup {
     });
   }
 
-  /// Whether every owner has the words it says it needs (SPEC §19.1): each
-  /// [Use.required] there for its part, not missing and not withheld from
-  /// it; a command that cannot run now is there. Call it once every
-  /// participant of the app has its owners, as words of one may be
-  /// another's; it throws [UnmetUses] naming all that is not met, so
-  /// `main` stops with a clear message rather than a part failing later.
-  Future<void> checkUses() async {
-    await participant.settle();
-    final unmet = <UnmetUse>[];
-    for (final o in _owners.values) {
-      for (final u in o.uses) {
-        if (!u.required) continue;
-        final status = o.participant.status(u.word.name);
-        if (status is WordMissing || status is WordNotPermitted) {
-          unmet.add(UnmetUse(o.participant.who, u.word.name, status));
-        }
-      }
-    }
-    if (unmet.isNotEmpty) throw UnmetUses(unmet);
-  }
-
   /// Withdraws the owners, the last attached first.
   void dispose() {
     if (_disposed) return;
@@ -244,40 +201,6 @@ final class OwnerGroup {
     }
     _owners.clear();
   }
-}
-
-/// A word an owner uses ([Owner.uses]).
-final class Use {
-  /// One it cannot work without: `IParticipant.checkUses` fails while it is not
-  /// there.
-  const Use.required(this.word) : required = true;
-
-  /// One it handles being missing, not permitted or unavailable.
-  const Use.optional(this.word) : required = false;
-
-  final IWord word;
-  final bool required;
-}
-
-/// A required word an owner does not have: the part that needs it, the
-/// word, and what its status says.
-final class UnmetUse {
-  const UnmetUse(this.by, this.word, this.status);
-  final Principal by;
-  final String word;
-  final WordStatus status;
-
-  @override
-  String toString() => switch (status) {
-    WordNotPermitted() => '$by needs $word: not permitted',
-    _ => '$by needs $word: missing',
-  };
-}
-
-/// The words owners need and do not have, all of them.
-final class UnmetUses extends StateError {
-  UnmetUses(this.unmet) : super(unmet.join('; '));
-  final List<UnmetUse> unmet;
 }
 
 /// Ends the call being served as `failed` with [why]: for a handler whose

@@ -111,26 +111,6 @@ void main() {
       );
     });
 
-    test('no command that sets a state of another', () {
-      r
-          .participant(cart, vocabularies: [WordSet.open('cart')])
-          .state(_Other.flag)
-          .define();
-      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-      expect(
-        () => p.defineCommand(
-          CommandDescriptor(
-            'orders.flag',
-            params: ObjectType({'on': Field(BoolType())}),
-            callers: Callers({'*': Access.allow}),
-            sets: Sets('cart.flag', value: 'on'),
-          ),
-          (_) {},
-        ),
-        throwsA(isA<StateError>()),
-      );
-    });
-
     test('only as far as its rights let it', () {
       final p = r.participant(
         orders,

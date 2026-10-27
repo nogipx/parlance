@@ -12,13 +12,9 @@ A host's words have owners: one owner writes a state, serves a command, emits a 
 - **`failCall(why)`**: a handler whose device or port said no ends the call as `failed` with `why` (a `CallFailure`, told as it is, no exception type before it). A refusal with a code (`notPermitted`, `unavailable`, `denied`...) comes only from the registry's own stages (§9): to refuse before a call runs, give the command `available`.
 - **`Handles`**: the set an owner keeps, usable on its own. `keep` after `dispose` withdraws the new handle at once and throws.
 
-### 19.1 Words it uses
+### 19.1 Words of others
 
-- **`words`**: the words it owns, `[...OrdersState.values, ...OrdersCommand.values]`. When it attaches, every one must lie in the participant's namespaces, or `NotPermitted` comes before it defines anything; then the participant declares them with its uses (§6.7), so `describe` tells what each part owns and needs. It may still define words it does not list, within its namespaces (a name known only at run time).
-
-- **`uses`**: an owner says which words of others it uses, `Use.required(word)` or `Use.optional(word)` (any typed word, `IWord`). An optional one it handles being missing, not permitted or unavailable (§6.5); a required one it cannot work without.
-- **`p.checkUses()`**: once every participant of the app has its owners (a word of one may be another's, and the order they attach in does not matter), `main` awaits each one's check. It waits until the participant's view of the catalog is the registry's (`settle`, §22), then takes each owner's required words as its part sees them: missing or not permitted is unmet; a command unavailable now is there. It throws `UnmetUses`, a `StateError` naming every unmet word with the part that needs it (`host/needy needs test.level: missing`), so the app stops at start with a clear message rather than a part failing later.
-- It checks at start only. Words come and go while the app runs (a remote owner leaves, a plugin is turned off): then a part reads their status, never the start's answer. It checks names and whether the part may use them, not a word's kind or type.
+An owner says nothing of the words of others it needs. It asks a word's status (§6.5) when it needs it, and reads, listens or calls as that status allows: an absent word fails nothing, so parts start in any order.
 
 A host calls `p.sync()` when its own model changed and its owners give no `changes`: on a listener of its controller, a device callback, a timer.
 
@@ -27,8 +23,8 @@ A host calls `p.sync()` when its own model changed and its owners give no `chang
 A participant with its owners is a scope: `main` makes it when what it serves begins and disposes it when that ends, and what it held leaves the registry with it.
 
 - **App**: for the life of the process (sign-in itself, sync, settings).
-- **A user's session**: from sign-in to sign-out. Its participant is made on sign-in with the user's modules' vocabularies, and disposed on sign-out: its words, values, kinds, guards and declarations go, so nothing of one user reaches the next, whatever each module remembered to clear. Others see its words `missing` (§6.5) until the next session defines them.
-- **A feature**: made when it opens (a route, a deferred import), disposed when it closes; outsiders see its words missing meanwhile, and their own `uses` of it are optional.
+- **A user's session**: from sign-in to sign-out. Its participant is made on sign-in with the user's modules' vocabularies, and disposed on sign-out: its words, values, kinds and guards go, so nothing of one user reaches the next, whatever each module remembered to clear. Others see its words `missing` (§6.5) until the next session defines them.
+- **A feature**: made when it opens (a route, a deferred import), disposed when it closes; outsiders see its words missing meanwhile.
 - **Not in the registry**: a screen's own state, which no other part reads.
 
-One word lives in one scope: a word two scopes need belongs to a participant above both, never to both (namespaces are exclusive, §22). A scope's required `uses` are checked when it is made (`checkUses`, §19.1).
+One word lives in one scope: a word two scopes need belongs to a participant above both, never to both (namespaces are exclusive, §22).

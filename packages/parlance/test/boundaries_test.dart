@@ -30,40 +30,23 @@ void main() {
     );
   });
 
-  test('registry imports neither links nor remote', () {
+  test('registry does not import remote; of rpc_dart, only its logger', () {
     for (final f in dartIn('lib/src/registry')) {
       for (final i in importsOf(f)) {
-        expect(i, isNot(contains('links')), reason: f.path);
         expect(i, isNot(contains('remote')), reason: f.path);
-        expect(i, isNot(startsWith('package:rpc_dart')), reason: f.path);
+        if (i.startsWith('package:rpc_dart')) {
+          expect(i, 'package:rpc_dart/logger.dart', reason: f.path);
+        }
       }
     }
   });
 
-  test('links imports the registry only, never remote or rpc_dart', () {
-    for (final f in dartIn('lib/src/links')) {
-      for (final i in importsOf(f)) {
-        expect(i, isNot(contains('remote')), reason: f.path);
-        expect(i, isNot(startsWith('package:rpc_dart')), reason: f.path);
-      }
-    }
-  });
-
-  test('mcp imports neither links nor rpc_dart, only their words', () {
+  test('mcp does not import rpc_dart', () {
     for (final f in dartIn('lib/src/mcp')) {
       for (final i in importsOf(f)) {
-        if (i == '../link_words.dart') continue;
-        expect(i, isNot(contains('link')), reason: f.path);
         expect(i, isNot(startsWith('package:rpc_dart')), reason: f.path);
       }
     }
-  });
-
-  test('the words of links import only the registry\'s types and words', () {
-    expect(importsOf(File('lib/src/link_words.dart')), {
-      'registry/types.dart',
-      'registry/words.dart',
-    });
   });
 
   test('view uses the registry and remote, and Dart', () {
@@ -113,34 +96,6 @@ void main() {
       }
     },
   );
-
-  test('the registry names nothing of links', () {
-    for (final f in dartIn('lib/src/registry')) {
-      expect(
-        RegExp(r"'links?[.']").firstMatch(f.readAsStringSync())?[0],
-        isNull,
-        reason: f.path,
-      );
-    }
-  });
-
-  test('mcp and remote name no link word but through LinkWords', () {
-    for (final f in [...dartIn('lib/src/mcp'), ...dartIn('lib/src/remote')]) {
-      expect(
-        RegExp(r"'links\.\w").firstMatch(f.readAsStringSync())?[0],
-        isNull,
-        reason: f.path,
-      );
-    }
-  });
-
-  test('remote does not import links', () {
-    for (final f in dartIn('lib/src/remote')) {
-      for (final i in importsOf(f)) {
-        expect(i, isNot(contains('links')), reason: f.path);
-      }
-    }
-  });
 
   test('no word of the domain the package was made for', () {
     final words = RegExp(

@@ -84,27 +84,6 @@ final class Flagged extends Owner {
   void sync() => _on.set(on);
 }
 
-/// Dials that say what they own and use.
-final class Told extends Dials {
-  @override
-  Iterable<IWord> get words => Level.values;
-
-  @override
-  Iterable<Use> get uses => const [Use.optional(_Flag.on)];
-}
-
-/// One that needs the dials' level, and can do without the flag.
-final class Needy extends Owner {
-  @override
-  Iterable<Use> get uses => const [
-    Use.required(Level.of),
-    Use.optional(_Flag.on),
-  ];
-
-  @override
-  void define(IParticipant p) {}
-}
-
 enum _Flag<T> implements IStateWord<T> {
   on<bool>('test.on', Plain(BoolType()));
 
@@ -229,76 +208,6 @@ void main() {
     await turns.close();
   });
 
-  test('a required word not there stops main, told by part and word; an '
-      'optional one does not', () async {
-    final needy = module({'needy'})..attach({'needy': Needy()});
-    await expectLater(
-      needy.checkUses(),
-      throwsA(
-        isA<UnmetUses>().having(
-          (e) => e.message,
-          'message',
-          'host/needy needs test.level: missing',
-        ),
-      ),
-    );
-    module().attach({'dials': Dials()});
-    await needy.checkUses();
-  });
-
-  test('a required word withheld from the part is not met', () async {
-    r
-        .participant(
-          const Principal('dials'),
-          vocabularies: [WordSet.open('test')],
-          access: WordAccess(read: Callers.only(['dials'])),
-        )
-        .attach({'dials': Dials()});
-    final needy = module({'needy'})..attach({'needy': Needy()});
-    await expectLater(
-      needy.checkUses(),
-      throwsA(
-        isA<UnmetUses>().having(
-          (e) => e.unmet.single.status,
-          'status',
-          const WordNotPermitted(),
-        ),
-      ),
-    );
-  });
-
-  test('an owner says what it owns and uses; describe tells it as its '
-      'part\'s, until it goes', () async {
-    final changes = <CatalogChange>[];
-    r.catalogChanges.listen(changes.add);
-    final owners = module()..attach({'dials': Told()});
-    final part = me.child('dials');
-    expect(r.declarations[part]!.owns, {'test.level'});
-    expect(r.describe()['declared'], {
-      part.selector: {
-        'owns': ['test.level'],
-        'uses': {'test.on': 'optional'},
-      },
-    });
-    owners.dispose();
-    await pumpEventQueue();
-    expect(r.declarations, isEmpty);
-    expect(changes.whereType<DeclarationChanged>().map((c) => c.by), [
-      part,
-      part,
-    ]);
-  });
-
-  test('a word it lists outside its namespaces is refused before it '
-      'defines anything', () {
-    expect(
-      () => module({'other'})..attach({'dials': Told()}),
-      throwsA(isA<NotPermitted>()),
-    );
-    expect(r.declarations, isEmpty);
-    expect(r.stateDescriptor('test.level'), isNull);
-  });
-
   test('an owner that says when its model moved is synced on its own: '
       'what one turn told, once and as one tick for the group', () async {
     final dials = Watched();
@@ -320,31 +229,27 @@ void main() {
     expect(r.state(_Flag.on).read(), isTrue);
   });
 
-  test(
-    'a scope is a participant: going, it leaves nothing of itself, its '
-    'words, values, kinds and declarations, and others see them missing',
-    () async {
-      final p = module();
-      final outsider = r.participant(const Principal('outsider'));
-      final statuses = <WordStatus>[];
-      outsider.statusChanges('test.level').listen(statuses.add);
-      final dials = Told();
-      p.attach({'dials': dials});
-      final part = p.child('dials');
-      part.state(_Flag.on).define().set(true);
-      await pumpEventQueue();
-      p.dispose();
-      await pumpEventQueue();
-      expect(r.stateDescriptor('test.level'), isNull);
-      expect(r.stateDescriptor('test.on'), isNull, reason: 'the part went');
-      expect(r.state(Level.of).readAll(), isEmpty);
-      expect(r.hasKind('dial'), isFalse);
-      expect(r.declarations, isEmpty);
-      expect(statuses.last, const WordMissing());
-      dials.dials['a'] = 9;
-      expect(dials.sync, throwsStateError, reason: 'withdrawn');
-      module().attach({'dials': Dials()});
-      expect(r.state(Level.of).read(key: 'a'), 1, reason: 'the next session');
-    },
-  );
+  test('a scope is a participant: going, it leaves nothing of itself, its '
+      'words, values and kinds, and others see them missing', () async {
+    final p = module();
+    final outsider = r.participant(const Principal('outsider'));
+    final statuses = <WordStatus>[];
+    outsider.statusChanges('test.level').listen(statuses.add);
+    final dials = Dials();
+    p.attach({'dials': dials});
+    final part = p.child('dials');
+    part.state(_Flag.on).define().set(true);
+    await pumpEventQueue();
+    p.dispose();
+    await pumpEventQueue();
+    expect(r.stateDescriptor('test.level'), isNull);
+    expect(r.stateDescriptor('test.on'), isNull, reason: 'the part went');
+    expect(r.state(Level.of).readAll(), isEmpty);
+    expect(r.hasKind('dial'), isFalse);
+    expect(statuses.last, const WordMissing());
+    dials.dials['a'] = 9;
+    expect(dials.sync, throwsStateError, reason: 'withdrawn');
+    module().attach({'dials': Dials()});
+    expect(r.state(Level.of).read(key: 'a'), 1, reason: 'the next session');
+  });
 }

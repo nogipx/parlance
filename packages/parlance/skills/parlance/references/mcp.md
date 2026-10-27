@@ -10,15 +10,11 @@ A **board** is what the tools work on: `LocalBoard(registry, by: principal)` in 
 
 | Tool | Does |
 |---|---|
-| `describe` | the commands this principal may call (params as JSON Schema, refs listing their entities, what each sets, whether it can run now), states, facts, entities (with the JSON Schema of the value one takes, when its meta tells a `type`) |
+| `describe` | the commands this principal may call (params as JSON Schema, refs listing their entities, whether it can run now), states, facts, entities (with the JSON Schema of the value one takes, when its meta tells a `type`) |
 | `read` | states now: one, by prefix, or all; a state the principal may not read (§6.1 `readers`) is told as such, and left out of the others (so is a fact it may not hear, from `recent_facts`) |
 | `call` | a command by name; an `id` makes a retry safe |
 | `recent_facts` | the last facts of a name |
-| `why` | a state's value, last change (when, on whose behalf, through which links), the calls that led to it, the layers holding it: `Registry.explain`, told without the wire's ids |
-| `layers` | every layer: owner, value, priority, the top one |
-| `links`, `link_guide`, `link_check`, `link_upsert`, `link_remove`, `links_set`, `link_uses`, `link_try`, `link_press` | the links, how they are written, who names a word, and the engine's commands |
-
-The links' tools are there only when a links engine is (§13.10): `links` with its state, each other tool when the principal may call its command, `link_guide` with any that writes. `mcp` does not import `links`; it knows the engine by `LinkWords` only.
+| `why` | a state's value, last change (when, on whose behalf), the calls that led to it: `Registry.explain`, told without the wire's ids |
 
 With `commandTools`, each command the principal may call is a tool of its own as well. A host adds its own tools beside these.
 
