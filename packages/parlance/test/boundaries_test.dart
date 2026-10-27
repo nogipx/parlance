@@ -89,20 +89,6 @@ void main() {
     }
   });
 
-  test('owners use the registry and participants, and Dart', () {
-    for (final f in dartIn('lib/src/owners')) {
-      for (final i in importsOf(f)) {
-        expect(
-          i.startsWith('../registry/') ||
-              i.startsWith('../participant/') ||
-              i.startsWith('dart:'),
-          isTrue,
-          reason: '${f.path}: $i',
-        );
-      }
-    }
-  });
-
   test('participants use the registry and the view of it, never remote', () {
     for (final f in dartIn('lib/src/participant')) {
       for (final i in importsOf(f)) {

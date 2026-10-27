@@ -181,13 +181,16 @@ void main() {
 
   group('the owner base', () {
     late Deck deck;
-    late Owners owners;
     setUp(() {
       deck = Deck();
-      owners = Owners(p, {'deck': deck});
+      p.attach({'deck': deck});
     });
 
     test('defines every word, and an owner writes only its handlers', () {
+      expect(r.stateDescriptor('player.volume')!.meta, {
+        'label': 'Volume',
+        'steps': [0, 50, 100],
+      });
       expect(r.state(PlayerState.volume).read(), 50);
       expect(r.declarations[me.child('deck')]!.owns, {
         for (final w in playerWords.words) w.name,
@@ -236,18 +239,14 @@ void main() {
       ), by: ann);
       expect(play.whyNot, contains('nothing to play'));
     });
-
-    tearDown(() => owners.dispose());
   });
 
   group('the client', () {
-    late Owners owners;
     late PlayerClient asAnn;
     setUp(() {
-      owners = Owners(p, {'deck': Deck()});
+      p.attach({'deck': Deck()});
       asAnn = PlayerClient(r.participant(ann));
     });
-    tearDown(() => owners.dispose());
 
     test(
       'reads and watches states, calls and asks by the class\'s params',

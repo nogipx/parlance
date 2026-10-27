@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:parlance/owners.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
@@ -135,9 +134,7 @@ void main() {
       'and what it writes and says follows from the call', () async {
     final lamps = Lamps();
     final p = await join();
-    lamps
-      ..attach(p)
-      ..sync();
+    p.attach({'lamps': lamps});
     await p.flush();
     expect(r.read('kittens.lamp'), false);
 
@@ -146,7 +143,7 @@ void main() {
     expect(done.ok, isTrue, reason: '$done');
     expect(r.read('kittens.lamp'), true);
     final change = r.lastChange('kittens.lamp')!;
-    expect(change.cause.by, kittens);
+    expect(change.cause.by, kittens.child('lamps'), reason: 'its part');
     expect(change.cause.parent, isNotNull, reason: 'it follows from the call');
     final purr = r.recent('kittens.purred').single;
     expect(purr.cause.parent, change.cause.parent);
@@ -157,9 +154,9 @@ void main() {
   test('a remote group checks what it needs against the host\'s catalog '
       'as it is now', () async {
     final p = await join();
-    final group = Owners(p, {'on-air': _OnAir()});
+    p.attach({'on-air': _OnAir()});
     await expectLater(
-      group.checkUses(),
+      p.checkUses(),
       throwsA(
         isA<UnmetUses>().having(
           (e) => e.message,
@@ -173,16 +170,14 @@ void main() {
       vocabularies: [WordSet.open('studio')],
     );
     studio.state(_Program.scene).define().set('main');
-    await group.checkUses();
+    await p.checkUses();
     expect(r.declarations[kittens.child('on-air')]!.toJson(), {
       'owns': ['kittens.lamp'],
       'uses': {'studio.program': 'required'},
     });
-    group.dispose();
-    await p.flush();
+    await p.close();
     expect(r.declarations, isEmpty);
     studio.dispose();
-    await p.close();
   });
 
   test(
@@ -190,24 +185,22 @@ void main() {
     () async {
       final p = await join();
       final lamps = Lamps();
-      final owners = Owners(p, {'lamps': lamps});
+      p.attach({'lamps': lamps});
       await p.flush();
       expect(r.read('kittens.lamp'), false);
       lamps.lit = true;
-      owners.sync();
+      p.sync();
       await p.flush();
       expect(r.read('kittens.lamp'), true);
-      owners.dispose();
-      await p.flush();
+      await p.close();
       expect(r.stateDescriptor('kittens.lamp'), isNull);
-      expect(p.namespaces, {'kittens'}, reason: 'the participant stays');
     },
   );
 
   test('a part across a connection acts as itself on the host', () async {
     final p = await join();
     final lamps = Lamps();
-    Owners(p, {'lamps': lamps});
+    p.attach({'lamps': lamps});
     await p.flush();
     final part = kittens.child('lamps');
     expect(r.lastChange('kittens.lamp')!.cause.by, part);
@@ -457,7 +450,7 @@ void main() {
 
   test('going, it withdraws its words', () async {
     final p = await join();
-    Lamps().attach(p);
+    p.attach({'lamps': Lamps()});
     await p.flush();
     expect(r.commandDescriptor('kittens.lamp.turn'), isNotNull);
     await p.close();
@@ -514,8 +507,8 @@ void main() {
       backoff: const RpcFixedBackoff(Duration(milliseconds: 10)),
     );
     final p = await RemoteParticipant.join(connection);
-    final lamps = Lamps()..attach(p);
-    lamps.sync();
+    final lamps = Lamps();
+    p.attach({'lamps': lamps});
     final told = p.declare(const Declaration(owns: {'kittens.lamp'}));
     await p.flush();
     expect(r.read('kittens.lamp'), false);

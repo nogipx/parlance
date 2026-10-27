@@ -40,7 +40,7 @@ final class Home extends HouseOwner {
   final Devices devices;
 
   /// When a device changed by hand, it is synced on its own: nobody has
-  /// to call [Owners.sync].
+  /// to call `sync` on its participant.
   @override
   Stream<void> get changes => devices.changed;
 

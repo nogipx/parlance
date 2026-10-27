@@ -7,6 +7,7 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart';
 import '../view/view.dart';
+import 'owner.dart';
 import 'participant.dart';
 
 /// Participants of a registry in this process (SPEC §22.1).
@@ -353,9 +354,24 @@ final class LocalParticipant implements IParticipant {
   @override
   Future<void> settle() async {}
 
+  late final OwnerGroup _group = OwnerGroup(this);
+
+  @override
+  void attach(Map<String, Owner> owners) {
+    _live();
+    _group.attach(owners);
+  }
+
+  @override
+  void sync() => _group.sync();
+
+  @override
+  Future<void> checkUses() => _group.checkUses();
+
   @override
   void dispose() {
     if (_disposed) return;
+    _group.dispose();
     _disposed = true;
     for (final c in [..._children.values].reversed) {
       c.dispose();

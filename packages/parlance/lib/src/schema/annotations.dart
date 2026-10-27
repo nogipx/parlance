@@ -25,7 +25,7 @@ final class Vocabulary {
 
 /// A state: a getter, its type the value's (`int get volume;`).
 final class StateWord {
-  const StateWord({this.name, this.key, this.readers});
+  const StateWord({this.name, this.key, this.readers, this.meta = const {}});
 
   /// Its name after the namespace; by default the member's in snake case.
   final String? name;
@@ -35,6 +35,9 @@ final class StateWord {
 
   /// Who may read it, when not the participant's default (SPEC §22.2).
   final Callers? readers;
+
+  /// What editors show of it (`{'label': 'Muted'}`), as its descriptor's.
+  final Map<String, Object?> meta;
 }
 
 /// A command: a method, its named parameters the params, its return type
@@ -49,8 +52,12 @@ final class CommandWord {
     this.interceptable = false,
     this.deadline,
     this.available = false,
+    this.meta = const {},
   });
   final String? name;
+
+  /// What editors show of it, as its descriptor's.
+  final Map<String, Object?> meta;
 
   /// Who may call it, when not the participant's default (SPEC §22.2).
   final Callers? callers;
@@ -79,8 +86,10 @@ final class QueryWord {
     this.askers,
     this.deadline,
     this.available = false,
+    this.meta = const {},
   });
   final String? name;
+  final Map<String, Object?> meta;
 
   /// Who may ask it, when not who may read (SPEC §6.6).
   final Callers? askers;
@@ -91,8 +100,9 @@ final class QueryWord {
 /// A fact: a method returning `void`, its named parameters the payload, or
 /// its one positional parameter the payload itself.
 final class FactWord {
-  const FactWord({this.name, this.readers});
+  const FactWord({this.name, this.readers, this.meta = const {}});
   final String? name;
+  final Map<String, Object?> meta;
 
   /// Who may hear it, when not the participant's default (SPEC §22.2).
   final Callers? readers;

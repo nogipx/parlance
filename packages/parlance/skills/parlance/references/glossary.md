@@ -114,9 +114,9 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Owners (§19)
 
 - **Owner**: who defines words and does their work. `define(r)` defines them through typed words and `keep`s each handle; `sync()` writes the states as its devices or ports have them now; `dispose()` withdraws them, the last kept first.
-- **Owners**: a host's owners on one registry, attached in order; `sync()` syncs them all in one batch, so a change is one tick.
-- **Scope** (§19.2): a group of owners `main` attaches for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.
-- **Use** (§19.1): a word of another an owner says it uses, `Use.required` or `Use.optional`; `Owners.checkUses()` throws `UnmetUses` at start for a required one missing or not permitted.
+- **Attaching owners**: `p.attach({name: owner})`, each to the part of its name; the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
+- **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.
+- **Use** (§19.1): a word of another an owner says it uses, `Use.required` or `Use.optional`; `p.checkUses()` throws `UnmetUses` at start for a required one missing or not permitted.
 - **IWord**: a word of any kind by its name; every typed word is one.
 - **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(namespace)`; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **Declaration** (§6.7): what a part says it owns and uses; `describe` tells it as `declared`, told, not enforced. `Owner.words` lists what an owner owns.

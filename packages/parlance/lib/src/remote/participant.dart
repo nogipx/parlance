@@ -4,6 +4,7 @@ import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
 import 'package:rpc_dart/rpc_dart.dart';
 
+import '../participant/owner.dart';
 import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
@@ -682,6 +683,20 @@ final class RemoteParticipant implements IParticipant {
   @override
   void batch(void Function() writes) => writes();
 
+  late final OwnerGroup _group = OwnerGroup(this);
+
+  @override
+  void attach(Map<String, Owner> owners) {
+    _live();
+    _group.attach(owners);
+  }
+
+  @override
+  void sync() => _group.sync();
+
+  @override
+  Future<void> checkUses() => _group.checkUses();
+
   /// What it asked done, then the catalog as the host has it now: the feed
   /// brings the catalog in its own time, a status read after this is the
   /// host's as of then.
@@ -699,6 +714,7 @@ final class RemoteParticipant implements IParticipant {
   /// endpoint.
   Future<void> close() async {
     if (_disposed) return;
+    _group.dispose();
     for (final name in [..._own.keys, ..._facts.keys, ..._commands.keys]) {
       _ask({'op': 'undefine', 'name': name});
     }
@@ -1006,11 +1022,25 @@ final class _Part implements IParticipant {
   @override
   Future<void> settle() => _root.settle();
 
+  late final OwnerGroup _group = OwnerGroup(this);
+
+  @override
+  void attach(Map<String, Owner> owners) => _group.attach(owners);
+
+  @override
+  void sync() => _group.sync();
+
+  @override
+  Future<void> checkUses() => _group.checkUses();
+
   @override
   IParticipant child(String name) => _root._partOf(who.child(name));
 
   @override
-  void dispose() => _root._withdraw(who);
+  void dispose() {
+    _group.dispose();
+    _root._withdraw(who);
+  }
 }
 
 final class _Served extends ParlanceOwnerContractPeer {

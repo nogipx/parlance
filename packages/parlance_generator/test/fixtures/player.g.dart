@@ -218,7 +218,16 @@ abstract base class PlayerOwner extends Owner {
 
   @override
   void define(IParticipant p) {
-    volume = keep(p.state(PlayerState.volume).define());
+    volume = keep(
+      p
+          .state(PlayerState.volume)
+          .define(
+            meta: const {
+              'label': 'Volume',
+              'steps': [0, 50, 100],
+            },
+          ),
+    );
     repeat = keep(p.state(PlayerState.repeat).define());
     playing = keep(p.state(PlayerState.playing).define());
     speakerLevel = keep(p.state(PlayerState.speakerLevel).define());

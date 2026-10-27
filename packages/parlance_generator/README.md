@@ -47,7 +47,7 @@ final class Deck extends PlayerOwner {
 }
 ```
 
-`main` grants the vocabulary to the module's participant and attaches the owner: `Owners(r.participant(Who.player, vocabularies: [playerWords]), {'deck': Deck()})`; the namespace is written only in `@Vocabulary`.
+`main` grants the vocabulary to the module's participant and attaches the owner to it: `r.participant(Who.player, vocabularies: [playerWords]).attach({'deck': Deck()})`; the namespace is written only in `@Vocabulary`, and disposing the participant takes the owner with it.
 
 One vocabulary is one namespace: every word's name is in it. Another module uses the words through the client, over any view: its participant, a `LocalView`, or a `MirrorView` across a connection:
 

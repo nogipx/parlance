@@ -82,6 +82,9 @@ final class _State extends _Word {
   final String type;
   final String shape;
   final String? key;
+
+  /// [key] as code: by the constant that names it, if any.
+  String? keyCode;
 }
 
 final class _Callable extends _Word {
@@ -159,17 +162,23 @@ final class _Emitter {
         continue;
       }
       final r = ConstantReader(a);
-      final s = _State(
-        g.displayName,
-        _name(g, r),
-        g,
-        _dart(g.returnType),
-        _shape(g.returnType, g, g.displayName),
-        r.peek('key')?.stringValue,
-      );
+      final s =
+          _State(
+              g.displayName,
+              _name(g, r),
+              g,
+              _dart(g.returnType),
+              _shape(g.returnType, g, g.displayName),
+              r.peek('key')?.stringValue,
+            )
+            ..keyCode = switch (r.peek('key')) {
+              final k? => _code(k.objectValue, _quote(k.stringValue)),
+              null => null,
+            };
       if (r.peek('readers')?.objectValue case final o?) {
         s.options.add('readers: ${_callers(o)}');
       }
+      _meta(s, r);
       named(s);
       states.add(s);
     }
@@ -188,6 +197,7 @@ final class _Emitter {
           c.options.add('interceptable: true');
         }
         _common(c, r);
+        _meta(c, r);
         named(c);
         commands.add(c);
       } else if (_query.firstAnnotationOf(m) case final a?) {
@@ -197,6 +207,7 @@ final class _Emitter {
           q.options.add('askers: ${_callers(o)}');
         }
         _common(q, r);
+        _meta(q, r);
         named(q);
         queries.add(q);
       } else if (_fact.firstAnnotationOf(m) case final a?) {
@@ -205,6 +216,7 @@ final class _Emitter {
         if (r.peek('readers')?.objectValue case final o?) {
           f.options.add('readers: ${_callers(o)}');
         }
+        _meta(f, r);
         named(f);
         facts.add(f);
       } else if (m.isAbstract) {
@@ -310,8 +322,50 @@ final class _Emitter {
     w.available = r.peek('available')?.boolValue ?? false;
   }
 
-  /// [o], a `Callers`, as code.
-  String _callers(DartObject o) {
+  /// A word's `meta`, when it has one.
+  void _meta(_Word w, ConstantReader r) {
+    final m = r.peek('meta')?.objectValue;
+    if (m == null || (m.toMapValue()?.isEmpty ?? true)) return;
+    w.options.add('meta: ${_code(m, 'const ${_constant(m, w.element)}')}');
+  }
+
+  /// [o], a constant of JSON, as code: a text, a number, a bool, null, and
+  /// lists and maps of them.
+  String _constant(DartObject o, Element at) {
+    if (o.isNull) return 'null';
+    final t = o.type;
+    if (t != null && t.isDartCoreString) return _quote(o.toStringValue()!);
+    if (t != null && t.isDartCoreBool) return '${o.toBoolValue()}';
+    if (t != null && t.isDartCoreInt) return '${o.toIntValue()}';
+    if (t != null && t.isDartCoreDouble) return '${o.toDoubleValue()}';
+    if (o.toListValue() case final l?) {
+      return '[${[for (final e in l) _constant(e, at)].join(', ')}]';
+    }
+    if (o.toMapValue() case final m?) {
+      return '{${[for (final MapEntry(:key, :value) in m.entries) '${_constant(key!, at)}: ${_constant(value!, at)}'].join(', ')}}';
+    }
+    throw InvalidGenerationSourceError(
+      'meta holds JSON: texts, numbers, bools, lists and maps of them',
+      element: at,
+    );
+  }
+
+  /// [o] as code: the constant it was named by (`Who.crew`, `minDb`), so
+  /// the generated code follows it; else [literal].
+  String _code(DartObject o, String literal) {
+    final v = o.variable;
+    if (v == null || !v.isConst) return literal;
+    return switch (v.enclosingElement) {
+      final InterfaceElement e => '${e.displayName}.${v.displayName}',
+      LibraryElement() => v.displayName,
+      _ => literal,
+    };
+  }
+
+  /// [o], a `Callers`, as code: by the constant that names it, if any.
+  String _callers(DartObject o) => _code(o, _callersLiteral(o));
+
+  String _callersLiteral(DartObject o) {
     final rules = o.getField('rules')?.toMapValue() ?? const {};
     final entries = [
       for (final MapEntry(:key, :value) in rules.entries)
@@ -809,7 +863,10 @@ final class _Emitter {
     final ref = bounded ? _ref.firstAnnotationOf(on) : null;
     final max = length == null
         ? null
-        : ConstantReader(length).read('max').intValue;
+        : _code(
+            ConstantReader(length).read('max').objectValue,
+            '${ConstantReader(length).read('max').intValue}',
+          );
     String bounds(String type) {
       if (range == null) return '$type()';
       final r = ConstantReader(range);
@@ -821,7 +878,7 @@ final class _Emitter {
           element: on,
         );
       }
-      return '$type(${[if (min != null) 'min: $min', if (mx != null) 'max: $mx'].join(', ')})';
+      return '$type(${[if (min != null) 'min: ${_code(r.read('min').objectValue, '$min')}', if (mx != null) 'max: ${_code(r.read('max').objectValue, '$mx')}'].join(', ')})';
     }
 
     if (t.isDartCoreBool) return 'Plain(BoolType())';
@@ -836,8 +893,8 @@ final class _Emitter {
     if (t.isDartCoreNum) return 'Plain(${bounds('NumType')})';
     if (t.isDartCoreString) {
       if (ref != null) {
-        final kind = ConstantReader(ref).read('kind').stringValue;
-        return 'Plain(RefType(${_quote(kind)}))';
+        final kind = ConstantReader(ref).read('kind');
+        return 'Plain(RefType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
       }
       return 'Plain(TextType(${max == null ? '' : 'maxLength: $max'}))';
     }
@@ -992,7 +1049,7 @@ final class _Emitter {
     final values = [
       for (final s in states)
         "${s.member}<${s.type}>(${_quote(s.name)}, ${s.shape}"
-            "${s.key == null ? '' : ', key: ${_quote(s.key!)}'})",
+            "${s.keyCode == null ? '' : ', key: ${s.keyCode}'})",
     ];
     return '''
 /// The states of [$_c].

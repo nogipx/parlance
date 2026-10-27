@@ -14,7 +14,6 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/links.dart';
 import 'package:parlance/mcp.dart';
-import 'package:parlance/owners.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
@@ -50,7 +49,7 @@ Future<void> main() async {
   );
   // The owner is the participant's part `devices`, named here: what it
   // writes and says is told as house:devices.
-  final owners = Owners(houseSide, {'devices': house});
+  houseSide.attach({'devices': house});
   // Residents press and change links; a run set off by anyone else (a guest
   // at the door) acts with that one's rights, never the link's.
   final links = Links(
@@ -207,10 +206,10 @@ Future<void> main() async {
   section('A visit, as a scope');
   // A garden that needs a weather station the house does not have: main
   // learns it at start, by name, rather than when it would water.
-  final garden = Owners(
-    registry.participant(Who.garden, vocabularies: [WordSet.open('garden')]),
-    {'sprinkler': Sprinkler()},
-  );
+  final garden = registry.participant(
+    Who.garden,
+    vocabularies: [WordSet.open('garden')],
+  )..attach({'sprinkler': Sprinkler()});
   try {
     await garden.checkUses();
   } on UnmetUses catch (e) {
@@ -224,8 +223,8 @@ Future<void> main() async {
     vocabularies: [visitWords],
     access: const WordAccess(call: Who.household),
   );
-  final visit = Owners(visitSide, {'book': GuestBook()});
-  await visit.checkUses();
+  visitSide.attach({'book': GuestBook()});
+  await visitSide.checkUses();
   final declared = registry.declarations[Who.visit.child('book')]!;
   print(
     '  the visit owns ${declared.owns.join(', ')}; uses '
@@ -235,7 +234,6 @@ Future<void> main() async {
   await settle();
   final guests = registry.state(VisitState.guests);
   print('  guests: ${guests.read()}');
-  visit.dispose();
   visitSide.dispose();
   print(
     '  after the visit: visit.guests ${asBob.status(VisitState.guests.name)}',
@@ -284,7 +282,7 @@ Future<void> main() async {
   print('  the agent turns the hall light off: ${answer.text.trim()}');
 
   await links.dispose();
-  owners.dispose();
+  houseSide.dispose();
   await registry.dispose();
 }
 

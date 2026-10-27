@@ -2,12 +2,11 @@
 /// `parlance_generator` to make their typed enums and shapes; and the
 /// schema a module keeps so its published words do not change by
 /// accident. It exports what the generated code names (registry,
-/// participant, owners, view), so a module's words import only it.
+/// participant, view), so a module's words import only it.
 ///
 /// The contract: skills/parlance/references/schema.md (§23).
 library;
 
-export 'owners.dart';
 export 'participant.dart';
 export 'registry.dart';
 export 'src/schema/annotations.dart';

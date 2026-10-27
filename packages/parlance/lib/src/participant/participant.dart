@@ -8,6 +8,7 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart';
 import '../view/view.dart';
+import 'owner.dart';
 
 /// A participant asked for what it may not do: a word outside its
 /// namespaces, a right it lacks, an act as someone else (SPEC §22.2).
@@ -179,13 +180,30 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// at once, across a connection after the host answered.
   Future<void> settle();
 
+  /// Attaches [owners] (SPEC §22.3), each to the part of its name
+  /// (`child(name)`), so causes, records and `explain` tell which owner did
+  /// what; then writes what they have now, as one tick. The names are
+  /// `main`'s; two owners of one name are refused. They go with it.
+  void attach(Map<String, Owner> owners);
+
+  /// Writes what every owner attached to it has now, as one tick.
+  void sync();
+
+  /// Whether its owners have the words they say they need (SPEC §19.1);
+  /// throws [UnmetUses] naming every one that is not met. Call it once
+  /// every participant of the app has its owners.
+  Future<void> checkUses();
+
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`, in the
   /// same namespaces with the same rights, so what each part does is told
   /// as that part's in causes, records and `explain`. Its guards judge its
   /// own commands; a cause of this one passed to it is taken as its own.
   IParticipant child(String name);
 
-  /// Withdraws everything it defined, registered and added, and its parts.
+  /// Withdraws its owners, the last attached first, then everything it
+  /// defined, registered and added, and its parts: a scope (a user's
+  /// session, a feature) leaves nothing of itself, and its namespaces are
+  /// free again.
   @override
   void dispose();
 }

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart';
+import 'participant.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
 final class Handles implements IHandle {
@@ -38,26 +38,22 @@ final class Handles implements IHandle {
 
 /// An owner of words (SPEC §6, §19): code that defines its states,
 /// commands and facts in [define], keeps their handles, and writes what it
-/// has now in [sync]. It speaks through the participant (SPEC §22) it is
-/// attached to; who that is, and what it may, `main` says when it makes
-/// the participant, never the owner.
+/// has now in [sync]. `main` attaches it to a participant (SPEC §22.3:
+/// `p.attach({'sound': Mixer(...)})`) and it speaks as the part of its
+/// name; who that is, and what it may, `main` says when it makes the
+/// participant, never the owner.
 abstract base class Owner implements IHandle {
   final Handles _handles = Handles();
   IParticipant? _participant;
-  bool _disposed = false;
 
-  /// The group it was attached by, which syncs it with the rest.
-  Owners? _group;
-  bool _due = false;
-
-  /// The participant it speaks through.
+  /// The participant it speaks through: the part `main` named it by.
   IParticipant get participant =>
       _participant ?? (throw StateError('$runtimeType is not attached'));
 
-  /// Attaches it to [p], says there what it owns and uses, and defines its
-  /// words; once. A word of [words] outside the participant's namespaces
-  /// is refused before anything is defined.
-  void attach(IParticipant p) {
+  /// Attached by [group] to [p], its part: says there what it owns and
+  /// uses, and defines its words; once. A word of [words] outside the
+  /// participant's namespaces is refused before anything is defined.
+  void _attach(IParticipant p, OwnerGroup group) {
     if (_participant != null) throw StateError('$runtimeType is attached');
     final d = Declaration(
       owns: {for (final w in words) w.name},
@@ -66,24 +62,14 @@ abstract base class Owner implements IHandle {
     if (!d.isEmpty) keep(p.declare(d));
     _participant = p;
     define(p);
-    if (changes case final c?) listen(c, (_) => _changed());
+    if (changes case final c?) listen(c, (_) => group._changed(this));
   }
 
   /// Told whenever what its states say may have changed (its model, a
   /// device): it is then synced, once for all told in one turn, and with
-  /// the rest of its group as one tick. Without it, whoever changes the
-  /// model calls [Owners.sync].
+  /// the rest of its participant's owners as one tick. Without it,
+  /// whoever changes the model calls `IParticipant.sync`.
   Stream<void>? get changes => null;
-
-  void _changed() {
-    if (_group case final g?) return g._changed(this);
-    if (_due) return;
-    _due = true;
-    Timer.run(() {
-      _due = false;
-      if (!_disposed) participant.batch(sync);
-    });
-  }
 
   /// The words it owns (SPEC §6.7): `[...OrdersState.values, ...]`, told
   /// in `describe` with what it [uses]. It may define others too, within
@@ -95,12 +81,13 @@ abstract base class Owner implements IHandle {
   void define(IParticipant p);
 
   /// The words of others it uses (SPEC §19.1): those [Use.required] it
-  /// cannot work without, checked by [Owners.checkUses] once the app's
-  /// owners are attached; the rest it handles while they are missing.
+  /// cannot work without, checked by `IParticipant.checkUses` once the
+  /// app's owners are attached; the rest it handles while they are
+  /// missing.
   Iterable<Use> get uses => const [];
 
-  /// Writes its states as they are now. [Owners.sync] calls every owner's
-  /// in one batch, so a change is seen whole.
+  /// Writes its states as they are now. `IParticipant.sync` calls every
+  /// owner's in one batch, so a change is seen whole.
   void sync() {}
 
   /// Keeps [h] to withdraw when the owner goes, and gives it back.
@@ -121,10 +108,7 @@ abstract base class Owner implements IHandle {
 
   /// Withdraws its words.
   @override
-  void dispose() {
-    _disposed = true;
-    _handles.dispose();
-  }
+  void dispose() => _handles.dispose();
 }
 
 /// A kind of entities an owner keeps: it tells the registry when the
@@ -168,37 +152,56 @@ final class TrackedKind {
   }
 }
 
-/// Owners on one participant: a module of several, each speaking as its
-/// part of it, named by `main` ([IParticipant.child]: `studio:sound`), so
-/// causes, call records and `explain` tell which owner did what. Attached
-/// in order, synced in one batch, withdrawn the last first. The
-/// participant is the caller's: `main` made it, with the module's
-/// principal, namespaces and rights, and it outlives the group.
-final class Owners implements IHandle {
-  Owners(this.participant, this.owners) {
-    for (final MapEntry(key: name, value: o) in owners.entries) {
-      final part = participant.child(name);
-      _parts.add(part);
-      o._group = this;
-      o.attach(part);
-    }
-    sync();
-  }
+/// The owners attached to one participant (SPEC §22.3): each to the part
+/// of its name, synced as one tick, withdrawn with the participant. A
+/// participant's own; code reaches it through `IParticipant.attach`,
+/// `sync` and `checkUses`.
+final class OwnerGroup {
+  OwnerGroup(this.participant);
 
-  /// The parts it made, one per owner: withdrawn with the group.
-  final List<IParticipant> _parts = [];
+  final IParticipant participant;
+  final Map<String, Owner> _owners = {};
   final Set<Owner> _dirty = {};
   bool _disposed = false;
 
-  void _changed(Owner o) {
-    if (_dirty.isNotEmpty) {
-      _dirty.add(o);
-      return;
+  /// The owners by the names of their parts.
+  Map<String, Owner> get owners => Map.unmodifiable(_owners);
+
+  /// Attaches each of [owners] to the part of its name
+  /// (`participant.child(name)`), so its acts are told as its own, in
+  /// order; then writes what they have now, as one tick.
+  void attach(Map<String, Owner> owners) {
+    if (_disposed) throw StateError('${participant.who} is gone');
+    for (final name in owners.keys) {
+      if (_owners.containsKey(name)) {
+        throw StateError('${participant.who} has an owner named $name');
+      }
     }
+    for (final MapEntry(key: name, value: o) in owners.entries) {
+      o._attach(participant.child(name), this);
+      _owners[name] = o;
+    }
+    participant.batch(() {
+      for (final o in owners.values) {
+        o.sync();
+      }
+    });
+  }
+
+  /// Writes what every owner has now, as one tick.
+  void sync() => participant.batch(() {
+    for (final o in _owners.values) {
+      o.sync();
+    }
+  });
+
+  void _changed(Owner o) {
+    final first = _dirty.isEmpty;
     _dirty.add(o);
+    if (!first) return;
     Timer.run(() {
       final due = [
-        for (final o in owners.values)
+        for (final o in _owners.values)
           if (_dirty.contains(o)) o,
       ];
       _dirty.clear();
@@ -211,21 +214,16 @@ final class Owners implements IHandle {
     });
   }
 
-  final IParticipant participant;
-
-  /// The owners by the names of their parts.
-  final Map<String, Owner> owners;
-
   /// Whether every owner has the words it says it needs (SPEC §19.1): each
   /// [Use.required] there for its part, not missing and not withheld from
-  /// it; a command that cannot run now is there. Call it once every group
-  /// of the app is attached, as words of one may be another's; it throws
-  /// [UnmetUses] naming all that is not met, so `main` stops with a clear
-  /// message rather than a part failing later.
+  /// it; a command that cannot run now is there. Call it once every
+  /// participant of the app has its owners, as words of one may be
+  /// another's; it throws [UnmetUses] naming all that is not met, so
+  /// `main` stops with a clear message rather than a part failing later.
   Future<void> checkUses() async {
     await participant.settle();
     final unmet = <UnmetUse>[];
-    for (final o in owners.values) {
+    for (final o in _owners.values) {
       for (final u in o.uses) {
         if (!u.required) continue;
         final status = o.participant.status(u.word.name);
@@ -237,32 +235,20 @@ final class Owners implements IHandle {
     if (unmet.isNotEmpty) throw UnmetUses(unmet);
   }
 
-  /// Writes what every owner has now, as one tick.
-  void sync() => participant.batch(() {
-    for (final o in owners.values) {
-      o.sync();
-    }
-  });
-
-  /// Withdraws the owners, the last first, and the parts they spoke as,
-  /// with all the parts did: a scope (a user's session, a feature) leaves
-  /// nothing of itself in the registry.
-  @override
+  /// Withdraws the owners, the last attached first.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final o in [...owners.values].reversed) {
+    for (final o in [..._owners.values].reversed) {
       o.dispose();
     }
-    for (final p in _parts.reversed) {
-      p.dispose();
-    }
+    _owners.clear();
   }
 }
 
 /// A word an owner uses ([Owner.uses]).
 final class Use {
-  /// One it cannot work without: [Owners.checkUses] fails while it is not
+  /// One it cannot work without: `IParticipant.checkUses` fails while it is not
   /// there.
   const Use.required(this.word) : required = true;
 

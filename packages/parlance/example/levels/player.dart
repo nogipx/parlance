@@ -2,7 +2,6 @@
 /// speaks only through the core's interfaces.
 library;
 
-import 'package:parlance/owners.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 
@@ -145,14 +144,11 @@ const playerWords = WordSet('player', [
 /// Starts the player in [r]: its participant, given the player's words,
 /// its commands called by [Who.turners] unless one says otherwise, and its
 /// owner as the part `deck` (what it writes is told as `player:deck`).
-Owners startPlayer(Registry r) => Owners(
-  r.participant(
-    Who.player,
-    vocabularies: [playerWords],
-    access: const WordAccess(call: Who.turners),
-  ),
-  {'deck': Player()},
-);
+LocalParticipant startPlayer(Registry r) => r.participant(
+  Who.player,
+  vocabularies: [playerWords],
+  access: const WordAccess(call: Who.turners),
+)..attach({'deck': Player()});
 
 /// Lets ticks, links and remote work through what was just done.
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));
