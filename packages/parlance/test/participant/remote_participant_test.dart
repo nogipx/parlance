@@ -82,39 +82,47 @@ final class Lamps extends Owner {
 
   @override
   void sync() => _on.set(lit);
+
+  void purr() => _purred.emit((on: lit));
 }
 
 void main() {
   late Registry r;
-  late RegistryResponder session;
-  late RpcPeerEndpoint host;
-  late RpcPeerEndpoint guest;
+  RegistryResponder? session;
+  RpcPeerEndpoint? host;
+  RpcClientConnection? connection;
 
+  /// A connection in memory that does not come back once lost: the
+  /// factory gives the one transport, and it does not reconnect.
   Future<RemoteParticipant> join({
     Set<String> namespaces = const {'kittens'},
     SessionRights rights = SessionRights.none,
   }) {
     final (c, s) = RpcChannelTransport.memoryPair();
-    host = RpcPeerEndpoint(transport: s);
-    session = RegistryResponder(
-      host,
+    final h = host = RpcPeerEndpoint(transport: s);
+    final session_ = session = RegistryResponder(
+      h,
       r,
       principal: kittens,
       namespaces: namespaces,
       rights: rights,
     );
-    host
-      ..registerServiceContract(session)
+    h
+      ..registerServiceContract(session_)
       ..start();
-    guest = RpcPeerEndpoint(transport: c)..start();
-    return RemoteParticipant.connect(guest);
+    final link = connection = RpcClientConnection(
+      transportFactory: (_) async => c,
+      shouldReconnect: (_) => false,
+    );
+    return RemoteParticipant.join(link);
   }
 
   setUp(() => r = Registry(overriders: {'user'}));
   tearDown(() async {
-    session.close();
-    await guest.close();
-    await host.close();
+    session?.close();
+    await connection?.dispose();
+    await host?.close();
+    (session, connection, host) = (null, null, null);
     await r.dispose();
   });
 
@@ -303,6 +311,84 @@ void main() {
     await p.close();
     expect(r.commandDescriptor('kittens.lamp.turn'), isNull);
     expect(r.stateDescriptor('kittens.lamp'), isNull);
+  });
+  test('a connection that gives up is told to its errors', () async {
+    final p = await join();
+    final errors = <ParticipantError>[];
+    p.errors.listen(errors.add);
+    final gone = connection!.state.firstWhere(
+      (s) => s is RpcClientDisconnected,
+    );
+    session!.close();
+    await host!.close();
+    await gone;
+    await settle();
+    expect(errors.map((e) => (e.op['op'], e.code)), [('join', 'lost')]);
+  });
+
+  test('it outlives a lost connection: the new session gets its words as '
+      'they stand, and then what it said while away', () async {
+    final sessions = <RegistryResponder>[];
+    final hosts = <RpcPeerEndpoint>[];
+    final connection = RpcClientConnection(
+      transportFactory: (_) async {
+        final (c, s) = RpcChannelTransport.memoryPair();
+        final h = RpcPeerEndpoint(transport: s);
+        final session = RegistryResponder(
+          h,
+          r,
+          principal: kittens,
+          namespaces: {'kittens'},
+        );
+        h
+          ..registerServiceContract(session)
+          ..start();
+        sessions.add(session);
+        hosts.add(h);
+        return c;
+      },
+      backoff: const RpcFixedBackoff(Duration(milliseconds: 10)),
+    );
+    final p = await RemoteParticipant.join(connection);
+    final lamps = Lamps()..attach(p);
+    lamps.sync();
+    await p.flush();
+    expect(r.read('kittens.lamp'), false);
+
+    // The connection drops: the host ends the session, its words go.
+    final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
+    sessions.last.close();
+    await hosts.last.close();
+    await offline;
+    expect(r.commandDescriptor('kittens.lamp.turn'), isNull);
+
+    // Away, it writes and says.
+    lamps
+      ..lit = true
+      ..sync()
+      ..purr();
+
+    final back = DateTime.now().add(const Duration(seconds: 5));
+    while (r.read('kittens.lamp') != true && DateTime.now().isBefore(back)) {
+      await settle();
+    }
+    expect(sessions, hasLength(2));
+    expect(r.read('kittens.lamp'), true, reason: 'its value as it stands');
+    expect(r.recent('kittens.purred').map((f) => f.payload), [
+      {'on': true},
+    ], reason: 'what it said away');
+    final served = await r.call('kittens.lamp.turn', {'on': false}, by: crew);
+    expect(served.ok, isTrue, reason: '$served');
+    expect(lamps.lit, isFalse, reason: 'served over the new connection');
+
+    await p.close();
+    await connection.dispose();
+    for (final s in sessions) {
+      s.close();
+    }
+    for (final h in hosts) {
+      await h.close();
+    }
   });
 }
 

@@ -42,8 +42,16 @@ final class ParticipantError {
 /// and a refusal comes after, to [errors]. It reads its own states as it
 /// wrote them, and another's as its mirror has them: those it watches, or
 /// listens to the changes of.
+///
+/// It joins over an [RpcClientConnection] ([join]) and outlives a lost
+/// connection: the host's new session gets everything it has defined as
+/// it stands now, in one tick, and then what it said meanwhile. A
+/// connection that does not come back (a wasm module's to its host, one in
+/// memory) is one whose factory gives the same transport and that does not
+/// reconnect (`shouldReconnect: (_) => false`).
 final class RemoteParticipant implements IParticipant {
   RemoteParticipant._(
+    this.endpoint,
     this.client,
     this.mirror,
     this.who,
@@ -51,15 +59,30 @@ final class RemoteParticipant implements IParticipant {
     this._onError,
   ) : _view = MirrorView(mirror, client);
 
-  /// Joins the registry over [endpoint], a peer endpoint whose session the
-  /// host made: its principal and namespaces are the session's.
-  static Future<RemoteParticipant> connect(
-    RpcPeerEndpoint endpoint, {
+  /// Joins the registry over [connection], starting it when it is idle:
+  /// the participant makes its peer endpoint on the connection's transport
+  /// ([endpoint], for other contracts on the same connection), waits until
+  /// it is online, and joins again each time it is back. Its principal and
+  /// namespaces are the session's the host made.
+  static Future<RemoteParticipant> join(
+    RpcClientConnection connection, {
     void Function(ParticipantError error)? onError,
   }) async {
+    final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
+    final online = connection.currentState is RpcClientOnline
+        ? null
+        : connection.state.firstWhere(
+            (s) => s is RpcClientOnline || s is RpcClientDisconnected,
+          );
+    if (connection.currentState is RpcClientIdle) connection.connect();
+    if (await online case RpcClientDisconnected(:final reason)) {
+      await endpoint.close();
+      throw StateError('the connection gave up: $reason');
+    }
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
     final p = RemoteParticipant._(
+      endpoint,
       client,
       RegistryMirror(),
       Principal.fromJson(d['principal']),
@@ -71,9 +94,86 @@ final class RemoteParticipant implements IParticipant {
     unawaited(p.mirror.subscribe(states: const {}, facts: const {}));
     p.mirror.follow(client);
     p._changes = p.mirror.changes.listen((_) => p._checkAvailability());
+    p._connection = connection.state.listen(p._onConnection);
     return p;
   }
 
+  StreamSubscription<RpcClientConnectionState>? _connection;
+
+  /// Whether its session is there to ask: false from a drop until it has
+  /// joined the host's new session.
+  bool _online = true;
+  bool _rejoining = false;
+
+  void _onConnection(RpcClientConnectionState s) {
+    switch (s) {
+      case RpcClientOnline():
+        if (!_online) unawaited(_rejoin());
+      case RpcClientOffline() || RpcClientConnecting():
+        _online = false;
+      case RpcClientDisconnected(:final reason):
+        // The connection gave up: nothing it asks reaches the registry.
+        _online = false;
+        _fail(const {'op': 'join'}, 'lost', 'the connection gave up: $reason');
+      default:
+    }
+  }
+
+  /// Joins the host's new session: what it has defined, as it stands now,
+  /// as one tick; then what it said while away.
+  Future<void> _rejoin() async {
+    if (_rejoining || _disposed) return;
+    _rejoining = true;
+    try {
+      final d = await client.describe();
+      final now = Principal.fromJson(d['principal']);
+      if (now != who) {
+        _fail(
+          const {'op': 'rejoin'},
+          'permissionDenied',
+          'the new session is $now\'s, not $who\'s',
+        );
+        return;
+      }
+      _queue.insertAll(0, _standing());
+      for (final c in _commands.values) {
+        c.told = false;
+      }
+      _online = true;
+      mirror.follow(client);
+      _checkAvailability();
+      await flush();
+    } on Object {
+      // Dropped again before it joined: the next time it is online.
+      _online = false;
+    } finally {
+      _rejoining = false;
+    }
+  }
+
+  /// What it has defined, as it stands now, in the order a session takes
+  /// it: kinds before the values that name their entities, states before
+  /// the commands that set them.
+  List<Map<String, Object?>> _standing() => [
+    for (final k in _kinds.values)
+      {
+        'op': 'kind',
+        'name': k.name,
+        'entities': [for (final e in k.list()) e.toJson()],
+      },
+    for (final d in _states.values) {'op': 'define', 'descriptor': d.toJson()},
+    for (final d in _facts.values) {'op': 'define', 'descriptor': d.toJson()},
+    for (final c in _commands.values)
+      {'op': 'define', 'descriptor': c.d.toJson()},
+    for (final MapEntry(key: state, value: values) in _own.entries)
+      for (final MapEntry(:key, :value) in values.entries)
+        {'op': 'set', 'state': state, 'key': ?key, 'value': value},
+    for (final MapEntry(key: id, :value) in _guards.entries)
+      {'op': 'guard', 'id': id, 'overridable': value.overridable},
+  ];
+
+  /// The peer endpoint it made on its connection.
+  final RpcPeerEndpoint endpoint;
   final ParlanceClient client;
   final RegistryMirror mirror;
   final MirrorView _view;
@@ -94,6 +194,10 @@ final class RemoteParticipant implements IParticipant {
 
   /// Its own states, as it wrote them: name, key, value.
   final Map<String, Map<String?, Object?>> _own = {};
+
+  /// Its own states and facts, as defined: what a new session is given.
+  final Map<String, StateDescriptor> _states = {};
+  final Map<String, FactDescriptor> _facts = {};
   final Map<String, _Command> _commands = {};
   final Map<String, ({GuardCheck check, bool overridable})> _guards = {};
   final Map<String, EntityKind> _kinds = {};
@@ -133,6 +237,9 @@ final class RemoteParticipant implements IParticipant {
 
   void _ask(Map<String, Object?> op) {
     _live();
+    // Away, only what it says waits: the rest a new session gets as it
+    // stands then.
+    if (!_online && op['op'] != 'emit') return;
     _queue.add(op);
     if (_scheduled) return;
     _scheduled = true;
@@ -152,7 +259,7 @@ final class RemoteParticipant implements IParticipant {
         await s;
         continue;
       }
-      if (_queue.isEmpty) return;
+      if (_queue.isEmpty || !_online) return;
       final ops = [..._queue];
       _queue.clear();
       final done = Completer<void>();
@@ -165,8 +272,19 @@ final class RemoteParticipant implements IParticipant {
           }
         }
       } on Object catch (e) {
-        for (final op in ops) {
-          _fail(op, 'lost', '$e');
+        if (!_disposed) {
+          // The connection dropped: a new session gets what it defined as
+          // it stands; what it said goes again after, its ids letting the
+          // registry drop one it took.
+          _online = false;
+          _queue.insertAll(0, [
+            for (final op in ops)
+              if (op['op'] == 'emit') op,
+          ]);
+        } else {
+          for (final op in ops) {
+            _fail(op, 'lost', '$e');
+          }
         }
       } finally {
         _sending = null;
@@ -283,6 +401,7 @@ final class RemoteParticipant implements IParticipant {
   IStateHandle defineState(StateDescriptor d) {
     _mayDefine(d);
     _ask({'op': 'define', 'descriptor': d.toJson()});
+    _states[d.name] = d;
     _own[d.name] = {};
     return _State(this, d);
   }
@@ -311,6 +430,7 @@ final class RemoteParticipant implements IParticipant {
   IFactHandle defineFact(FactDescriptor d) {
     _mayDefine(d);
     _ask({'op': 'define', 'descriptor': d.toJson()});
+    _facts[d.name] = d;
     return _Fact(this, d, own: true);
   }
 
@@ -392,10 +512,11 @@ final class RemoteParticipant implements IParticipant {
   @override
   void dispose() => unawaited(close());
 
-  /// Withdraws its words, guards and kinds, and stops its mirror.
+  /// Withdraws its words, guards and kinds, stops its mirror and closes its
+  /// endpoint.
   Future<void> close() async {
     if (_disposed) return;
-    for (final name in [..._own.keys, ..._commands.keys]) {
+    for (final name in [..._own.keys, ..._facts.keys, ..._commands.keys]) {
       _ask({'op': 'undefine', 'name': name});
     }
     for (final id in _guards.keys) {
@@ -406,13 +527,19 @@ final class RemoteParticipant implements IParticipant {
     }
     _disposed = true;
     _own.clear();
+    _states.clear();
+    _facts.clear();
     _commands.clear();
     _guards.clear();
     _kinds.clear();
     await flush();
+    await _connection?.cancel();
     await _changes?.cancel();
     await mirror.dispose();
     await _errors.close();
+    // The endpoint is its own; the connection stays the caller's to
+    // dispose.
+    await endpoint.close();
   }
 
   // --- Asked by the host --------------------------------------------------
@@ -502,6 +629,7 @@ final class _State implements IStateHandle {
 
   @override
   void dispose() {
+    _p._states.remove(descriptor.name);
     if (_p._own.remove(descriptor.name) == null) return;
     _p._ask({'op': 'undefine', 'name': descriptor.name});
   }
@@ -533,7 +661,7 @@ final class _Fact implements IFactHandle {
 
   @override
   void dispose() {
-    if (!own) return;
+    if (!own || _p._facts.remove(descriptor.name) == null) return;
     _p._ask({'op': 'undefine', 'name': descriptor.name});
   }
 }
