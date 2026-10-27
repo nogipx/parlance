@@ -122,14 +122,19 @@ final class RemoteParticipant implements IParticipant {
   /// the participant makes its peer endpoint on the connection's transport
   /// ([endpoint], for other contracts on the same connection), waits until
   /// it is online, and joins again each time it is back. Its principal and
-  /// namespaces are the session's the host made.
+  /// namespaces are the session's the host made. [interceptors] go on that
+  /// endpoint before its first call (an OTel pair, say); on a peer endpoint
+  /// they see the calls it makes and those it serves.
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
     void Function(ParticipantError error)? onError,
     LogScope? log,
     int keepAway = 1000,
+    Iterable<IRpcInterceptor> interceptors = const [],
   }) async {
-    final endpoint = RpcPeerEndpoint(transport: connection.transport)..start();
+    final endpoint = RpcPeerEndpoint(transport: connection.transport);
+    interceptors.forEach(endpoint.addInterceptor);
+    endpoint.start();
     final online = connection.currentState is RpcClientOnline
         ? null
         : connection.state.firstWhere(

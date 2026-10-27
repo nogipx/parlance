@@ -56,6 +56,19 @@ enum Purr<T> implements IFactWord<T> {
   Shape<T> get shape => _turn as Shape<T>;
 }
 
+/// What calls went through its endpoint, both ways.
+final class _Seen extends RpcCallObserverInterceptor<String> {
+  final calls = <String>[];
+
+  @override
+  String onCallStart(RpcCallInfo call, RpcMethodType type) =>
+      '${call.direction.name} ${call.methodName}';
+
+  @override
+  void onCallEnd(String state, RpcCallOutcome outcome, Duration duration) =>
+      calls.add(state);
+}
+
 /// One owner's code: the same whether it runs in the host's process or
 /// across a connection.
 final class Lamps extends Owner {
@@ -95,6 +108,7 @@ void main() {
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
     LogScope? log,
+    Iterable<IRpcInterceptor> interceptors = const [],
   }) {
     final (c, s) = RpcChannelTransport.memoryPair();
     final h = host = RpcPeerEndpoint(transport: s);
@@ -111,7 +125,7 @@ void main() {
       transportFactory: (_) async => c,
       shouldReconnect: (_) => false,
     );
-    return RemoteParticipant.join(link, log: log);
+    return RemoteParticipant.join(link, log: log, interceptors: interceptors);
   }
 
   setUp(() => r = Registry(overriders: {'user'}));
@@ -169,6 +183,16 @@ void main() {
       expect(r.stateDescriptor('kittens.lamp'), isNull);
     },
   );
+
+  test('interceptors given to join see the calls its endpoint makes and '
+      'those it serves', () async {
+    final seen = _Seen();
+    final p = await join(interceptors: [seen]);
+    p.attach({'lamps': Lamps()});
+    await p.flush();
+    await r.participant(crew).command(LampCommand.turn).call((on: true));
+    expect(seen.calls, containsAll(['outgoing describe', 'incoming serve']));
+  });
 
   test('a part across a connection acts as itself on the host', () async {
     final p = await join();
