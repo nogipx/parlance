@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'cause.dart';
 import 'descriptors.dart';
+import 'ids.dart';
 import 'json.dart';
 import 'messages.dart';
 import 'registry.dart';
@@ -287,12 +288,29 @@ final class WordSet {
   final bool open;
 
   /// Throws when a word lies outside [namespace].
+  /// Throws when its namespace or a word's name is no name (SPEC §1), or a
+  /// word lies outside its namespace: told when the vocabulary is granted,
+  /// at the start, for every word at once, not when one is defined.
   void check() {
+    final bad = <String>[];
+    if (!isValidName(namespace)) bad.add('the namespace "$namespace"');
     for (final w in words) {
+      try {
+        checkWordName(w.name);
+      } on ArgumentError catch (e) {
+        bad.add('"${w.name}" (${e.message})');
+        continue;
+      }
       if (w.name != namespace && !w.name.startsWith('$namespace.')) {
-        throw ArgumentError('${w.name} is not in the namespace $namespace');
+        bad.add('"${w.name}" (not in the namespace $namespace)');
       }
     }
+    if (bad.isEmpty) return;
+    throw ArgumentError(
+      'the vocabulary $namespace has what is no word name: ${bad.join('; ')}. '
+      'A name is lower-case words split by ., each from a letter, joined by _ '
+      'only',
+    );
   }
 }
 

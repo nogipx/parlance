@@ -6,7 +6,8 @@ library;
 
 export 'src/registry/cause.dart' show Principal, Cause;
 export 'src/registry/descriptors.dart';
-export 'src/registry/ids.dart' show newId, isValidName, wordVersion;
+export 'src/registry/ids.dart'
+    show newId, isValidName, checkWordName, wordVersion;
 export 'src/registry/json.dart';
 export 'src/registry/messages.dart';
 export 'src/registry/registry.dart';

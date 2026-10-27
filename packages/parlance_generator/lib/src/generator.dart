@@ -10,6 +10,11 @@ import 'package:parlance/schema.dart';
 import 'package:pub_semver/pub_semver.dart' show Version;
 import 'package:source_gen/source_gen.dart';
 
+/// What a name is (SPEC §1), as the generator tells it.
+const _nameRule =
+    'lower-case words split by ., each from a letter, joined by _ only '
+    '(audio.voice.muted_talk); a version, if any, last (.v2)';
+
 const _state = TypeChecker.typeNamed(StateWord, inPackage: 'parlance');
 const _command = TypeChecker.typeNamed(CommandWord, inPackage: 'parlance');
 const _query = TypeChecker.typeNamed(QueryWord, inPackage: 'parlance');
@@ -39,7 +44,7 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
     final namespace = annotation.read('namespace').stringValue;
     if (!isValidName(namespace)) {
       throw InvalidGenerationSourceError(
-        '@Vocabulary: "$namespace" is no namespace (dotted lowercase)',
+        '@Vocabulary: "$namespace" is no namespace: $_nameRule',
         element: element,
       );
     }
@@ -271,9 +276,11 @@ final class _Emitter {
   String _name(Element e, ConstantReader r) {
     final own = r.peek('name')?.stringValue ?? _snake(e.displayName);
     final name = '$namespace.$own';
-    if (!isValidName(name)) {
+    try {
+      checkWordName(name);
+    } on ArgumentError catch (x) {
       throw InvalidGenerationSourceError(
-        '"$name" is no word name (dotted lowercase)',
+        '${e.displayName}: "$name" is no word name: ${x.message}. $_nameRule',
         element: e,
       );
     }

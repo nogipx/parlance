@@ -463,6 +463,22 @@ void main() {
       throwsArgumentError,
       reason: 'a word of the vocabulary lies outside its namespace',
     );
+    expect(
+      () => r.participant(
+        cart,
+        vocabularies: [
+          const WordSet('cart', [_Dashed.word]),
+        ],
+      ),
+      throwsA(
+        isA<ArgumentError>().having(
+          (e) => '${e.message}',
+          'message',
+          allOf(contains('"cart.muted-talk"'), contains('joined by _ only')),
+        ),
+      ),
+      reason: 'every name is checked when the vocabulary is granted',
+    );
   });
 
   test('a selector is a path: every level after / is a level, and the '
@@ -531,6 +547,18 @@ enum _Other<T> implements IStateWord<T> {
   flag<bool>('cart.flag');
 
   const _Other(this.name);
+  @override
+  final String name;
+  @override
+  Shape<T> get shape => const Plain(BoolType()) as Shape<T>;
+  @override
+  String? get key => null;
+}
+
+enum _Dashed<T> implements IStateWord<T> {
+  word<bool>('cart.muted-talk');
+
+  const _Dashed(this.name);
   @override
   final String name;
   @override

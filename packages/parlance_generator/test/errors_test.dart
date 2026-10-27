@@ -66,7 +66,18 @@ $body
       '@StateWord() Object get any;',
       'Object is no type a word can carry',
     ),
-    'a bad name': ('@StateWord(name: "Big") int get big;', '"orders.Big"'),
+    'a bad name': (
+      '@StateWord(name: "Big") int get big;',
+      'big: "orders.Big" is no word name',
+    ),
+    'a name joined by a dash': (
+      '@StateWord(name: "muted-talk") bool get mutedTalk;',
+      'joined by _ only',
+    ),
+    'a version not last': (
+      '@CommandWord(name: "v2.cancel") void cancel();',
+      'a version is the last word only',
+    ),
     'a word named as a member of Owner': (
       '@StateWord() int get words;',
       'words is a member of Owner',
