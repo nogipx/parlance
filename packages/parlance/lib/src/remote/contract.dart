@@ -3,7 +3,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 part 'contract.g.dart';
 
 /// The version of the remote protocol (SPEC §14).
-const parlanceProtocol = 7;
+const parlanceProtocol = 8;
 
 Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();

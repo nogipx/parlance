@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/view.dart';
@@ -34,14 +36,13 @@ void main() {
   tearDown(() => r.dispose());
 
   var asked = 0;
-  IHandle define({Callers callers = const Callers({'*': Access.allow})}) =>
-      r.defineCommand(
-        CommandDescriptor(
+  IHandle define({Callers askers = const Callers({'*': Access.allow})}) =>
+      r.defineQuery(
+        QueryDescriptor(
           'orders.page',
           params: const ObjectType({'from': Field(IntType())}),
           returns: const ListType(TextType()),
-          callers: callers,
-          query: true,
+          askers: askers,
         ),
         (c) {
           asked++;
@@ -66,40 +67,36 @@ void main() {
     await sub.cancel();
   });
 
-  test('who may ask is its callers', () async {
-    define(callers: Callers.only(['module:orders']));
+  test('who may ask is its askers', () async {
+    define(askers: Callers.only(['module:orders']));
     final r1 = await r.call('orders.page', {'from': 0}, by: asker);
     expect((r1 as CallRefused).code, Refusal.notPermitted);
     expect(asked, 0);
   });
 
-  test('a query sets nothing and no hook runs ahead of it', () {
-    expect(
-      () => CommandDescriptor(
-        'orders.x',
-        params: const ObjectType({'on': Field(BoolType())}),
-        callers: const Callers({'*': Access.allow}),
-        sets: const Sets('orders.on', value: 'on'),
-        query: true,
-      ),
-      throwsArgumentError,
-    );
-    expect(
-      () => CommandDescriptor(
-        'orders.x',
-        callers: const Callers({'*': Access.allow}),
-        interceptable: true,
-        query: true,
-      ),
-      throwsArgumentError,
-    );
+  test('it is a word of its own kind in the catalog, not a command', () {
+    define();
+    expect(r.commandDescriptor('orders.page'), isNull);
+    final d = r.queryDescriptor('orders.page')!;
+    expect(d.toJson()['is'], 'query');
+    expect(d.toJson().containsKey('sets'), isFalse);
+    final back = Descriptor.fromJson(d.toJson());
+    expect(back, isA<QueryDescriptor>());
+    expect((back as QueryDescriptor).askers.toJson(), d.askers.toJson());
+    expect(r.catalog.whereType<QueryDescriptor>().single.name, 'orders.page');
   });
 
-  test('it says it is a query in the catalog', () {
+  test('a hook cannot run ahead of it, as it says it takes none', () {
     define();
-    final d = r.commandDescriptor('orders.page')!;
-    expect(d.toJson()['query'], isTrue);
-    expect(CommandDescriptor.fromJson(d.toJson()).query, isTrue);
+    expect(
+      () => r.addBefore(
+        'orders.page',
+        'h',
+        (_, _) async {},
+        timeout: const Duration(seconds: 1),
+      ),
+      throwsStateError,
+    );
   });
 
   test('through a participant: typed, and asked by whoever may read', () async {
@@ -109,7 +106,7 @@ void main() {
       access: WordAccess(read: Callers.only(['module'])),
     );
     p.query(OrdersQuery.page).define((c) => ['o${c.params.from}']);
-    expect(r.commandDescriptor('orders.page')!.callers.rules.keys, {'module'});
+    expect(r.queryDescriptor('orders.page')!.askers.rules.keys, {'module'});
     final answer = await r.participant(asker).query(OrdersQuery.page).ask((
       from: 3,
     ));
@@ -122,7 +119,7 @@ void main() {
         .query(OrdersQuery.page)
         .define((c) => const []);
     expect(
-      open.commandDescriptor('orders.page')!.callers.allows(asker),
+      open.queryDescriptor('orders.page')!.askers.allows(asker),
       isTrue,
       reason: 'no default: everyone may ask, as everyone may read',
     );
@@ -132,7 +129,7 @@ void main() {
     'typed on the registry: asked by everyone unless its askers say',
     () async {
       r.query(OrdersQuery.page).define((c) => ['p${c.params.from}']);
-      expect(r.commandDescriptor('orders.page')!.query, isTrue);
+      expect(r.queryDescriptor('orders.page'), isNotNull);
       final a = await r.query(OrdersQuery.page).ask((from: 1), by: asker);
       expect((a as CallDone<List<String>>).value, ['p1']);
       final viaView = await LocalView(
@@ -142,4 +139,125 @@ void main() {
       expect((viaView as CallDone<List<String>>).value, ['p2']);
     },
   );
+
+  group('a query changes nothing', () {
+    late StateWriterOf<String> note;
+    late FactEmitterOf<String> said;
+    setUp(() {
+      note = r.state(_Note.text).define(by: owner)..set('before');
+      said = r.fact(_Said.it).define(by: owner);
+      r.defineCommand(
+        CommandDescriptor(
+          'orders.touch',
+          callers: const Callers({'*': Access.allow}),
+        ),
+        (_) {},
+      );
+    });
+
+    /// Asks a query whose handler does [effect]; the query goes after.
+    Future<CallResult<List<String>>> askWith(
+      FutureOr<void> Function() effect,
+    ) async {
+      final h = r.query(OrdersQuery.page).define((q) async {
+        await effect();
+        return const [];
+      });
+      try {
+        return await r.query(OrdersQuery.page).ask((from: 0), by: asker);
+      } finally {
+        h.dispose();
+      }
+    }
+
+    test(
+      'a write from its handler is refused, and nothing is written',
+      () async {
+        final out = await askWith(() => note.set('after'));
+        expect(out, isA<CallFailed>());
+        expect(out.whyNot, contains('orders.page is a query'));
+        expect(out.whyNot, contains('write orders.note'));
+        expect(r.read('orders.note'), 'before');
+      },
+    );
+
+    test('so is one made later, after an await or in a timer', () async {
+      final out = await askWith(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        note.set('later');
+      });
+      expect(out, isA<CallFailed>());
+      expect(r.read('orders.note'), 'before');
+    });
+
+    test(
+      'a fact or a command from it is refused; another query it may ask',
+      () async {
+        expect(await askWith(() => said.emit('hi')), isA<CallFailed>());
+        expect(r.recent('orders.said'), isEmpty);
+        r.dispose();
+        r = Registry();
+        r.defineCommand(
+          CommandDescriptor(
+            'orders.touch',
+            callers: const Callers({'*': Access.allow}),
+          ),
+          (_) {},
+        );
+        r.defineQuery(
+          QueryDescriptor(
+            'orders.count',
+            returns: const IntType(),
+            askers: const Callers({'*': Access.allow}),
+          ),
+          (_) => 3,
+        );
+        final calling = await askWith(
+          () => r.call('orders.touch', {}, by: owner),
+        );
+        expect(calling.whyNot, contains('call orders.touch'));
+        r.query(OrdersQuery.page).define((q) async {
+          final n = await r.call(
+            'orders.count',
+            {},
+            by: owner,
+            cause: q.askingFor(owner),
+          );
+          return ['${(n as CallDone).value}'];
+        });
+        final nested = await r.query(OrdersQuery.page).ask((
+          from: 0,
+        ), by: asker);
+        expect((nested as CallDone<List<String>>).value, ['3']);
+      },
+    );
+
+    test('outside a query the same write goes through', () {
+      note.set('after');
+      expect(r.read('orders.note'), 'after');
+      expect(answeringQuery(), isNull);
+    });
+  });
+}
+
+enum _Note<T> implements IStateWord<T> {
+  text<String>('orders.note');
+
+  const _Note(this.name);
+  @override
+  final String name;
+  @override
+  Shape<T> get shape => const Plain(TextType()) as Shape<T>;
+  @override
+  String? get key => null;
+}
+
+enum _Said<T> implements IFactWord<T> {
+  it<String>('orders.said');
+
+  const _Said(this.name);
+  @override
+  final String name;
+  @override
+  Shape<T> get shape => const Plain(TextType()) as Shape<T>;
 }

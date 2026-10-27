@@ -54,7 +54,7 @@ Cause { by: Principal, parent: message id?, chain: [link or hook ids], test: boo
 ```
 
 - Every message carries a cause.
-- Causes are passed explicitly, never through zones. A handler gets its call and takes `call.causeFor(by)` for what it does: nested calls, writes, facts. Its `parent` is the call; `chain` and `test` carry over. A before hook gets the cause for its own calls as an argument. A write or call without a cause starts a new chain on behalf of whoever acts.
+- Causes are passed explicitly, never through zones (the only zone mark is a query's, §6.6, and it carries no cause). A handler gets its call and takes `call.causeFor(by)` for what it does: nested calls, writes, facts. Its `parent` is the call; `chain` and `test` carry over. A before hook gets the cause for its own calls as an argument. A write or call without a cause starts a new chain on behalf of whoever acts.
 - An owner that writes without the call's cause still works, but loses the trail: the journal cannot tell why, and a layer recognises the write as its echo only by the value (§8).
 - `chain` is how loops are found: a link or hook never runs for a message whose chain already holds its id.
 - `test` marks everything a trial run caused; consumers may show it differently.
@@ -86,7 +86,7 @@ CommandDescriptor {
   name, params: object type, returns: type?, owner,
   sets: { state, key: param name?, value: param name }?,
   callers: { selector: allow | warn | deny },
-  interceptable: bool, deadline: duration, query: bool, meta
+  interceptable: bool, deadline: duration, meta
 }
 ```
 
@@ -95,18 +95,7 @@ CommandDescriptor {
 - `callers` selectors are a principal kind (`user`), a kind and id (`plugin:hydra`) or `*` for anyone; the most specific selector wins; a principal matched by none is denied. A selector names the parts of what it names (§4): for `module:orders/sync` the nearest wins, its own, then `module:orders`, then `module`, then `*`. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
 - `deadline` bounds the handler; the default is 30 s.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
-- A **query** (`query: true`) only answers: a search, a page, a snapshot by params that no state holds. Its handler writes nothing, says nothing and calls no command, so asking again is safe. It sets no state and is not interceptable (refused at define); a call of it skips the dedup stage (an id is not held to a first answer) and leaves no call record, so its answers take no memory. Callers, availability and guards apply as to any command; its `callers` are who may ask, and they default as readers do: through a participant its `access.read`, else everyone (§22.2). In Dart it is a word of its own, `IQueryWord` (§18). `describe` says `query`, so an agent knows it is safe to ask. Many consumers of one value that changes is a state; one asker's answer by its own params is a query.
-
-| | command | query |
-| --- | --- | --- |
-| does | changes something: writes, says, calls | only answers |
-| a repeated id (§9.1) | answers the first result, runs once | runs again |
-| call record | kept | none |
-| `sets` (§8 layers, `flip`) | may | refused at define |
-| before hooks (§11) | when interceptable | refused at define |
-| callers by default, through a participant (§22.2) | `access.call`, else refused | `access.read`, else everyone |
-| `describe`, MCP | an action | `query: true`, safe to ask |
-| in Dart (§18) | `ICommandWord`, `command(word).call` | `IQueryWord`, `query(word).ask` |
+- A word that only answers is not a command but a query (§6.6).
 
 ### 6.3 Facts
 
@@ -139,6 +128,35 @@ Words come and go while the app runs (a plugin starts, a remote owner leaves, a 
 | `WordReady` | otherwise |
 
 An old name has the status of its word. `statusChanges(name, by:)` gives the status now, then each change: on a catalog change, after every tick, since the availability check reads committed state, and on `availabilityChanged(command)`, for a check that changes with no tick (a remote owner's, §22.4); a tick that leaves it as it was tells nothing. Nothing about an absent word fails: a read of it is null and a listener of it hears nothing until it comes, so parts start in any order; its status is how a part tells absent from silent. `unavailable` lists the commands that cannot run now, with why.
+
+### 6.6 Queries
+
+```
+QueryDescriptor {
+  name, params: object type, returns: type, owner,
+  askers: { selector: allow | warn | deny },
+  deadline: duration, meta
+}
+```
+
+A **query** only answers: a search, a page, a snapshot by params that no state holds. It is a word of its own kind (`is: query` in `describe`), beside states, commands and facts, so a reader of the catalog, an agent or a generator never mistakes it for a command. Many consumers of one value that changes is a state; one asker's answer by its own params is a query; anything that changes the world is a command.
+
+- It is called through the stages of a command (§9), less what a question has no use for: no dedup (an id is not held to a first answer, asking again asks again) and no call record, so its answers take no memory. It has no `sets` and no before hooks: its descriptor has nowhere to say them, and `addBefore` on it is refused.
+- `askers` are who may ask, selectors as `callers` (§6.2); availability and guards apply as to a command. Through a participant they default as readers do: its `access.read`, else everyone (§22.2). `returns` is required: a query answers.
+- In Dart it is `IQueryWord<P, R>` (§18): defined with `query(word).define(handler, askers:)`, asked with `.ask(params)`; its handler gets a `QueryAsk` (params, who asks, `askingFor(by)` for a query it asks in turn), not a call to write with.
+- **It is held to changing nothing.** The registry runs its handler marked as the query's (`asQuery`, a Dart zone: it goes with the handler's code through awaits and the timers it starts). A write, a removal, a fact, a layer or a command call made there is refused where it is tried (`QueryEffect`: `orders.page is a query, it changes nothing: it tried to write orders.last`), so the query ends `failed` and nothing changed; it may ask other queries. The mark hides nothing: a closure still sees what it captured, and what it tries through parlance is refused. What goes past parlance (a request over the network, a file, a device's port) the registry cannot see: that a query changes nothing there is the owner's promise. A remote participant runs its queries' handlers the same way and refuses what they ask.
+
+| | command | query |
+| --- | --- | --- |
+| does | changes something: writes, says, calls | only answers |
+| a repeated id (§9.1) | answers the first result, runs once | runs again |
+| call record | kept | none |
+| `sets` (§8 layers, `flip`) | may | has none |
+| before hooks (§11) | when interceptable | none |
+| who may, through a participant (§22.2) | `callers`, else `access.call`, else refused | `askers`, else `access.read`, else everyone |
+| `describe`, MCP | `is: command`, an action | `is: query`, safe to ask |
+| what its handler tries to change | done | refused (`QueryEffect`), the query fails |
+| in Dart (§18) | `ICommandWord`, `command(word).call` | `IQueryWord`, `query(word).ask` |
 
 ## 7. Ticks
 
@@ -176,7 +194,7 @@ call(name, params, by: Principal, id?, override = false) → CallResult
 
 A call goes through these stages, in order; the first refusal ends it:
 
-1. **Dedup.** (Not for a query, §6.2.) A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result.
+1. **Dedup.** (Not for a query, §6.6.) A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result.
 2. **Lookup.** Unknown command → `unknownCommand`.
 3. **Params.** Checked and filled with defaults → `invalidParams`.
 4. **Policy.** `callers` for the principal → `notPermitted`.

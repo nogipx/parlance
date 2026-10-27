@@ -230,6 +230,23 @@ final class LocalParticipant implements IParticipant {
   }
 
   @override
+  IHandle defineQuery(
+    QueryDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) {
+    _mayDefine(d);
+    final h = _r.defineQuery(d, handler, available: available);
+    _commands.add(d.name);
+    return _keep(
+      _Disposer(() {
+        _commands.remove(d.name);
+        h.dispose();
+      }),
+    );
+  }
+
+  @override
   IFactHandle defineFact(FactDescriptor d) {
     _mayDefine(d);
     return _keep(_OwnFact(this, _r.defineFact(access.fact(d), by: who)));

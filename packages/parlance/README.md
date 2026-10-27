@@ -27,6 +27,7 @@ A command that only answers is a **query** (`orders.page`, `catalog.search`): a 
 | links run steps before it (hooks) | may | never |
 | who may, by default | must be said | as who may read |
 | to an agent | an action | safe to ask |
+| a write, a fact, a command from its handler | done | refused: the query fails, nothing changed |
 | in Dart | `ICommandWord`, `.call(params)` | `IQueryWord`, `.ask(params)` |
 
 Many consumers of one value that changes: a state. One asker's answer to its own params: a query. Anything that changes the world: a command.

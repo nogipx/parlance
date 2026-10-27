@@ -262,6 +262,11 @@ final class RemoteParticipant implements IParticipant {
 
   void _ask(Map<String, Object?> op) {
     _live();
+    // What a query's handler tries to change is refused here, as in the
+    // host's process (SPEC §6.2).
+    if (op['op'] case 'set' || 'remove' || 'emit') {
+      refuseInQuery('${op['op']} ${op['state'] ?? op['fact']}');
+    }
     // Away, only what it says waits: the rest a new session gets as it
     // stands then.
     if (!_online && op['op'] != 'emit') return;
@@ -405,6 +410,10 @@ final class RemoteParticipant implements IParticipant {
   }) async {
     _live();
     final c = _as(cause, as);
+    // A query's handler may ask another query, never call a command.
+    if (answeringQuery() != null && !_isQuery(command)) {
+      refuseInQuery('call $command');
+    }
     await flush();
     final r = await client.callAt(
       command,
@@ -418,6 +427,15 @@ final class RemoteParticipant implements IParticipant {
       await mirror.reach(epoch, seq);
     }
     return r.result;
+  }
+
+  /// Whether [command] is a query, as the catalog says.
+  bool _isQuery(String command) {
+    final name = mirror.canonical(command);
+    for (final d in mirror.catalog['descriptors'] as List? ?? const []) {
+      if (d case {'name': final n, 'is': 'query'} when n == name) return true;
+    }
+    return false;
   }
 
   @override
@@ -450,14 +468,22 @@ final class RemoteParticipant implements IParticipant {
     Availability? available,
   }) => _defineCommand(d, handler, available, null);
 
+  @override
+  IHandle defineQuery(
+    QueryDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) => _defineCommand(d, handler, available, null);
+
+  /// A command or a query of its own, or of [as], a part of it.
   IHandle _defineCommand(
-    CommandDescriptor d,
+    CallableDescriptor d,
     CommandHandler handler,
     Availability? available,
     Principal? as,
   ) {
     _mayDefine(d);
-    if (d.sets case final s? when !_owns(s.state)) {
+    if (d case CommandDescriptor(sets: final s?) when !_owns(s.state)) {
       throw NotPermitted('${d.name} sets ${s.state}, a state not $who\'s');
     }
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
@@ -665,7 +691,9 @@ final class RemoteParticipant implements IParticipant {
       Future<void>.delayed(c.d.deadline),
     );
     try {
-      final value = await c.handler(call);
+      final value = await (c.d is QueryDescriptor
+          ? asQuery(c.d.name, () => c.handler(call))
+          : c.handler(call));
       // What it wrote in answer reaches the registry before the answer,
       // so it follows from the call.
       await flush();
@@ -695,7 +723,9 @@ final class RemoteParticipant implements IParticipant {
 
 final class _Command {
   _Command(this.d, this.handler, this.available, this.as);
-  final CommandDescriptor d;
+
+  /// A command's or a query's.
+  final CallableDescriptor d;
   final CommandHandler handler;
   final Availability? available;
 
@@ -853,6 +883,13 @@ final class _Part implements IParticipant {
   @override
   IHandle defineCommand(
     CommandDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) => _root._defineCommand(d, handler, available, who);
+
+  @override
+  IHandle defineQuery(
+    QueryDescriptor d,
     CommandHandler handler, {
     Availability? available,
   }) => _root._defineCommand(d, handler, available, who);

@@ -135,6 +135,7 @@ sealed class Descriptor {
     return switch (m['is']) {
       'state' => StateDescriptor.fromJson(m),
       'command' => CommandDescriptor.fromJson(m),
+      'query' => QueryDescriptor.fromJson(m),
       'fact' => FactDescriptor.fromJson(m),
       final x => throw FormatException('unknown descriptor $x'),
     };
@@ -183,25 +184,43 @@ final class StateDescriptor extends Descriptor {
   };
 }
 
-/// A request one handler serves (SPEC §6.2).
-final class CommandDescriptor extends Descriptor {
+/// What is called and answered by one handler (SPEC §9): a command or a
+/// query. Both go through the same stages; what tells them apart is in
+/// their own types.
+sealed class CallableDescriptor extends Descriptor {
+  CallableDescriptor(
+    super.name,
+    super.meta, {
+    required this.params,
+    required this.returns,
+    required this.callers,
+    required this.deadline,
+  });
+
+  final ObjectType params;
+
+  /// The type of what a call answers; null: it answers nothing.
+  final ValueType<Object?>? returns;
+
+  /// Who may call it, or ask it.
+  final Callers callers;
+
+  /// How long the handler may take.
+  final Duration deadline;
+}
+
+/// A request one handler serves (SPEC §6.2): it may change something.
+final class CommandDescriptor extends CallableDescriptor {
   CommandDescriptor(
     String name, {
-    this.params = const ObjectType({}),
-    this.returns,
-    required this.callers,
+    ObjectType params = const ObjectType({}),
+    super.returns,
+    required super.callers,
     this.sets,
     this.interceptable = false,
-    this.deadline = const Duration(seconds: 30),
-    this.query = false,
+    super.deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-  }) : super(name, meta) {
-    if (query && (sets != null || interceptable)) {
-      throw ArgumentError(
-        '$name is a query: it sets nothing and no hook '
-        'runs ahead of it',
-      );
-    }
+  }) : super(name, meta, params: params) {
     if (sets case final s?) {
       if (!params.fields.containsKey(s.value)) {
         throw ArgumentError('sets: no param ${s.value} in $name');
@@ -221,29 +240,13 @@ final class CommandDescriptor extends Descriptor {
         sets: m['sets'] == null ? null : Sets.fromJson(m['sets']),
         interceptable: m['interceptable'] == true,
         deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
-        query: m['query'] == true,
         meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
       );
 
-  final ObjectType params;
-
-  /// The type of what a call answers; null — it answers nothing.
-  final ValueType<Object?>? returns;
-  final Callers callers;
   final Sets? sets;
 
   /// Before hooks may run ahead of it (SPEC §11).
   final bool interceptable;
-
-  /// How long the handler may take.
-  final Duration deadline;
-
-  /// A query (SPEC §6.2): it only answers. Its handler writes nothing,
-  /// says nothing and calls no command, so asking again is safe: no call
-  /// record keeps it, a repeated id is not held to its first answer, and
-  /// it sets no state and is intercepted by no hook. Its `callers` are who
-  /// may ask.
-  final bool query;
 
   @override
   Map<String, Object?> toJson() => {
@@ -254,7 +257,53 @@ final class CommandDescriptor extends Descriptor {
     'callers': callers.toJson(),
     if (sets != null) 'sets': sets!.toJson(),
     if (interceptable) 'interceptable': true,
-    if (query) 'query': true,
+    'deadline': deadline.inMilliseconds,
+    if (meta.isNotEmpty) 'meta': meta,
+  };
+}
+
+/// A question one handler answers (SPEC §6.6): it changes nothing. It
+/// sets no state and no hook runs ahead of it, as it has neither to say;
+/// asked again it runs again, and no call record keeps it.
+final class QueryDescriptor extends CallableDescriptor {
+  QueryDescriptor(
+    String name, {
+    ObjectType params = const ObjectType({}),
+    required ValueType<Object?> returns,
+    required Callers askers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+  }) : super(
+         name,
+         meta,
+         params: params,
+         returns: returns,
+         callers: askers,
+         deadline: deadline,
+       );
+
+  factory QueryDescriptor.fromJson(Map<Object?, Object?> m) => QueryDescriptor(
+    m['name'] as String,
+    params: ValueType.fromJson(m['params']) as ObjectType,
+    returns: ValueType.fromJson(m['returns']),
+    askers: Callers.fromJson(m['askers']),
+    deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
+    meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
+  );
+
+  /// Who may ask it.
+  Callers get askers => callers;
+
+  /// What it answers, always.
+  ValueType<Object?> get answers => returns!;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'is': 'query',
+    'name': name,
+    'params': params.toJson(),
+    'returns': answers.toJson(),
+    'askers': askers.toJson(),
     'deadline': deadline.inMilliseconds,
     if (meta.isNotEmpty) 'meta': meta,
   };

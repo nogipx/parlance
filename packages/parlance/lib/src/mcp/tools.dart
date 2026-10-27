@@ -10,7 +10,8 @@ import 'schema.dart';
 /// its own words before it.
 const parlanceInstructions = '''
 This is a parlance: a registry of states (what is now), commands (what
-can be done) and facts (what happened), with links between them.
+can be done), queries (questions that change nothing) and facts (what
+happened), with links between them.
 
 How to work:
 - describe first: the commands you may call (their params and what state
@@ -19,7 +20,8 @@ How to work:
   why a state is as it is (its last change, on whose behalf, through which
   links, and the calls that led to it); layers what holds a state for now.
 - call runs a command by name. A refusal says why: fix the params, or ask
-  the user when it is denied by a guard.
+  the user when it is denied by a guard. A query (is: query) is called
+  the same way; it changes nothing, so asking it is always safe.
 - Links are data: read them with links, learn their shape with link_guide,
   check one with link_check before writing it, then link_upsert, link_remove
   or links_set (the user's own links; the host's are changed by an own link
@@ -57,7 +59,9 @@ Future<List<McpTool>> parlanceTools(
   final access = (d['access'] as Map?)?.cast<String, Object?>() ?? const {};
   final commands = [
     for (final c in descriptors)
-      if (c['is'] == 'command' && (access[c['name']] ?? 'deny') != 'deny') c,
+      if ((c['is'] == 'command' || c['is'] == 'query') &&
+          (access[c['name']] ?? 'deny') != 'deny')
+        c,
   ];
   // The states whose values it may read and the facts it may hear: the
   // others are in the catalog, their values not.
@@ -127,7 +131,7 @@ Future<List<McpTool>> parlanceTools(
                   'sets': ?(c['sets'] as Map?)?['state'],
                   if (access[c['name']] == 'warn') 'access': 'warn',
                   if (c['interceptable'] == true) 'interceptable': true,
-                  if (c['query'] == true) 'query': true,
+                  if (c['is'] == 'query') 'query': true,
                   'unavailable': ?unavailable[c['name']],
                 },
           ],
@@ -399,7 +403,7 @@ McpTool _commandTool(
   return McpTool(
     name: commandToolName(name),
     description: [
-      c['query'] == true
+      c['is'] == 'query'
           ? '${label ?? name} (query $name): only answers, changes nothing; '
                 'safe to ask again.'
           : '${label ?? name} (command $name).',

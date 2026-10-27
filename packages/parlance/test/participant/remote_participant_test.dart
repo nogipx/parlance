@@ -211,6 +211,28 @@ void main() {
     await sub.cancel();
   });
 
+  test('across a connection a query changes nothing either', () async {
+    final p = await join();
+    final lamp = p.state(Lamp.on).define()..set(false);
+    p.defineQuery(
+      QueryDescriptor(
+        'kittens.count',
+        returns: const IntType(),
+        askers: const Callers({'*': Access.allow}),
+      ),
+      (_) {
+        lamp.set(true);
+        return 1;
+      },
+    );
+    await p.flush();
+    final out = await r.call('kittens.count', {}, by: crew);
+    expect(out, isA<CallFailed>());
+    expect(out.whyNot, contains('kittens.count is a query'));
+    await p.flush();
+    expect(r.read('kittens.lamp'), false);
+  });
+
   test('what it writes in one turn is one tick', () async {
     final p = await join();
     final lamp = p.state(Lamp.on).define();

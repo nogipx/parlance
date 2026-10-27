@@ -138,6 +138,13 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
     Availability? available,
   });
 
+  /// Defines a query of its own, answered by [handler] (SPEC §6.6).
+  IHandle defineQuery(
+    QueryDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  });
+
   /// Defines a fact of its own, with [who] its producer; readers from
   /// [access] when [d] names none.
   IFactHandle defineFact(FactDescriptor d);
@@ -185,7 +192,7 @@ extension TypedParticipant on IParticipant {
       ParticipantQueryOf._(this, word);
 }
 
-/// A query as a participant has it, typed (SPEC §6.2).
+/// A query as a participant has it, typed (SPEC §6.6).
 final class ParticipantQueryOf<P, R> {
   ParticipantQueryOf._(this.participant, this.word);
 
@@ -195,12 +202,12 @@ final class ParticipantQueryOf<P, R> {
   /// Defines it as the participant's own, served by [handler]; [askers],
   /// else who may read its words (`access.read`), else everyone.
   IHandle define(
-    FutureOr<R> Function(CommandCallOf<P> ask) handler, {
+    FutureOr<R> Function(QueryAsk<P> ask) handler, {
     Callers? askers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     Availability? available,
-  }) => participant.defineCommand(
+  }) => participant.defineQuery(
     word.describeWith(
       askers: participant.access.askersOf(askers),
       deadline: deadline,

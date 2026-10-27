@@ -278,7 +278,7 @@ abstract interface class ICommandWord<P, R> {
   Shape<R>? get returns;
 }
 
-/// A query's name, its params and what it answers (SPEC §6.2, §18): a
+/// A query's name, its params and what it answers (SPEC §6.6, §18): a
 /// question that changes nothing. Not a command: where a command is
 /// called, a query is not passed, and where it is asked, it says so.
 abstract interface class IQueryWord<P, R> {
@@ -340,30 +340,26 @@ extension CommandAnswers<P, R> on ICommandWord<P, R> {
 extension QueryAnswers<P, R> on IQueryWord<P, R> {
   CallResult<R> answer(CallResult<Object?> raw) => _answer(name, returns, raw);
 
-  /// Its descriptor, with [askers] who may ask (SPEC §6.2).
-  CommandDescriptor describeWith({
+  /// Its descriptor, with [askers] who may ask (SPEC §6.6).
+  QueryDescriptor describeWith({
     required Callers askers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-  }) => CommandDescriptor(
+  }) => QueryDescriptor(
     name,
     params: params.type,
     returns: returns.type,
-    callers: askers,
+    askers: askers,
     deadline: deadline,
-    query: true,
     meta: meta,
   );
 
   /// Its handler as the registry serves it: params decoded, the answer
   /// encoded.
-  CommandHandler serve(FutureOr<R> Function(CommandCallOf<P> ask) handler) =>
-      (c) {
-        final out = handler(CommandCallOf(c, params.fromJson(c.params)));
-        return out is Future<R>
-            ? out.then(returns.toJson)
-            : returns.toJson(out);
-      };
+  CommandHandler serve(FutureOr<R> Function(QueryAsk<P> ask) handler) => (c) {
+    final out = handler(QueryAsk(c, params.fromJson(c.params)));
+    return out is Future<R> ? out.then(returns.toJson) : returns.toJson(out);
+  };
 }
 
 /// The registry through typed words. The word fixes the types: a call is
@@ -509,6 +505,28 @@ final class CommandCallOf<P> {
   Cause causeFor(Principal by) => raw.causeFor(by);
 }
 
+/// A question being answered, its params typed: what a query's handler
+/// gets. Unlike a command's call it offers no cause to write with: a
+/// query writes nothing ([QueryEffect]). [askingFor] is the cause of a
+/// question it asks in turn, so the trail and loop checks follow.
+final class QueryAsk<P> {
+  QueryAsk(this.raw, this.params);
+
+  /// The call as the registry has it.
+  final CommandCall raw;
+  final P params;
+
+  String get id => raw.id;
+
+  /// Who asks, and why.
+  Cause get cause => raw.cause;
+  Principal get by => raw.by;
+  Future<void> get expired => raw.expired;
+
+  /// The cause of a query [by] asks in turn while answering this one.
+  Cause askingFor(Principal by) => raw.causeFor(by);
+}
+
 /// A command, typed.
 final class CommandOf<P, R> {
   CommandOf._(this.registry, this.word);
@@ -587,7 +605,7 @@ final class _CommandCallerOf<P, R> implements ICommandCaller<P, R> {
   }
 }
 
-/// A query, typed (SPEC §6.2): defined by its owner, asked by anyone its
+/// A query, typed (SPEC §6.6): defined by its owner, asked by anyone its
 /// askers let.
 final class QueryOf<P, R> {
   QueryOf._(this.registry, this.word);
@@ -598,12 +616,12 @@ final class QueryOf<P, R> {
   /// Defines it with its [handler]; [askers] who may ask, everyone when
   /// not said, as anyone may read a state that names no readers.
   IHandle define(
-    FutureOr<R> Function(CommandCallOf<P> ask) handler, {
+    FutureOr<R> Function(QueryAsk<P> ask) handler, {
     Callers? askers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     Availability? available,
-  }) => registry.defineCommand(
+  }) => registry.defineQuery(
     word.describeWith(
       askers: askers ?? const Callers({'*': Access.allow}),
       deadline: deadline,

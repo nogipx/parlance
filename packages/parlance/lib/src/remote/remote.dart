@@ -594,6 +594,12 @@ final class RegistryResponder extends ParlanceContractPeer {
               _serve,
               available: () => _unavailable[d.name],
             );
+          case QueryDescriptor():
+            _commands[d.name] = p.defineQuery(
+              d,
+              _serve,
+              available: () => _unavailable[d.name],
+            );
         }
       });
     } on StateError catch (e) {
@@ -738,7 +744,7 @@ final class RegistryResponder extends ParlanceContractPeer {
   Future<Object?> _serve(CommandCall c) async {
     _serving[c.id] = c;
     try {
-      final deadline = registry.commandDescriptor(c.command)?.deadline;
+      final deadline = registry.callableDescriptor(c.command)?.deadline;
       final served = await _owner.serve(
         SbServe(
           id: c.id,
@@ -1220,7 +1226,7 @@ final class RegistryMirror {
     final kind = _words[n];
     if (kind == null) return const WordMissing();
     if (_closed.contains(n)) return const WordNotPermitted();
-    if (kind == 'command') {
+    if (kind == 'command' || kind == 'query') {
       if (_unavailable[n] case final why?) return WordUnavailable(why);
     }
     return const WordReady();

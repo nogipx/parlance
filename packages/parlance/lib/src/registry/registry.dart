@@ -44,6 +44,37 @@ typedef BeforeHook = Future<void> Function(PendingCall call, Cause cause);
 /// Where errors of guards, hooks and timers go.
 typedef ErrorSink = void Function(Object error, StackTrace stack);
 
+/// What a query's handler tried that would change something (SPEC §6.6):
+/// a write, a fact, a layer, a command. Thrown where it was tried, so the
+/// query ends `failed` and nothing changed.
+final class QueryEffect extends StateError {
+  QueryEffect(this.query, this.tried)
+    : super('$query is a query, it changes nothing: it tried to $tried');
+
+  final String query;
+  final String tried;
+}
+
+const Symbol _asking = #parlance.asking;
+
+/// Runs [body] as the handler of [query]: what it does through parlance,
+/// at once or later (after an await, in a timer it started), is told to
+/// be the query's, and refused when it would change something. Closures
+/// still see everything they captured: what they try is refused, not
+/// hidden. A remote participant serves its queries the same way.
+R asQuery<R>(String query, R Function() body) =>
+    runZoned(body, zoneValues: {_asking: query});
+
+/// The query whose handler the code running now is ([asQuery]); null
+/// outside one.
+String? answeringQuery() => Zone.current[_asking] as String?;
+
+/// Throws [QueryEffect] when the code running now is a query's handler
+/// ([asQuery]): [tried] is what it would have done.
+void refuseInQuery(String tried) {
+  if (answeringQuery() case final query?) throw QueryEffect(query, tried);
+}
+
 /// A call being served: what a handler gets. The registry makes it; a
 /// remote participant (SPEC §22.4) makes it of what the host sent.
 final class CommandCall {
@@ -86,7 +117,9 @@ final class PendingCall {
   });
 
   final String id;
-  final CommandDescriptor command;
+
+  /// The command's, or the query's, descriptor.
+  final CallableDescriptor command;
   final Map<String, Object?> params;
   final Cause cause;
 
@@ -272,7 +305,19 @@ final class _StateEntry {
 
 final class _CommandEntry {
   _CommandEntry(this.descriptor, this.port, this.serving, this.available);
-  final CommandDescriptor descriptor;
+
+  /// A command's or a query's: both are called through the same stages.
+  final CallableDescriptor descriptor;
+
+  Sets? get sets => switch (descriptor) {
+    CommandDescriptor(:final sets) => sets,
+    QueryDescriptor() => null,
+  };
+  bool get interceptable => switch (descriptor) {
+    CommandDescriptor(:final interceptable) => interceptable,
+    QueryDescriptor() => false,
+  };
+  bool get query => descriptor is QueryDescriptor;
   final Port<CommandCall, Object?> port;
   final IHandle serving;
   final Availability? available;
@@ -471,6 +516,19 @@ final class Registry implements ITypeContext {
       _states[canonical(name)]?.descriptor;
 
   CommandDescriptor? commandDescriptor(String name) =>
+      switch (_commands[canonical(name)]?.descriptor) {
+        final CommandDescriptor d => d,
+        _ => null,
+      };
+
+  QueryDescriptor? queryDescriptor(String name) =>
+      switch (_commands[canonical(name)]?.descriptor) {
+        final QueryDescriptor d => d,
+        _ => null,
+      };
+
+  /// A command's or a query's descriptor: what is called by [name].
+  CallableDescriptor? callableDescriptor(String name) =>
       _commands[canonical(name)]?.descriptor;
 
   FactDescriptor? factDescriptor(String name) =>
@@ -674,7 +732,7 @@ final class Registry implements ITypeContext {
     final e = _StateEntry(d, cell);
     _names[cell] = d.name;
     for (final c in _commands.values) {
-      if (c.descriptor.sets?.state == d.name) e.setter = c.descriptor.name;
+      if (c.sets?.state == d.name) e.setter = c.descriptor.name;
     }
     _states[d.name] = e;
     _announce(DescriptorAdded(d));
@@ -694,12 +752,26 @@ final class Registry implements ITypeContext {
         throw StateError('${s.state} already has a setter, ${st.setter}');
       }
       for (final c in _commands.values) {
-        if (c.descriptor.sets?.state == s.state) {
+        if (c.sets?.state == s.state) {
           throw StateError('${s.state} already has a setter');
         }
       }
       st?.setter = d.name;
     }
+    final port = Port<CommandCall, Object?>();
+    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
+    _announce(DescriptorAdded(d));
+    return _Disposer(() => _undefine(d.name));
+  }
+
+  /// Defines a query answered by [handler] (SPEC §6.6); dispose the handle
+  /// to remove it.
+  IHandle defineQuery(
+    QueryDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) {
+    _checkFree(d.name);
     final port = Port<CommandCall, Object?>();
     _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
     _announce(DescriptorAdded(d));
@@ -745,7 +817,7 @@ final class Registry implements ITypeContext {
       _announce(DescriptorRemoved(s.descriptor));
     } else if (_commands.remove(name) case final c?) {
       c.serving.dispose();
-      if (c.descriptor.sets case final s?) {
+      if (c.sets case final s?) {
         _states[s.state]?.setter = null;
         for (final t in [..._stacks.keys]) {
           if (t.$1 == s.state) _orphan(t);
@@ -785,6 +857,7 @@ final class Registry implements ITypeContext {
   void batch(void Function() body) => _hub.batch(body);
 
   void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
+    refuseInQuery('write ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
     final v = freezeJson(d.type.check(value, this));
@@ -792,6 +865,7 @@ final class Registry implements ITypeContext {
   }
 
   void _removeState(StateDescriptor d, String? key, Cause cause) {
+    refuseInQuery('remove ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
     e.writer.remove(key, tag: cause);
@@ -1016,6 +1090,7 @@ final class Registry implements ITypeContext {
     Cause cause,
   ) {
     if (_facts[d.name]?.descriptor != d) throw StateError('${d.name} is gone');
+    refuseInQuery('say ${d.name}');
     final now = clock.now();
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
@@ -1138,7 +1213,10 @@ final class Registry implements ITypeContext {
   }) {
     command = canonical(command);
     final callId = id ?? newId();
-    if (_commands[command]?.descriptor.query ?? false) {
+    final query = _commands[command]?.query ?? false;
+    // A query may ask another; a command it may not call.
+    if (!query) refuseInQuery('call $command');
+    if (query) {
       // A query only answers: nothing to hold an id to, nothing to record.
       return _run(
         callId,
@@ -1280,7 +1358,7 @@ final class Registry implements ITypeContext {
       );
     }
 
-    final hooks = d.interceptable ? [...?_hooks[command]] : const <_Hook>[];
+    final hooks = entry.interceptable ? [...?_hooks[command]] : const <_Hook>[];
     _Waiting? waiting;
     if (hooks.isNotEmpty) {
       hooks.sort(
@@ -1336,7 +1414,7 @@ final class Registry implements ITypeContext {
 
     void explicit(CallResult<Object?> r) {
       if (!r.ok || layer != null) return;
-      if (d.sets case final s?) {
+      if (entry.sets case final s?) {
         final key = s.key == null ? null : params[s.key] as String?;
         _explicitSet((s.state, key), params[s.value]);
       }
@@ -1344,10 +1422,11 @@ final class Registry implements ITypeContext {
 
     if (layer != null) _stacks[layer]?.inflight.add(id);
     final expired = Completer<void>();
+    final served = CommandCall(id, command, params, cause, expired.future);
     final work = Future.sync(
-      () => entry.port.call(
-        CommandCall(id, command, params, cause, expired.future),
-      ),
+      () => entry.query
+          ? asQuery(command, () => entry.port.call(served))
+          : entry.port.call(served),
     );
     CallResult<Object?> result;
     try {
@@ -1414,7 +1493,7 @@ final class Registry implements ITypeContext {
   }) {
     final c = _commands[command];
     if (c == null) throw StateError('no command $command');
-    if (!c.descriptor.interceptable) {
+    if (!c.interceptable) {
       throw StateError('$command is not interceptable');
     }
     final list = _hooks.putIfAbsent(command, () => []);
@@ -1457,6 +1536,7 @@ final class Registry implements ITypeContext {
     Duration? ttl,
     List<String> chain = const [],
   }) {
+    refuseInQuery('hold $state');
     state = canonical(state);
     final e = _states[state];
     if (e == null) throw StateError('no state $state');
@@ -1555,7 +1635,7 @@ final class Registry implements ITypeContext {
     List<String> chain,
     _Layer? layer,
   ) {
-    final sets = _commands[setter]?.descriptor.sets;
+    final sets = _commands[setter]?.sets;
     if (sets == null) return;
     final params = <String, Object?>{sets.value: value, ?sets.key: t.$2};
     _run(
