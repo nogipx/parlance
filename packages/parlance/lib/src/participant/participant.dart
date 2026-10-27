@@ -168,6 +168,9 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
 
   /// A guard (SPEC §10) on calls of its own commands only: what it judges
   /// is its own, never another's command.
+  /// The registry knows it as `<who>#<id>`: refusals and call records
+  /// name it so, and another participant's guard of the same [id] is
+  /// another guard.
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true});
 
   /// Registers a kind of entities it keeps (SPEC §3).

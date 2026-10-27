@@ -313,13 +313,18 @@ final class LocalParticipant implements IParticipant {
     return _keep(_OwnFact(this, _r.producer(fact, by: who)));
   }
 
+  /// The id the registry knows its guard [id] by: `<who>#<id>`, so two
+  /// participants' guards of one id are two guards, and a refusal says
+  /// whose it was.
+  String guardId(String id) => '${who.selector}#$id';
+
   @override
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
     _live();
     return _keepDoing(
       _r
           .addGuard(
-            id,
+            guardId(id),
             (c) => _commands.contains(c.command.name) ? check(c) : null,
             overridable: overridable,
           )
@@ -339,7 +344,7 @@ final class LocalParticipant implements IParticipant {
     return _keepDoing(
       _r
           .addAskedGuard(
-            id,
+            guardId(id),
             (c) async => _commands.contains(c.command.name) ? ask(c) : null,
             overridable: overridable,
             timeout: timeout,

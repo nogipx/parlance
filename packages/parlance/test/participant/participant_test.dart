@@ -384,6 +384,15 @@ void main() {
     expect(flagged, 1, reason: 'the guard does not judge another\'s command');
   });
 
+  test('a guard is known by its participant and its id', () async {
+    final p = ordersModule();
+    p.addGuard('no', (_) => 'no');
+    final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
+    expect(() => c.addGuard('no', (_) => null), returnsNormally);
+    final denied = await c.call('orders.place', {'id': 'o1', 'status': 'new'});
+    expect((denied as CallRefused).guard, '${orders.selector}#no');
+  });
+
   test('watching a state starts with its value now', () async {
     final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
     final last = p.state(OrderState.last).define()

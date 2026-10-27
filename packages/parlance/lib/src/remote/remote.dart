@@ -721,7 +721,7 @@ final class RemoteSession extends ParlanceContractPeer {
           part: part,
         );
       case 'unguard':
-        _guards.remove('${part.who.selector}#${m['id']}')?.dispose();
+        _guards.remove(part.guardId('${m['id']}'))?.dispose();
       default:
         throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }
@@ -896,9 +896,9 @@ final class RemoteSession extends ParlanceContractPeer {
   /// its turn: the participant judges the call. Known as `<speaker>/<id>`.
   void _guard(String id, {required bool overridable, LocalParticipant? part}) {
     final p = part ?? _p;
-    final full = '${p.who.selector}#$id';
+    final full = p.guardId(id);
     try {
-      _guards[full] = p.addAskedGuard(full, (c) async {
+      _guards[full] = p.addAskedGuard(id, (c) async {
         final r = await _owner.judge(
           WireJson({
             'guard': full,

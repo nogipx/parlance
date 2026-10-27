@@ -221,6 +221,7 @@ addGuard(id, check, overridable = true) → handle
 ```
 
 - `check` is synchronous, reads committed state only, makes no calls, and returns nothing or a denial reason.
+- An id is one guard's in the registry; a participant's guard is registered as `<principal>#<id>` (§22), so participants never take one another's ids.
 - `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies. Since it takes a while, the command's `available` is asked again after: one that cannot run by then is `unavailable`.
 - Guards are asked for every call that reached stage 6.
 - A guard that throws denies (`denied`, with its id), as one asked across a connection that cannot answer does: the rule it keeps holds. The error goes to the error sink.
