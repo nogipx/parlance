@@ -10,9 +10,11 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 
 ### 22.1 Making one
 
-`registry.participant(who, namespaces: {...}, rights: ..., access: ...)` (`package:parlance/participant.dart`).
+`registry.participant(who, vocabularies: [...], namespaces: {...}, rights: ..., access: ...)` (`package:parlance/participant.dart`).
 
-- **Namespaces** are the first words of the names it may define: `orders` for `orders.cancel` and `orders.list.page`; a name equal to a namespace is in it. Without namespaces it defines nothing.
+- **Vocabularies** (§23): what a module's words are, each a `WordSet` (its namespace and its words, generated from `@Vocabulary`). Granting one grants its namespace, so the namespace is written once, where the words are; a word of it outside its namespace is refused (`ArgumentError`). This is the way to give a module its namespace.
+
+- **Namespaces** are the first words of the names it may define (those of its vocabularies, and any given as `namespaces:` for words named at run time: a plugin's, own words): `orders` for `orders.cancel` and `orders.list.page`; a name equal to a namespace is in it. Without namespaces it defines nothing.
 - A namespace is **one live participant's**: one another participant has, or one inside or around it (`orders` and `orders.archive`), is refused at once (`StateError`). It is free again when that participant goes.
 - Words the host defines on the registry itself (the links engine, sessions of §14) are not participants' and take no namespace.
 

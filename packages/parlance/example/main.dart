@@ -33,14 +33,14 @@ Future<void> main() async {
     onError: (e, st) => print('error: $e'),
   );
   final devices = Devices();
-  final house = House(devices);
-  // The house speaks through a participant main makes: who it is, the
-  // first words of its names, who calls its commands when a command does
+  final house = Home(devices);
+  // The house speaks through a participant main makes: who it is, its
+  // vocabulary (the namespace its words are in, said once, in House), who calls its commands when a command does
   // not say (the household), and that the doorbell says who rang (a fact
   // on a visitor's behalf). The owner's code never says what it may.
   final houseSide = registry.participant(
     Who.house,
-    namespaces: {'light', 'heat', 'house', 'door', 'doorbell', 'motion'},
+    vocabularies: [houseWords],
     access: const WordAccess(call: Who.household),
     rights: ParticipantRights(
       speakFor: (_, by, fact) => fact == HouseFact.rang.name
@@ -89,15 +89,17 @@ Future<void> main() async {
   // a missing or a closed word for what it is.
   final asBob = LocalView(registry, by: Who.bob);
   print(
-    '  for bob: heat.set ${asBob.status(HouseCommand.setHeat.name)}, '
-    'light.set ${asBob.status(HouseCommand.setLight.name)}, '
+    '  for bob: ${HouseCommand.setHeat.name} '
+    '${asBob.status(HouseCommand.setHeat.name)}, '
+    '${HouseCommand.setLight.name} '
+    '${asBob.status(HouseCommand.setLight.name)}, '
     'garage.open ${asBob.status('garage.open')}',
   );
 
   // --- 2. A fact sets off a reaction; why the state is so -------------------
 
   section('A fact and a reaction');
-  house.motion('hall');
+  house.motion(room: 'hall');
   await settle();
   print('  the hall light after motion: ${light.read(key: 'hall')}');
   final why = registry.explain(HouseState.light.name, key: 'hall');
@@ -219,10 +221,10 @@ Future<void> main() async {
   // are there only meanwhile, and leave nothing behind.
   final visitSide = registry.participant(
     Who.visit,
-    namespaces: {'visit'},
+    vocabularies: [visitWords],
     access: const WordAccess(call: Who.household),
   );
-  final visit = Owners(visitSide, {'book': Visit()});
+  final visit = Owners(visitSide, {'book': GuestBook()});
   await visit.checkUses();
   final declared = registry.declarations[Who.visit.child('book')]!;
   print(
@@ -246,17 +248,20 @@ Future<void> main() async {
   // house opens a session for it and says who it is; it reads what it
   // watches.
   final phone = await Phone.join(registry, Who.phone('ann-phone'));
-  final heats = phone.part.state(HouseState.heat).watch().listen((_) {});
-  final modes = phone.part.state(HouseState.mode).watch().listen((_) {});
-  final reply = await phone.part.command(HouseCommand.setHeat).call((
-    target: 22,
-  ));
-  show('the phone sets the heating', reply);
+  // It knows the house through the client made from House: getters and
+  // streams for states, methods for commands, no word or record in sight.
+  final home = HouseClient(phone.part);
+  final heats = home.heatChanges.listen((_) {});
+  final modes = home.modeChanges.listen((_) {});
+  await home.setHeat(target: 22);
+  print('  the phone sets the heating: done');
   // A call answers once the phone's copy has what it wrote.
-  print(
-    '  the phone sees: ${phone.part.state(HouseState.heat).read()} °C, '
-    'mode ${phone.part.state(HouseState.mode).read()?.name}',
-  );
+  print('  the phone sees: ${home.heat} °C, mode ${home.mode?.name}');
+  try {
+    await home.setHeat(target: 40);
+  } on CallNotDone catch (e) {
+    print('  the phone sets 40 °C: ${e.result.whyNot}');
+  }
   final rings = await phone.part.fact(HouseFact.rang).recent(5);
   print('  rings it can see: ${[for (final f in rings) f.payload.who]}');
   await heats.cancel();

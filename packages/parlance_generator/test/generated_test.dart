@@ -30,15 +30,15 @@ final class Deck extends PlayerOwner {
   @override
   void setVolume(CommandCallOf<PlayerSetVolume> call) {
     level = call.params.volume;
-    volume.set(level, cause: call.causeFor(participant.who));
+    volume.set(level, cause: call.inReply);
     if (level > 90) {
-      clipped.emit((volume: level), cause: call.causeFor(participant.who));
+      clipped(volume: level, cause: call.inReply);
     }
   }
 
   @override
   Future<void> play(CommandCallOf<PlayerPlay> call) async {
-    playing.set(call.params.track, cause: call.causeFor(participant.who));
+    playing.set(call.params.track, cause: call.inReply);
   }
 
   @override
@@ -66,7 +66,7 @@ void main() {
     r = Registry(onError: (e, st) => throw e);
     p = r.participant(
       me,
-      namespaces: {'player'},
+      vocabularies: [playerWords],
       access: const WordAccess(call: anyone),
     );
   });
@@ -140,7 +140,7 @@ void main() {
   });
 
   test('every word is listed once, in the namespace', () {
-    expect(PlayerWords.all.map((w) => w.name), [
+    expect(playerWords.words.map((w) => w.name), [
       'player.volume',
       'player.repeat',
       'player.playing',
@@ -157,7 +157,7 @@ void main() {
 
   test('the schema is kept, and a change to a published word is told', () {
     final file = File('test/fixtures/player.schema.json');
-    final now = schemaOf(PlayerWords.all);
+    final now = schemaOf(playerWords.words);
     if (Platform.environment['UPDATE_SCHEMA'] == '1') {
       file.writeAsStringSync(
         '${const JsonEncoder.withIndent('  ').convert(now)}\n',
@@ -190,7 +190,7 @@ void main() {
     test('defines every word, and an owner writes only its handlers', () {
       expect(r.state(PlayerState.volume).read(), 50);
       expect(r.declarations[me.child('deck')]!.owns, {
-        for (final w in PlayerWords.all) w.name,
+        for (final w in playerWords.words) w.name,
       });
       expect(
         r.commandDescriptor('player.volume.set')!.sets!.state,
@@ -255,12 +255,17 @@ void main() {
         expect(asAnn.volume, 50);
         final seen = <int?>[];
         final sub = asAnn.volumeChanges.listen(seen.add);
-        final clipped = <PlayerClipped>[];
+        final clipped = <Fact<PlayerClipped>>[];
         final heard = asAnn.clipped.listen(clipped.add);
         await asAnn.setVolume(volume: 95);
         await pumpEventQueue();
         expect(seen, [50, 95]);
-        expect(clipped.single.volume, 95);
+        expect(clipped.single.payload.volume, 95);
+        expect(
+          clipped.single.message.cause.by,
+          me.child('deck'),
+          reason: 'the message comes with it',
+        );
         expect(await asAnn.skip(), 1, reason: 'its default');
         expect((await asAnn.search(text: 'A')).single.title, 'A');
         expect(asAnn.status(PlayerCommand.stop), const WordReady());

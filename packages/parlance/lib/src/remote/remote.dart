@@ -9,6 +9,7 @@ import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/words.dart';
 import '../registry/types.dart';
 import 'contract.dart';
 
@@ -31,6 +32,7 @@ final class RegistryResponder extends ParlanceContractPeer {
     this.registry, {
     required this.principal,
     String? session,
+    Iterable<WordSet> vocabularies = const [],
     Set<String> namespaces = const {},
     SessionRights rights = SessionRights.none,
     this.feedBacklog = 256,
@@ -38,6 +40,7 @@ final class RegistryResponder extends ParlanceContractPeer {
        _owner = ParlanceOwnerContractPeerCaller(endpoint),
        _p = registry.participant(
          principal,
+         vocabularies: vocabularies,
          namespaces: namespaces,
          rights: rights,
        );

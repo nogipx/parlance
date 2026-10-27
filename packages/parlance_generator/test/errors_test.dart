@@ -75,6 +75,10 @@ $body
       '@StateWord() int get total;\n@CommandWord() void totalChanges();',
       'totalChanges is had twice by OrdersClient',
     ),
+    'a fact with a param named cause': (
+      '@FactWord() void said({required String cause});',
+      "a fact's param is not named cause",
+    ),
     'setting a state the class has not': (
       '@CommandWord(sets: "total") void put({required int to});',
       'put sets total, which is no state of Orders',
@@ -87,7 +91,7 @@ $body
     'setting a keyed state without its key': (
       '@StateWord(key: "order") int get total;\n'
           '@CommandWord(sets: "total") void put({required int to});',
-      'total is keyed by order, give setsKey',
+      'total is keyed by order; no param names one, so say which (setsKey)',
     ),
   };
   for (final MapEntry(key: what, value: (body, says)) in cases.entries) {

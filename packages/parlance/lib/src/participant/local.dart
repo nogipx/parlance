@@ -5,21 +5,28 @@ import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/words.dart';
 import '../view/view.dart';
 import 'participant.dart';
 
 /// Participants of a registry in this process (SPEC §22.1).
 extension Participants on Registry {
-  /// A participant speaking as [who], defining words in [namespaces] only.
-  /// A namespace is one participant's: one that another live participant
-  /// has, or one inside or around it (`orders` and `orders.archive`), is
-  /// refused.
+  /// A participant speaking as [who], defining words in its namespaces
+  /// only: those of its [vocabularies] (SPEC §23), and [namespaces] for
+  /// words named at run time. A namespace is one participant's: one that
+  /// another live participant has, or one inside or around it (`orders`
+  /// and `orders.archive`), is refused.
   LocalParticipant participant(
     Principal who, {
+    Iterable<WordSet> vocabularies = const [],
     Set<String> namespaces = const {},
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
   }) {
+    for (final v in vocabularies) {
+      v.check();
+    }
+    namespaces = {...namespaces, for (final v in vocabularies) v.namespace};
     final taken = _namespaces[this] ??= {};
     for (final ns in namespaces) {
       checkName(ns, 'namespace');

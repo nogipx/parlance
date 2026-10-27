@@ -195,11 +195,12 @@ enum PlayerFact<T> implements IFactWord<T> {
 }
 
 /// The owner base of [Player]: it defines every word, keeps a
-/// writer of each state and an emitter of each fact, and
-/// serves each command and query by a handler to write.
+/// writer of each state, says each fact by a method of its
+/// params, and serves each command and query by a handler to
+/// write (`call.inReply`: the cause of what it does in reply).
 abstract base class PlayerOwner extends Owner {
   @override
-  Iterable<IWord> get words => PlayerWords.all;
+  Iterable<IWord> get words => playerWords.words;
 
   /// Writes player.volume.
   late final StateWriterOf<int> volume;
@@ -212,12 +213,8 @@ abstract base class PlayerOwner extends Owner {
 
   /// Writes player.speaker.level.
   late final StateWriterOf<num> speakerLevel;
-
-  /// Says player.clipped.
-  late final FactEmitterOf<PlayerClipped> clipped;
-
-  /// Says player.finished.
-  late final FactEmitterOf<Track> finished;
+  late final FactEmitterOf<PlayerClipped> _clipped;
+  late final FactEmitterOf<Track> _finished;
 
   @override
   void define(IParticipant p) {
@@ -225,8 +222,8 @@ abstract base class PlayerOwner extends Owner {
     repeat = keep(p.state(PlayerState.repeat).define());
     playing = keep(p.state(PlayerState.playing).define());
     speakerLevel = keep(p.state(PlayerState.speakerLevel).define());
-    clipped = keep(p.fact(PlayerFact.clipped).define());
-    finished = keep(p.fact(PlayerFact.finished).define());
+    _clipped = keep(p.fact(PlayerFact.clipped).define());
+    _finished = keep(p.fact(PlayerFact.finished).define());
     keep(
       p
           .command(PlayerCommand.setVolume)
@@ -254,6 +251,14 @@ abstract base class PlayerOwner extends Owner {
     );
     defineMore(p);
   }
+
+  /// Says player.clipped; [cause] as a write's.
+  void clipped({required int volume, Cause? cause}) =>
+      _clipped.emit((volume: volume), cause: cause);
+
+  /// Says player.finished; [cause] as a write's.
+  void finished(Track track, {Cause? cause}) =>
+      _finished.emit(track, cause: cause);
 
   /// What [Player] does not say: kinds, guards, words named at
   /// run time. After its words are defined.
@@ -369,24 +374,25 @@ final class PlayerClient {
     throw CallNotDone(r);
   }
 
-  /// player.clipped, as it is said from now on.
-  Stream<PlayerClipped> get clipped =>
-      view.fact(PlayerFact.clipped).stream.map((f) => f.payload);
+  /// player.clipped, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<PlayerClipped>> get clipped =>
+      view.fact(PlayerFact.clipped).stream;
 
-  /// player.finished, as it is said from now on.
-  Stream<Track> get finished =>
-      view.fact(PlayerFact.finished).stream.map((f) => f.payload);
+  /// player.finished, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<Track>> get finished => view.fact(PlayerFact.finished).stream;
 }
 
-/// Every word of [Player], for `Owner.words` and `schemaOf`.
-abstract final class PlayerWords {
-  static const List<IWord> all = [
-    ...PlayerState.values,
-    ...PlayerCommand.values,
-    ...PlayerQuery.values,
-    ...PlayerFact.values,
-  ];
-}
+/// The vocabulary of [Player]: its namespace and every word, for
+/// `main` to grant a participant (`vocabularies:`), for
+/// `Owner.words` and `schemaOf`.
+const playerWords = WordSet('player', [
+  ...PlayerState.values,
+  ...PlayerCommand.values,
+  ...PlayerQuery.values,
+  ...PlayerFact.values,
+]);
 
 Map<String, Object?> _$PlayerTrackToJson(Track v) => v.toJson();
 

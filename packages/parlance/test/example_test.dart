@@ -19,12 +19,13 @@ void main() {
       'links taken: 6, problems: 0',
       'bob, a guest, sets the heating: refused (notPermitted)',
       'ann lights a room there is not: refused (invalidParams)',
-      'for bob: heat.set notPermitted, light.set ready, garage.open missing',
+      'for bob: house.heat.set notPermitted, house.light.set ready, '
+          'garage.open missing',
       'why: on behalf of house:devices, through [motion-light]',
       'the hall light after motion: true',
       'through [motion-light]',
       'heating at night: 17 °C',
-      'held by night-heat: heat.target = 17',
+      'held by night-heat: house.heat.target = 17',
       'heating in the morning: 20 °C',
       'ann unlocks at night: refused (denied by night-door, overridable)',
       'ann unlocks at night, overriding: done',
@@ -36,11 +37,13 @@ void main() {
       'rooms lit, asked by bob: [hall]',
       'and dark: [kitchen, living, porch]',
       'the living light was written by house:devices',
+      'the phone sets the heating: done',
       'the phone sees: 22 °C, mode home',
+      'the phone sets 40 °C: target: above 28',
       'the kitchen switch flipped by hand: from false to true',
       'the garden cannot start: module:garden/sprinkler needs weather.rain: '
           'missing',
-      'the visit owns visit.guests, visit.leave; uses doorbell.rang '
+      'the visit owns visit.guests, visit.leave; uses house.doorbell.rang '
           '(required), house.mode (optional)',
       'guests: [bob]',
       'after the visit: visit.guests missing',

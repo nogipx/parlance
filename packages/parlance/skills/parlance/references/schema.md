@@ -32,6 +32,7 @@ abstract class Player {
 
 - **Words.** A getter marked `@StateWord(name:, key:)` is a state, its type the value's (`key`: the entity kind of a keyed state). A method marked `@CommandWord` is a command: its named parameters the params, its return type the answer (`void`, `Future<void>`: none). `@QueryWord`: a query (§6.6), its return type required. `@FactWord`: a fact returning `void`, its named parameters the payload, or its one positional parameter the payload itself. An abstract member marked with none is refused, so no word is forgotten.
 - **Names.** `<namespace>.<name>`; `name` by default is the member's in snake case (`setVolume`: `set_volume`). Two members of one name are refused, as is a name that is not dotted lowercase.
+- **One vocabulary, one namespace.** Every name of a vocabulary is in its namespace, with no way out of it: the name tells whose word it is and which file says it, and a module cannot take words of another's namespace by its own declaration. A part with words in two namespaces is two vocabularies (and two owners), or one namespace with a nested name (`record.replay.*`); a participant may hold several (§22).
 - **Types.** `bool`, `int`, `num`, `String`, a Dart enum, `List<T>`, `Map<String, T>`, `T?`, and a class that serializes itself (a `fromJson` constructor and a `toJson` method: json_serializable, freezed), as `JsonShape` with its type read from its fields (§23.2). `double` is refused: JSON does not keep `1.0` apart from `1`, so a number is `num` or `int`. Anything else is refused with the types it may be.
 - **Bounds.** `@Range(min:, max:)` on a number, `@Length(max:)` on a text (its length), a list (its items) or a map (its entries), `@Ref(kind)` on a text that names an entity (§3). On a state's getter they bound the value; on a parameter, that param.
 - **Params.** Each parameter is a field of the params record: required ones required; nullable or defaulted ones optional; a default is the field's default in the schema (a bool, a number, a text or an enum value). No parameters: `()` and `RecordShape.none`.
@@ -40,7 +41,7 @@ abstract class Player {
 
 - An enum per kind the class has: `<Class>State`, `<Class>Command`, `<Class>Query`, `<Class>Fact`, each value the member's name, implementing `IStateWord`, `ICommandWord`, `IQueryWord`, `IFactWord`.
 - A record per params or payload, `<Class><Member>` (`PlayerSetVolume = ({int volume})`), and its `RecordShape`.
-- `<Class>Words.all`: every word, for `Owner.words` (§19.1) and `schemaOf`.
+- `<class>Words`, the vocabulary (`WordSet`: its namespace and every word): what `main` grants a participant, `registry.participant(who, vocabularies: [playerWords])` (or `RegistryResponder(vocabularies:)`), so the namespace is written once, in `@Vocabulary`, never again as a string; each word is checked to lie in it. `namespaces:` stays for words named at run time (a plugin's, own words). Also for `Owner.words` (§19.1) and `schemaOf`.
 - `<Class>Owner`, the owner base (§23.4), and `<Class>Client`, the consumer's (§23.5).
 - A class's JSON type: the parameters of the factory freezed redirects, or its own instance fields (json_serializable), renamed by `@JsonKey(name:)`, left out by `@JsonKey(includeToJson: false)`; a nullable field may be absent; `DateTime` is a text; what it cannot tell is any value. A class whose fields are classes must give JSON all the way down (`explicitToJson: true`), or writing it is refused (§18).
 
@@ -48,10 +49,10 @@ abstract class Player {
 
 Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract base class` extending `Owner` (§19). An owner extends it (`final class Deck extends PlayerOwner`) and writes only its handlers and `sync()`; a handler it forgets does not compile.
 
-- `words` is `<Class>Words.all`, so the part declares every word it owns (§6.7).
-- Each state has a writer and each fact an emitter by the member's name (`volume.set(50)`, `clipped.emit(...)`), defined in `define(p)`, kept with the owner.
-- Each command and query is served by an abstract method of the member's name, returning what the class declares, taking the call: `void setVolume(CommandCallOf<PlayerSetVolume> call)`, `List<Track> search(QueryAsk<PlayerSearch> ask)`. It takes the call, not bare params, for `call.causeFor(...)`: causes never go through zones.
-- What the class says of a word, its define is given: `readers` (`@StateWord`, `@FactWord`), `callers`, `sets` (`@CommandWord(sets: 'volume')`, the state by its member; the value from the only param or `setsValue`, the key from `setsKey`, checked against the state's keys), `interceptable`, `deadline`, `askers` (`@QueryWord`). With `available: true` it asks `String? whyNot<Member>()`, an abstract method too. Callers left unsaid are the participant's default (§22.2).
+- `words` is `<class>Words.words`, so the part declares every word it owns (§6.7).
+- Each state has a writer by the member's name (`volume.set(50)`), and each fact a method of its own params and a `cause` (`clipped(volume: 95, cause: call.inReply)`), defined in `define(p)`, kept with the owner. A fact's param named `cause` is refused.
+- Each command and query is served by an abstract method of the member's name, returning what the class declares, taking the call: `void setVolume(CommandCallOf<PlayerSetVolume> call)`, `List<Track> search(QueryAsk<PlayerSearch> ask)`. It takes the call, not bare params, for its cause: `call.inReply` is the cause of what the owner writes, says and calls in reply (`causeFor` the part that serves it), so the trail shows the call led to it; causes never go through zones.
+- What the class says of a word, its define is given: `readers` (`@StateWord`, `@FactWord`), `callers`, `sets` (`@CommandWord(sets: 'volume')`, the state by its member; the key is the one param that names an entity of the state's kind, by `@Ref(kind)` or by its name, the value the one param left; when either is not one, `setsKey` / `setsValue` say it, and are checked against the params and the state's keys), `interceptable`, `deadline`, `askers` (`@QueryWord`). With `available: true` it asks `String? whyNot<Member>()`, an abstract method too. Callers left unsaid are the participant's default (§22.2).
 - After the words, `define` calls `defineMore(p)`, empty by default, for what the class does not say: kinds, guards, words named at run time. A member named as one of `Owner`'s own (`words`, `sync`, `keep`...) is refused.
 
 ### 23.5 The client
@@ -60,7 +61,7 @@ Unless `@Vocabulary(client: false)`, it makes `<Class>Client(view)`: the words a
 
 - A state: `volume` (now), `volumeChanges` (now, then whenever it changes, deduplicated; while listened to, a remote view keeps it). Keyed: `speakerLevelOf(speaker)`, `speakerLevelAll`, `speakerLevelChanges(speaker)`.
 - A command or a query: a method with the class's own parameters, defaults and all (`setVolume(volume: 95)`, `skip()`, `search(text: 'A')`), answering its value; a call not done (refused, failed, no answer in time, lost) throws `CallNotDone` with its result, so `whyNot` and the refusal's code are there.
-- A fact: a stream of its payloads, said from now on (`clipped`).
+- A fact: a stream of `Fact<T>`, said from now on (`clipped`): its payload, and the message (id, cause) for what a consumer does to follow from it (`Cause(me, parent: f.message.id)`).
 - `status(word)` and `statusChanges(word)` (§6.5), for a part that shows a word missing or not permitted.
 - A member it would have twice (`total` and a command `totalChanges`), or named `view`, `status`, `statusChanges`, is refused.
 

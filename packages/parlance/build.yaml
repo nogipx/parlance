@@ -1,0 +1,6 @@
+targets:
+  $default:
+    builders:
+      # The house example's words come from its vocabularies.
+      parlance_generator|parlance:
+        generate_for: ["example/house/**"]

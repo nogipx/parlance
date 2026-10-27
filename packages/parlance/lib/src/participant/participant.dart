@@ -329,7 +329,13 @@ final class ParticipantCommandOf<P, R> {
         meta: meta,
       ),
       (c) {
-        final out = handler(CommandCallOf(c, word.params.fromJson(c.params)));
+        final out = handler(
+          CommandCallOf(
+            c,
+            word.params.fromJson(c.params),
+            servedBy: participant.who,
+          ),
+        );
         return out is Future<R> ? out.then(answer) : answer(out);
       },
       available: available,

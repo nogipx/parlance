@@ -267,6 +267,26 @@ abstract interface class IWord {
   String get name;
 }
 
+/// A vocabulary: a module's words, all in its one [namespace] (SPEC §23).
+/// `main` grants it to a participant (`participant(who, vocabularies:)`),
+/// so the namespace is written once, where the words are; the generator
+/// makes one per `@Vocabulary` class.
+final class WordSet {
+  const WordSet(this.namespace, this.words);
+
+  final String namespace;
+  final List<IWord> words;
+
+  /// Throws when a word lies outside [namespace].
+  void check() {
+    for (final w in words) {
+      if (w.name != namespace && !w.name.startsWith('$namespace.')) {
+        throw ArgumentError('${w.name} is not in the namespace $namespace');
+      }
+    }
+  }
+}
+
 /// A state's name, its value's shape and, for a keyed one, the entity kind
 /// of its keys. A host's enum of its states implements it.
 abstract interface class IStateWord<T> implements IWord {
@@ -501,17 +521,33 @@ final class CallNotDone implements Exception {
 
 /// A call being served, its params typed.
 final class CommandCallOf<P> {
-  CommandCallOf(this.raw, this.params);
+  CommandCallOf(this.raw, this.params, {this.servedBy});
 
   /// The call as the registry has it.
   final CommandCall raw;
   final P params;
 
+  /// Who serves it: the participant (or its part) that defined the
+  /// command; null for one defined on the registry itself.
+  final Principal? servedBy;
+
   String get id => raw.id;
+
+  /// The cause of the call: who called, and what led to it.
   Cause get cause => raw.cause;
   Principal get by => raw.by;
   Future<void> get expired => raw.expired;
   Cause causeFor(Principal by) => raw.causeFor(by);
+
+  /// The cause of what its server writes, says and calls in reply:
+  /// `causeFor(servedBy)`, so the trail shows the call led to it. Through
+  /// a participant only; on the registry itself, `causeFor(owner)`.
+  Cause get inReply => switch (servedBy) {
+    final by? => raw.causeFor(by),
+    null => throw StateError(
+      '${raw.command} is served on the registry itself: use causeFor',
+    ),
+  };
 }
 
 /// A question being answered, its params typed: what a query's handler

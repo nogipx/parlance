@@ -20,7 +20,7 @@ const _ref = TypeChecker.typeNamed(Ref, inPackage: 'parlance');
 
 /// Makes the typed words (SPEC §18, §23) of a class marked `@Vocabulary`:
 /// an enum per kind of word it has, a record and its shape per params or
-/// payload, and the list of them all for `Owner.words`.
+/// payload, and the vocabulary of them all (a `WordSet`).
 final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
   const VocabularyGenerator();
 
@@ -126,6 +126,9 @@ final class _Emitter {
 
   String get _c => cls.name!;
 
+  /// The vocabulary's constant: `playerWords` of `Player`.
+  String get _words => '${_c[0].toLowerCase()}${_c.substring(1)}Words';
+
   /// Code after the enums: records, their conversions, toJson tear-offs.
   final StringBuffer _helpers = StringBuffer();
   final Set<String> _jsonHelpers = {};
@@ -228,9 +231,12 @@ final class _Emitter {
     if (owner) out.write(_ownerBase(states, commands, queries, facts));
     if (client) out.write(_clientOf(states, commands, queries, facts));
     out
-      ..writeln('/// Every word of [$_c], for `Owner.words` and `schemaOf`.')
-      ..writeln('abstract final class ${_c}Words {')
-      ..writeln('  static const List<IWord> all = [')
+      ..writeln(
+        '/// The vocabulary of [$_c]: its namespace and every word, for',
+      )
+      ..writeln('/// `main` to grant a participant (`vocabularies:`), for')
+      ..writeln('/// `Owner.words` and `schemaOf`.')
+      ..writeln('const $_words = WordSet(${_quote(namespace)}, [')
       ..writeln(
         [
           if (states.isNotEmpty) '...${_c}State.values',
@@ -239,8 +245,7 @@ final class _Emitter {
           if (facts.isNotEmpty) '...${_c}Fact.values',
         ].join(', '),
       )
-      ..writeln('  ];')
-      ..writeln('}')
+      ..writeln(']);')
       ..write(_helpers);
     return out.toString();
   }
@@ -315,8 +320,9 @@ final class _Emitter {
     return 'const Callers({${entries.join(', ')}})';
   }
 
-  /// What a command sets: the state of [member], its value from the param
-  /// `setsValue` (by default the only one), its key from `setsKey`.
+  /// What a command sets: the state of [member]; its key the param that
+  /// names an entity of the state's kind (or `setsKey`), its value the one
+  /// param left (or `setsValue`).
   String _sets(
     MethodElement m,
     ConstantReader r,
@@ -330,12 +336,36 @@ final class _Emitter {
         element: m,
       );
     }
-    final params = [for (final p in m.formalParameters) p.displayName];
-    final key = r.peek('setsKey')?.stringValue;
+    final ps = m.formalParameters;
+    final params = [for (final p in ps) p.displayName];
+    // The key: said, or the one param that names an entity of the state's
+    // kind (`@Ref(kind)`) or is named as it.
+    var key = r.peek('setsKey')?.stringValue;
+    if (key == null && state.key != null) {
+      final named = [
+        for (final p in ps)
+          if (p.displayName == state.key || _refKind(p) == state.key)
+            p.displayName,
+      ];
+      if (named.length != 1) {
+        throw InvalidGenerationSourceError(
+          '${m.displayName}: $member is keyed by ${state.key}; '
+          '${named.isEmpty ? 'no param names one' : 'several params name one'}, '
+          'so say which (setsKey)',
+          element: m,
+        );
+      }
+      key = named.single;
+    }
+    // The value: said, or the one param left.
+    final rest = [
+      for (final p in params)
+        if (p != key) p,
+    ];
     final value =
         r.peek('setsValue')?.stringValue ??
-        (params.length == 1
-            ? params.single
+        (rest.length == 1
+            ? rest.single
             : throw InvalidGenerationSourceError(
                 '${m.displayName} sets $member: say which param is the value '
                 '(setsValue)',
@@ -354,7 +384,7 @@ final class _Emitter {
         state.key == null
             ? '${m.displayName}: $member has no keys, so no setsKey'
             : '${m.displayName}: $member is keyed by ${state.key}, give '
-                  'setsKey',
+                  'it a key param',
         element: m,
       );
     }
@@ -444,16 +474,9 @@ final class _Emitter {
     for (final (kind, words) in [('Command', commands), ('Query', queries)]) {
       for (final c in words) {
         member(c.member, c);
-        final m = c.element as MethodElement;
-        final ps = m.formalParameters;
-        final signature = ps.isEmpty
-            ? ''
-            : '{${[for (final p in ps) '${p.isRequired ? 'required ' : ''}${_dart(p.type)} '
-                    '${p.displayName}'
-                    '${p.defaultValueCode == null ? '' : ' = ${p.defaultValueCode}'}'].join(', ')}}';
-        final record = ps.isEmpty
-            ? '()'
-            : '(${[for (final p in ps) '${p.displayName}: ${p.displayName}'].join(', ')})';
+        final ps = (c.element as MethodElement).formalParameters;
+        final signature = ps.isEmpty ? '' : '{${ps.map(_param).join(', ')}}';
+        final record = _recordOf(ps);
         final how = kind == 'Command' ? 'command' : 'query';
         final act = kind == 'Command' ? 'call' : 'ask';
         out
@@ -475,10 +498,13 @@ final class _Emitter {
       member(f.member, f);
       out
         ..writeln()
-        ..writeln('  /// ${f.name}, as it is said from now on.')
         ..writeln(
-          '  Stream<${f.type}> get ${f.member} =>'
-          ' view.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload);',
+          '  /// ${f.name}, as it is said from now on: its payload, and',
+        )
+        ..writeln('  /// the message (its id, its cause) to follow it from.')
+        ..writeln(
+          '  Stream<Fact<${f.type}>> get ${f.member} =>'
+          ' view.fact(${_c}Fact.${f.member}).stream;',
         );
     }
     out
@@ -486,6 +512,23 @@ final class _Emitter {
       ..writeln();
     return out.toString();
   }
+
+  /// [p] as the class declares it: `required int volume`, `int count = 1`.
+  String _param(FormalParameterElement p) =>
+      '${p.isRequired ? 'required ' : ''}${_dart(p.type)} ${p.displayName}'
+      '${p.defaultValueCode == null ? '' : ' = ${p.defaultValueCode}'}';
+
+  /// The record of [ps]'s values: `(volume: volume)`, `()`.
+  String _recordOf(List<FormalParameterElement> ps) => ps.isEmpty
+      ? '()'
+      : '(${[for (final p in ps) '${p.displayName}: ${p.displayName}'].join(', ')})';
+
+  /// The kind [p] names (`@Ref(kind)`), if any.
+  String? _refKind(FormalParameterElement p) =>
+      switch (_ref.firstAnnotationOf(p)) {
+        final a? => ConstantReader(a).read('kind').stringValue,
+        null => null,
+      };
 
   /// A key's parameter: the kind's name in camel case.
   String _keyParam(String kind) {
@@ -537,11 +580,14 @@ final class _Emitter {
     ].join(', ');
     final out = StringBuffer()
       ..writeln('/// The owner base of [$_c]: it defines every word, keeps a')
-      ..writeln('/// writer of each state and an emitter of each fact, and')
-      ..writeln('/// serves each command and query by a handler to write.')
+      ..writeln('/// writer of each state, says each fact by a method of its')
+      ..writeln('/// params, and serves each command and query by a handler to')
+      ..writeln(
+        '/// write (`call.inReply`: the cause of what it does in reply).',
+      )
       ..writeln('abstract base class ${_c}Owner extends Owner {')
       ..writeln('  @override')
-      ..writeln('  Iterable<IWord> get words => ${_c}Words.all;')
+      ..writeln('  Iterable<IWord> get words => $_words.words;')
       ..writeln();
     for (final st in states) {
       out
@@ -549,9 +595,7 @@ final class _Emitter {
         ..writeln('  late final StateWriterOf<${st.type}> ${st.member};');
     }
     for (final f in facts) {
-      out
-        ..writeln('  /// Says ${f.name}.')
-        ..writeln('  late final FactEmitterOf<${f.type}> ${f.member};');
+      out.writeln('  late final FactEmitterOf<${f.type}> _${f.member};');
     }
     out
       ..writeln()
@@ -565,7 +609,7 @@ final class _Emitter {
     }
     for (final f in facts) {
       out.writeln(
-        '    ${f.member} = keep(p.fact(${_c}Fact.${f.member})'
+        '    _${f.member} = keep(p.fact(${_c}Fact.${f.member})'
         '.define(${opts(f)}));',
       );
     }
@@ -585,6 +629,31 @@ final class _Emitter {
       ..writeln('    defineMore(p);')
       ..writeln('  }')
       ..writeln()
+      ..writeln();
+    for (final f in facts) {
+      final ps = (f.element as MethodElement).formalParameters;
+      if (ps.any((p) => p.displayName == 'cause')) {
+        throw InvalidGenerationSourceError(
+          '${f.member}: a fact\'s param is not named cause, its owner base '
+          'says one',
+          element: f.element,
+        );
+      }
+      final positional = ps.length == 1 && ps.single.isPositional;
+      final signature = positional
+          ? '${_dart(ps.single.type)} ${ps.single.displayName}, '
+                '{Cause? cause}'
+          : '{${[for (final p in ps) _param(p), 'Cause? cause'].join(', ')}}';
+      final payload = positional ? ps.single.displayName : _recordOf(ps);
+      out
+        ..writeln('  /// Says ${f.name}; [cause] as a write\'s.')
+        ..writeln(
+          '  void ${f.member}($signature) =>'
+          ' _${f.member}.emit($payload, cause: cause);',
+        )
+        ..writeln();
+    }
+    out
       ..writeln('  /// What [$_c] does not say: kinds, guards, words named at')
       ..writeln('  /// run time. After its words are defined.')
       ..writeln('  void defineMore(IParticipant p) {}');

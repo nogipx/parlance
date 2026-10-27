@@ -431,6 +431,29 @@ void main() {
     p.entitiesChanged('order');
     expect(() => p.entitiesChanged('scene'), throwsA(isA<StateError>()));
   });
+
+  test('a vocabulary granted is its namespace, said once where its words '
+      'are', () {
+    const ordersWords = WordSet('orders', [...OrderState.values]);
+    final p = r.participant(orders, vocabularies: [ordersWords]);
+    expect(p.namespaces, {'orders'});
+    p.state(OrderState.last).define();
+    expect(
+      () => r.participant(cart, vocabularies: [ordersWords]),
+      throwsA(isA<NotPermitted>()),
+      reason: 'a namespace is one participant\'s',
+    );
+    expect(
+      () => r.participant(
+        cart,
+        vocabularies: [
+          const WordSet('cart', [...OrderState.values]),
+        ],
+      ),
+      throwsArgumentError,
+      reason: 'a word of the vocabulary lies outside its namespace',
+    );
+  });
 }
 
 enum _Other<T> implements IStateWord<T> {

@@ -3,9 +3,7 @@ library;
 
 import 'dart:async';
 
-import 'package:parlance/owners.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/schema.dart';
 
 import 'words.dart';
 
@@ -33,22 +31,13 @@ final class Devices {
   }
 }
 
-/// The owner of the house's words: it defines them, serves its commands
-/// from [devices], writes its states and emits what its sensors see.
-final class House extends Owner {
-  House(this.devices);
+/// The owner of the house's words: its base, made from [House], defines
+/// them, keeps their writers and says its facts; this serves the commands
+/// from [devices], answers the query and writes its states.
+final class Home extends HouseOwner {
+  Home(this.devices);
 
   final Devices devices;
-
-  /// What it owns, told in `describe` as the part's: each must lie in the
-  /// namespaces main gave the house.
-  @override
-  Iterable<IWord> get words => [
-    ...HouseState.values,
-    ...HouseCommand.values,
-    ...HouseQuery.values,
-    ...HouseFact.values,
-  ];
 
   /// When a device changed by hand, it is synced on its own: nobody has
   /// to call [Owners.sync].
@@ -56,85 +45,16 @@ final class House extends Owner {
   Stream<void> get changes => devices.changed;
 
   late final TrackedKind _rooms;
-  late final StateWriterOf<bool> _light;
-  late final StateWriterOf<num> _heat;
-  late final StateWriterOf<Mode> _mode;
-  late final StateWriterOf<bool> _locked;
-  late final FactEmitterOf<Ring> _rang;
-  late final FactEmitterOf<Motion> _motion;
 
+  /// What [House] does not say: the rooms it keeps, and a rule of its own.
   @override
-  void define(IParticipant p) {
+  void defineMore(IParticipant p) {
     _rooms = trackKind(
       room,
       () => [for (final id in devices.lights.keys) EntityRef(id)],
     );
-    _light = keep(p.state(HouseState.light).define());
-    _heat = keep(p.state(HouseState.heat).define());
-    _mode = keep(p.state(HouseState.mode).define());
-    _locked = keep(p.state(HouseState.locked).define());
-    _rang = keep(p.fact(HouseFact.rang).define());
-    _motion = keep(p.fact(HouseFact.motion).define());
-
-    keep(
-      p
-          .command(HouseCommand.setLight)
-          .define(
-            (c) {
-              devices.lights[c.params.room] = c.params.on;
-              _light.set(
-                c.params.on,
-                key: c.params.room,
-                cause: c.causeFor(Who.house),
-              );
-            },
-            callers: Who.anyone,
-            sets: Sets(HouseState.light.name, key: 'room', value: 'on'),
-          ),
-    );
-    keep(
-      p.command(HouseCommand.setHeat).define((c) {
-        devices.heat = c.params.target;
-        _heat.set(devices.heat, cause: c.causeFor(Who.house));
-      }, sets: Sets(HouseState.heat.name, value: 'target')),
-    );
-    keep(
-      p.command(HouseCommand.setMode).define((c) {
-        devices.mode = c.params.mode;
-        _mode.set(devices.mode, cause: c.causeFor(Who.house));
-      }, sets: Sets(HouseState.mode.name, value: 'mode')),
-    );
-    keep(
-      p
-          .command(HouseCommand.lock)
-          .define(
-            (c) {
-              devices.locked = c.params.on;
-              _locked.set(devices.locked, cause: c.causeFor(Who.house));
-            },
-            sets: Sets(HouseState.locked.name, value: 'on'),
-            // Why it cannot be called now, before anyone tries.
-            available: () => devices.mode == Mode.away && !devices.locked
-                ? 'the door is open and nobody is home'
-                : null,
-          ),
-    );
-
-    // A question it answers: which rooms are lit. It changes nothing, so
-    // anyone may ask, and ask again.
-    keep(
-      p
-          .query(HouseQuery.rooms)
-          .define(
-            (q) => [
-              for (final MapEntry(:key, :value) in devices.lights.entries)
-                if (value == q.params.lit) key,
-            ],
-          ),
-    );
-
-    // A rule of the house's own: the door stays locked at night, unless a
-    // resident says so (override). It judges the house's commands only.
+    // The door stays locked at night, unless a resident says so
+    // (override). It judges the house's commands only.
     keep(
       p.addGuard('night-door', (call) {
         if (call.command.name != HouseCommand.lock.name) return null;
@@ -145,24 +65,58 @@ final class House extends Owner {
     );
   }
 
+  @override
+  void setLight(CommandCallOf<HouseSetLight> call) {
+    devices.lights[call.params.room] = call.params.on;
+    light.set(call.params.on, key: call.params.room, cause: call.inReply);
+  }
+
+  @override
+  void setHeat(CommandCallOf<HouseSetHeat> call) {
+    devices.heat = call.params.target;
+    heat.set(devices.heat, cause: call.inReply);
+  }
+
+  @override
+  void setMode(CommandCallOf<HouseSetMode> call) {
+    devices.mode = call.params.mode;
+    mode.set(devices.mode, cause: call.inReply);
+  }
+
+  @override
+  void lock(CommandCallOf<HouseLock> call) {
+    devices.locked = call.params.on;
+    locked.set(devices.locked, cause: call.inReply);
+  }
+
+  @override
+  String? whyNotLock() => devices.mode == Mode.away && !devices.locked
+      ? 'the door is open and nobody is home'
+      : null;
+
+  /// Which rooms are lit: it changes nothing, so anyone may ask, and ask
+  /// again.
+  @override
+  List<String> rooms(QueryAsk<HouseRooms> ask) => [
+    for (final MapEntry(:key, :value) in devices.lights.entries)
+      if (value == ask.params.lit) key,
+  ];
+
   /// Writes what the devices say now, as one tick with its group.
   @override
   void sync() {
     for (final gone in _rooms.sync()) {
-      _light.remove(key: gone);
+      light.remove(key: gone);
     }
     for (final MapEntry(:key, :value) in devices.lights.entries) {
-      _light.set(value, key: key);
+      light.set(value, key: key);
     }
-    _heat.set(devices.heat);
-    _mode.set(devices.mode);
-    _locked.set(devices.locked);
+    heat.set(devices.heat);
+    mode.set(devices.mode);
+    locked.set(devices.locked);
   }
 
-  /// The doorbell: [by] rang it, and the fact says so.
-  void ring(Principal by, String who) =>
-      _rang.emit((who: who), cause: Cause(by));
-
-  /// A sensor saw someone in [room].
-  void motion(String room) => _motion.emit((room: room));
+  /// The doorbell: [by] rang it, and the fact says so; its base says it
+  /// (`rang`), as it says what the motion sensor sees (`motion`).
+  void ring(Principal by, String who) => rang(who: who, cause: Cause(by));
 }

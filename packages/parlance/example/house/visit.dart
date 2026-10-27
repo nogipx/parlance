@@ -2,20 +2,15 @@
 /// when they leave, and a garden that cannot start without the weather.
 library;
 
-import 'package:parlance/owners.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/schema.dart';
 
 import 'words.dart';
 
 /// Keeps who is visiting: it hears the doorbell and sees guests out. It
-/// knows the house only by its words, and says which it needs.
-final class Visit extends Owner {
-  final List<String> _guests = [];
-  late final StateWriterOf<List<String>> _list;
-
-  @override
-  Iterable<IWord> get words => [...VisitState.values, ...VisitCommand.values];
+/// knows the house only by its words, and says which it needs. Its own
+/// words and their writers come from its base, made from [Visit].
+final class GuestBook extends VisitOwner {
+  final List<String> _in = [];
 
   @override
   Iterable<Use> get uses => const [
@@ -24,22 +19,23 @@ final class Visit extends Owner {
   ];
 
   @override
-  void define(IParticipant p) {
-    _list = keep(p.state(VisitState.guests).define());
-    keep(
-      p.command(VisitCommand.leave).define((c) {
-        _guests.remove(c.params.who);
-        _list.set([..._guests], cause: c.causeFor(p.who));
-      }),
-    );
-    listen(p.fact(HouseFact.rang).stream, (f) {
-      _guests.add(f.payload.who);
-      _list.set([..._guests], cause: Cause(p.who, parent: f.message.id));
+  void defineMore(IParticipant p) {
+    // It hears the house through the house's client: the fact with its
+    // message, so what it writes follows from the ring.
+    listen(HouseClient(p).rang, (f) {
+      _in.add(f.payload.who);
+      guests.set([..._in], cause: Cause(p.who, parent: f.message.id));
     });
   }
 
   @override
-  void sync() => _list.set([..._guests]);
+  void leave(CommandCallOf<VisitLeave> call) {
+    _in.remove(call.params.who);
+    guests.set([..._in], cause: call.inReply);
+  }
+
+  @override
+  void sync() => guests.set([..._in]);
 }
 
 /// Waters the garden unless it rains: without a weather station it cannot
