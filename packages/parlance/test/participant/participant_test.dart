@@ -467,14 +467,14 @@ void main() {
       () => r.participant(
         cart,
         vocabularies: [
-          const WordSet('cart', [_Dashed.word]),
+          const WordSet('cart', [_Spaced.word]),
         ],
       ),
       throwsA(
         isA<ArgumentError>().having(
           (e) => '${e.message}',
           'message',
-          allOf(contains('"cart.muted-talk"'), contains('joined by _ only')),
+          allOf(contains('"cart.muted talk"'), contains('joined by _ or -')),
         ),
       ),
       reason: 'every name is checked when the vocabulary is granted',
@@ -555,10 +555,10 @@ enum _Other<T> implements IStateWord<T> {
   String? get key => null;
 }
 
-enum _Dashed<T> implements IStateWord<T> {
-  word<bool>('cart.muted-talk');
+enum _Spaced<T> implements IStateWord<T> {
+  word<bool>('cart.muted talk');
 
-  const _Dashed(this.name);
+  const _Spaced(this.name);
   @override
   final String name;
   @override

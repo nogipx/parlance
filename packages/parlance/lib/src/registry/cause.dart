@@ -21,12 +21,12 @@ final class Principal {
   String get selector => id.isEmpty ? kind : '$kind/$id';
 
   /// The levels (SPEC §4). A kind and a part's name are ours, as a word's
-  /// name is: lower-case letters and digits joined by `_` only, so `.` and
+  /// name is: lower-case letters and digits joined by `_` or `-`, so `.` and
   /// `/` are only ever separators. A level of an id may come from outside:
   /// letters, digits, `.`, `-` and `_`, its case kept (`levelOf` makes one
   /// of any text). Every other sign is reserved.
-  static final RegExp _kind = RegExp(r'^[a-z][a-z0-9_]*$');
-  static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9_]*$');
+  static final RegExp _kind = RegExp(r'^[a-z][a-z0-9_-]*$');
+  static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
   static final RegExp _level = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
   static final RegExp _outside = RegExp(r'[^A-Za-z0-9._-]+');
 
@@ -76,7 +76,7 @@ final class Principal {
       throw ArgumentError.value(
         kind,
         'kind',
-        'lower-case letters and digits joined by _, from a letter',
+        'lower-case letters and digits joined by _ or -, from a letter',
       );
     }
     if (id.isEmpty) return;
@@ -100,7 +100,7 @@ final class Principal {
       throw ArgumentError.value(
         name,
         'name',
-        'lower-case letters and digits joined by _',
+        'lower-case letters and digits joined by _ or -',
       );
     }
     return Principal(kind, id.isEmpty ? name : '$id/$name');

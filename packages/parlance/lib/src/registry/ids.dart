@@ -18,11 +18,12 @@ String newId() {
   return b.toString();
 }
 
-final RegExp _name = RegExp(r'^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$');
+final RegExp _name = RegExp(r'^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$');
 
 /// Whether [name] is a valid registry name (SPEC §1): lower-case words
-/// split by `.`, each from a letter, joined within by `_` only
-/// (`audio.voice.muted_talk`); every other sign is reserved.
+/// split by `.`, each from a letter, joined within by `_` or `-`
+/// (`audio.voice.muted_talk`, `kitten-daycare.lights`); every other sign
+/// is reserved.
 bool isValidName(String name) => _name.hasMatch(name);
 
 /// Throws [ArgumentError] unless [name] is a valid registry name.
@@ -31,7 +32,7 @@ void checkName(String name, [String what = 'name']) {
     throw ArgumentError.value(
       name,
       what,
-      'lower-case words split by ., each from a letter, joined by _ only',
+      'lower-case words split by ., each from a letter, joined by _ or -',
     );
   }
 }

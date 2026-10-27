@@ -12,7 +12,7 @@ import 'package:source_gen/source_gen.dart';
 
 /// What a name is (SPEC §1), as the generator tells it.
 const _nameRule =
-    'lower-case words split by ., each from a letter, joined by _ only '
+    'lower-case words split by ., each from a letter, joined by _ or - '
     '(audio.voice.muted_talk); a version, if any, last (.v2)';
 
 const _state = TypeChecker.typeNamed(StateWord, inPackage: 'parlance');

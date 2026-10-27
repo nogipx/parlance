@@ -309,7 +309,7 @@ final class WordSet {
     throw ArgumentError(
       'the vocabulary $namespace has what is no word name: ${bad.join('; ')}. '
       'A name is lower-case words split by ., each from a letter, joined by _ '
-      'only',
+      'or -',
     );
   }
 }

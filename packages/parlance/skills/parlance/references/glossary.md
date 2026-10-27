@@ -5,7 +5,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Values, names, types
 
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
-- **Name** (§1): lower-case words split by `.`, joined within by `_` only, `audio.gain.set`, `audio.voice.muted_talk`. The first word is the owner's namespace by convention; ownership is by handle, not by name.
+- **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `audio.gain.set`, `audio.voice.muted_talk`. The first word is the owner's namespace by convention; ownership is by handle, not by name.
 - **Key** (§1): the entity id a keyed state's value belongs to (`mic` in `audio.muted[mic]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.

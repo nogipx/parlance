@@ -70,9 +70,9 @@ $body
       '@StateWord(name: "Big") int get big;',
       'big: "orders.Big" is no word name',
     ),
-    'a name joined by a dash': (
-      '@StateWord(name: "muted-talk") bool get mutedTalk;',
-      'joined by _ only',
+    'a name joined by a space': (
+      '@StateWord(name: "muted talk") bool get mutedTalk;',
+      'joined by _ or -',
     ),
     'a version not last': (
       '@CommandWord(name: "v2.cancel") void cancel();',
