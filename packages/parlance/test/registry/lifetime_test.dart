@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const owner = Principal('host', 'studio');
 const user = Principal('user', 'local');

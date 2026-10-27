@@ -7,6 +7,7 @@ import 'package:parlance/src/remote/contract.dart' show parlanceProtocol;
 import 'package:parlance/src/remote/participant.dart' show checkProtocol;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const kittens = Principal('plugin', 'kittens');
 const crew = Principal('user', 'local');

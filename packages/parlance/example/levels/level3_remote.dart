@@ -46,7 +46,7 @@ Future<void> main() async {
   await knob.turnTo(30);
   await knob.turnTo(96);
   await settle();
-  print('  the host sees: ${r.state(PlayerState.volume).read()}');
+  print('  the host sees: ${player.state(PlayerState.volume).read()}');
 
   await watching.cancel();
   await phone.close();

@@ -12,6 +12,7 @@ import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// The binary itself: a host serves its registry on a Unix socket, an agent
 /// speaks MCP to parlance-mcp on stdio.

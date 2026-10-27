@@ -243,10 +243,18 @@ final class LocalParticipant implements IParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
+    bool override = false,
   }) {
     _live();
     final c = _as(cause);
-    return _r.call(command, params, by: who, id: id, cause: c);
+    return _r.call(
+      command,
+      params,
+      by: who,
+      id: id,
+      cause: c,
+      override: override,
+    );
   }
 
   @override

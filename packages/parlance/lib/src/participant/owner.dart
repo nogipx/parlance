@@ -11,7 +11,7 @@ final class Handles implements IHandle {
   bool _disposed = false;
 
   /// Keeps [h] to withdraw with the rest, and gives it back as it is:
-  /// `_mode = handles.keep(r.state(Mode.word).define(by: me));`
+  /// `_mode = handles.keep(p.state(Mode.word).define());`
   H keep<H extends IHandle>(H h) {
     if (_disposed) {
       h.dispose();

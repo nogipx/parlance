@@ -9,6 +9,7 @@ import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// The registry fixture with a fact to hear.
 final class Board extends Fixture {

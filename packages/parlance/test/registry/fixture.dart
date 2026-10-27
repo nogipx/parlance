@@ -1,4 +1,5 @@
 import 'package:parlance/registry.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const user = Principal('user', 'local');
 const agent = Principal('agent', 'claude');

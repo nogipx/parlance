@@ -8,6 +8,7 @@ import 'package:parlance/src/remote/contract.dart';
 import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// One connection: a session for [principal] on the registry, and a client.
 final class Link {

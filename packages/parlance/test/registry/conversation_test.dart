@@ -4,6 +4,7 @@ import 'package:rpc_dart/logger.dart';
 import 'package:test/test.dart';
 
 import 'fixture.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 void main() {
   test('what follows from a message is in its conversation, however far, '

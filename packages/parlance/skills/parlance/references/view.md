@@ -27,7 +27,8 @@ this process or reached over remote, so the same widgets serve both.
 ## LocalView(registry, by:)
 
 Reads the registry itself, only what `by` may read (`mayRead`);
-`changes` filters its ticks; calls as `by`.
+`changes` filters its ticks; calls as `by`. Made by `main` (it holds the
+registry), for a screen of `by`'s; a participant is such a view already.
 
 ## Across a connection
 

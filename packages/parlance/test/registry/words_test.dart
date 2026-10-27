@@ -2,6 +2,8 @@ import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
 
 import 'fixture.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 enum Level { low, high }
 

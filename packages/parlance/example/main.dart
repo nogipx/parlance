@@ -14,7 +14,6 @@ import 'package:parlance/mcp.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
-import 'package:parlance/view.dart';
 
 import 'house/house.dart';
 import 'house/visit.dart';
@@ -47,11 +46,12 @@ Future<void> main() async {
   // writes and says is told as house/devices.
   houseSide.attach({'devices': house});
 
-  final setLight = registry.command(HouseCommand.setLight);
-  final setHeat = registry.command(HouseCommand.setHeat);
-  final setMode = registry.command(HouseCommand.setMode);
-  final lock = registry.command(HouseCommand.lock);
-  final light = registry.state(HouseState.light);
+  // Ann and bob act through participants of their own, as every part does:
+  // what each may call is what its principal may, and main hands out no
+  // registry to act as anyone.
+  final ann = registry.participant(Who.ann);
+  final bob = registry.participant(Who.bob);
+  final light = ann.state(HouseState.light);
 
   // --- 1. Typed calls, and who may make them --------------------------------
 
@@ -59,7 +59,7 @@ Future<void> main() async {
   // The params are the word's record: another command's do not compile.
   show(
     'ann turns the kitchen light on',
-    await setLight.call((room: 'kitchen', on: true), by: Who.ann),
+    await ann.command(HouseCommand.setLight).call((room: 'kitchen', on: true)),
   );
   print('  kitchen light: ${light.read(key: 'kitchen')}');
   // Why it is on: on whose behalf the owner wrote it, and the call it was
@@ -71,15 +71,15 @@ Future<void> main() async {
   }
   show(
     'bob, a guest, sets the heating',
-    await setHeat.call((target: 25), by: Who.bob),
+    await bob.command(HouseCommand.setHeat).call((target: 25)),
   );
   show(
     'ann lights a room there is not',
-    await setLight.call((room: 'attic', on: true), by: Who.ann),
+    await ann.command(HouseCommand.setLight).call((room: 'attic', on: true)),
   );
   // Whether a word is there for someone, before calling it: a part shows
   // a missing or a closed word for what it is.
-  final asBob = LocalView(registry, by: Who.bob);
+  final asBob = bob;
   print(
     '  for bob: ${HouseCommand.setHeat.name} '
     '${asBob.status(HouseCommand.setHeat.name)}, '
@@ -91,24 +91,26 @@ Future<void> main() async {
   // --- 2. A guard of the house, and overriding it ---------------------------
 
   section('A guard');
-  await setMode.call((mode: Mode.night), by: Who.ann);
-  show('ann unlocks at night', await lock.call((on: false), by: Who.ann));
+  final setMode = ann.command(HouseCommand.setMode);
+  final lock = ann.command(HouseCommand.lock);
+  await setMode.call((mode: Mode.night));
+  show('ann unlocks at night', await lock.call((on: false)));
   show(
     'ann unlocks at night, overriding',
-    await lock.call((on: false), by: Who.ann, override: true),
+    await lock.call((on: false), override: true),
   );
-  await lock.call((on: true), by: Who.ann);
-  await setMode.call((mode: Mode.home), by: Who.ann);
+  await lock.call((on: true));
+  await setMode.call((mode: Mode.home));
 
   // --- 3. A query: a question that changes nothing -----------------------------
 
   section('A query');
   // Asked, not called: it only answers, so asking again is safe, and the
   // registry keeps nothing of it (no call record, no id held).
-  final rooms = registry.query(HouseQuery.rooms);
-  final lit = await rooms.ask((lit: true), by: Who.bob);
+  final rooms = bob.query(HouseQuery.rooms);
+  final lit = await rooms.ask((lit: true));
   print('  rooms lit, asked by bob: ${(lit as CallDone<List<String>>).value}');
-  final dark = await rooms.ask((lit: false), by: Who.bob);
+  final dark = await rooms.ask((lit: false));
   print('  and dark: ${(dark as CallDone<List<String>>).value}');
 
   // --- 4. A switch flipped by hand ---------------------------------------------
@@ -141,7 +143,7 @@ Future<void> main() async {
   );
   house.ring(Who.bob, 'bob');
   await settle();
-  final guests = registry.state(VisitState.guests);
+  final guests = ann.state(VisitState.guests);
   print('  guests: ${guests.read()}');
   visitSide.dispose();
   print(
@@ -190,6 +192,8 @@ Future<void> main() async {
   });
   print('  the agent turns the hall light off: ${answer.text.trim()}');
 
+  ann.dispose();
+  bob.dispose();
   houseSide.dispose();
   await registry.dispose();
 }

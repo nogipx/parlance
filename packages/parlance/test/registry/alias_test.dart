@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 
 import '../remote/remote_test.dart' show Link, settle;
 import 'fixture.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// A word renamed answers to its old name: what named it keeps working.
 void main() {

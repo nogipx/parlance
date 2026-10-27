@@ -63,7 +63,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Epoch** (§5): the id a registry takes when it starts; seq numbers compare only within one.
 - **Seq** (§5): the sequence number every committed change and fact gets; a total order consistent with causality.
 - **Tick** (§7): the unit of change: what was written and said together, committed together, delivered as one `Tick {epoch, from, to, changes, facts}`. Observers never see half a tick.
-- **Batch** (§7): `registry.batch(fn)` makes everything `fn` writes one tick; batches nest. Inside, reads see the batch's own writes.
+- **Batch** (§7): `participant.batch(fn)` makes everything `fn` writes one tick; batches nest. Inside, reads see the batch's own writes.
 - **State change** (§7): one entry of a tick: the state, the key, the value and the one before, removed or not, its cause.
 - **Feed** (§12): the registry as a stream for remote clients and journals: a snapshot (or the retained ticks after a known seq), then live ticks.
 - **Snapshot** (§12): every state value with the epoch and seq; `factsLost` after a gap.
@@ -91,7 +91,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Shape**: how a JSON value is a Dart one, and the registry type it gives: `Plain`, `EnumShape`, `ListShape`, `MapShape`, `Nullable`, `RecordShape` (an object as a record), `UnionShape` (one of several objects as a sealed class).
 - **Part**: a field of a `RecordShape`: its shape, optional or default, description.
 - **`RecordShape.none`**: the params of a command that takes none.
-- **Typed handles**: `StateOf`, `StateWriterOf`, `CommandOf`, `CommandCallOf`, `FactOf`, `FactEmitterOf`, `Fact<T>`; through `registry.state(word)`, `command(word)`, `fact(word)`.
+- **Typed handles**: `StateOf`, `StateWriterOf`, `CommandOf`, `CommandCallOf`, `FactOf`, `FactEmitterOf`, `Fact<T>`; through `participant.state(word)`, `command(word)`, `fact(word)` (`StateOf`, `CommandOf`, `FactOf` are the package's own, on the registry).
 - **The word fixes the types**: a call is made on what `command(word)` gives, never by a generic function taking a word and params together, which would compile another command's params.
 
 ## Owners (§19)

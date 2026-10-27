@@ -11,6 +11,7 @@ library;
 
 import 'package:parlance/core.dart';
 import 'package:parlance/registry.dart';
+import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 typedef Item = ({String id, String title, bool done});
 

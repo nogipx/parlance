@@ -133,12 +133,15 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
 
   /// Calls [command] as [who]. A handler's nested call passes [cause]
   /// (`call.causeFor(who)`), so it follows from the call being served.
+  /// [override] passes a guard's overridable denial, when [who]'s kind is
+  /// one of the registry's overriders (SPEC §10).
   @override
   Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
+    bool override = false,
   });
 
   /// Defines a state of its own, with [who] its only writer; readers
@@ -365,16 +368,22 @@ final class ParticipantCommandOf<P, R> {
     );
   }
 
-  /// Calls it with [params] as the participant.
-  Future<CallResult<R>> call(P params, {String? id, Cause? cause}) async =>
-      word.answer(
-        await participant.call(
-          word.name,
-          word.params.toJson(params),
-          id: id,
-          cause: cause,
-        ),
-      );
+  /// Calls it with [params] as the participant; [override] as
+  /// [IParticipant.call] says.
+  Future<CallResult<R>> call(
+    P params, {
+    String? id,
+    Cause? cause,
+    bool override = false,
+  }) async => word.answer(
+    await participant.call(
+      word.name,
+      word.params.toJson(params),
+      id: id,
+      cause: cause,
+      override: override,
+    ),
+  );
 
   /// Calls as the core asks a port (SPEC §21.6): the answer of a done
   /// call, else [CallNotDone] with how it ended.

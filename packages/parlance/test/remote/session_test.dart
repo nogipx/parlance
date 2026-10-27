@@ -9,6 +9,7 @@ import 'package:parlance/src/remote/remote.dart'
 import 'package:parlance/testing.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const plugin = Principal('plugin', 'p');
 const viewer = Principal('viewer', 'v');

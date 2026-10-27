@@ -42,7 +42,7 @@ Future<void> main() async {
   print(
     "  a guest's tools: ${[for (final t in guestTools) t.name].join(', ')}",
   );
-  print('  the volume: ${r.state(PlayerState.volume).read()}');
+  print('  the volume: ${player.state(PlayerState.volume).read()}');
   player.dispose();
   await r.dispose();
 }

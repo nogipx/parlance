@@ -7,6 +7,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:parlance/registry.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const host = Principal('host', 'bench');
 

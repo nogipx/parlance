@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:parlance/registry.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const host = Principal('host', 'bench');
 

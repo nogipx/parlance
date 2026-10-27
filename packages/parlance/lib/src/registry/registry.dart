@@ -476,11 +476,6 @@ final class Registry implements ITypeContext {
   /// check reads what the registry does not keep.
   Stream<String> get availabilityChanges => _availability.stream;
 
-  /// [command]'s availability may have changed without a tick (SPEC §6.5).
-  void availabilityChanged(String command) {
-    if (!_availability.isClosed) _availability.add(canonical(command));
-  }
-
   /// Every descriptor there is now.
   List<Descriptor> get catalog => [
     for (final s in _states.values) s.descriptor,
@@ -512,64 +507,6 @@ final class Registry implements ITypeContext {
   FactDescriptor? factDescriptor(String name) =>
       _facts[canonical(name)]?.descriptor;
 
-  /// Why [command] cannot run now (it is not there, or its owner says it
-  /// is unavailable), or null when it can. Guards are not asked: they judge
-  /// a call, not a command.
-  String? whyUnavailable(String command) {
-    final c = _commands[canonical(command)];
-    if (c == null) return 'no command $command';
-    return c.available?.call();
-  }
-
-  /// Whether [by] can use the word [name] now (SPEC §6.5): missing from
-  /// the catalog, not permitted to it, a command unavailable now, or
-  /// ready. An old name stands for its word.
-  WordStatus statusOf(String name, {required Principal by}) {
-    final n = canonical(name);
-    if (_commands[n] case final c?) {
-      if (!c.descriptor.callers.allows(by)) return const WordNotPermitted();
-      if (c.available?.call() case final why?) return WordUnavailable(why);
-      return const WordReady();
-    }
-    if (!_states.containsKey(n) && !_facts.containsKey(n)) {
-      return const WordMissing();
-    }
-    return mayRead(by, n) ? const WordReady() : const WordNotPermitted();
-  }
-
-  /// [statusOf] now, then whenever it changes: a word comes or goes, an
-  /// old name moves, or a tick changes what a command's availability check
-  /// reads.
-  Stream<WordStatus> statusChanges(String name, {required Principal by}) {
-    late StreamController<WordStatus> out;
-    StreamSubscription<CatalogChange>? catalog;
-    StreamSubscription<Tick>? ticks;
-    StreamSubscription<String>? availability;
-    WordStatus? last;
-    void tell() {
-      final now = statusOf(name, by: by);
-      if (now == last) return;
-      last = now;
-      out.add(now);
-    }
-
-    out = StreamController<WordStatus>(
-      onListen: () {
-        tell();
-        // It ends with the registry.
-        catalog = catalogChanges.listen((_) => tell(), onDone: out.close);
-        ticks = this.ticks.listen((_) => tell());
-        availability = availabilityChanges.listen((_) => tell());
-      },
-      onCancel: () async {
-        await catalog?.cancel();
-        await ticks?.cancel();
-        await availability?.cancel();
-      },
-    );
-    return out.stream;
-  }
-
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
   /// answers its first result, the descriptors and the entity kinds.
   Map<String, Object?> describe() => {
@@ -581,58 +518,12 @@ final class Registry implements ITypeContext {
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
   };
 
-  /// Whether [by] may read state [name]'s values, or hear fact [name], over
-  /// remote and MCP (its `readers`); true for a word there is
-  /// not.
-  bool mayRead(Principal by, String name) =>
-      (_states[canonical(name)]?.descriptor.readers ??
-              _facts[canonical(name)]?.descriptor.readers)
-          ?.allows(by) ??
-      true;
-
-  /// The catalog as [by] sees it: [describe], with what [by] may call
-  /// (`access`: command to allow, warn or deny), the commands that cannot
-  /// run now, and why (`unavailable`), and the states whose values it may
-  /// not read and the facts it may not hear (`unreadable`).
-  Map<String, Object?> describeFor(Principal by) => {
-    ...describe(),
-    if (_unreadable(by) case final u when u.isNotEmpty) 'unreadable': u,
-    'access': {
-      for (final c in _commands.values)
-        c.descriptor.name: c.descriptor.callers.accessOf(by).name,
-    },
-    'unavailable': unavailable,
-  };
-
-  /// The commands that cannot run now, and why their owners say so.
-  Map<String, String> get unavailable => {
-    for (final name in _commands.keys) name: ?whyUnavailable(name),
-  };
-
   List<String> _unreadable(Principal by) => [
     for (final s in _states.values)
       if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
     for (final f in _facts.values)
       if (!(f.descriptor.readers?.allows(by) ?? true)) f.descriptor.name,
   ];
-
-  /// Registers an entity kind (SPEC §3); withdraw it with the handle.
-  IHandle registerKind(EntityKind kind) {
-    if (_kinds.containsKey(kind.name)) {
-      throw StateError('kind ${kind.name} exists');
-    }
-    _kinds[kind.name] = kind;
-    _announce(KindChanged(kind.name));
-    return _Disposer(() {
-      if (_kinds[kind.name] == kind) {
-        _kinds.remove(kind.name);
-        _announce(KindChanged(kind.name));
-      }
-    });
-  }
-
-  /// The entities of [kind] changed.
-  void entitiesChanged(String kind) => _announce(KindChanged(kind));
 
   /// Registers the host's type [name] with its checker (SPEC §2).
   IHandle registerType(String name, String? Function(Object? value) check) {
@@ -701,63 +592,6 @@ final class Registry implements ITypeContext {
     });
   }
 
-  /// Defines a state; the returned writer is its only write handle.
-  RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
-    _checkFree(d.name);
-    final cell = KeyedCell<String?, Object?>(hub: _hub, equals: jsonEquals);
-    _names[cell] = d.name;
-    _states[d.name] = _StateEntry(d, cell);
-    _announce(DescriptorAdded(d));
-    return RawStateWriter._(this, d, by);
-  }
-
-  /// Defines a command served by [handler]; dispose the handle to remove it.
-  IHandle defineCommand(
-    CommandDescriptor d,
-    CommandHandler handler, {
-    Availability? available,
-  }) {
-    _checkFree(d.name);
-    final port = Port<CommandCall, Object?>();
-    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
-    _announce(DescriptorAdded(d));
-    return _Disposer(() => _undefine(d.name));
-  }
-
-  /// Defines a query answered by [handler] (SPEC §6.6); dispose the handle
-  /// to remove it.
-  IHandle defineQuery(
-    QueryDescriptor d,
-    CommandHandler handler, {
-    Availability? available,
-  }) {
-    _checkFree(d.name);
-    final port = Port<CommandCall, Object?>();
-    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
-    _announce(DescriptorAdded(d));
-    return _Disposer(() => _undefine(d.name));
-  }
-
-  /// Defines a fact; the returned emitter belongs to the definer.
-  RawFactEmitter defineFact(FactDescriptor d, {required Principal by}) {
-    _checkFree(d.name);
-    final signal = Signal<Object?>(hub: _hub, open: d.open);
-    _facts[d.name] = _FactEntry(d, signal);
-    _names[signal] = d.name;
-    _announce(DescriptorAdded(d));
-    return RawFactEmitter._(this, d, by, signal.claim(), definer: true);
-  }
-
-  /// Another emit handle of an open fact, for producer [by]. The host
-  /// decides who gets one.
-  RawFactEmitter producer(String fact, {required Principal by}) {
-    final f = _facts[canonical(fact)];
-    if (f == null) throw StateError('no fact $fact');
-    final d = f.descriptor;
-    if (!d.open) throw StateError('$fact is not open');
-    return RawFactEmitter._(this, d, by, f.signal.claim(), definer: false);
-  }
-
   /// The cells of states that went inside a batch: their removals commit
   /// with it, then they go.
   final Set<KeyedCell<String?, Object?>> _retired = Set.identity();
@@ -803,21 +637,6 @@ final class Registry implements ITypeContext {
 
   /// Every commit, in seq order, delivered asynchronously.
   Stream<Tick> get ticks => _ticks.stream;
-
-  /// Runs [body] synchronously and commits everything it wrote as one tick
-  /// (SPEC §7). Batches nest; the outermost commits.
-  void batch(void Function() body) {
-    try {
-      _hub.batch(body);
-    } finally {
-      if (!_hub.writing && _retired.isNotEmpty) {
-        for (final cell in [..._retired]) {
-          _retire(cell);
-        }
-        _retired.clear();
-      }
-    }
-  }
 
   void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
     cause = _correlated(cause);
@@ -968,48 +787,6 @@ final class Registry implements ITypeContext {
 
   // --- Reading ---------------------------------------------------------------
 
-  /// The value of [state] (of [key]); inside a batch, the batch's own
-  /// writes count (SPEC §7). Null when there is none.
-  Object? read(String state, {String? key}) {
-    return _states[canonical(state)]?.cell.read(key);
-  }
-
-  /// Whether [state] (of [key]) has a committed value.
-  bool has(String state, {String? key}) =>
-      _states[canonical(state)]?.cell.has(key) ?? false;
-
-  /// Every committed value of [state], by key (null for an unkeyed one).
-  Map<String?, Object?> readAll(String state) =>
-      _states[canonical(state)]?.cell.values ?? const {};
-
-  /// The value of [state] (of [key]) now, then on every change; null when
-  /// there is none.
-  Stream<Object?> watch(String state, {String? key}) {
-    state = canonical(state);
-    final at = (state, key);
-    late StreamController<Object?> out;
-    out = StreamController<Object?>(
-      onListen: () {
-        out.add(read(state, key: key));
-        // Ticks committed before it read are on their way to the others'
-        // listener still: what it read is newer than they are.
-        (_watchers[at] ??= {})[out] = seq;
-        _watching ??= ticks.listen(_toWatchers, onDone: _endWatchers);
-      },
-      onCancel: () {
-        final set = _watchers[at];
-        if (set == null) return;
-        set.remove(out);
-        if (set.isEmpty) _watchers.remove(at);
-        if (_watchers.isEmpty) {
-          _watching?.cancel();
-          _watching = null;
-        }
-      },
-    );
-    return out.stream;
-  }
-
   /// Who watches which state (of which key), each with the seq it read
   /// at: a change reaches only its own watchers, however many watch other
   /// states, and only those that read before it.
@@ -1036,74 +813,6 @@ final class Registry implements ITypeContext {
         if (c.seq > e.value) e.key.add(c.value);
       }
     }
-  }
-
-  /// Facts as they are committed, of [fact] only when given.
-  Stream<FactMessage> facts({String? fact}) {
-    final name = fact == null ? null : canonical(fact);
-    return ticks.expand(
-      (t) => name == null ? t.facts : t.facts.where((f) => f.fact == name),
-    );
-  }
-
-  /// The last [n] facts of [fact], oldest first.
-  List<FactMessage> recent(String fact, [int? n]) {
-    final q = _recent[canonical(fact)];
-    if (q == null || (n != null && n <= 0)) return const [];
-    final all = q.toList();
-    return n == null || n >= all.length ? all : all.sublist(all.length - n);
-  }
-
-  /// The fact of id [id] among those kept, or null: what follows from it
-  /// (a remote participant's answer to it) takes its cause.
-  FactMessage? recentFact(String id) {
-    for (final q in _recent.values) {
-      for (final m in q._q) {
-        if (m.id == id) return m;
-      }
-    }
-    return null;
-  }
-
-  /// The feed (SPEC §12): resumes after `since` of [epoch] when it is still
-  /// retained, else starts with a snapshot.
-  Stream<FeedItem> feed({String? epoch, int? since}) {
-    late StreamController<FeedItem> out;
-    StreamSubscription<Tick>? sub;
-    out = StreamController<FeedItem>(
-      onListen: () {
-        var last = seq;
-        final canResume =
-            epoch == this.epoch &&
-            since != null &&
-            since <= seq &&
-            (since == seq ||
-                (_retained.isNotEmpty && _retained.first.from <= since + 1));
-        if (canResume) {
-          for (final t in _retained) {
-            if (t.to > since) out.add(t);
-          }
-        } else {
-          out.add(
-            Snapshot(
-              epoch: this.epoch,
-              seq: seq,
-              states: {
-                for (final e in _states.entries) e.key: e.value.cell.values,
-              },
-              factsLost: since != null,
-            ),
-          );
-        }
-        sub = ticks.listen((t) {
-          if (t.to <= last) return;
-          last = t.to;
-          out.add(t);
-        }, onDone: out.close);
-      },
-      onCancel: () => sub?.cancel(),
-    );
-    return out.stream;
   }
 
   // --- Facts -----------------------------------------------------------------
@@ -1214,21 +923,6 @@ final class Registry implements ITypeContext {
     return (users[who] ??= _Use(who, clock))..seen();
   }
 
-  /// [by] read [word] once, from outside the build: a session's read of a
-  /// fact's recent ones or a state's why, an agent's read (SPEC §6.8).
-  /// Calls and asks are counted by the registry itself.
-  void usedBy(String word, Principal by) => _used(word, by)?.read();
-
-  /// [by] listens to [word] until the handle is disposed: a session's
-  /// subscription (SPEC §6.8). Null while there is no word of that name:
-  /// ask again when one comes (`catalogChanges`).
-  IHandle? listenedBy(String word, Principal by) {
-    final use = _used(word, by);
-    if (use == null) return null;
-    use.listening++;
-    return _Disposer(() => use.listening--);
-  }
-
   /// Who used [name] (a word, or an old name of one), as it was named:
   /// calls and asks, reads and listeners from outside the build (SPEC
   /// §6.8). What the app's own modules read and watch in this process is
@@ -1333,65 +1027,6 @@ final class Registry implements ITypeContext {
       }
     }
     return null;
-  }
-
-  /// Calls [command] on behalf of [by] (SPEC §9). A repeated [id] within
-  /// the dedup window answers the first call's result without running it
-  /// again. A call made by a handler passes [cause]; without it,
-  /// the call starts a new chain.
-  Future<CallResult<Object?>> call(
-    String command,
-    Map<String, Object?> params, {
-    required Principal by,
-    String? id,
-    bool override = false,
-    Cause? cause,
-  }) {
-    final asked = command;
-    command = canonical(command);
-    if (_commands.containsKey(command)) _used(asked, by)?.called();
-    final callId = id ?? newId();
-    cause = _correlated(cause ?? Cause(by));
-    _converse(callId, cause);
-    final query = _commands[command]?.query ?? false;
-    // A query may ask another; a command it may not call.
-    if (!query) refuseInQuery('call $command');
-    if (query) {
-      // A query only answers: nothing to hold an id to, nothing to record.
-      return _run(
-        callId,
-        command,
-        params,
-        cause,
-        override: override,
-        record: false,
-      );
-    }
-    final now = clock.now();
-    _forget(_calls, (c) => c.at, now);
-    if (_calls[callId] case final seen?) {
-      // An id stands for one call: another one with it is refused, not
-      // answered the first call's result.
-      if (seen.command != command ||
-          seen.by != by ||
-          !jsonEquals(seen.params, params)) {
-        return Future.value(
-          CallRefused(
-            Refusal.idConflict,
-            'id $callId was given to another call',
-          ),
-        );
-      }
-      return seen.result;
-    }
-    final result = _run(callId, command, params, cause, override: override);
-    // Only an id the caller gave can be given again: one made here is
-    // nobody's to retry with.
-    if (id != null) {
-      _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
-      if (_calls.length > dedupLimit) _calls.remove(_calls.keys.first);
-    }
-    return result;
   }
 
   Future<CallResult<Object?>> _run(
@@ -1653,6 +1288,393 @@ final class Registry implements ITypeContext {
     }
   }
 
+  // --- Lifetime --------------------------------------------------------------
+
+  /// Closes the streams and stops the timers.
+  Future<void> dispose() async {
+    await Future.wait([
+      _ticks.close(),
+      _availability.close(),
+      _hub.dispose(),
+      _catalog.close(),
+      _records.close(),
+      _starts.close(),
+    ]);
+  }
+}
+
+/// What the registry does on behalf of whoever it is told (SPEC §22):
+/// defines words with no namespace to keep them in, calls and writes as
+/// any principal, guards every command. The package's own, for what it
+/// builds on the registry (participants, sessions, views, tests); not
+/// exported, so a host's code reaches the registry through participants
+/// only, as the one each part is.
+extension RawRegistry on Registry {
+  /// [command]'s availability may have changed without a tick (SPEC §6.5).
+  void availabilityChanged(String command) {
+    if (!_availability.isClosed) _availability.add(canonical(command));
+  }
+
+  /// Why [command] cannot run now (it is not there, or its owner says it
+  /// is unavailable), or null when it can. Guards are not asked: they judge
+  /// a call, not a command.
+  String? whyUnavailable(String command) {
+    final c = _commands[canonical(command)];
+    if (c == null) return 'no command $command';
+    return c.available?.call();
+  }
+
+  /// Whether [by] can use the word [name] now (SPEC §6.5): missing from
+  /// the catalog, not permitted to it, a command unavailable now, or
+  /// ready. An old name stands for its word.
+  WordStatus statusOf(String name, {required Principal by}) {
+    final n = canonical(name);
+    if (_commands[n] case final c?) {
+      if (!c.descriptor.callers.allows(by)) return const WordNotPermitted();
+      if (c.available?.call() case final why?) return WordUnavailable(why);
+      return const WordReady();
+    }
+    if (!_states.containsKey(n) && !_facts.containsKey(n)) {
+      return const WordMissing();
+    }
+    return mayRead(by, n) ? const WordReady() : const WordNotPermitted();
+  }
+
+  /// [statusOf] now, then whenever it changes: a word comes or goes, an
+  /// old name moves, or a tick changes what a command's availability check
+  /// reads.
+  Stream<WordStatus> statusChanges(String name, {required Principal by}) {
+    late StreamController<WordStatus> out;
+    StreamSubscription<CatalogChange>? catalog;
+    StreamSubscription<Tick>? ticks;
+    StreamSubscription<String>? availability;
+    WordStatus? last;
+    void tell() {
+      final now = statusOf(name, by: by);
+      if (now == last) return;
+      last = now;
+      out.add(now);
+    }
+
+    out = StreamController<WordStatus>(
+      onListen: () {
+        tell();
+        // It ends with the registry.
+        catalog = catalogChanges.listen((_) => tell(), onDone: out.close);
+        ticks = this.ticks.listen((_) => tell());
+        availability = availabilityChanges.listen((_) => tell());
+      },
+      onCancel: () async {
+        await catalog?.cancel();
+        await ticks?.cancel();
+        await availability?.cancel();
+      },
+    );
+    return out.stream;
+  }
+
+  /// Whether [by] may read state [name]'s values, or hear fact [name], over
+  /// remote and MCP (its `readers`); true for a word there is
+  /// not.
+  bool mayRead(Principal by, String name) =>
+      (_states[canonical(name)]?.descriptor.readers ??
+              _facts[canonical(name)]?.descriptor.readers)
+          ?.allows(by) ??
+      true;
+
+  /// The catalog as [by] sees it: [describe], with what [by] may call
+  /// (`access`: command to allow, warn or deny), the commands that cannot
+  /// run now, and why (`unavailable`), and the states whose values it may
+  /// not read and the facts it may not hear (`unreadable`).
+  Map<String, Object?> describeFor(Principal by) => {
+    ...describe(),
+    if (_unreadable(by) case final u when u.isNotEmpty) 'unreadable': u,
+    'access': {
+      for (final c in _commands.values)
+        c.descriptor.name: c.descriptor.callers.accessOf(by).name,
+    },
+    'unavailable': unavailable,
+  };
+
+  /// The commands that cannot run now, and why their owners say so.
+  Map<String, String> get unavailable => {
+    for (final name in _commands.keys) name: ?whyUnavailable(name),
+  };
+
+  /// Registers an entity kind (SPEC §3); withdraw it with the handle.
+  IHandle registerKind(EntityKind kind) {
+    if (_kinds.containsKey(kind.name)) {
+      throw StateError('kind ${kind.name} exists');
+    }
+    _kinds[kind.name] = kind;
+    _announce(KindChanged(kind.name));
+    return _Disposer(() {
+      if (_kinds[kind.name] == kind) {
+        _kinds.remove(kind.name);
+        _announce(KindChanged(kind.name));
+      }
+    });
+  }
+
+  /// The entities of [kind] changed.
+  void entitiesChanged(String kind) => _announce(KindChanged(kind));
+
+  /// Defines a state; the returned writer is its only write handle.
+  RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
+    _checkFree(d.name);
+    final cell = KeyedCell<String?, Object?>(hub: _hub, equals: jsonEquals);
+    _names[cell] = d.name;
+    _states[d.name] = _StateEntry(d, cell);
+    _announce(DescriptorAdded(d));
+    return RawStateWriter._(this, d, by);
+  }
+
+  /// Defines a command served by [handler]; dispose the handle to remove it.
+  IHandle defineCommand(
+    CommandDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) {
+    _checkFree(d.name);
+    final port = Port<CommandCall, Object?>();
+    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
+    _announce(DescriptorAdded(d));
+    return _Disposer(() => _undefine(d.name));
+  }
+
+  /// Defines a query answered by [handler] (SPEC §6.6); dispose the handle
+  /// to remove it.
+  IHandle defineQuery(
+    QueryDescriptor d,
+    CommandHandler handler, {
+    Availability? available,
+  }) {
+    _checkFree(d.name);
+    final port = Port<CommandCall, Object?>();
+    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
+    _announce(DescriptorAdded(d));
+    return _Disposer(() => _undefine(d.name));
+  }
+
+  /// Defines a fact; the returned emitter belongs to the definer.
+  RawFactEmitter defineFact(FactDescriptor d, {required Principal by}) {
+    _checkFree(d.name);
+    final signal = Signal<Object?>(hub: _hub, open: d.open);
+    _facts[d.name] = _FactEntry(d, signal);
+    _names[signal] = d.name;
+    _announce(DescriptorAdded(d));
+    return RawFactEmitter._(this, d, by, signal.claim(), definer: true);
+  }
+
+  /// Another emit handle of an open fact, for producer [by]. The host
+  /// decides who gets one.
+  RawFactEmitter producer(String fact, {required Principal by}) {
+    final f = _facts[canonical(fact)];
+    if (f == null) throw StateError('no fact $fact');
+    final d = f.descriptor;
+    if (!d.open) throw StateError('$fact is not open');
+    return RawFactEmitter._(this, d, by, f.signal.claim(), definer: false);
+  }
+
+  /// Runs [body] synchronously and commits everything it wrote as one tick
+  /// (SPEC §7). Batches nest; the outermost commits.
+  void batch(void Function() body) {
+    try {
+      _hub.batch(body);
+    } finally {
+      if (!_hub.writing && _retired.isNotEmpty) {
+        for (final cell in [..._retired]) {
+          _retire(cell);
+        }
+        _retired.clear();
+      }
+    }
+  }
+
+  /// The value of [state] (of [key]); inside a batch, the batch's own
+  /// writes count (SPEC §7). Null when there is none.
+  Object? read(String state, {String? key}) {
+    return _states[canonical(state)]?.cell.read(key);
+  }
+
+  /// Whether [state] (of [key]) has a committed value.
+  bool has(String state, {String? key}) =>
+      _states[canonical(state)]?.cell.has(key) ?? false;
+
+  /// Every committed value of [state], by key (null for an unkeyed one).
+  Map<String?, Object?> readAll(String state) =>
+      _states[canonical(state)]?.cell.values ?? const {};
+
+  /// The value of [state] (of [key]) now, then on every change; null when
+  /// there is none.
+  Stream<Object?> watch(String state, {String? key}) {
+    state = canonical(state);
+    final at = (state, key);
+    late StreamController<Object?> out;
+    out = StreamController<Object?>(
+      onListen: () {
+        out.add(read(state, key: key));
+        // Ticks committed before it read are on their way to the others'
+        // listener still: what it read is newer than they are.
+        (_watchers[at] ??= {})[out] = seq;
+        _watching ??= ticks.listen(_toWatchers, onDone: _endWatchers);
+      },
+      onCancel: () {
+        final set = _watchers[at];
+        if (set == null) return;
+        set.remove(out);
+        if (set.isEmpty) _watchers.remove(at);
+        if (_watchers.isEmpty) {
+          _watching?.cancel();
+          _watching = null;
+        }
+      },
+    );
+    return out.stream;
+  }
+
+  /// Facts as they are committed, of [fact] only when given.
+  Stream<FactMessage> facts({String? fact}) {
+    final name = fact == null ? null : canonical(fact);
+    return ticks.expand(
+      (t) => name == null ? t.facts : t.facts.where((f) => f.fact == name),
+    );
+  }
+
+  /// The last [n] facts of [fact], oldest first.
+  List<FactMessage> recent(String fact, [int? n]) {
+    final q = _recent[canonical(fact)];
+    if (q == null || (n != null && n <= 0)) return const [];
+    final all = q.toList();
+    return n == null || n >= all.length ? all : all.sublist(all.length - n);
+  }
+
+  /// The fact of id [id] among those kept, or null: what follows from it
+  /// (a remote participant's answer to it) takes its cause.
+  FactMessage? recentFact(String id) {
+    for (final q in _recent.values) {
+      for (final m in q._q) {
+        if (m.id == id) return m;
+      }
+    }
+    return null;
+  }
+
+  /// The feed (SPEC §12): resumes after `since` of [epoch] when it is still
+  /// retained, else starts with a snapshot.
+  Stream<FeedItem> feed({String? epoch, int? since}) {
+    late StreamController<FeedItem> out;
+    StreamSubscription<Tick>? sub;
+    out = StreamController<FeedItem>(
+      onListen: () {
+        var last = seq;
+        final canResume =
+            epoch == this.epoch &&
+            since != null &&
+            since <= seq &&
+            (since == seq ||
+                (_retained.isNotEmpty && _retained.first.from <= since + 1));
+        if (canResume) {
+          for (final t in _retained) {
+            if (t.to > since) out.add(t);
+          }
+        } else {
+          out.add(
+            Snapshot(
+              epoch: this.epoch,
+              seq: seq,
+              states: {
+                for (final e in _states.entries) e.key: e.value.cell.values,
+              },
+              factsLost: since != null,
+            ),
+          );
+        }
+        sub = ticks.listen((t) {
+          if (t.to <= last) return;
+          last = t.to;
+          out.add(t);
+        }, onDone: out.close);
+      },
+      onCancel: () => sub?.cancel(),
+    );
+    return out.stream;
+  }
+
+  /// [by] read [word] once, from outside the build: a session's read of a
+  /// fact's recent ones or a state's why, an agent's read (SPEC §6.8).
+  /// Calls and asks are counted by the registry itself.
+  void usedBy(String word, Principal by) => _used(word, by)?.read();
+
+  /// [by] listens to [word] until the handle is disposed: a session's
+  /// subscription (SPEC §6.8). Null while there is no word of that name:
+  /// ask again when one comes (`catalogChanges`).
+  IHandle? listenedBy(String word, Principal by) {
+    final use = _used(word, by);
+    if (use == null) return null;
+    use.listening++;
+    return _Disposer(() => use.listening--);
+  }
+
+  /// Calls [command] on behalf of [by] (SPEC §9). A repeated [id] within
+  /// the dedup window answers the first call's result without running it
+  /// again. A call made by a handler passes [cause]; without it,
+  /// the call starts a new chain.
+  Future<CallResult<Object?>> call(
+    String command,
+    Map<String, Object?> params, {
+    required Principal by,
+    String? id,
+    bool override = false,
+    Cause? cause,
+  }) {
+    final asked = command;
+    command = canonical(command);
+    if (_commands.containsKey(command)) _used(asked, by)?.called();
+    final callId = id ?? newId();
+    cause = _correlated(cause ?? Cause(by));
+    _converse(callId, cause);
+    final query = _commands[command]?.query ?? false;
+    // A query may ask another; a command it may not call.
+    if (!query) refuseInQuery('call $command');
+    if (query) {
+      // A query only answers: nothing to hold an id to, nothing to record.
+      return _run(
+        callId,
+        command,
+        params,
+        cause,
+        override: override,
+        record: false,
+      );
+    }
+    final now = clock.now();
+    _forget(_calls, (c) => c.at, now);
+    if (_calls[callId] case final seen?) {
+      // An id stands for one call: another one with it is refused, not
+      // answered the first call's result.
+      if (seen.command != command ||
+          seen.by != by ||
+          !jsonEquals(seen.params, params)) {
+        return Future.value(
+          CallRefused(
+            Refusal.idConflict,
+            'id $callId was given to another call',
+          ),
+        );
+      }
+      return seen.result;
+    }
+    final result = _run(callId, command, params, cause, override: override);
+    // Only an id the caller gave can be given again: one made here is
+    // nobody's to retry with.
+    if (id != null) {
+      _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
+      if (_calls.length > dedupLimit) _calls.remove(_calls.keys.first);
+    }
+    return result;
+  }
+
   /// Adds a guard (SPEC §10), asked for every call in the order guards
   /// were added.
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
@@ -1679,20 +1701,6 @@ final class Registry implements ITypeContext {
     return _Disposer(() {
       if (_guards[id] == g) _guards.remove(id);
     });
-  }
-
-  // --- Lifetime --------------------------------------------------------------
-
-  /// Closes the streams and stops the timers.
-  Future<void> dispose() async {
-    await Future.wait([
-      _ticks.close(),
-      _availability.close(),
-      _hub.dispose(),
-      _catalog.close(),
-      _records.close(),
-      _starts.close(),
-    ]);
   }
 }
 

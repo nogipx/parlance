@@ -8,6 +8,7 @@ import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
 import '../remote/remote_test.dart' show Link, settle;
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 enum _State<T> implements IStateWord<T> {
   muted<bool>(Plain(BoolType()));

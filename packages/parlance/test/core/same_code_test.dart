@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:parlance/core.dart';
 import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 /// Code written against the core's interfaces (SPEC §21.6) runs the same on
 /// cells, ports and signals and on the registry's typed words: moving from

@@ -1,5 +1,6 @@
 import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const owner = Principal('host');
 

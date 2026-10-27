@@ -658,7 +658,8 @@ final class RemoteParticipant implements IParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-  }) => _call(command, params, id: id, cause: cause);
+    bool override = false,
+  }) => _call(command, params, id: id, cause: cause, override: override);
 
   Future<CallResult<Object?>> _call(
     String command,
@@ -666,6 +667,7 @@ final class RemoteParticipant implements IParticipant {
     String? id,
     Cause? cause,
     Principal? as,
+    bool override = false,
   }) async {
     _live();
     final c = _as(cause, as);
@@ -681,6 +683,7 @@ final class RemoteParticipant implements IParticipant {
       command,
       params,
       id: id,
+      override: override,
       parent: c?.parent,
       as: as,
     );
@@ -1222,7 +1225,15 @@ final class _Part implements IParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-  }) => _root._call(command, params, id: id, cause: cause, as: who);
+    bool override = false,
+  }) => _root._call(
+    command,
+    params,
+    id: id,
+    cause: cause,
+    as: who,
+    override: override,
+  );
 
   @override
   bool get synced => _root.synced;

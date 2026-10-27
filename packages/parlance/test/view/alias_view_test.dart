@@ -2,6 +2,7 @@ import 'package:parlance/registry.dart';
 import 'package:parlance/testing.dart';
 import 'package:parlance/view.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const owner = Principal('host', 'studio');
 
