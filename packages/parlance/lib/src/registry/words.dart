@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'cause.dart';
 import 'descriptors.dart';
+import 'json.dart';
 import 'messages.dart';
 import 'registry.dart';
 import 'types.dart';
@@ -34,6 +35,43 @@ final class Plain<T> extends Shape<T> {
 
   @override
   T fromJson(Object? json) => json as T;
+}
+
+/// A class that serializes itself, as json_serializable and freezed make
+/// them: kept as the map [toJson] gives, read back by [fromJson]. Give its
+/// [type] (an `ObjectType` of its fields) for the registry to check what
+/// is written and `describe` to tell it; without one any object passes.
+///
+/// [toJson] must give plain JSON all the way down: with json_serializable,
+/// `explicitToJson: true`, or a nested object stays a Dart object and the
+/// write is refused.
+final class JsonShape<T> extends Shape<T> {
+  const JsonShape(this._from, this._to, {ValueType<Object?>? type})
+    : _type = type;
+
+  final T Function(Map<String, Object?> json) _from;
+  final Map<String, Object?> Function(T value) _to;
+  final ValueType<Object?>? _type;
+
+  @override
+  ValueType<Object?> get type => _type ?? const AnyType();
+
+  @override
+  Object? toJson(T value) {
+    final json = _to(value);
+    if (!isJsonValue(json)) {
+      throw ArgumentError.value(
+        value,
+        'value',
+        'its toJson gives more than JSON: with json_serializable, set '
+            'explicitToJson: true',
+      );
+    }
+    return json;
+  }
+
+  @override
+  T fromJson(Object? json) => _from((json! as Map).cast<String, Object?>());
 }
 
 /// One of a Dart enum's [values], kept as its name.
@@ -240,6 +278,15 @@ abstract interface class ICommandWord<P, R> {
   Shape<R>? get returns;
 }
 
+/// A query's name, its params and what it answers (SPEC §6.2, §18): a
+/// question that changes nothing. Not a command: where a command is
+/// called, a query is not passed, and where it is asked, it says so.
+abstract interface class IQueryWord<P, R> {
+  String get name;
+  RecordShape<P> get params;
+  Shape<R> get returns;
+}
+
 /// A fact's name and its payload's shape.
 abstract interface class IFactWord<T> {
   String get name;
@@ -264,22 +311,59 @@ extension StateValues<T> on IStateWord<T> {
   }
 }
 
+/// A done call's value decoded by [shape] (`failed` when it does not
+/// decode); any other end as it is.
+CallResult<R> _answer<R>(
+  String name,
+  Shape<R>? shape,
+  CallResult<Object?> raw,
+) {
+  if (raw case CallDone(:final value)) {
+    try {
+      return CallDone(shape == null ? null as R : shape.fromJson(value));
+    } on Object catch (e) {
+      return CallFailed('the answer is not what $name says: $e');
+    }
+  }
+  return raw as CallResult<R>;
+}
+
 /// A command's answer from what a call ended with, wherever it was called
 /// (a registry, a client over remote).
 extension CommandAnswers<P, R> on ICommandWord<P, R> {
   /// A done call's value decoded as the word says (`failed` when it does
   /// not decode); any other end as it is.
-  CallResult<R> answer(CallResult<Object?> raw) {
-    if (raw case CallDone(:final value)) {
-      try {
-        final r = returns;
-        return CallDone(r == null ? null as R : r.fromJson(value));
-      } on Object catch (e) {
-        return CallFailed('the answer is not what $name says: $e');
-      }
-    }
-    return raw as CallResult<R>;
-  }
+  CallResult<R> answer(CallResult<Object?> raw) => _answer(name, returns, raw);
+}
+
+/// A query's answer, wherever it was asked.
+extension QueryAnswers<P, R> on IQueryWord<P, R> {
+  CallResult<R> answer(CallResult<Object?> raw) => _answer(name, returns, raw);
+
+  /// Its descriptor, with [askers] who may ask (SPEC §6.2).
+  CommandDescriptor describeWith({
+    required Callers askers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+  }) => CommandDescriptor(
+    name,
+    params: params.type,
+    returns: returns.type,
+    callers: askers,
+    deadline: deadline,
+    query: true,
+    meta: meta,
+  );
+
+  /// Its handler as the registry serves it: params decoded, the answer
+  /// encoded.
+  CommandHandler serve(FutureOr<R> Function(CommandCallOf<P> ask) handler) =>
+      (c) {
+        final out = handler(CommandCallOf(c, params.fromJson(c.params)));
+        return out is Future<R>
+            ? out.then(returns.toJson)
+            : returns.toJson(out);
+      };
 }
 
 /// The registry through typed words. The word fixes the types: a call is
@@ -289,6 +373,7 @@ extension TypedRegistry on Registry {
   StateOf<T> state<T>(IStateWord<T> word) => StateOf._(this, word);
   CommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
       CommandOf._(this, word);
+  QueryOf<P, R> query<P, R>(IQueryWord<P, R> word) => QueryOf._(this, word);
   FactOf<T> fact<T>(IFactWord<T> word) => FactOf._(this, word);
 }
 
@@ -500,6 +585,50 @@ final class _CommandCallerOf<P, R> implements ICommandCaller<P, R> {
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
+}
+
+/// A query, typed (SPEC §6.2): defined by its owner, asked by anyone its
+/// askers let.
+final class QueryOf<P, R> {
+  QueryOf._(this.registry, this.word);
+
+  final Registry registry;
+  final IQueryWord<P, R> word;
+
+  /// Defines it with its [handler]; [askers] who may ask, everyone when
+  /// not said, as anyone may read a state that names no readers.
+  IHandle define(
+    FutureOr<R> Function(CommandCallOf<P> ask) handler, {
+    Callers? askers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+    Availability? available,
+  }) => registry.defineCommand(
+    word.describeWith(
+      askers: askers ?? const Callers({'*': Access.allow}),
+      deadline: deadline,
+      meta: meta,
+    ),
+    word.serve(handler),
+    available: available,
+  );
+
+  /// Asks it with [params] on behalf of [by]; asking again asks again.
+  Future<CallResult<R>> ask(
+    P params, {
+    required Principal by,
+    Cause? cause,
+  }) async => word.answer(
+    await registry.call(
+      word.name,
+      word.params.toJson(params),
+      by: by,
+      cause: cause,
+    ),
+  );
+
+  /// Why it cannot be asked now; null when it can.
+  String? whyUnavailable() => registry.whyUnavailable(word.name);
 }
 
 /// A committed fact, its payload typed.

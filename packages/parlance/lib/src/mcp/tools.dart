@@ -127,6 +127,7 @@ Future<List<McpTool>> parlanceTools(
                   'sets': ?(c['sets'] as Map?)?['state'],
                   if (access[c['name']] == 'warn') 'access': 'warn',
                   if (c['interceptable'] == true) 'interceptable': true,
+                  if (c['query'] == true) 'query': true,
                   'unavailable': ?unavailable[c['name']],
                 },
           ],
@@ -398,7 +399,10 @@ McpTool _commandTool(
   return McpTool(
     name: commandToolName(name),
     description: [
-      '${label ?? name} (command $name).',
+      c['query'] == true
+          ? '${label ?? name} (query $name): only answers, changes nothing; '
+                'safe to ask again.'
+          : '${label ?? name} (command $name).',
       if (sets != null) 'Sets the state $sets.',
       if (c['interceptable'] == true) 'Links may run steps before it.',
     ].join(' '),

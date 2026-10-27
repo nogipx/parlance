@@ -16,6 +16,21 @@ A vocabulary is made of **words**: a name and a type. There are three kinds, lik
 | **command** | a request to do something | `audio.mute`, `scene.show` | call it; exactly one handler answers |
 | **fact** | what happened | `chat.message`, `stream.started` | hear it; nothing is kept after it is said |
 
+A command that only answers is a **query** (`orders.page`, `catalog.search`): a question by params that no state holds. It changes nothing, so it is safe to ask again, and the registry keeps nothing of it.
+
+| | command | query |
+| --- | --- | --- |
+| does | changes something: writes, says, calls | only answers |
+| asked again with its id | answers the first result, runs once | runs again |
+| call record (journal, `explain`) | kept | none: its answers take no memory |
+| sets a state (layers, `flip`) | may | never |
+| links run steps before it (hooks) | may | never |
+| who may, by default | must be said | as who may read |
+| to an agent | an action | safe to ask |
+| in Dart | `ICommandWord`, `.call(params)` | `IQueryWord`, `.ask(params)` |
+
+Many consumers of one value that changes: a state. One asker's answer to its own params: a query. Anything that changes the world: a command.
+
 Every word has an **owner**, the part that defined it. Nobody changes someone else's state: you ask its owner with a command, and the owner decides.
 
 Around the words:

@@ -1,7 +1,8 @@
-/// A house on parlance, start to end: its typed words, who may do what,
-/// facts and the links they set off, a binding that holds a state, a guard
-/// and a constraint, the user's own words, why a state is as it is, a phone
-/// over remote and an agent over MCP.
+/// A house on parlance, start to end: its typed words, who may do what and
+/// whether a word is there for them, facts and the links they set off, a
+/// binding that holds a state, a guard and a constraint, the user's own
+/// words, a question that changes nothing, why a state is as it is and
+/// which part did it, a phone that joins over remote and an agent over MCP.
 ///
 /// Run: `dart run example/main.dart`.
 library;
@@ -15,6 +16,7 @@ import 'package:parlance/owners.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
+import 'package:parlance/view.dart';
 
 import 'house/house.dart';
 import 'house/links.dart';
@@ -30,18 +32,22 @@ Future<void> main() async {
   final devices = Devices();
   final house = House(devices);
   // The house speaks through a participant main makes: who it is, the
-  // first words of its names, and that the doorbell says who rang (a fact
+  // first words of its names, who calls its commands when a command does
+  // not say (the household), and that the doorbell says who rang (a fact
   // on a visitor's behalf). The owner's code never says what it may.
   final houseSide = registry.participant(
     Who.house,
     namespaces: {'light', 'heat', 'house', 'door', 'doorbell', 'motion'},
+    access: const WordAccess(call: Who.household),
     rights: ParticipantRights(
       speakFor: (_, by, fact) => fact == HouseFact.rang.name
           ? null
           : 'only the doorbell speaks for anyone',
     ),
   );
-  final owners = Owners(houseSide, {'house': house});
+  // The owner is the participant's part `devices`, named here: what it
+  // writes and says is told as house:devices.
+  final owners = Owners(houseSide, {'devices': house});
   // Residents press and change links; a run set off by anyone else (a guest
   // at the door) acts with that one's rights, never the link's.
   final links = Links(
@@ -75,6 +81,14 @@ Future<void> main() async {
   show(
     'ann lights a room there is not',
     await setLight.call((room: 'attic', on: true), by: Who.ann),
+  );
+  // Whether a word is there for someone, before calling it: a part shows
+  // a missing or a closed word for what it is.
+  final asBob = LocalView(registry, by: Who.bob);
+  print(
+    '  for bob: heat.set ${asBob.status(HouseCommand.setHeat.name)}, '
+    'light.set ${asBob.status(HouseCommand.setLight.name)}, '
+    'garage.open ${asBob.status('garage.open')}',
   );
 
   // --- 2. A fact sets off a reaction; why the state is so -------------------
@@ -157,27 +171,44 @@ Future<void> main() async {
   );
   print('  my.guests: ${registry.read('my.guests')}');
 
-  // --- 7. A phone over remote ---------------------------------------------------
+  // --- 7. A query: a question that changes nothing -----------------------------
+
+  section('A query');
+  // Asked, not called: it only answers, so asking again is safe, and the
+  // registry keeps nothing of it (no call record, no id held).
+  final rooms = registry.query(HouseQuery.rooms);
+  final lit = await rooms.ask((lit: true), by: Who.bob);
+  print('  rooms lit, asked by bob: ${(lit as CallDone<List<String>>).value}');
+  final dark = await rooms.ask((lit: false), by: Who.bob);
+  print('  and dark: ${(dark as CallDone<List<String>>).value}');
+  final why2 = registry.explain(HouseState.light.name, key: 'living');
+  print('  the living light was written by ${why2.change?.cause.by}');
+
+  // --- 8. A phone that joins over remote -------------------------------------
 
   section('A phone over remote');
-  final phone = Phone.connect(registry, Who.phone('ann-phone'));
-  final mirror = RegistryMirror()..follow(phone.client);
-  final reply = await phone.client.command(HouseCommand.setHeat).callAt((
+  // The phone is a participant like the house, across a connection: the
+  // house opens a session for it and says who it is; it reads what it
+  // watches.
+  final phone = await Phone.join(registry, Who.phone('ann-phone'));
+  final heats = phone.part.state(HouseState.heat).watch().listen((_) {});
+  final modes = phone.part.state(HouseState.mode).watch().listen((_) {});
+  final reply = await phone.part.command(HouseCommand.setHeat).call((
     target: 22,
-  ), override: false);
-  show('the phone sets the heating', reply.result);
-  // The mirror shows what the call wrote once it has reached its seq.
-  await mirror.reach(reply.epoch!, reply.seq!);
+  ));
+  show('the phone sets the heating', reply);
+  // A call answers once the phone's copy has what it wrote.
   print(
-    '  the phone sees: ${mirror.state(HouseState.heat).read()} °C, '
-    'mode ${mirror.state(HouseState.mode).read()?.name}',
+    '  the phone sees: ${phone.part.state(HouseState.heat).read()} °C, '
+    'mode ${phone.part.state(HouseState.mode).read()?.name}',
   );
-  final rings = await phone.client.fact(HouseFact.rang).recent(5);
+  final rings = await phone.part.fact(HouseFact.rang).recent(5);
   print('  rings it can see: ${[for (final f in rings) f.payload.who]}');
-  await mirror.dispose();
+  await heats.cancel();
+  await modes.cancel();
   await phone.close();
 
-  // --- 8. An agent over MCP --------------------------------------------------
+  // --- 9. An agent over MCP --------------------------------------------------
 
   section('An agent over MCP');
   final tools = await parlanceTools(
@@ -197,38 +228,39 @@ Future<void> main() async {
   await registry.dispose();
 }
 
-/// A phone's connection: a session the house opens for it, and its client.
+/// A phone's connection: a session the house opens for it, and the phone's
+/// side, a participant joined over an [RpcClientConnection].
 final class Phone {
-  Phone._(this.client, this._session, this._closers);
+  Phone._(this.part, this._connection, this._session, this._host);
 
-  static Phone connect(Registry registry, Principal principal) {
+  static Future<Phone> join(Registry registry, Principal principal) async {
     final (c, s) = RpcChannelTransport.memoryPair();
     // The host decides who the connection is, when it accepts it.
-    final responder = RpcPeerEndpoint(transport: s);
-    final session = RegistryResponder(
-      responder,
-      registry,
-      principal: principal,
-    );
-    responder
+    final host = RpcPeerEndpoint(transport: s);
+    final session = RegistryResponder(host, registry, principal: principal);
+    host
       ..registerServiceContract(session)
       ..start();
-    final caller = RpcPeerEndpoint(transport: c)..start();
-    return Phone._(ParlanceClient(caller), session, [
-      caller.close,
-      responder.close,
-    ]);
+    // In memory the connection does not come back once lost; over a socket
+    // the factory would dial again, and the phone would join again.
+    final connection = RpcClientConnection(
+      transportFactory: (_) async => c,
+      shouldReconnect: (_) => false,
+    );
+    final part = await RemoteParticipant.join(connection);
+    return Phone._(part, connection, session, host);
   }
 
-  final ParlanceClient client;
+  final RemoteParticipant part;
+  final RpcClientConnection _connection;
   final RegistryResponder _session;
-  final List<Future<void> Function()> _closers;
+  final RpcPeerEndpoint _host;
 
   Future<void> close() async {
+    await part.close();
+    await _connection.dispose();
     _session.close();
-    for (final c in _closers) {
-      await c();
-    }
+    await _host.close();
   }
 }
 

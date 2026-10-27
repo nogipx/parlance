@@ -75,6 +75,11 @@ final class WordAccess {
           meta: d.meta,
         );
 
+  /// [callers], else [read], else everyone: who may ask a query, as who
+  /// may read a state.
+  Callers askersOf(Callers? callers) =>
+      callers ?? read ?? const Callers({'*': Access.allow});
+
   /// [callers], else [call]; a command with neither is refused at once.
   Callers callersOf(String command, Callers? callers) =>
       callers ??
@@ -176,6 +181,42 @@ extension TypedParticipant on IParticipant {
       ParticipantCommandOf._(this, word);
   ParticipantFactOf<T> fact<T>(IFactWord<T> word) =>
       ParticipantFactOf._(this, word);
+  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
+      ParticipantQueryOf._(this, word);
+}
+
+/// A query as a participant has it, typed (SPEC §6.2).
+final class ParticipantQueryOf<P, R> {
+  ParticipantQueryOf._(this.participant, this.word);
+
+  final IParticipant participant;
+  final IQueryWord<P, R> word;
+
+  /// Defines it as the participant's own, served by [handler]; [askers],
+  /// else who may read its words (`access.read`), else everyone.
+  IHandle define(
+    FutureOr<R> Function(CommandCallOf<P> ask) handler, {
+    Callers? askers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+    Availability? available,
+  }) => participant.defineCommand(
+    word.describeWith(
+      askers: participant.access.askersOf(askers),
+      deadline: deadline,
+      meta: meta,
+    ),
+    word.serve(handler),
+    available: available,
+  );
+
+  /// Asks it as the participant; asking again asks again.
+  Future<CallResult<R>> ask(P params, {Cause? cause}) async => word.answer(
+    await participant.call(word.name, word.params.toJson(params), cause: cause),
+  );
+
+  WordStatus get status => participant.status(word.name);
+  Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
 }
 
 /// A state as a participant has it, typed.
@@ -227,7 +268,8 @@ final class ParticipantCommandOf<P, R> {
   final ICommandWord<P, R> word;
 
   /// Defines it as the participant's own, served by [handler] (SPEC §6.2);
-  /// [callers], else the participant's default (`access.call`).
+  /// [callers], else the participant's default (`access.call`). A word
+  /// that only answers is a query ([IQueryWord]), not a command.
   IHandle define(
     FutureOr<R> Function(CommandCallOf<P> call) handler, {
     Callers? callers,

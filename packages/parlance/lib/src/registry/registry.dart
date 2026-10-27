@@ -1138,6 +1138,18 @@ final class Registry implements ITypeContext {
   }) {
     command = canonical(command);
     final callId = id ?? newId();
+    if (_commands[command]?.descriptor.query ?? false) {
+      // A query only answers: nothing to hold an id to, nothing to record.
+      return _run(
+        callId,
+        command,
+        params,
+        cause ?? Cause(by),
+        override: override,
+        layer: null,
+        record: false,
+      );
+    }
     final now = clock.now();
     _forget(_calls, (c) => c.at, now);
     if (_calls[callId] case final seen?) {
@@ -1174,6 +1186,7 @@ final class Registry implements ITypeContext {
     Cause cause, {
     required bool override,
     required _Target? layer,
+    bool record = true,
   }) async {
     final started = clock.now();
     final overridden = <String>[];
@@ -1181,7 +1194,7 @@ final class Registry implements ITypeContext {
     var params = rawParams;
 
     CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
-      if (!_records.isClosed) {
+      if (record && !_records.isClosed) {
         _remember(
           CallRecord(
             id: id,

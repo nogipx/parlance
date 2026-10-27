@@ -54,6 +54,23 @@ extension TypedView on IRegistryView {
   ViewCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
       ViewCommandOf._(this, word);
   ViewFactOf<T> fact<T>(IFactWord<T> word) => ViewFactOf._(this, word);
+  ViewQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
+      ViewQueryOf._(this, word);
+}
+
+/// A query through a view, typed.
+final class ViewQueryOf<P, R> {
+  ViewQueryOf._(this.view, this.word);
+
+  final IRegistryView view;
+  final IQueryWord<P, R> word;
+
+  /// Asks it; asking again asks again.
+  Future<CallResult<R>> ask(P params) async =>
+      word.answer(await view.call(word.name, word.params.toJson(params)));
+
+  WordStatus get status => view.status(word.name);
+  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
 }
 
 /// A state as a view has it, typed.

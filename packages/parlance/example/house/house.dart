@@ -64,28 +64,16 @@ final class House extends Owner {
           ),
     );
     keep(
-      p
-          .command(HouseCommand.setHeat)
-          .define(
-            (c) {
-              devices.heat = c.params.target;
-              _heat.set(devices.heat, cause: c.causeFor(Who.house));
-            },
-            callers: Who.household,
-            sets: Sets(HouseState.heat.name, value: 'target'),
-          ),
+      p.command(HouseCommand.setHeat).define((c) {
+        devices.heat = c.params.target;
+        _heat.set(devices.heat, cause: c.causeFor(Who.house));
+      }, sets: Sets(HouseState.heat.name, value: 'target')),
     );
     keep(
-      p
-          .command(HouseCommand.setMode)
-          .define(
-            (c) {
-              devices.mode = c.params.mode;
-              _mode.set(devices.mode, cause: c.causeFor(Who.house));
-            },
-            callers: Who.household,
-            sets: Sets(HouseState.mode.name, value: 'mode'),
-          ),
+      p.command(HouseCommand.setMode).define((c) {
+        devices.mode = c.params.mode;
+        _mode.set(devices.mode, cause: c.causeFor(Who.house));
+      }, sets: Sets(HouseState.mode.name, value: 'mode')),
     );
     keep(
       p
@@ -95,12 +83,24 @@ final class House extends Owner {
               devices.locked = c.params.on;
               _locked.set(devices.locked, cause: c.causeFor(Who.house));
             },
-            callers: Who.household,
             sets: Sets(HouseState.locked.name, value: 'on'),
             // Why it cannot be called now, before anyone tries.
             available: () => devices.mode == Mode.away && !devices.locked
                 ? 'the door is open and nobody is home'
                 : null,
+          ),
+    );
+
+    // A question it answers: which rooms are lit. It changes nothing, so
+    // anyone may ask, and ask again.
+    keep(
+      p
+          .query(HouseQuery.rooms)
+          .define(
+            (q) => [
+              for (final MapEntry(:key, :value) in devices.lights.entries)
+                if (value == q.params.lit) key,
+            ],
           ),
     );
 

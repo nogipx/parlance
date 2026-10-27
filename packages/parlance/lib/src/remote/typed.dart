@@ -10,6 +10,26 @@ extension TypedClient on ParlanceClient {
   RemoteCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
       RemoteCommandOf._(this, word);
   RemoteFactOf<T> fact<T>(IFactWord<T> word) => RemoteFactOf._(this, word);
+  RemoteQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
+      RemoteQueryOf._(this, word);
+}
+
+/// A query over remote, typed.
+final class RemoteQueryOf<P, R> {
+  RemoteQueryOf._(this.client, this.word);
+
+  final ParlanceClient client;
+  final IQueryWord<P, R> word;
+
+  /// Asks it; a lost answer is [CallLost], and asking again is safe.
+  Future<CallResult<R>> ask(P params, {RpcContext? context}) async =>
+      word.answer(
+        await client.call(
+          word.name,
+          word.params.toJson(params),
+          context: context,
+        ),
+      );
 }
 
 /// A command over remote, typed.

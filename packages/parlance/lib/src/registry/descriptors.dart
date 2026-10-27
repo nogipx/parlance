@@ -193,8 +193,15 @@ final class CommandDescriptor extends Descriptor {
     this.sets,
     this.interceptable = false,
     this.deadline = const Duration(seconds: 30),
+    this.query = false,
     Map<String, Object?> meta = const {},
   }) : super(name, meta) {
+    if (query && (sets != null || interceptable)) {
+      throw ArgumentError(
+        '$name is a query: it sets nothing and no hook '
+        'runs ahead of it',
+      );
+    }
     if (sets case final s?) {
       if (!params.fields.containsKey(s.value)) {
         throw ArgumentError('sets: no param ${s.value} in $name');
@@ -214,6 +221,7 @@ final class CommandDescriptor extends Descriptor {
         sets: m['sets'] == null ? null : Sets.fromJson(m['sets']),
         interceptable: m['interceptable'] == true,
         deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
+        query: m['query'] == true,
         meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
       );
 
@@ -230,6 +238,13 @@ final class CommandDescriptor extends Descriptor {
   /// How long the handler may take.
   final Duration deadline;
 
+  /// A query (SPEC §6.2): it only answers. Its handler writes nothing,
+  /// says nothing and calls no command, so asking again is safe: no call
+  /// record keeps it, a repeated id is not held to its first answer, and
+  /// it sets no state and is intercepted by no hook. Its `callers` are who
+  /// may ask.
+  final bool query;
+
   @override
   Map<String, Object?> toJson() => {
     'is': 'command',
@@ -239,6 +254,7 @@ final class CommandDescriptor extends Descriptor {
     'callers': callers.toJson(),
     if (sets != null) 'sets': sets!.toJson(),
     if (interceptable) 'interceptable': true,
+    if (query) 'query': true,
     'deadline': deadline.inMilliseconds,
     if (meta.isNotEmpty) 'meta': meta,
   };

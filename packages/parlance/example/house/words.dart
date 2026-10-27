@@ -114,6 +114,30 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   Shape<R>? get returns => null;
 }
 
+typedef Rooms = ({bool lit});
+
+/// What the house is asked: questions that change nothing.
+enum HouseQuery<P, R> implements IQueryWord<P, R> {
+  /// The rooms whose light is on ([Rooms.lit]) or off.
+  rooms<Rooms, List<String>>(
+    'house.rooms',
+    RecordShape(
+      {'lit': Part(Plain(BoolType()))},
+      to: _roomsTo,
+      from: _roomsFrom,
+    ),
+    ListShape(Plain(TextType())),
+  );
+
+  const HouseQuery(this.name, this.params, this.returns);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  final Shape<R> returns;
+}
+
 typedef Ring = ({String who});
 typedef Motion = ({String room});
 
@@ -151,6 +175,8 @@ Map<String, Object?> _modeTo(SetMode p) => {'mode': p.mode};
 SetMode _modeFrom(Map<String, Object?> m) => (mode: m['mode']! as Mode);
 Map<String, Object?> _lockTo(Lock p) => {'on': p.on};
 Lock _lockFrom(Map<String, Object?> m) => (on: m['on']! as bool);
+Map<String, Object?> _roomsTo(Rooms r) => {'lit': r.lit};
+Rooms _roomsFrom(Map<String, Object?> m) => (lit: m['lit']! as bool);
 Map<String, Object?> _ringTo(Ring r) => {'who': r.who};
 Ring _ringFrom(Map<String, Object?> m) => (who: m['who']! as String);
 Map<String, Object?> _motionTo(Motion r) => {'room': r.room};

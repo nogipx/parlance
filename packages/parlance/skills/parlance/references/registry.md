@@ -86,7 +86,7 @@ CommandDescriptor {
   name, params: object type, returns: type?, owner,
   sets: { state, key: param name?, value: param name }?,
   callers: { selector: allow | warn | deny },
-  interceptable: bool, deadline: duration, meta
+  interceptable: bool, deadline: duration, query: bool, meta
 }
 ```
 
@@ -95,6 +95,18 @@ CommandDescriptor {
 - `callers` selectors are a principal kind (`user`), a kind and id (`plugin:hydra`) or `*` for anyone; the most specific selector wins; a principal matched by none is denied. A selector names the parts of what it names (§4): for `module:orders/sync` the nearest wins, its own, then `module:orders`, then `module`, then `*`. `warn` allows the call; it exists for editors, which tell the author that, for example, any viewer can now do this.
 - `deadline` bounds the handler; the default is 30 s.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyUnavailable(command)` asks it without calling, so a client can show a button greyed with the reason.
+- A **query** (`query: true`) only answers: a search, a page, a snapshot by params that no state holds. Its handler writes nothing, says nothing and calls no command, so asking again is safe. It sets no state and is not interceptable (refused at define); a call of it skips the dedup stage (an id is not held to a first answer) and leaves no call record, so its answers take no memory. Callers, availability and guards apply as to any command; its `callers` are who may ask, and they default as readers do: through a participant its `access.read`, else everyone (§22.2). In Dart it is a word of its own, `IQueryWord` (§18). `describe` says `query`, so an agent knows it is safe to ask. Many consumers of one value that changes is a state; one asker's answer by its own params is a query.
+
+| | command | query |
+| --- | --- | --- |
+| does | changes something: writes, says, calls | only answers |
+| a repeated id (§9.1) | answers the first result, runs once | runs again |
+| call record | kept | none |
+| `sets` (§8 layers, `flip`) | may | refused at define |
+| before hooks (§11) | when interceptable | refused at define |
+| callers by default, through a participant (§22.2) | `access.call`, else refused | `access.read`, else everyone |
+| `describe`, MCP | an action | `query: true`, safe to ask |
+| in Dart (§18) | `ICommandWord`, `command(word).call` | `IQueryWord`, `query(word).ask` |
 
 ### 6.3 Facts
 
@@ -164,7 +176,7 @@ call(name, params, by: Principal, id?, override = false) → CallResult
 
 A call goes through these stages, in order; the first refusal ends it:
 
-1. **Dedup.** A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result.
+1. **Dedup.** (Not for a query, §6.2.) A call whose id was seen within the dedup window returns the result of the first one; it is not run again. Clients retry with the same id. An id stands for one call: the same id with another command, params or principal is refused (`idConflict`), never answered another call's result.
 2. **Lookup.** Unknown command → `unknownCommand`.
 3. **Params.** Checked and filled with defaults → `invalidParams`.
 4. **Policy.** `callers` for the principal → `notPermitted`.
@@ -218,9 +230,10 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 The registry keeps names and JSON, as links, remote and agents see it. A host names its words once, with their Dart types, and works through them; nothing else in its code types a name or a param key.
 
-- **Words.** `IStateWord<T>` (name, shape, key kind), `ICommandWord<P, R>` (name, params as a `RecordShape<P>`, answer as a `Shape<R>` or none, then `R` is `void`), `IFactWord<T>` (name, shape). A host's enum of its words implements them; each value carries its own types (`enum ScenesCommand<P, R> implements ICommandWord<P, R> { show<({String scene}), void>(...) }`).
+- **Words.** `IStateWord<T>` (name, shape, key kind), `ICommandWord<P, R>` (name, params as a `RecordShape<P>`, answer as a `Shape<R>` or none, then `R` is `void`), `IQueryWord<P, R>` (name, params, answer as a `Shape<R>`, always), `IFactWord<T>` (name, shape). A query is not a command in Dart: it is defined with `query(word).define(handler, askers:)` and asked with `.ask(params)`, never called, and where a command is wanted (a link's step) it does not fit. A host's enum of its words implements them; each value carries its own types (`enum ScenesCommand<P, R> implements ICommandWord<P, R> { show<({String scene}), void>(...) }`).
 - **Shapes** say how a JSON value is a Dart one, and give the registry its type: `Plain(BoolType())` is a `Shape<bool>` (the value type's own Dart type: `ValueType<T>`), `EnumShape(values)` a Dart enum kept as its name, `ListShape(item)`, `RecordShape(fields, to:, from:)` an object as a record, its field names written beside the fields and nowhere else. `RecordShape.none` is the params of a command that takes none.
 - **More shapes:** `Nullable(shape)` for null or a value (a state whose "none" means something, such as every app), `MapShape(value)` for a map from text, and `UnionShape(key, {tag: RecordShape}, tagOf:, descriptions:)` for one of several objects as a sealed class. `Part(description:)` describes a field.
+- **A class that serializes itself** (json_serializable, freezed): `JsonShape(Order.fromJson, (o) => o.toJson(), type:)`. Its `type` (an `ObjectType` of its fields) lets the registry check writes and `describe` tell the shape; without one any object passes. `toJson` must give plain JSON all the way down (`explicitToJson: true`), or the write is refused with that said. A generator may make the `type` from the class's fields.
 - **Through the registry.** `state(word)` defines (`StateWriterOf<T>`), reads, watches; `command(word)` defines with a handler that gets typed params (`CommandCallOf<P>`) and returns `R`, and calls with `P`, answering `CallResult<R>`; `fact(word)` defines (`FactEmitterOf<T>`), streams and lists `Fact<T>`. Refusals, failures, `timedOut` and `lost` are `CallResult<Never>`, so they end a call of any answer type.
 - **The word fixes the types.** A call is made on what `command(word)` gives, never by a generic function taking a word and params together: Dart's generics are covariant, so such a function would infer a common supertype of two different records and compile a call with another command's params.
 - An answer that does not decode as the word says is `failed`.
