@@ -6,10 +6,9 @@
 
 ### 23.1 The class is the truth
 
-A module writes its words once, as an abstract Dart class marked `@Vocabulary(namespace)`; `parlance_generator` (build_runner, into the library's `.g.dart` part, beside json_serializable's) makes the typed words of §18 from it. Nothing reads the class at run time, and no yaml is needed (a yaml may generate the class, never replace it).
+A module writes its words once, as an abstract Dart class in a library that imports `package:parlance/schema.dart` (it exports all the generated code names: registry, participant, owners, view), marked `@Vocabulary(namespace)`; `parlance_generator` (build_runner, into the library's `.g.dart` part, beside json_serializable's) makes the typed words of §18 from it. Nothing reads the class at run time, and no yaml is needed (a yaml may generate the class, never replace it).
 
 ```dart
-import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
 
 part 'player.g.dart';
@@ -42,18 +41,28 @@ abstract class Player {
 - An enum per kind the class has: `<Class>State`, `<Class>Command`, `<Class>Query`, `<Class>Fact`, each value the member's name, implementing `IStateWord`, `ICommandWord`, `IQueryWord`, `IFactWord`.
 - A record per params or payload, `<Class><Member>` (`PlayerSetVolume = ({int volume})`), and its `RecordShape`.
 - `<Class>Words.all`: every word, for `Owner.words` (§19.1) and `schemaOf`.
-- `<Class>Owner`, the owner base (§23.4).
+- `<Class>Owner`, the owner base (§23.4), and `<Class>Client`, the consumer's (§23.5).
 - A class's JSON type: the parameters of the factory freezed redirects, or its own instance fields (json_serializable), renamed by `@JsonKey(name:)`, left out by `@JsonKey(includeToJson: false)`; a nullable field may be absent; `DateTime` is a text; what it cannot tell is any value. A class whose fields are classes must give JSON all the way down (`explicitToJson: true`), or writing it is refused (§18).
 
 ### 23.4 The owner base
 
-Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract base class` extending `Owner` (§19); the library then imports `package:parlance/owners.dart` and `package:parlance/participant.dart`. An owner extends it (`final class Deck extends PlayerOwner`) and writes only its handlers and `sync()`; a handler it forgets does not compile.
+Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract base class` extending `Owner` (§19). An owner extends it (`final class Deck extends PlayerOwner`) and writes only its handlers and `sync()`; a handler it forgets does not compile.
 
 - `words` is `<Class>Words.all`, so the part declares every word it owns (§6.7).
 - Each state has a writer and each fact an emitter by the member's name (`volume.set(50)`, `clipped.emit(...)`), defined in `define(p)`, kept with the owner.
 - Each command and query is served by an abstract method of the member's name, returning what the class declares, taking the call: `void setVolume(CommandCallOf<PlayerSetVolume> call)`, `List<Track> search(QueryAsk<PlayerSearch> ask)`. It takes the call, not bare params, for `call.causeFor(...)`: causes never go through zones.
 - What the class says of a word, its define is given: `readers` (`@StateWord`, `@FactWord`), `callers`, `sets` (`@CommandWord(sets: 'volume')`, the state by its member; the value from the only param or `setsValue`, the key from `setsKey`, checked against the state's keys), `interceptable`, `deadline`, `askers` (`@QueryWord`). With `available: true` it asks `String? whyNot<Member>()`, an abstract method too. Callers left unsaid are the participant's default (§22.2).
 - After the words, `define` calls `defineMore(p)`, empty by default, for what the class does not say: kinds, guards, words named at run time. A member named as one of `Owner`'s own (`words`, `sync`, `keep`...) is refused.
+
+### 23.5 The client
+
+Unless `@Vocabulary(client: false)`, it makes `<Class>Client(view)`: the words as another module uses them, over any `IRegistryView` (§20): its participant, a `LocalView`, a `MirrorView` across a connection. A screen, a bloc or a repository takes it and knows no word, shape or record.
+
+- A state: `volume` (now), `volumeChanges` (now, then whenever it changes, deduplicated; while listened to, a remote view keeps it). Keyed: `speakerLevelOf(speaker)`, `speakerLevelAll`, `speakerLevelChanges(speaker)`.
+- A command or a query: a method with the class's own parameters, defaults and all (`setVolume(volume: 95)`, `skip()`, `search(text: 'A')`), answering its value; a call not done (refused, failed, no answer in time, lost) throws `CallNotDone` with its result, so `whyNot` and the refusal's code are there.
+- A fact: a stream of its payloads, said from now on (`clipped`).
+- `status(word)` and `statusChanges(word)` (§6.5), for a part that shows a word missing or not permitted.
+- A member it would have twice (`total` and a command `totalChanges`), or named `view`, `status`, `statusChanges`, is refused.
 
 ### 23.3 The schema a module keeps
 

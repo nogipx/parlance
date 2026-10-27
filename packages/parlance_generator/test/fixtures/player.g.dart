@@ -278,6 +278,106 @@ abstract base class PlayerOwner extends Owner {
   List<Track> search(QueryAsk<PlayerSearch> ask);
 }
 
+/// The words of [Player] as a consumer uses them, through a
+/// view: its participant, a `LocalView`, a `MirrorView`.
+final class PlayerClient {
+  const PlayerClient(this.view);
+
+  final IRegistryView view;
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+
+  /// player.volume now.
+  int? get volume => view.state(PlayerState.volume).read();
+
+  /// player.volume now, then whenever it changes.
+  Stream<int?> get volumeChanges => view.state(PlayerState.volume).watch();
+
+  /// player.repeat now.
+  Repeat? get repeat => view.state(PlayerState.repeat).read();
+
+  /// player.repeat now, then whenever it changes.
+  Stream<Repeat?> get repeatChanges => view.state(PlayerState.repeat).watch();
+
+  /// player.playing now.
+  Track? get playing => view.state(PlayerState.playing).read();
+
+  /// player.playing now, then whenever it changes.
+  Stream<Track?> get playingChanges => view.state(PlayerState.playing).watch();
+
+  /// player.speaker.level of [speaker] now.
+  num? speakerLevelOf(String speaker) =>
+      view.state(PlayerState.speakerLevel).read(key: speaker);
+
+  /// player.speaker.level of every speaker, by key.
+  Map<String?, num> get speakerLevelAll =>
+      view.state(PlayerState.speakerLevel).readAll();
+
+  /// player.speaker.level of [speaker] now, then on every change.
+  Stream<num?> speakerLevelChanges(String speaker) =>
+      view.state(PlayerState.speakerLevel).watch(key: speaker);
+
+  /// Calls player.volume.set; a call not done throws [CallNotDone].
+  Future<void> setVolume({required int volume}) async {
+    final r = await view.command(PlayerCommand.setVolume).call((
+      volume: volume,
+    ));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Calls player.play; a call not done throws [CallNotDone].
+  Future<void> play({
+    required Track track,
+    Repeat repeat = Repeat.off,
+    String? on,
+  }) async {
+    final r = await view.command(PlayerCommand.play).call((
+      track: track,
+      repeat: repeat,
+      on: on,
+    ));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Calls player.skip; a call not done throws [CallNotDone].
+  Future<int> skip({int count = 1}) async {
+    final r = await view.command(PlayerCommand.skip).call((count: count));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Calls player.stop; a call not done throws [CallNotDone].
+  Future<void> stop() async {
+    final r = await view.command(PlayerCommand.stop).call(());
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// Asks player.search; a call not done throws [CallNotDone].
+  Future<List<Track>> search({required String text, int? limit}) async {
+    final r = await view.query(PlayerQuery.search).ask((
+      text: text,
+      limit: limit,
+    ));
+    if (r case CallDone(:final value)) return value;
+    throw CallNotDone(r);
+  }
+
+  /// player.clipped, as it is said from now on.
+  Stream<PlayerClipped> get clipped =>
+      view.fact(PlayerFact.clipped).stream.map((f) => f.payload);
+
+  /// player.finished, as it is said from now on.
+  Stream<Track> get finished =>
+      view.fact(PlayerFact.finished).stream.map((f) => f.payload);
+}
+
 /// Every word of [Player], for `Owner.words` and `schemaOf`.
 abstract final class PlayerWords {
   static const List<IWord> all = [

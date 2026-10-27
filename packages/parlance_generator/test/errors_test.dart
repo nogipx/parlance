@@ -71,6 +71,10 @@ $body
       '@StateWord() int get words;',
       'words is a member of Owner',
     ),
+    'two members of the client of one name': (
+      '@StateWord() int get total;\n@CommandWord() void totalChanges();',
+      'totalChanges is had twice by OrdersClient',
+    ),
     'setting a state the class has not': (
       '@CommandWord(sets: "total") void put({required int to});',
       'put sets total, which is no state of Orders',

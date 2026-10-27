@@ -9,15 +9,18 @@ import '../registry/descriptors.dart';
 /// [CommandWord], [QueryWord] or [FactWord] is one, named
 /// `<namespace>.<name>`.
 final class Vocabulary {
-  const Vocabulary(this.namespace, {this.owner = true});
+  const Vocabulary(this.namespace, {this.owner = true, this.client = true});
 
   /// The first words of every name: `orders` for `orders.cancel`.
   final String namespace;
 
   /// Whether to make `<Class>Owner` too (SPEC §23.4), an owner base with a
-  /// handler to write per command and query: its library then imports
-  /// `package:parlance/owners.dart` and `package:parlance/participant.dart`.
+  /// handler to write per command and query.
   final bool owner;
+
+  /// Whether to make `<Class>Client` too (SPEC §23.5): the module's words
+  /// as a consumer uses them, over any view, here or across a connection.
+  final bool client;
 }
 
 /// A state: a getter, its type the value's (`int get volume;`).

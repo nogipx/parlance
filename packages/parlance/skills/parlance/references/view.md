@@ -20,7 +20,7 @@ this process or reached over remote, so the same widgets serve both.
 - `status(word)`, `statusChanges(word)`: whether the view's principal
   can use the word now (§6.5), and each change of it; a part shows a
   missing or unavailable command for what it is rather than fail on it.
-- Typed (§18): `view.state(word).read()`, `.readAll()`;
+- Typed (§18): `view.state(word).read()`, `.readAll()`, `.watch()` (now, then whenever it changes, deduplicated; a remote view keeps the state while it is listened to);
   `view.command(word).call(params)`; `view.fact(word).stream`,
   `.recent(count)`; `.status`, `.statusChanges` on each.
 

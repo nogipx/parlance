@@ -1,7 +1,4 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'package:parlance/owners.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
 
 part 'player.g.dart';

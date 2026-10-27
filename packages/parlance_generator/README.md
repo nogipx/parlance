@@ -11,7 +11,6 @@ dev_dependencies:
 ```
 
 ```dart
-import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
 
 part 'player.g.dart';
@@ -30,7 +29,7 @@ abstract class Player {
 }
 ```
 
-`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, `PlayerWords.all` and the owner base `PlayerOwner` into `player.g.dart` (the library imports `package:parlance/owners.dart` and `participant.dart` for it, or says `@Vocabulary('player', owner: false)`). The owner writes only its handlers and what it has now:
+`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, `PlayerWords.all`, the owner base `PlayerOwner` and the client `PlayerClient` into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers and what it has now:
 
 ```dart
 final class Deck extends PlayerOwner {
@@ -49,6 +48,14 @@ final class Deck extends PlayerOwner {
 ```
 
 `main` attaches it as any owner: `Owners(r.participant(...), {'deck': Deck()})`.
+
+Another module uses the words through the client, over any view: its participant, a `LocalView`, or a `MirrorView` across a connection:
+
+```dart
+final player = PlayerClient(participant);
+player.volumeChanges.listen(show);
+await player.setVolume(volume: 30); // throws CallNotDone when refused
+```
 
 Keep the schema in the repository and hold it in a test, so a published word does not change by accident:
 

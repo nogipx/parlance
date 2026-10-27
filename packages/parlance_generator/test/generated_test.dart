@@ -1,9 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:parlance/owners.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
 import 'package:test/test.dart';
 
@@ -241,5 +238,52 @@ void main() {
     });
 
     tearDown(() => owners.dispose());
+  });
+
+  group('the client', () {
+    late Owners owners;
+    late PlayerClient asAnn;
+    setUp(() {
+      owners = Owners(p, {'deck': Deck()});
+      asAnn = PlayerClient(r.participant(ann));
+    });
+    tearDown(() => owners.dispose());
+
+    test(
+      'reads and watches states, calls and asks by the class\'s params',
+      () async {
+        expect(asAnn.volume, 50);
+        final seen = <int?>[];
+        final sub = asAnn.volumeChanges.listen(seen.add);
+        final clipped = <PlayerClipped>[];
+        final heard = asAnn.clipped.listen(clipped.add);
+        await asAnn.setVolume(volume: 95);
+        await pumpEventQueue();
+        expect(seen, [50, 95]);
+        expect(clipped.single.volume, 95);
+        expect(await asAnn.skip(), 1, reason: 'its default');
+        expect((await asAnn.search(text: 'A')).single.title, 'A');
+        expect(asAnn.status(PlayerCommand.stop), const WordReady());
+        await sub.cancel();
+        await heard.cancel();
+      },
+    );
+
+    test('a call not done throws, with why', () async {
+      final asGuest = PlayerClient(
+        LocalView(r, by: const Principal('guest', 'bob')),
+      );
+      expect(asGuest.status(PlayerCommand.stop), const WordNotPermitted());
+      await expectLater(
+        asGuest.stop(),
+        throwsA(
+          isA<CallNotDone>().having(
+            (e) => (e.result as CallRefused).code,
+            'code',
+            Refusal.notPermitted,
+          ),
+        ),
+      );
+    });
   });
 }

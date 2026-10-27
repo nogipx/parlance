@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../registry/cause.dart';
+import '../registry/json.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart';
@@ -88,6 +89,31 @@ final class ViewStateOf<T> {
     for (final e in view.readAll(word.name).entries)
       if (e.value != null) e.key: word.shape.fromJson(e.value),
   };
+
+  /// Its value (of [key]) now, then whenever it changes; while listened
+  /// to, a remote view keeps the state.
+  Stream<T?> watch({String? key}) {
+    late StreamController<T?> out;
+    StreamSubscription<void>? sub;
+    Object? last;
+    var told = false;
+    void tell() {
+      final now = view.read(word.name, key: key);
+      if (told && jsonEquals(now, last)) return;
+      told = true;
+      last = now;
+      out.add(word.decode(now));
+    }
+
+    out = StreamController<T?>(
+      onListen: () {
+        sub = view.changes({word.name}).listen((_) => tell());
+        tell();
+      },
+      onCancel: () => sub?.cancel(),
+    );
+    return out.stream;
+  }
 
   WordStatus get status => view.status(word.name);
   Stream<WordStatus> get statusChanges => view.statusChanges(word.name);

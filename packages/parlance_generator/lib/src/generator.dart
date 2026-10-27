@@ -6,7 +6,6 @@ import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:dart_style/dart_style.dart';
-import 'package:parlance/registry.dart' show isValidName;
 import 'package:parlance/schema.dart';
 import 'package:pub_semver/pub_semver.dart' show Version;
 import 'package:source_gen/source_gen.dart';
@@ -44,8 +43,12 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
         element: element,
       );
     }
-    final owner = annotation.peek('owner')?.boolValue ?? true;
-    final out = _Emitter(element, namespace, owner: owner).build();
+    final out = _Emitter(
+      element,
+      namespace,
+      owner: annotation.peek('owner')?.boolValue ?? true,
+      client: annotation.peek('client')?.boolValue ?? true,
+    ).build();
     return DartFormatter(languageVersion: Version(3, 9, 0)).format(out);
   }
 }
@@ -109,11 +112,17 @@ final class _Fact extends _Word {
 }
 
 final class _Emitter {
-  _Emitter(this.cls, this.namespace, {required this.owner});
+  _Emitter(
+    this.cls,
+    this.namespace, {
+    required this.owner,
+    required this.client,
+  });
 
   final ClassElement cls;
   final String namespace;
   final bool owner;
+  final bool client;
 
   String get _c => cls.name!;
 
@@ -217,6 +226,7 @@ final class _Emitter {
     }
     if (facts.isNotEmpty) out.write(_factsEnum(facts));
     if (owner) out.write(_ownerBase(states, commands, queries, facts));
+    if (client) out.write(_clientOf(states, commands, queries, facts));
     out
       ..writeln('/// Every word of [$_c], for `Owner.words` and `schemaOf`.')
       ..writeln('abstract final class ${_c}Words {')
@@ -350,6 +360,137 @@ final class _Emitter {
     }
     return 'Sets(${_quote(state.name)}, '
         '${key == null ? '' : 'key: ${_quote(key)}, '}value: ${_quote(value)})';
+  }
+
+  /// `<Class>Client` (SPEC §23.5): the words as a consumer uses them, over
+  /// a view (a participant, `LocalView`, `MirrorView`): states read and
+  /// watched, commands and queries as methods of the class's params that
+  /// answer or throw [CallNotDone], facts as streams of their payloads.
+  String _clientOf(
+    List<_State> states,
+    List<_Callable> commands,
+    List<_Callable> queries,
+    List<_Fact> facts,
+  ) {
+    final members = <String, Element>{};
+    void member(String name, _Word w) {
+      if (const {'view', 'status', 'statusChanges'}.contains(name) ||
+          members.containsKey(name)) {
+        throw InvalidGenerationSourceError(
+          '$name is had twice by ${_c}Client: name ${w.member} otherwise, or '
+          '@Vocabulary(client: false)',
+          element: w.element,
+        );
+      }
+      members[name] = w.element;
+    }
+
+    final out = StringBuffer()
+      ..writeln('/// The words of [$_c] as a consumer uses them, through a')
+      ..writeln('/// view: its participant, a `LocalView`, a `MirrorView`.')
+      ..writeln('final class ${_c}Client {')
+      ..writeln('  const ${_c}Client(this.view);')
+      ..writeln()
+      ..writeln('  final IRegistryView view;')
+      ..writeln()
+      ..writeln('  /// Whether [word] is there for the view now (SPEC §6.5).')
+      ..writeln('  WordStatus status(IWord word) => view.status(word.name);')
+      ..writeln()
+      ..writeln('  /// [status], then whenever it changes.')
+      ..writeln('  Stream<WordStatus> statusChanges(IWord word) =>')
+      ..writeln('      view.statusChanges(word.name);');
+    for (final st in states) {
+      final word = '${_c}State.${st.member}';
+      final bare = st.type.endsWith('?')
+          ? st.type.substring(0, st.type.length - 1)
+          : st.type;
+      out.writeln();
+      if (st.key == null) {
+        member(st.member, st);
+        member('${st.member}Changes', st);
+        out
+          ..writeln('  /// ${st.name} now.')
+          ..writeln('  $bare? get ${st.member} => view.state($word).read();')
+          ..writeln()
+          ..writeln('  /// ${st.name} now, then whenever it changes.')
+          ..writeln('  Stream<$bare?> get ${st.member}Changes =>')
+          ..writeln('      view.state($word).watch();');
+      } else {
+        member('${st.member}Of', st);
+        member('${st.member}All', st);
+        member('${st.member}Changes', st);
+        out
+          ..writeln('  /// ${st.name} of [${st.key}] now.')
+          ..writeln(
+            '  $bare? ${st.member}Of(String ${_keyParam(st.key!)}) =>'
+            ' view.state($word).read(key: ${_keyParam(st.key!)});',
+          )
+          ..writeln()
+          ..writeln('  /// ${st.name} of every ${st.key}, by key.')
+          ..writeln(
+            '  Map<String?, $bare> get ${st.member}All =>'
+            ' view.state($word).readAll();',
+          )
+          ..writeln()
+          ..writeln(
+            '  /// ${st.name} of [${st.key}] now, then on every change.',
+          )
+          ..writeln(
+            '  Stream<$bare?> ${st.member}Changes(String ${_keyParam(st.key!)}) =>'
+            ' view.state($word).watch(key: ${_keyParam(st.key!)});',
+          );
+      }
+    }
+    for (final (kind, words) in [('Command', commands), ('Query', queries)]) {
+      for (final c in words) {
+        member(c.member, c);
+        final m = c.element as MethodElement;
+        final ps = m.formalParameters;
+        final signature = ps.isEmpty
+            ? ''
+            : '{${[for (final p in ps) '${p.isRequired ? 'required ' : ''}${_dart(p.type)} '
+                    '${p.displayName}'
+                    '${p.defaultValueCode == null ? '' : ' = ${p.defaultValueCode}'}'].join(', ')}}';
+        final record = ps.isEmpty
+            ? '()'
+            : '(${[for (final p in ps) '${p.displayName}: ${p.displayName}'].join(', ')})';
+        final how = kind == 'Command' ? 'command' : 'query';
+        final act = kind == 'Command' ? 'call' : 'ask';
+        out
+          ..writeln()
+          ..writeln(
+            '  /// ${kind == 'Command' ? 'Calls' : 'Asks'} ${c.name}; a call '
+            'not done throws [CallNotDone].',
+          )
+          ..writeln('  Future<${c.returns}> ${c.member}($signature) async {')
+          ..writeln(
+            '    final r = await view.$how($_c$kind.${c.member}).$act($record);',
+          )
+          ..writeln('    if (r case CallDone(:final value)) return value;')
+          ..writeln('    throw CallNotDone(r);')
+          ..writeln('  }');
+      }
+    }
+    for (final f in facts) {
+      member(f.member, f);
+      out
+        ..writeln()
+        ..writeln('  /// ${f.name}, as it is said from now on.')
+        ..writeln(
+          '  Stream<${f.type}> get ${f.member} =>'
+          ' view.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload);',
+        );
+    }
+    out
+      ..writeln('}')
+      ..writeln();
+    return out.toString();
+  }
+
+  /// A key's parameter: the kind's name in camel case.
+  String _keyParam(String kind) {
+    final parts = kind.split(RegExp('[._-]'));
+    return parts.first + parts.skip(1).map(_pascal).join();
   }
 
   /// The names an owner base has of [Owner]'s own.
