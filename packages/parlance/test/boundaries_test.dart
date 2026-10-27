@@ -72,6 +72,21 @@ void main() {
         expect(
           i.startsWith('../registry/') ||
               i.startsWith('../remote/') ||
+              i.startsWith('dart:') ||
+              !i.contains('/'),
+          isTrue,
+          reason: '${f.path}: $i',
+        );
+      }
+    }
+  });
+
+  test('owners use the registry and participants, and Dart', () {
+    for (final f in dartIn('lib/src/owners')) {
+      for (final i in importsOf(f)) {
+        expect(
+          i.startsWith('../registry/') ||
+              i.startsWith('../participant/') ||
               i.startsWith('dart:'),
           isTrue,
           reason: '${f.path}: $i',
@@ -80,17 +95,30 @@ void main() {
     }
   });
 
-  test('owners use the registry alone, and Dart', () {
-    for (final f in dartIn('lib/src/owners')) {
+  test('participants use the registry and the view of it, never remote', () {
+    for (final f in dartIn('lib/src/participant')) {
       for (final i in importsOf(f)) {
         expect(
-          i.startsWith('../registry/') || i.startsWith('dart:'),
+          i.startsWith('../registry/') ||
+              i == '../view/view.dart' ||
+              i.startsWith('package:clock/') ||
+              i.startsWith('dart:') ||
+              !i.contains('/'),
           isTrue,
           reason: '${f.path}: $i',
         );
       }
     }
   });
+
+  test(
+    'the view of a registry does not import remote; the mirror view does',
+    () {
+      for (final i in importsOf(File('lib/src/view/view.dart'))) {
+        expect(i, isNot(contains('remote')));
+      }
+    },
+  );
 
   test('the registry names nothing of links', () {
     for (final f in dartIn('lib/src/registry')) {

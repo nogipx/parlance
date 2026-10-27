@@ -2,6 +2,7 @@
 library;
 
 import 'package:parlance/owners.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 
 import 'words.dart';
@@ -34,20 +35,42 @@ final class House extends Owner {
   late final FactEmitterOf<Motion> _motion;
 
   @override
-  void define(Registry r) {
+  Principal get who => Who.house;
+
+  /// The first words of its words' names: it defines in these only.
+  @override
+  Set<String> get namespaces => const {
+    'light',
+    'heat',
+    'house',
+    'door',
+    'doorbell',
+    'motion',
+  };
+
+  /// The doorbell says who rang: a fact on a visitor's behalf.
+  @override
+  ParticipantRights get rights => ParticipantRights(
+    speakFor: (_, by, fact) => fact == HouseFact.rang.name
+        ? null
+        : 'only the doorbell speaks for anyone',
+  );
+
+  @override
+  void define(IParticipant p) {
     _rooms = trackKind(
       room,
       () => [for (final id in devices.lights.keys) EntityRef(id)],
     );
-    _light = keep(r.state(HouseState.light).define(by: Who.house));
-    _heat = keep(r.state(HouseState.heat).define(by: Who.house));
-    _mode = keep(r.state(HouseState.mode).define(by: Who.house));
-    _locked = keep(r.state(HouseState.locked).define(by: Who.house));
-    _rang = keep(r.fact(HouseFact.rang).define(by: Who.house));
-    _motion = keep(r.fact(HouseFact.motion).define(by: Who.house));
+    _light = keep(p.state(HouseState.light).define());
+    _heat = keep(p.state(HouseState.heat).define());
+    _mode = keep(p.state(HouseState.mode).define());
+    _locked = keep(p.state(HouseState.locked).define());
+    _rang = keep(p.fact(HouseFact.rang).define());
+    _motion = keep(p.fact(HouseFact.motion).define());
 
     keep(
-      r
+      p
           .command(HouseCommand.setLight)
           .define(
             (c) {
@@ -63,7 +86,7 @@ final class House extends Owner {
           ),
     );
     keep(
-      r
+      p
           .command(HouseCommand.setHeat)
           .define(
             (c) {
@@ -75,7 +98,7 @@ final class House extends Owner {
           ),
     );
     keep(
-      r
+      p
           .command(HouseCommand.setMode)
           .define(
             (c) {
@@ -87,7 +110,7 @@ final class House extends Owner {
           ),
     );
     keep(
-      r
+      p
           .command(HouseCommand.lock)
           .define(
             (c) {
@@ -104,12 +127,12 @@ final class House extends Owner {
     );
 
     // A rule of the house's own: the door stays locked at night, unless a
-    // resident says so (override).
+    // resident says so (override). It judges the house's commands only.
     keep(
-      r.addGuard('night-door', (call) {
+      p.addGuard('night-door', (call) {
         if (call.command.name != HouseCommand.lock.name) return null;
         final unlock = call.params['on'] == false;
-        final night = r.state(HouseState.mode).read() == Mode.night;
+        final night = p.state(HouseState.mode).read() == Mode.night;
         return unlock && night ? 'the door stays locked at night' : null;
       }),
     );

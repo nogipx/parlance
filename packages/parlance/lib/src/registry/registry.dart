@@ -122,11 +122,32 @@ final class AliasChanged extends CatalogChange {
   final String alias;
 }
 
+/// The only write handle of a state: the registry's own, or a remote
+/// participant's (SPEC §22).
+abstract interface class IStateHandle implements IHandle {
+  StateDescriptor get descriptor;
+
+  /// Writes [value] (of [key] for a keyed state).
+  void set(Object? value, {String? key, Cause? cause});
+
+  void remove({String? key, Cause? cause});
+}
+
+/// An emit handle of a fact: the registry's own, or a remote participant's
+/// (SPEC §22).
+abstract interface class IFactHandle implements IHandle {
+  FactDescriptor get descriptor;
+
+  /// Says [payload]; false when [id] was said already.
+  bool emit(Object? payload, {String? id, Cause? cause});
+}
+
 /// The only write handle of a state.
-final class RawStateWriter implements IHandle {
+final class RawStateWriter implements IStateHandle {
   RawStateWriter._(this._r, this.descriptor, this.by);
 
   final Registry _r;
+  @override
   final StateDescriptor descriptor;
 
   /// Who writes, for the causes of its writes.
@@ -137,12 +158,14 @@ final class RawStateWriter implements IHandle {
   ///
   /// A write a handler makes passes [cause] (`call.causeFor(by)`), so it
   /// follows from the call; without it, the write starts a new chain.
+  @override
   void set(Object? value, {String? key, Cause? cause}) {
     _live();
     _r._writeState(descriptor, key, value, cause ?? Cause(by));
   }
 
   /// Removes the value (of [key]).
+  @override
   void remove({String? key, Cause? cause}) {
     _live();
     _r._removeState(descriptor, key, cause ?? Cause(by));
@@ -161,7 +184,7 @@ final class RawStateWriter implements IHandle {
 }
 
 /// An emit handle of a fact.
-final class RawFactEmitter implements IHandle {
+final class RawFactEmitter implements IFactHandle {
   RawFactEmitter._(
     this._r,
     this.descriptor,
@@ -172,6 +195,7 @@ final class RawFactEmitter implements IHandle {
 
   final Registry _r;
   final SignalEmitter<Object?> _emitter;
+  @override
   final FactDescriptor descriptor;
 
   /// The producer, for the causes of its facts.
@@ -183,6 +207,7 @@ final class RawFactEmitter implements IHandle {
 
   /// Emits [payload]. A fact whose [id] was seen within the dedup window is
   /// dropped; returns whether it was taken.
+  @override
   bool emit(Object? payload, {String? id, Cause? cause}) {
     if (_disposed) throw StateError('${descriptor.name} is gone');
     return _r._emit(

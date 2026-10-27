@@ -16,6 +16,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | `owners` | `Owner`, `Owners`, `Handles`, `TrackedKind`, `failCall`: defining, syncing and withdrawing a host's words | [references/owners.md](references/owners.md): §19 |
 | `links` | the engine of links and own words, on the registry's public API | [references/links.md](references/links.md): §13, §15 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
+| `participant` | `IParticipant`: a part of the app as one principal, defining words only in its namespaces, the same in this process (`LocalParticipant`) and across a connection; rights to produce and speak for others | [references/participant.md](references/participant.md): §22 |
 | `view` | `IRegistryView`: what a screen reads and calls, one interface over a registry in this process (`LocalView`) or a `RegistryMirror` (`MirrorView`) | [references/view.md](references/view.md): §20 |
 | glossary | every term of the package in a line, with its section | [references/glossary.md](references/glossary.md) |
 | `mcp` | curated agent tools on a `IBoard` (local or remote); `mcp_io`: the server on a Unix socket; the binary `parlance-mcp` | [references/mcp.md](references/mcp.md): §16 |
@@ -24,7 +25,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 
 A host names its words once, typed (SPEC §18), and never types a name or a param key elsewhere:
 - **Words:** an enum per owner, `enum XState<T> implements IStateWord<T>`, `enum XCommand<P, R> implements ICommandWord<P, R>`, `enum XFact<T> implements IFactWord<T>`; each value its name and shape. Params and objects are records with a `RecordShape(fields, to:, from:)`; enums are `EnumShape(values)`; no params is `RecordShape.none`.
-- **Owner:** a class `extends Owner` (`package:parlance/owners.dart`): words in `define(r)`, each handle through `keep(...)`, states written in `sync()`, entity kinds by `trackKind`; a port that says no ends the call with `failCall(why)`; `Owners(registry, [...])` attaches them and syncs them as one tick.
+- **Owner:** a class `extends Owner` (`package:parlance/owners.dart`): `who`, `namespaces` (the first words of its names) and `rights`; words in `define(p)` through its participant (SPEC §22), no `by`, each handle through `keep(...)`, states written in `sync()`, entity kinds by `trackKind`; a port that says no ends the call with `failCall(why)`; `Owners(registry, [...])` attaches them and syncs them as one tick.
 - **State:** `r.state(XState.a).define(by: owner, meta:)` returns the only `StateWriterOf<T>`. A settable state has one command with `sets: Sets(XState.a.name, value: 'param', key:?)`.
 - **Command:** `r.command(XCommand.b).define((c) => ..., callers:, sets:?, interceptable:?, deadline:?, available:?)`; `c.params` is the record. `available` answers why it cannot run now (shown before anyone calls).
 - **Fact:** `r.fact(XFact.c).define(by: producer)`; `emit(record, cause:)`.
@@ -62,7 +63,7 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Rules of the package
 
-- Imports go one way: `links`, `remote` and `owners` use `registry`; `mcp` may import only `link_words.dart` from links, and that file only the registry's types and words; only `remote` uses rpc_dart. `test/boundaries_test.dart` holds this.
+- Imports go one way: `links`, `remote` and `owners` use `registry`; `participant` uses `registry` and the view interface (`view/view.dart`), never remote; `owners` use `participant` too; `mcp` may import only `link_words.dart` from links, and that file only the registry's types and words; only `remote` uses rpc_dart. `test/boundaries_test.dart` holds this.
 - No words of any domain in `lib/` (the boundary test bans them); the host's vocabulary stays in the host.
 - Results are typed (`CallResult<R>`, `Explanation`, `LayerInfo`); serialize at the edges.
 - `contract.g.dart` is generated: change `contract.dart`, then `fvm dart run build_runner build`.

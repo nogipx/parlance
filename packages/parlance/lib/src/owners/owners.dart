@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../participant/local.dart';
+import '../participant/participant.dart';
+import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 
@@ -32,27 +35,40 @@ final class Handles implements IHandle {
   }
 }
 
-/// An owner of words in a registry (SPEC §6): it defines its states,
-/// commands and facts in [define], keeps their handles, and writes what it
-/// has now in [sync]. [Owners] attaches owners to a registry and syncs them
-/// together.
+/// An owner of words (SPEC §6, §19): a participant (SPEC §22) that
+/// defines its states, commands and facts in [define], keeps their
+/// handles, and writes what it has now in [sync]. [Owners] makes each its
+/// participant in a registry and syncs them together.
 abstract base class Owner implements IHandle {
   final Handles _handles = Handles();
-  Registry? _registry;
+  IParticipant? _participant;
 
-  /// The registry it was attached to.
-  Registry get registry =>
-      _registry ?? (throw StateError('$runtimeType is not attached'));
+  /// Who it speaks as.
+  Principal get who;
 
-  /// Attaches it to [r] and defines its words there; once.
-  void attach(Registry r) {
-    if (_registry != null) throw StateError('$runtimeType is attached');
-    _registry = r;
-    define(r);
+  /// The first words of its words' names (`orders` for `orders.cancel`).
+  Set<String> get namespaces;
+
+  /// What it may do beyond defining in its namespaces.
+  ParticipantRights get rights => ParticipantRights.none;
+
+  /// The participant it speaks through.
+  IParticipant get participant =>
+      _participant ?? (throw StateError('$runtimeType is not attached'));
+
+  /// Attaches it to [p], a participant speaking as [who], and defines its
+  /// words there; once.
+  void attach(IParticipant p) {
+    if (_participant != null) throw StateError('$runtimeType is attached');
+    if (p.who != who) {
+      throw ArgumentError('$runtimeType speaks as $who, not as ${p.who}');
+    }
+    _participant = p;
+    define(p);
   }
 
-  /// Defines its words in [r]; keep what each returns with [keep].
-  void define(Registry r);
+  /// Defines its words through [p]; keep what each returns with [keep].
+  void define(IParticipant p);
 
   /// Writes its states as they are now. [Owners.sync] calls every owner's
   /// in one batch, so a change is seen whole.
@@ -69,8 +85,8 @@ abstract base class Owner implements IHandle {
 
   /// Registers a kind of entities it keeps, [list] the ones there are now.
   TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {
-    final kind = TrackedKind._(registry, name, list);
-    keep(registry.registerKind(EntityKind(name, list: list)));
+    final kind = TrackedKind._(participant, name, list);
+    keep(participant.registerKind(EntityKind(name, list: list)));
     return kind;
   }
 
@@ -82,9 +98,10 @@ abstract base class Owner implements IHandle {
 /// A kind of entities an owner keeps: it tells the registry when the
 /// entities changed, and which ones went.
 final class TrackedKind {
-  TrackedKind._(this._registry, this.name, this._list) : _known = _ids(_list());
+  TrackedKind._(this._participant, this.name, this._list)
+    : _known = _ids(_list());
 
-  final Registry _registry;
+  final IParticipant _participant;
   final String name;
   final Iterable<EntityRef> Function() _list;
   List<(String, String)> _known;
@@ -106,7 +123,7 @@ final class TrackedKind {
         if (!ids.contains(id)) id,
     };
     _known = now;
-    _registry.entitiesChanged(name);
+    _participant.entitiesChanged(name);
     return gone;
   }
 
@@ -119,18 +136,26 @@ final class TrackedKind {
   }
 }
 
-/// Owners on one registry: attached in order, synced in one batch,
-/// withdrawn the last first.
+/// Owners on one registry, each through a participant of its own made
+/// from its [Owner.who], [Owner.namespaces] and [Owner.rights]: attached
+/// in order, synced in one batch, withdrawn the last first.
 final class Owners implements IHandle {
   Owners(this.registry, this.owners) {
     for (final o in owners) {
-      o.attach(registry);
+      final p = registry.participant(
+        o.who,
+        namespaces: o.namespaces,
+        rights: o.rights,
+      );
+      _participants.add(p);
+      o.attach(p);
     }
     sync();
   }
 
   final Registry registry;
   final List<Owner> owners;
+  final List<IParticipant> _participants = [];
 
   /// Writes what every owner has now, as one tick.
   void sync() => registry.batch(() {
@@ -143,6 +168,9 @@ final class Owners implements IHandle {
   void dispose() {
     for (final o in owners.reversed) {
       o.dispose();
+    }
+    for (final p in _participants.reversed) {
+      p.dispose();
     }
   }
 }

@@ -2,4 +2,5 @@
 /// this process or over remote.
 library;
 
+export 'src/view/mirror_view.dart';
 export 'src/view/view.dart';

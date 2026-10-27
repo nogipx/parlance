@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:parlance/owners.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
 
@@ -26,9 +27,14 @@ final class Dials extends Owner {
   var synced = 0;
 
   @override
-  void define(Registry r) {
+  Principal get who => me;
+  @override
+  Set<String> get namespaces => const {'test.level'};
+
+  @override
+  void define(IParticipant p) {
     _kind = trackKind('dial', () => [for (final d in dials.keys) EntityRef(d)]);
-    _level = keep(r.state(Level.of).define(by: me));
+    _level = keep(p.state(Level.of).define());
   }
 
   @override
@@ -50,14 +56,35 @@ final class Knob extends Owner {
   final List<num> heard = [];
 
   @override
-  void define(Registry r) => listen(turns, heard.add);
+  Principal get who => me;
+  @override
+  Set<String> get namespaces => const {};
+
+  @override
+  void define(IParticipant p) => listen(turns, heard.add);
 }
 
 final class Other extends Owner {
   @override
-  void define(Registry r) {
-    keep(r.state(_Flag.on).define(by: me));
+  Principal get who => me;
+  @override
+  Set<String> get namespaces => const {'test.on'};
+
+  @override
+  void define(IParticipant p) {
+    keep(p.state(_Flag.on).define());
   }
+}
+
+/// Says it defines in `test.level`, then defines `test.on`.
+final class _Stray extends Owner {
+  @override
+  Principal get who => me;
+  @override
+  Set<String> get namespaces => const {'test.level'};
+
+  @override
+  void define(IParticipant p) => keep(p.state(_Flag.on).define());
 }
 
 enum _Flag<T> implements IStateWord<T> {
@@ -111,10 +138,17 @@ void main() {
   test('an owner attaches once; handles withdrawn take no more', () {
     final o = Other();
     Owners(r, [o]);
-    expect(() => o.attach(r), throwsStateError);
+    expect(() => o.attach(r.participant(me)), throwsStateError);
     final h = Handles()..dispose();
     expect(() => h.keep(r.state(_Flag.on).define(by: me)), throwsStateError);
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'o still has it');
+  });
+
+  test('an owner defines only in its namespaces, and holds them alone', () {
+    expect(() => Owners(r, [_Stray()]), throwsStateError);
+    expect(r.stateDescriptor('test.on'), isNull);
+    Owners(r, [Other()]);
+    expect(() => Owners(r, [Other()]), throwsStateError, reason: 'taken');
   });
 
   test('an owner listens while attached, and stops when it goes', () async {

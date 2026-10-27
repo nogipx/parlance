@@ -304,7 +304,7 @@ final class StateOf<T> {
     required Principal by,
     Callers? readers,
     Map<String, Object?> meta = const {},
-  }) => StateWriterOf._(
+  }) => StateWriterOf(
     registry.defineState(
       StateDescriptor(
         word.name,
@@ -364,10 +364,10 @@ final class _StateReaderOf<T> implements IStateReader<T> {
 ///
 /// It is a [IStateWriter] of an unkeyed state; [at] gives one of a key.
 final class StateWriterOf<T> implements IHandle, IStateWriter<T> {
-  StateWriterOf._(this.raw, this._shape);
+  StateWriterOf(this.raw, this._shape);
 
-  /// The registry's own handle.
-  final RawStateWriter raw;
+  /// The handle beneath: the registry's own, or a remote participant's.
+  final IStateHandle raw;
   final Shape<T> _shape;
 
   /// As [RawStateWriter.set].
@@ -411,7 +411,7 @@ final class CallNotDone implements Exception {
 
 /// A call being served, its params typed.
 final class CommandCallOf<P> {
-  CommandCallOf._(this.raw, this.params);
+  CommandCallOf(this.raw, this.params);
 
   /// The call as the registry has it.
   final CommandCall raw;
@@ -454,7 +454,7 @@ final class CommandOf<P, R> {
         meta: meta,
       ),
       (c) {
-        final out = handler(CommandCallOf._(c, word.params.fromJson(c.params)));
+        final out = handler(CommandCallOf(c, word.params.fromJson(c.params)));
         return out is Future<R> ? out.then(answer) : answer(out);
       },
       available: available,
@@ -527,7 +527,7 @@ final class FactOf<T> {
     bool open = false,
     Callers? readers,
     Map<String, Object?> meta = const {},
-  }) => FactEmitterOf._(
+  }) => FactEmitterOf(
     registry.defineFact(
       FactDescriptor(
         word.name,
@@ -543,7 +543,7 @@ final class FactOf<T> {
 
   /// Another producer of an open fact.
   FactEmitterOf<T> producer({required Principal by}) =>
-      FactEmitterOf._(registry.producer(word.name, by: by), word.shape);
+      FactEmitterOf(registry.producer(word.name, by: by), word.shape);
 
   Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
 
@@ -569,9 +569,10 @@ final class _FactListenerOf<T> implements IFactListener<T> {
 
 /// An emit handle of a typed fact; an [IFactEmitter] as the core's.
 final class FactEmitterOf<T> implements IHandle, IFactEmitter<T> {
-  FactEmitterOf._(this.raw, this._shape);
+  FactEmitterOf(this.raw, this._shape);
 
-  final RawFactEmitter raw;
+  /// The handle beneath: the registry's own, or a remote participant's.
+  final IFactHandle raw;
   final Shape<T> _shape;
 
   /// As [RawFactEmitter.emit].
