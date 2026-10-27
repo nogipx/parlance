@@ -12,6 +12,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/links.dart';
 import 'package:parlance/mcp.dart';
 import 'package:parlance/owners.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 
@@ -28,8 +29,19 @@ Future<void> main() async {
   );
   final devices = Devices();
   final house = House(devices);
-  // The house's words, and any other owner's, on one registry.
-  final owners = Owners(registry, [house]);
+  // The house speaks through a participant main makes: who it is, the
+  // first words of its names, and that the doorbell says who rang (a fact
+  // on a visitor's behalf). The owner's code never says what it may.
+  final houseSide = registry.participant(
+    Who.house,
+    namespaces: {'light', 'heat', 'house', 'door', 'doorbell', 'motion'},
+    rights: ParticipantRights(
+      speakFor: (_, by, fact) => fact == HouseFact.rang.name
+          ? null
+          : 'only the doorbell speaks for anyone',
+    ),
+  );
+  final owners = Owners(houseSide, [house]);
   // Residents press and change links; a run set off by anyone else (a guest
   // at the door) acts with that one's rights, never the link's.
   final links = Links(

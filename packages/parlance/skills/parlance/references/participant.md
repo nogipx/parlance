@@ -39,7 +39,7 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 
 ### 22.3 Owners
 
-An `Owner` (§19) is a participant's code: it says `who`, `namespaces`, `rights` and `access`, and defines its words in `define(IParticipant p)`. `Owners(registry, owners, access: ...)` makes each its participant and attaches it; what an owner's `access` leaves unsaid, the `Owners`' one says (one default for the app's modules); `owner.attach(p)` attaches it to one made elsewhere, of the same `who`.
+An `Owner` (§19) is code that owns words: it defines them in `define(IParticipant p)` and says nothing of who it is or what it may. `main` makes the participant (its principal, namespaces, rights, access) and attaches the owners: one with `owner.attach(p)`, a module of several with `Owners(p, [...])`, which syncs them as one tick. The same owner attaches to a participant in the host's process or across a connection.
 
 ### 22.4 Across a connection
 

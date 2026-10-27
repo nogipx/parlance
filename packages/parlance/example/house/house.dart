@@ -35,28 +35,6 @@ final class House extends Owner {
   late final FactEmitterOf<Motion> _motion;
 
   @override
-  Principal get who => Who.house;
-
-  /// The first words of its words' names: it defines in these only.
-  @override
-  Set<String> get namespaces => const {
-    'light',
-    'heat',
-    'house',
-    'door',
-    'doorbell',
-    'motion',
-  };
-
-  /// The doorbell says who rang: a fact on a visitor's behalf.
-  @override
-  ParticipantRights get rights => ParticipantRights(
-    speakFor: (_, by, fact) => fact == HouseFact.rang.name
-        ? null
-        : 'only the doorbell speaks for anyone',
-  );
-
-  @override
   void define(IParticipant p) {
     _rooms = trackKind(
       room,

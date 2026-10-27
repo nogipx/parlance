@@ -27,11 +27,6 @@ final class Dials extends Owner {
   var synced = 0;
 
   @override
-  Principal get who => me;
-  @override
-  Set<String> get namespaces => const {'test.level'};
-
-  @override
   void define(IParticipant p) {
     _kind = trackKind('dial', () => [for (final d in dials.keys) EntityRef(d)]);
     _level = keep(p.state(Level.of).define());
@@ -56,48 +51,14 @@ final class Knob extends Owner {
   final List<num> heard = [];
 
   @override
-  Principal get who => me;
-  @override
-  Set<String> get namespaces => const {};
-
-  @override
   void define(IParticipant p) => listen(turns, heard.add);
 }
 
 final class Other extends Owner {
   @override
-  Principal get who => me;
-  @override
-  Set<String> get namespaces => const {'test.on'};
-
-  @override
   void define(IParticipant p) {
     keep(p.state(_Flag.on).define());
   }
-}
-
-/// Says it defines in `test.level`, then defines `test.on`.
-final class _Stray extends Owner {
-  @override
-  Principal get who => me;
-  @override
-  Set<String> get namespaces => const {'test.level'};
-
-  @override
-  void define(IParticipant p) => keep(p.state(_Flag.on).define());
-}
-
-/// Says its own readers.
-final class _Private extends Owner {
-  @override
-  Principal get who => me;
-  @override
-  Set<String> get namespaces => const {'test.on'};
-  @override
-  WordAccess get access => WordAccess(read: Callers.only(['host:me']));
-
-  @override
-  void define(IParticipant p) => keep(p.state(_Flag.on).define());
 }
 
 enum _Flag<T> implements IStateWord<T> {
@@ -117,11 +78,15 @@ void main() {
   setUp(() => r = Registry(onError: (e, st) => throw e));
   tearDown(() => r.dispose());
 
+  /// The module's participant, as `main` makes it.
+  IParticipant module([Set<String> namespaces = const {'test'}]) =>
+      r.participant(me, namespaces: namespaces);
+
   test('owners define, sync as one tick, and withdraw their words', () async {
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
     final dials = Dials();
-    final owners = Owners(r, [dials, Other()]);
+    final owners = Owners(module(), [dials, Other()]);
     await pumpEventQueue();
     expect(ticks, hasLength(1));
     expect(r.state(Level.of).readAll(), {'a': 1, 'b': 2});
@@ -133,7 +98,7 @@ void main() {
 
   test('a tracked kind announces a change and names what went', () async {
     final dials = Dials();
-    Owners(r, [dials]);
+    Owners(module(), [dials]);
     final changes = <CatalogChange>[];
     r.catalogChanges.listen(changes.add);
     dials.dials.remove('a');
@@ -150,33 +115,46 @@ void main() {
 
   test('an owner attaches once; handles withdrawn take no more', () {
     final o = Other();
-    Owners(r, [o]);
+    Owners(module(), [o]);
     expect(() => o.attach(r.participant(me)), throwsStateError);
     final h = Handles()..dispose();
     expect(() => h.keep(r.state(_Flag.on).define(by: me)), throwsStateError);
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'o still has it');
   });
 
-  test('an owner defines only in its namespaces, and holds them alone', () {
-    expect(() => Owners(r, [_Stray()]), throwsStateError);
+  test('an owner defines only in the namespaces main gave its participant', () {
+    expect(
+      () => Owners(module({'test.level'}), [Other()]),
+      throwsA(isA<NotPermitted>()),
+    );
     expect(r.stateDescriptor('test.on'), isNull);
-    Owners(r, [Other()]);
-    expect(() => Owners(r, [Other()]), throwsStateError, reason: 'taken');
   });
 
-  test('what an owner leaves unsaid of access, the owners\' default says', () {
-    Owners(r, [
-      Dials(),
-      _Private(),
-    ], access: WordAccess(read: Callers.only(['host'])));
+  test('the participant main made says who reads the owners\' words', () {
+    Owners(
+      r.participant(
+        me,
+        namespaces: {'test'},
+        access: WordAccess(read: Callers.only(['host'])),
+      ),
+      [Dials()],
+    );
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
-    expect(r.stateDescriptor('test.on')!.readers!.rules.keys, {'host:me'});
+  });
+
+  test('going, the owners leave the participant to main', () {
+    final p = module();
+    Owners(p, [Other()]).dispose();
+    expect(r.stateDescriptor('test.on'), isNull);
+    expect(p.status('test.on'), const WordMissing());
+    Owners(p, [Other()]);
+    expect(r.stateDescriptor('test.on'), isNotNull, reason: 'p still speaks');
   });
 
   test('an owner listens while attached, and stops when it goes', () async {
     final turns = StreamController<num>.broadcast();
     final knob = Knob(turns.stream);
-    final owners = Owners(r, [knob]);
+    final owners = Owners(module(), [knob]);
     turns.add(1);
     await pumpEventQueue();
     expect(knob.heard, [1]);

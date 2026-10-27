@@ -63,11 +63,6 @@ final class Lamps extends Owner {
   late final FactEmitterOf<Turn> _purred;
 
   @override
-  Principal get who => kittens;
-  @override
-  Set<String> get namespaces => const {'kittens'};
-
-  @override
   void define(IParticipant p) {
     _on = keep(p.state(Lamp.on).define());
     _purred = keep(p.fact(Purr.purred).define());
@@ -158,6 +153,25 @@ void main() {
     expect(p.state(Lamp.on).read(), true, reason: 'its own, as it wrote it');
     expect(crewSide.status('kittens.lamp.turn'), const WordReady());
   });
+
+  test(
+    'a group of owners works on a remote participant as on a local one',
+    () async {
+      final p = await join();
+      final lamps = Lamps();
+      final owners = Owners(p, [lamps]);
+      await p.flush();
+      expect(r.read('kittens.lamp'), false);
+      lamps.lit = true;
+      owners.sync();
+      await p.flush();
+      expect(r.read('kittens.lamp'), true);
+      owners.dispose();
+      await p.flush();
+      expect(r.stateDescriptor('kittens.lamp'), isNull);
+      expect(p.namespaces, {'kittens'}, reason: 'the participant stays');
+    },
+  );
 
   test('what it writes in one turn is one tick', () async {
     final p = await join();

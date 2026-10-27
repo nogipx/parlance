@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../participant/local.dart';
 import '../participant/participant.dart';
-import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 
@@ -35,38 +33,22 @@ final class Handles implements IHandle {
   }
 }
 
-/// An owner of words (SPEC §6, §19): a participant (SPEC §22) that
-/// defines its states, commands and facts in [define], keeps their
-/// handles, and writes what it has now in [sync]. [Owners] makes each its
-/// participant in a registry and syncs them together.
+/// An owner of words (SPEC §6, §19): code that defines its states,
+/// commands and facts in [define], keeps their handles, and writes what it
+/// has now in [sync]. It speaks through the participant (SPEC §22) it is
+/// attached to; who that is, and what it may, `main` says when it makes
+/// the participant, never the owner.
 abstract base class Owner implements IHandle {
   final Handles _handles = Handles();
   IParticipant? _participant;
-
-  /// Who it speaks as.
-  Principal get who;
-
-  /// The first words of its words' names (`orders` for `orders.cancel`).
-  Set<String> get namespaces;
-
-  /// What it may do beyond defining in its namespaces.
-  ParticipantRights get rights => ParticipantRights.none;
-
-  /// Who may read and call its words when a word does not say; what it
-  /// leaves unsaid, the [Owners]' default says.
-  WordAccess get access => WordAccess.none;
 
   /// The participant it speaks through.
   IParticipant get participant =>
       _participant ?? (throw StateError('$runtimeType is not attached'));
 
-  /// Attaches it to [p], a participant speaking as [who], and defines its
-  /// words there; once.
+  /// Attaches it to [p] and defines its words there; once.
   void attach(IParticipant p) {
     if (_participant != null) throw StateError('$runtimeType is attached');
-    if (p.who != who) {
-      throw ArgumentError('$runtimeType speaks as $who, not as ${p.who}');
-    }
     _participant = p;
     define(p);
   }
@@ -140,35 +122,23 @@ final class TrackedKind {
   }
 }
 
-/// Owners on one registry, each through a participant of its own made
-/// from its [Owner.who], [Owner.namespaces], [Owner.rights] and
-/// [Owner.access] (then [access], for what an owner leaves unsaid):
-/// attached in order, synced in one batch, withdrawn the last first.
+/// Owners on one participant: a module of several, attached in order,
+/// synced in one batch, withdrawn the last first. The participant is the
+/// caller's: `main` made it, with the module's principal, namespaces and
+/// rights, and it outlives the group.
 final class Owners implements IHandle {
-  Owners(this.registry, this.owners, {this.access = WordAccess.none}) {
+  Owners(this.participant, this.owners) {
     for (final o in owners) {
-      final p = registry.participant(
-        o.who,
-        namespaces: o.namespaces,
-        rights: o.rights,
-        access: o.access.or(access),
-      );
-      _participants.add(p);
-      o.attach(p);
+      o.attach(participant);
     }
     sync();
   }
 
-  final Registry registry;
+  final IParticipant participant;
   final List<Owner> owners;
 
-  /// Who may read and call the owners' words when neither a word nor its
-  /// owner says: one default for the app's modules.
-  final WordAccess access;
-  final List<IParticipant> _participants = [];
-
   /// Writes what every owner has now, as one tick.
-  void sync() => registry.batch(() {
+  void sync() => participant.batch(() {
     for (final o in owners) {
       o.sync();
     }
@@ -178,9 +148,6 @@ final class Owners implements IHandle {
   void dispose() {
     for (final o in owners.reversed) {
       o.dispose();
-    }
-    for (final p in _participants.reversed) {
-      p.dispose();
     }
   }
 }
