@@ -432,6 +432,32 @@ void main() {
     expect(() => p.entitiesChanged('scene'), throwsA(isA<StateError>()));
   });
 
+  test('a namespace is one vocabulary\'s, so its words are one owner\'s', () {
+    expect(
+      () => r.participant(
+        orders,
+        vocabularies: [WordSet.open('orders'), WordSet.open('orders')],
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => r.participant(
+        orders,
+        vocabularies: [WordSet.open('orders'), WordSet.open('orders.archive')],
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      r
+          .participant(
+            orders,
+            vocabularies: [WordSet.open('orders'), WordSet.open('cart')],
+          )
+          .namespaces,
+      {'orders', 'cart'},
+    );
+  });
+
   test('a vocabulary granted is its namespace, said once where its words '
       'are', () {
     const ordersWords = WordSet('orders', [...OrderState.values]);

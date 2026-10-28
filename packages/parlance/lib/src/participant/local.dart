@@ -15,8 +15,11 @@ extension Participants on Registry {
   /// A participant speaking as [who], defining words only in the
   /// namespaces of its [vocabularies] (SPEC §22.1, §23); a namespace whose
   /// words come at run time is `WordSet.open`. A namespace is one
-  /// participant's: one that another live participant has, or one inside
-  /// or around it (`orders` and `orders.archive`), is refused.
+  /// vocabulary's: two of [vocabularies] with the same namespace, or one
+  /// inside the other, are refused, so the words of a namespace are those
+  /// of one owner. It is one participant's: one that another live
+  /// participant has, or one inside or around it (`orders` and
+  /// `orders.archive`), is refused.
   LocalParticipant participant(
     Principal who, {
     Iterable<WordSet> vocabularies = const [],
@@ -29,7 +32,21 @@ extension Participants on Registry {
     for (final v in vocabularies) {
       v.check();
     }
-    final namespaces = {for (final v in vocabularies) v.namespace};
+    final given = [for (final v in vocabularies) v.namespace];
+    for (final (i, a) in given.indexed) {
+      for (final b in given.skip(i + 1)) {
+        if (_overlap(a, b)) {
+          throw ArgumentError.value(
+            vocabularies,
+            'vocabularies',
+            a == b
+                ? 'namespace $a is given twice: one vocabulary each'
+                : 'namespaces $a and $b: one inside the other',
+          );
+        }
+      }
+    }
+    final namespaces = given.toSet();
     final taken = _namespaces[this] ??= {};
     for (final ns in namespaces) {
       checkName(ns, 'namespace');
