@@ -354,10 +354,14 @@ final class RemoteParticipant implements IParticipant {
   @override
   final Set<String> vocabularies;
 
-  final StreamController<ParticipantError> _errors =
-      StreamController.broadcast();
+  // Told as each answer comes, so a refusal is heard before the flush it
+  // came in completes.
+  final StreamController<ParticipantError> _errors = StreamController.broadcast(
+    sync: true,
+  );
 
-  /// What the registry refused of what it asked.
+  /// What the registry refused of what it asked: told before the [flush]
+  /// that brought the refusal completes.
   Stream<ParticipantError> get errors => _errors.stream;
 
   /// Its own states, as it wrote them: name, key, value.

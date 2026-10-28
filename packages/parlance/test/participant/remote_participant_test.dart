@@ -272,26 +272,28 @@ void main() {
     await sub.cancel();
   });
 
-  test('outside its vocabularies it is refused at once; what the host refuses '
-      'comes after, to its errors', () async {
-    final p = await join(
-      rights: ParticipantRights(
-        define: (_, d) => d is FactDescriptor ? 'no facts' : null,
-      ),
-    );
-    expect(
-      () => p.defineState(StateDescriptor('cart.x', type: const BoolType())),
-      throwsA(isA<NotPermitted>()),
-    );
-    final errors = <ParticipantError>[];
-    p.errors.listen(errors.add);
-    p.fact(Purr.purred).define();
-    await p.flush();
-    await settle();
-    expect(errors.single.code, 'permissionDenied');
-    expect(errors.single.message, 'no facts');
-    expect(r.factDescriptor('kittens.purred'), isNull);
-  });
+  test(
+    'outside its vocabularies it is refused at once; what the host refuses '
+    'comes after, to its errors, told by the time its flush completes',
+    () async {
+      final p = await join(
+        rights: ParticipantRights(
+          define: (_, d) => d is FactDescriptor ? 'no facts' : null,
+        ),
+      );
+      expect(
+        () => p.defineState(StateDescriptor('cart.x', type: const BoolType())),
+        throwsA(isA<NotPermitted>()),
+      );
+      final errors = <ParticipantError>[];
+      p.errors.listen(errors.add);
+      p.fact(Purr.purred).define();
+      await p.flush();
+      expect(errors.single.code, 'permissionDenied');
+      expect(errors.single.message, 'no facts');
+      expect(r.factDescriptor('kittens.purred'), isNull);
+    },
+  );
 
   test('a call it serves is a span in the host\'s trace, and how it goes '
       'is told', () async {
