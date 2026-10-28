@@ -1,0 +1,24 @@
+name: journal_viewer
+description: "Conversations of a parlance journal: loaded, drawn and played back."
+publish_to: none
+version: 0.1.0
+resolution: workspace
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  desktop_drop: ^0.6.0
+  file_picker: ^10.0.0
+  http: ^1.2.0
+  parlance: any
+  parlance_journal: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

@@ -10,6 +10,7 @@ workspace:
   - packages/parlance_generator
   - packages/parlance_links
   - packages/parlance_journal
+  - apps/journal_viewer
 
 dev_dependencies:
   lints: ^6.0.0

@@ -11,6 +11,8 @@ of it all. Moved out of Tephra, its first host.
 | `packages/parlance_links` | Reactions written as data, run by the participant that owns them. |
 | `packages/parlance_journal` | The journal kept where it lasts, and read back. |
 
+| `apps/journal_viewer` | Conversations of a journal, loaded, drawn as trees on their time and played back; web and macOS. |
+
 `docs/термины.md` is the glossary in Russian.
 
 Run `fvm dart pub get` here, then `fvm dart test` in a package.
