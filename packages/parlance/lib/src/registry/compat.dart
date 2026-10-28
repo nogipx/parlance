@@ -53,12 +53,12 @@ Map<String, Object?> schemaOfDescriptor(Descriptor d) => switch (d) {
 bool keepsPromises(Object? before, Object? now) =>
     jsonEquals(before, now) || _onlyAdds(before, now);
 
-/// Where [now] differs from [before], each as `path: was …, is …`; at
-/// most [limit] of them, the shallowest first.
-List<String> differences(Object? before, Object? now, {int limit = 3}) {
+/// Every place [now] differs from [before], each as `path: was …, is …`,
+/// in the order the schema says them.
+List<String> differences(Object? before, Object? now) {
   final out = <String>[];
   void walk(String at, Object? a, Object? b) {
-    if (out.length >= limit || jsonEquals(a, b)) return;
+    if (jsonEquals(a, b)) return;
     if (a is Map && b is Map) {
       for (final k in {...a.keys, ...b.keys}) {
         walk(at.isEmpty ? '$k' : '$at.$k', a[k], b[k]);
@@ -75,12 +75,28 @@ List<String> differences(Object? before, Object? now, {int limit = 3}) {
 String _said(Object? v) => v == null ? 'nothing' : '$v';
 
 /// What of [word] the code was built against does [live], the word met,
-/// break: empty when it keeps every promise, else each difference.
+/// break: empty when it keeps every promise, else every difference but a
+/// param added that a caller may leave out, which breaks nothing.
 List<String> wordBreaks(IWord word, Descriptor live) {
   final before = schemaOfWord(word);
   final now = schemaOfDescriptor(live);
-  return keepsPromises(before, now) ? const [] : differences(before, now);
+  if (keepsPromises(before, now)) return const [];
+  final added = {
+    for (final MapEntry(:key, :value) in _fields(now).entries)
+      if (!_fields(before).containsKey(key) &&
+          value is Map &&
+          value['optional'] == true)
+        'params.fields.$key',
+  };
+  return [
+    for (final d in differences(before, now))
+      if (!added.any((a) => d.startsWith('$a:'))) d,
+  ];
 }
+
+/// The params' fields of a command's or query's schema entry.
+Map<Object?, Object?> _fields(Object? entry) =>
+    ((entry as Map?)?['params'] as Map?)?['fields'] as Map? ?? const {};
 
 /// Whether [now] is [before] with only params added that may be left out.
 bool _onlyAdds(Object? before, Object? now) {

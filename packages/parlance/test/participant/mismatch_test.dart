@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 /// where, here and across a connection; one that only adds what a caller
 /// may leave out is ready.
 typedef Volume = ({int volume});
-typedef SetNow = ({int volume, bool? fade});
+typedef VolumeNow = ({int volume, bool? fade});
 
 RecordShape<T> _set<T>(Map<String, Part> fields) => RecordShape<T>(
   fields,
@@ -61,7 +61,7 @@ enum Now<T> implements IStateWord<T> {
 }
 
 enum NowCommand<P, R> implements ICommandWord<P, R> {
-  set<SetNow, void>('deck.set');
+  set<VolumeNow, void>('deck.set');
 
   const NowCommand(this.name);
   @override
@@ -74,8 +74,40 @@ enum NowCommand<P, R> implements ICommandWord<P, R> {
 
 /// A param added that a caller may leave out: every call made before
 /// still passes.
-final _now = _set<SetNow>({
+final _now = _set<VolumeNow>({
   'volume': const Part(Plain(IntType())),
+  'fade': const Part(Plain(BoolType()), optional: true),
+});
+
+/// The volume as another owner defines it: all of it changed.
+enum Wide<T> implements IStateWord<T> {
+  volume<num>('deck.volume', Plain(NumType(min: -1)));
+
+  const Wide(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => null;
+}
+
+/// The command with a param added that may be left out, and the one it
+/// had turned to text.
+enum BrokenCommand<P, R> implements ICommandWord<P, R> {
+  set<VolumeNow, void>('deck.set');
+
+  const BrokenCommand(this.name);
+  @override
+  final String name;
+  @override
+  RecordShape<P> get params => _broken as RecordShape<P>;
+  @override
+  Shape<R>? get returns => null;
+}
+
+final _broken = _set<VolumeNow>({
+  'volume': const Part(Plain(TextType())),
   'fade': const Part(Plain(BoolType()), optional: true),
 });
 
@@ -123,6 +155,34 @@ void main() {
           );
         },
       );
+
+      test('every difference is told, at once', () async {
+        final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
+        p.state(Wide.volume).define();
+        final b = await asGuest();
+        await b.settle();
+        expect(
+          b.state(Built.volume).status,
+          const WordMismatch([
+            'type.type: was int, is num',
+            'type.min: was 0, is -1',
+            'type.max: was 100, is nothing',
+          ]),
+        );
+      });
+
+      test('a param added beside a break is no break of its own', () async {
+        final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
+        p.command(BrokenCommand.set).define((_) {}, callers: anyone);
+        final b = await asGuest();
+        await b.settle();
+        expect(
+          b.command(BuiltCommand.set).status,
+          const WordMismatch([
+            'params.fields.volume.type.type: was int, is text',
+          ]),
+        );
+      });
 
       test('a param added that may be left out keeps every promise', () async {
         defineNow();
