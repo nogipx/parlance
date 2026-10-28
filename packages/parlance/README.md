@@ -42,7 +42,7 @@ Around the words:
 
 | Level | Library | What you get |
 | --- | --- | --- |
-| core | `core.dart` | States, commands and facts without names: a `Cell` holds a state, a `Port` serves a command, a `Signal` carries a fact. One writer per state, the value replayed to every new listener, changes committed together in ticks. Typed, in one process, no dependencies. For two parts of an app that need to talk. |
+| core | `core.dart` | States, commands and facts without names: a `LocalState` holds a state, a `LocalCommand` serves a command, a `LocalFact` carries a fact, all committed by a `LocalHub`. One writer per state, the value replayed to every new listener, changes committed together in ticks. Typed, in one process, no dependencies. For two parts of an app that need to talk. |
 | registry | `registry.dart` | The named vocabulary built on the core: a catalog, typed words, who may call what, causes, guards, and a feed of every change. |
 | participants | `participant.dart` | A part of the app sees the registry only as one principal and defines words only in its vocabularies; `main` hands each its participant, so who may call and read what holds in the process too. |
 | over the network | `remote.dart`, `view.dart` | The same vocabulary over rpc_dart: a remote part reads, calls and even owns words, and sees only what its rights allow. |

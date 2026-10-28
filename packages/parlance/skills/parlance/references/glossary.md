@@ -15,12 +15,12 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Core
 
-- **Core** (§21): the level everything stands on: typed cells, signals and ports and the hub that commits them; no names, no JSON, no principals. `package:parlance/core.dart`.
-- **Hub** (§21.1): commits the writes and emits of its cells and signals in ticks, numbers them with seq; `batch`, `onCommit`, `ticks`.
+- **Core** (§21): the level everything stands on: local states, facts and commands, typed, and the local hub that commits them; no names, no JSON, no principals. `package:parlance/core.dart`.
+- **Local hub** (§21.1, `LocalHub`): commits the writes and emits of its states and facts in ticks (`LocalTick`), numbers them with seq; `batch`, `onCommit`, `ticks`.
 - **Tag** (§21.1): what a writer gives with a write or an emit, carried unread into the tick; the registry carries causes in it.
-- **Cell**, **keyed cell** (§21.2): one value, or one value per key, with one writer (`claim`), `watch` from the value now.
-- **Signal** (§21.3): said once, no value kept; one emitter unless open.
-- **Port** (§21.4): one handler (`serve`) answers `call`.
+- **Local state**, **local keyed state** (§21.2, `LocalState`, `LocalKeyedState`): one value, or one value per key, with one writer (`claim`), `watch` from the value now.
+- **Local fact** (§21.3, `LocalFact`): said once, no value kept; one emitter unless open.
+- **Local command** (§21.4, `LocalCommand`): one handler (`serve`) answers `call`.
 - **Interfaces** (§21.6): `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`: what both the core's handles and the registry's typed handles are, so code on them moves from one to the other unchanged.
 
 ## Who and why

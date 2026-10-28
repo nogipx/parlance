@@ -11,7 +11,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 
 | Library | What it is | Contract |
 |---|---|---|
-| `core` | cells one writer writes, signals, ports one handler serves, the hub that commits them in ticks; typed, no names, no JSON, no dependencies. Everything below is built on it; a small task takes it alone | [references/core.md](references/core.md): §21 |
+| `core` | the words local: `LocalState` one writer writes, `LocalFact`, `LocalCommand` one handler serves, the `LocalHub` that commits them in ticks; typed, no names, no JSON, no dependencies. Everything below is built on it; a small task takes it alone | [references/core.md](references/core.md): §21 |
 | `registry` | catalog, writes in ticks, calls, guards, feed, logs and spans, format versions, typed words | [references/registry.md](references/registry.md): §1–12, §17, §18 |
 | `remote` | the registry over rpc_dart: one session per connection | [references/remote.md](references/remote.md): §14 |
 | `participant` | `IParticipant`: a part of the app as one principal, defining words only in its vocabularies and holding its owners (`Owner`, `TrackedKind`, `failCall`; contract §19 in [references/owners.md](references/owners.md)), the same in this process (`LocalParticipant`) and across a connection; rights to produce and speak for others | [references/participant.md](references/participant.md): §22 |

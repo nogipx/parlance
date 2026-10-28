@@ -227,7 +227,7 @@ final class RawFactEmitter implements IFactHandle {
   });
 
   final Registry _r;
-  final SignalEmitter<Object?> _emitter;
+  final LocalFactEmitter<Object?> _emitter;
   @override
   final FactDescriptor descriptor;
 
@@ -274,33 +274,33 @@ final class _Disposer implements IHandle {
 }
 
 final class _StateEntry {
-  _StateEntry(this.descriptor, this.cell) : writer = cell.claim();
+  _StateEntry(this.descriptor, this.local) : writer = local.claim();
   final StateDescriptor descriptor;
 
   /// Its values by key, null for an unkeyed state; the registry is the
-  /// cell's only writer.
-  final KeyedCell<String?, Object?> cell;
-  final KeyedCellWriter<String?, Object?> writer;
+  /// local state's only writer.
+  final LocalKeyedState<String?, Object?> local;
+  final LocalKeyedStateWriter<String?, Object?> writer;
 }
 
 final class _CommandEntry {
-  _CommandEntry(this.descriptor, this.port, this.serving, this.available);
+  _CommandEntry(this.descriptor, this.local, this.serving, this.available);
 
   /// A command's or a query's: both are called through the same stages.
   final CallableDescriptor descriptor;
 
   bool get query => descriptor is QueryDescriptor;
-  final Port<CommandCall, Object?> port;
+  final LocalCommand<CommandCall, Object?> local;
   final IHandle serving;
   final Availability? available;
 }
 
 final class _FactEntry {
-  _FactEntry(this.descriptor, this.signal);
+  _FactEntry(this.descriptor, this.local);
   final FactDescriptor descriptor;
 
   /// Its payloads, tagged with their id and cause.
-  final Signal<Object?> signal;
+  final LocalFact<Object?> local;
 }
 
 final class _Use {
@@ -363,11 +363,11 @@ final class Registry implements ITypeContext {
        _catalogLog = (log ?? LogScope.noop).child('catalog'),
        _onError = _logged(log, onError ?? Zone.current.handleUncaughtError),
        epoch = newId() {
-    _hub = Hub(onCommit: _committed);
+    _hub = LocalHub(onCommit: _committed);
   }
 
   /// Commits every state value and fact of the registry (SPEC §7, §21).
-  late final Hub _hub;
+  late final LocalHub _hub;
 
   /// How long ids of calls and facts are remembered to drop repeats.
   final Duration dedupWindow;
@@ -440,7 +440,7 @@ final class Registry implements ITypeContext {
   final Map<String, _CommandEntry> _commands = {};
   final Map<String, _FactEntry> _facts = {};
 
-  /// The state or fact each cell and signal holds.
+  /// The word each local state and fact holds.
   final Map<Object, String> _names = Map.identity();
   final StreamController<CatalogChange> _catalog = StreamController.broadcast();
 
@@ -594,13 +594,13 @@ final class Registry implements ITypeContext {
     });
   }
 
-  /// The cells of states that went inside a batch: their removals commit
+  /// The local states of words that went inside a batch: their removals commit
   /// with it, then they go.
-  final Set<KeyedCell<String?, Object?>> _retired = Set.identity();
+  final Set<LocalKeyedState<String?, Object?>> _retired = Set.identity();
 
-  void _retire(KeyedCell<String?, Object?> cell) {
-    cell.close();
-    _names.remove(cell);
+  void _retire(LocalKeyedState<String?, Object?> local) {
+    local.close();
+    _names.remove(local);
   }
 
   void _undefine(String name) {
@@ -611,20 +611,20 @@ final class Registry implements ITypeContext {
       batch(() => s.writer.clear(tag: Cause(Principal.system)));
       _states.remove(name);
       s.writer.dispose();
-      // Inside an outer batch the removals wait for it: the cell stays for
+      // Inside an outer batch the removals wait for it: the local state stays for
       // them to commit against, and goes after.
       if (_hub.writing) {
-        _retired.add(s.cell);
+        _retired.add(s.local);
       } else {
-        _retire(s.cell);
+        _retire(s.local);
       }
       _announce(DescriptorRemoved(s.descriptor));
     } else if (_commands.remove(name) case final c?) {
       c.serving.dispose();
       _announce(DescriptorRemoved(c.descriptor));
     } else if (_facts.remove(name) case final f?) {
-      f.signal.close();
-      _names.remove(f.signal);
+      f.local.close();
+      _names.remove(f.local);
       _announce(DescriptorRemoved(f.descriptor));
     } else {
       return;
@@ -763,17 +763,17 @@ final class Registry implements ITypeContext {
 
   /// Turns what the hub committed into the registry's tick: names, ids,
   /// causes and the time.
-  void _committed(HubTick t) {
+  void _committed(LocalTick t) {
     final now = clock.now();
     final changes = <StateChange>[
       for (final c in t.changes)
         // Of a state that went, only its removals: a batch that threw puts
         // back what was written before it went.
-        if (c.removed || !_retired.contains(c.store))
+        if (c.removed || !_retired.contains(c.state))
           StateChange(
             seq: c.seq,
             id: newId(),
-            state: _names[c.store]!,
+            state: _names[c.state]!,
             key: c.key as String?,
             value: c.value,
             previous: c.previous,
@@ -783,12 +783,12 @@ final class Registry implements ITypeContext {
           ),
     ];
     final committed = <FactMessage>[
-      for (final e in t.emits)
+      for (final e in t.facts)
         if (e.tag case (final String id, final Cause cause))
           FactMessage(
             seq: e.seq,
             id: id,
-            fact: _names[e.signal]!,
+            fact: _names[e.fact]!,
             payload: e.value,
             cause: cause,
             at: now,
@@ -866,7 +866,7 @@ final class Registry implements ITypeContext {
 
   bool _emit(
     FactDescriptor d,
-    SignalEmitter<Object?> emitter,
+    LocalFactEmitter<Object?> emitter,
     Object? payload,
     String id,
     Cause cause,
@@ -1302,8 +1302,8 @@ final class Registry implements ITypeContext {
     }
     final work = Future.sync(
       () => entry.query
-          ? asQuery(command, () => entry.port.call(served))
-          : entry.port.call(served),
+          ? asQuery(command, () => entry.local.call(served))
+          : entry.local.call(served),
     );
     CallResult<Object?> result;
     try {
@@ -1542,9 +1542,12 @@ extension RawRegistry on Registry {
   /// Defines a state; the returned writer is its only write handle.
   RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
     _checkFree(d.name);
-    final cell = KeyedCell<String?, Object?>(hub: _hub, equals: jsonEquals);
-    _names[cell] = d.name;
-    _states[d.name] = _StateEntry(d, cell);
+    final local = LocalKeyedState<String?, Object?>(
+      hub: _hub,
+      equals: jsonEquals,
+    );
+    _names[local] = d.name;
+    _states[d.name] = _StateEntry(d, local);
     _announce(DescriptorAdded(d));
     return RawStateWriter._(this, d, by);
   }
@@ -1556,8 +1559,13 @@ extension RawRegistry on Registry {
     Availability? available,
   }) {
     _checkFree(d.name);
-    final port = Port<CommandCall, Object?>();
-    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
+    final local = LocalCommand<CommandCall, Object?>();
+    _commands[d.name] = _CommandEntry(
+      d,
+      local,
+      local.serve(handler),
+      available,
+    );
     _announce(DescriptorAdded(d));
     return _Disposer(() => _undefine(d.name));
   }
@@ -1570,8 +1578,13 @@ extension RawRegistry on Registry {
     Availability? available,
   }) {
     _checkFree(d.name);
-    final port = Port<CommandCall, Object?>();
-    _commands[d.name] = _CommandEntry(d, port, port.serve(handler), available);
+    final local = LocalCommand<CommandCall, Object?>();
+    _commands[d.name] = _CommandEntry(
+      d,
+      local,
+      local.serve(handler),
+      available,
+    );
     _announce(DescriptorAdded(d));
     return _Disposer(() => _undefine(d.name));
   }
@@ -1579,11 +1592,11 @@ extension RawRegistry on Registry {
   /// Defines a fact; the returned emitter belongs to the definer.
   RawFactEmitter defineFact(FactDescriptor d, {required Principal by}) {
     _checkFree(d.name);
-    final signal = Signal<Object?>(hub: _hub, open: d.open);
-    _facts[d.name] = _FactEntry(d, signal);
-    _names[signal] = d.name;
+    final local = LocalFact<Object?>(hub: _hub, open: d.open);
+    _facts[d.name] = _FactEntry(d, local);
+    _names[local] = d.name;
     _announce(DescriptorAdded(d));
-    return RawFactEmitter._(this, d, by, signal.claim(), definer: true);
+    return RawFactEmitter._(this, d, by, local.claim(), definer: true);
   }
 
   /// Another emit handle of an open fact, for producer [by]. The host
@@ -1593,7 +1606,7 @@ extension RawRegistry on Registry {
     if (f == null) throw StateError('no fact $fact');
     final d = f.descriptor;
     if (!d.open) throw StateError('$fact is not open');
-    return RawFactEmitter._(this, d, by, f.signal.claim(), definer: false);
+    return RawFactEmitter._(this, d, by, f.local.claim(), definer: false);
   }
 
   /// Runs [body] synchronously and commits everything it wrote as one tick
@@ -1603,8 +1616,8 @@ extension RawRegistry on Registry {
       _hub.batch(body);
     } finally {
       if (!_hub.writing && _retired.isNotEmpty) {
-        for (final cell in [..._retired]) {
-          _retire(cell);
+        for (final local in [..._retired]) {
+          _retire(local);
         }
         _retired.clear();
       }
@@ -1614,16 +1627,16 @@ extension RawRegistry on Registry {
   /// The value of [state] (of [key]); inside a batch, the batch's own
   /// writes count (SPEC §7). Null when there is none.
   Object? read(String state, {String? key}) {
-    return _states[canonical(state)]?.cell.read(key);
+    return _states[canonical(state)]?.local.read(key);
   }
 
   /// Whether [state] (of [key]) has a committed value.
   bool has(String state, {String? key}) =>
-      _states[canonical(state)]?.cell.has(key) ?? false;
+      _states[canonical(state)]?.local.has(key) ?? false;
 
   /// Every committed value of [state], by key (null for an unkeyed one).
   Map<String?, Object?> readAll(String state) =>
-      _states[canonical(state)]?.cell.values ?? const {};
+      _states[canonical(state)]?.local.values ?? const {};
 
   /// The value of [state] (of [key]) now, then on every change; null when
   /// there is none.
@@ -1704,7 +1717,7 @@ extension RawRegistry on Registry {
               epoch: this.epoch,
               seq: seq,
               states: {
-                for (final e in _states.entries) e.key: e.value.cell.values,
+                for (final e in _states.entries) e.key: e.value.local.values,
               },
               factsLost: since != null,
             ),

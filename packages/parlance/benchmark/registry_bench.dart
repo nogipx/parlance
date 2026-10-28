@@ -140,8 +140,8 @@ int opsFor(int n) => n >= 10000 ? 200 : (n >= 100 ? 5000 : 200000);
 Future<void> main() async {
   print('--- one record: write, read ---');
   {
-    final cell = Cell<Item>();
-    final w = cell.claim();
+    final state = LocalState<Item>();
+    final w = state.claim();
     final r = Registry(onError: (e, _) => throw e);
     final s = r.state(BenchState.item).define(by: host);
     final reader = r.state(BenchState.item);
@@ -154,7 +154,7 @@ Future<void> main() async {
     Item? sink;
     row(
       'read',
-      measure(200000, (_) => sink = cell.value),
+      measure(200000, (_) => sink = state.value),
       measure(200000, (_) => sink = reader.read()),
     );
     if (sink == null) print('');
@@ -162,8 +162,8 @@ Future<void> main() async {
 
   for (final n in [10, 100, 1000, 10000]) {
     print('--- a list of $n, one item changes per write ---');
-    final cell = Cell<List<Item>>();
-    final w = cell.claim();
+    final state = LocalState<List<Item>>();
+    final w = state.claim();
     final r = Registry(onError: (e, _) => throw e);
     final s = r.state(BenchState.items).define(by: host);
     final reader = r.state(BenchState.items);
@@ -178,7 +178,7 @@ Future<void> main() async {
     List<Item>? sink;
     row(
       'read',
-      measure(ops, (_) => sink = cell.value),
+      measure(ops, (_) => sink = state.value),
       measure(ops, (_) => sink = reader.read()),
     );
     if (sink == null) print('');
@@ -186,7 +186,7 @@ Future<void> main() async {
 
   print('--- a command call, answered at once ---');
   {
-    final port = Port<Toggle, bool>()..serve((p) => p.done);
+    final command = LocalCommand<Toggle, bool>()..serve((p) => p.done);
     final r = Registry(onError: (e, _) => throw e);
     r
         .command(BenchCommand.toggle)
@@ -194,7 +194,7 @@ Future<void> main() async {
     final cmd = r.command(BenchCommand.toggle);
     row(
       'call',
-      await measureAsync(50000, (i) => port.call((id: 'a', done: i.isEven))),
+      await measureAsync(50000, (i) => command.call((id: 'a', done: i.isEven))),
       await measureAsync(
         50000,
         (i) => cmd.call((id: 'a', done: i.isEven), by: user),

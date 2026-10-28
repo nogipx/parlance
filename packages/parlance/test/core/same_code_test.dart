@@ -6,15 +6,15 @@ import 'package:test/test.dart';
 import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 /// Code written against the core's interfaces (SPEC §21.6) runs the same on
-/// cells, ports and signals and on the registry's typed words: moving from
+/// local states, commands and facts and on the registry's typed words: moving from
 /// one to the other changes only where they are made.
 void main() {
   Future<void> settle() => Future<void>.delayed(Duration.zero);
 
   test('on the core', () async {
-    final count = Cell<int>();
-    final doubled = Port<Double, int>()..serve((p) => p.n * 2);
-    final said = Signal<String>();
+    final count = LocalState<int>();
+    final doubled = LocalCommand<Double, int>()..serve((p) => p.n * 2);
+    final said = LocalFact<String>();
     final feature = Counter(
       count: count,
       write: count.claim(),

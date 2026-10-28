@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-/// Something that can be withdrawn: a claim, a served port, a definition.
+/// Something that can be withdrawn: a claim, a served command, a definition.
 abstract interface class IHandle {
   /// Withdraws it; a second call does nothing.
   void dispose();
@@ -9,7 +9,7 @@ abstract interface class IHandle {
 
 /// Reads a state: its value now, and as it changes (SPEC §21.6).
 ///
-/// A [Cell] in the core, a typed state in the registry.
+/// A [LocalState] in the core, a typed state in the registry.
 abstract interface class IStateReader<V> {
   /// The value, or null when there is none.
   V? get value;
@@ -23,7 +23,7 @@ abstract interface class IStateReader<V> {
 
 /// Writes a state (SPEC §21.6).
 ///
-/// A [CellWriter] in the core, a typed state's writer in the registry.
+/// A [LocalStateWriter] in the core, a typed state's writer in the registry.
 abstract interface class IStateWriter<V> {
   void set(V value);
   void remove();
@@ -32,21 +32,21 @@ abstract interface class IStateWriter<V> {
 /// Calls a command and gets its answer; a call that does not answer
 /// fails (SPEC §21.6).
 ///
-/// A [Port] in the core, a typed command in the registry.
+/// A [LocalCommand] in the core, a typed command in the registry.
 abstract interface class ICommandCaller<P, R> {
   Future<R> call(P params);
 }
 
 /// Says a fact: that something happened (SPEC §21.6).
 ///
-/// A [SignalEmitter] in the core, a typed fact's emitter in the registry.
+/// A [LocalFactEmitter] in the core, a typed fact's emitter in the registry.
 abstract interface class IFactEmitter<T> {
   void emit(T value);
 }
 
 /// Hears facts as they are said (SPEC §21.6).
 ///
-/// A [Signal] in the core, a typed fact in the registry.
+/// A [LocalFact] in the core, a typed fact in the registry.
 abstract interface class IFactListener<T> {
   Stream<T> get stream;
 }
@@ -63,33 +63,33 @@ final class _Release implements IHandle {
   }
 }
 
-/// A cell or a signal a [Hub] commits for.
+/// A state or a fact a [LocalHub] commits for.
 abstract class _Member {
-  Hub get hub;
+  LocalHub get hub;
 
   /// Closed: nothing of it commits again.
   bool get _closed;
 }
 
-/// Commits the writes of its cells and the emits of its signals in ticks
+/// Commits the writes of its states and the emits of its facts in ticks
 /// (SPEC §21.1).
 ///
 /// A write or emit outside [batch] is a tick of its own; [batch] makes
 /// everything written in it one tick. Every committed change and emit gets
-/// the next [seq]. A cell or signal made without a hub has one of its own.
-final class Hub {
+/// the next [seq]. A state or fact made without a hub has one of its own.
+final class LocalHub {
   /// [onCommit] sees every tick synchronously, before [ticks] delivers it:
   /// for whoever builds its own record of the tick on top.
-  Hub({void Function(HubTick tick)? onCommit}) : _onCommit = onCommit;
+  LocalHub({void Function(LocalTick tick)? onCommit}) : _onCommit = onCommit;
 
-  final void Function(HubTick tick)? _onCommit;
+  final void Function(LocalTick tick)? _onCommit;
 
   int _seq = 0;
   int _depth = 0;
   bool _committing = false;
   final LinkedHashMap<(_Member, Object?), _Write> _pending = LinkedHashMap();
   final List<_Emit> _emits = [];
-  final StreamController<HubTick> _ticks = StreamController.broadcast();
+  final StreamController<LocalTick> _ticks = StreamController.broadcast();
 
   /// The seq of the last commit.
   int get seq => _seq;
@@ -98,7 +98,7 @@ final class Hub {
   bool get writing => _depth > 0 || _committing;
 
   /// Every tick, in seq order, delivered asynchronously.
-  Stream<HubTick> get ticks => _ticks.stream;
+  Stream<LocalTick> get ticks => _ticks.stream;
 
   /// Runs [body] synchronously and commits everything it wrote as one tick.
   /// Batches nest; the outermost commits. When [body] throws, nothing it
@@ -119,7 +119,7 @@ final class Hub {
       done = true;
     } finally {
       if (!done) {
-        // What waited for a cell or signal closed in [body] stays dropped:
+        // What waited for a state or fact closed in [body] stays dropped:
         // nothing commits for what is gone.
         _pending.clear();
         if (before != null) {
@@ -183,14 +183,14 @@ final class Hub {
         final emits = [..._emits];
         _pending.clear();
         _emits.clear();
-        final changes = <HubChange>[];
+        final changes = <LocalStateChange>[];
         for (final MapEntry(key: (m, key), value: w) in writes) {
           final applied = (m as _Store)._apply(key, w);
           if (applied == null) continue;
           changes.add(
-            HubChange._(
+            LocalStateChange._(
               seq: ++_seq,
-              store: m,
+              state: m,
               key: key,
               value: w.value,
               previous: applied.previous,
@@ -199,21 +199,21 @@ final class Hub {
             ),
           );
         }
-        final signals = [
+        final facts = [
           for (final e in emits)
-            HubEmit._(
+            LocalFactEmit._(
               seq: ++_seq,
-              signal: e.member,
+              fact: e.member,
               value: e.value,
               tag: e.tag,
             ),
         ];
-        if (changes.isEmpty && signals.isEmpty) continue;
-        final tick = HubTick._(
-          from: changes.isNotEmpty ? changes.first.seq : signals.first.seq,
+        if (changes.isEmpty && facts.isEmpty) continue;
+        final tick = LocalTick._(
+          from: changes.isNotEmpty ? changes.first.seq : facts.first.seq,
           to: _seq,
           changes: List.unmodifiable(changes),
-          emits: List.unmodifiable(signals),
+          facts: List.unmodifiable(facts),
         );
         _onCommit?.call(tick);
         if (!_ticks.isClosed) _ticks.add(tick);
@@ -241,26 +241,26 @@ final class _Emit {
   final Object? tag;
 }
 
-/// What a [Hub] committed together.
-final class HubTick {
-  const HubTick._({
+/// What a [LocalHub] committed together.
+final class LocalTick {
+  const LocalTick._({
     required this.from,
     required this.to,
     required this.changes,
-    required this.emits,
+    required this.facts,
   });
 
   final int from;
   final int to;
-  final List<HubChange> changes;
-  final List<HubEmit> emits;
+  final List<LocalStateChange> changes;
+  final List<LocalFactEmit> facts;
 }
 
-/// A committed change of a cell's value.
-final class HubChange {
-  const HubChange._({
+/// A committed change of a state's value.
+final class LocalStateChange {
+  const LocalStateChange._({
     required this.seq,
-    required this.store,
+    required this.state,
     required this.key,
     required this.value,
     required this.previous,
@@ -270,10 +270,10 @@ final class HubChange {
 
   final int seq;
 
-  /// The [Cell] or [KeyedCell] it changed.
-  final Object store;
+  /// The [LocalState] or [LocalKeyedState] it changed.
+  final Object state;
 
-  /// The key of a [KeyedCell]; null for a [Cell].
+  /// The key of a [LocalKeyedState]; null for a [LocalState].
   final Object? key;
   final Object? value;
   final Object? previous;
@@ -283,17 +283,17 @@ final class HubChange {
   final Object? tag;
 }
 
-/// A committed emit of a signal.
-final class HubEmit {
-  const HubEmit._({
+/// A committed emit of a fact.
+final class LocalFactEmit {
+  const LocalFactEmit._({
     required this.seq,
-    required this.signal,
+    required this.fact,
     required this.value,
     required this.tag,
   });
 
   final int seq;
-  final Object signal;
+  final Object fact;
   final Object? value;
   final Object? tag;
 }
@@ -308,16 +308,16 @@ bool _same(Object? a, Object? b) => a == b;
 ///
 /// Reads see the committed values and, inside a batch of its hub, the
 /// batch's own writes. A write of an equal value commits nothing.
-final class KeyedCell<K, V> implements _Store {
-  KeyedCell({Hub? hub, bool Function(V a, V b)? equals})
-    : hub = hub ?? Hub(),
+final class LocalKeyedState<K, V> implements _Store {
+  LocalKeyedState({LocalHub? hub, bool Function(V a, V b)? equals})
+    : hub = hub ?? LocalHub(),
       _equals = equals;
 
   @override
-  final Hub hub;
+  final LocalHub hub;
   final bool Function(V a, V b)? _equals;
   final Map<K, V> _values = {};
-  KeyedCellWriter<K, V>? _writer;
+  LocalKeyedStateWriter<K, V>? _writer;
   @override
   bool _closed = false;
 
@@ -325,10 +325,10 @@ final class KeyedCell<K, V> implements _Store {
   bool get claimed => _writer != null;
 
   /// The only writer; another claim fails until it is released.
-  KeyedCellWriter<K, V> claim() {
-    if (_closed) throw StateError('the cell is closed');
-    if (_writer != null) throw StateError('the cell has a writer');
-    return _writer = KeyedCellWriter._(this);
+  LocalKeyedStateWriter<K, V> claim() {
+    if (_closed) throw StateError('the state is closed');
+    if (_writer != null) throw StateError('the state has a writer');
+    return _writer = LocalKeyedStateWriter._(this);
   }
 
   /// The value of [key], or null when there is none.
@@ -379,30 +379,30 @@ final class KeyedCell<K, V> implements _Store {
   }
 }
 
-/// The write handle of a [KeyedCell].
-final class KeyedCellWriter<K, V> implements IHandle {
-  KeyedCellWriter._(this._cell);
+/// The write handle of a [LocalKeyedState].
+final class LocalKeyedStateWriter<K, V> implements IHandle {
+  LocalKeyedStateWriter._(this._state);
 
-  final KeyedCell<K, V> _cell;
+  final LocalKeyedState<K, V> _state;
   bool _live = true;
 
   /// Sets the value of [key]; [tag] goes with the change, unread.
   void set(K key, V value, {Object? tag}) {
     _check();
-    _cell.hub._write(_cell, key, value, false, tag);
+    _state.hub._write(_state, key, value, false, tag);
   }
 
   /// Removes the value of [key].
   void remove(K key, {Object? tag}) {
     _check();
-    _cell.hub._write(_cell, key, null, true, tag);
+    _state.hub._write(_state, key, null, true, tag);
   }
 
   /// Removes every value, those committed and those written in the batch
   /// running now: a key written in it and never committed leaves nothing.
   void clear({Object? tag}) {
     _check();
-    _cell.hub._clear(_cell, [..._cell._values.keys], tag);
+    _state.hub._clear(_state, [..._state._values.keys], tag);
   }
 
   /// The value of [key] as a [IStateWriter].
@@ -412,33 +412,33 @@ final class KeyedCellWriter<K, V> implements IHandle {
     if (!_live) throw StateError('this writer was released');
   }
 
-  /// Gives the cell up; its values stay.
+  /// Gives the state up; its values stay.
   @override
   void dispose() {
     if (!_live) return;
     _live = false;
-    if (identical(_cell._writer, this)) _cell._writer = null;
+    if (identical(_state._writer, this)) _state._writer = null;
   }
 }
 
 final class _KeyedReader<K, V> implements IStateReader<V> {
-  _KeyedReader(this._cell, this._key);
-  final KeyedCell<K, V> _cell;
+  _KeyedReader(this._state, this._key);
+  final LocalKeyedState<K, V> _state;
   final K _key;
 
   @override
-  V? get value => _cell.read(_key);
+  V? get value => _state.read(_key);
 
   @override
-  bool get has => _cell.has(_key);
+  bool get has => _state.has(_key);
 
   @override
-  Stream<V?> watch() => _cell.watch(_key);
+  Stream<V?> watch() => _state.watch(_key);
 }
 
 final class _KeyedWriter<K, V> implements IStateWriter<V> {
   _KeyedWriter(this._writer, this._key);
-  final KeyedCellWriter<K, V> _writer;
+  final LocalKeyedStateWriter<K, V> _writer;
   final K _key;
 
   @override
@@ -449,17 +449,17 @@ final class _KeyedWriter<K, V> implements IStateWriter<V> {
 }
 
 /// One value, written by one writer (SPEC §21.2).
-final class Cell<V> implements _Store, IStateReader<V> {
-  Cell({Hub? hub, bool Function(V a, V b)? equals})
-    : hub = hub ?? Hub(),
+final class LocalState<V> implements _Store, IStateReader<V> {
+  LocalState({LocalHub? hub, bool Function(V a, V b)? equals})
+    : hub = hub ?? LocalHub(),
       _equals = equals;
 
   @override
-  final Hub hub;
+  final LocalHub hub;
   final bool Function(V a, V b)? _equals;
   bool _has = false;
   V? _value;
-  CellWriter<V>? _writer;
+  LocalStateWriter<V>? _writer;
   @override
   bool _closed = false;
 
@@ -467,10 +467,10 @@ final class Cell<V> implements _Store, IStateReader<V> {
   bool get claimed => _writer != null;
 
   /// The only writer; another claim fails until it is released.
-  CellWriter<V> claim() {
-    if (_closed) throw StateError('the cell is closed');
-    if (_writer != null) throw StateError('the cell has a writer');
-    return _writer = CellWriter._(this);
+  LocalStateWriter<V> claim() {
+    if (_closed) throw StateError('the state is closed');
+    if (_writer != null) throw StateError('the state has a writer');
+    return _writer = LocalStateWriter._(this);
   }
 
   /// The value, or null when there is none.
@@ -518,46 +518,46 @@ final class Cell<V> implements _Store, IStateReader<V> {
   }
 }
 
-/// The write handle of a [Cell].
-final class CellWriter<V> implements IHandle, IStateWriter<V> {
-  CellWriter._(this._cell);
+/// The write handle of a [LocalState].
+final class LocalStateWriter<V> implements IHandle, IStateWriter<V> {
+  LocalStateWriter._(this._state);
 
-  final Cell<V> _cell;
+  final LocalState<V> _state;
   bool _live = true;
 
   /// Sets the value; [tag] goes with the change, unread.
   @override
   void set(V value, {Object? tag}) {
     _check();
-    _cell.hub._write(_cell, null, value, false, tag);
+    _state.hub._write(_state, null, value, false, tag);
   }
 
   /// Removes the value.
   @override
   void remove({Object? tag}) {
     _check();
-    _cell.hub._write(_cell, null, null, true, tag);
+    _state.hub._write(_state, null, null, true, tag);
   }
 
   void _check() {
     if (!_live) throw StateError('this writer was released');
   }
 
-  /// Gives the cell up; its value stays.
+  /// Gives the state up; its value stays.
   @override
   void dispose() {
     if (!_live) return;
     _live = false;
-    if (identical(_cell._writer, this)) _cell._writer = null;
+    if (identical(_state._writer, this)) _state._writer = null;
   }
 }
 
-Stream<V?> _watch<V>(_Member store, Object? key, V? Function() now) =>
+Stream<V?> _watch<V>(_Member state, Object? key, V? Function() now) =>
     Stream.multi((out) {
       out.add(now());
-      final sub = store.hub.ticks.listen((t) {
+      final sub = state.hub.ticks.listen((t) {
         for (final c in t.changes) {
-          if (identical(c.store, store) && c.key == key) {
+          if (identical(c.state, state) && c.key == key) {
             out.add(c.removed ? null : c.value as V);
           }
         }
@@ -568,11 +568,11 @@ Stream<V?> _watch<V>(_Member store, Object? key, V? Function() now) =>
 /// What happened, said once, keeping no value (SPEC §21.3).
 ///
 /// One emitter, or as many as claim it when [open].
-final class Signal<T> implements _Member, IFactListener<T> {
-  Signal({Hub? hub, this.open = false}) : hub = hub ?? Hub();
+final class LocalFact<T> implements _Member, IFactListener<T> {
+  LocalFact({LocalHub? hub, this.open = false}) : hub = hub ?? LocalHub();
 
   @override
-  final Hub hub;
+  final LocalHub hub;
 
   /// Whether more than one emitter may claim it.
   final bool open;
@@ -581,19 +581,19 @@ final class Signal<T> implements _Member, IFactListener<T> {
   bool _closed = false;
 
   /// An emitter; a second one fails unless [open].
-  SignalEmitter<T> claim() {
-    if (_closed) throw StateError('the signal is closed');
-    if (!open && _emitters > 0) throw StateError('the signal has an emitter');
+  LocalFactEmitter<T> claim() {
+    if (_closed) throw StateError('the fact is closed');
+    if (!open && _emitters > 0) throw StateError('the fact has an emitter');
     _emitters++;
-    return SignalEmitter._(this);
+    return LocalFactEmitter._(this);
   }
 
   /// Emits as they are committed.
   @override
   Stream<T> get stream => hub.ticks.expand(
     (t) => [
-      for (final e in t.emits)
-        if (identical(e.signal, this)) e.value as T,
+      for (final e in t.facts)
+        if (identical(e.fact, this)) e.value as T,
     ],
   );
 
@@ -604,32 +604,32 @@ final class Signal<T> implements _Member, IFactListener<T> {
   }
 }
 
-/// An emit handle of a [Signal].
-final class SignalEmitter<T> implements IHandle, IFactEmitter<T> {
-  SignalEmitter._(this._signal);
+/// An emit handle of a [LocalFact].
+final class LocalFactEmitter<T> implements IHandle, IFactEmitter<T> {
+  LocalFactEmitter._(this._fact);
 
-  final Signal<T> _signal;
+  final LocalFact<T> _fact;
   bool _live = true;
 
   /// Emits [value]; [tag] goes with it, unread.
   @override
   void emit(T value, {Object? tag}) {
-    if (!_live || _signal._closed) {
+    if (!_live || _fact._closed) {
       throw StateError('this emitter was released');
     }
-    _signal.hub._emit(_signal, value, tag);
+    _fact.hub._emit(_fact, value, tag);
   }
 
   @override
   void dispose() {
     if (!_live) return;
     _live = false;
-    _signal._emitters--;
+    _fact._emitters--;
   }
 }
 
 /// Asks the one who serves it, and answers what it answers (SPEC §21.4).
-final class Port<P, R> implements ICommandCaller<P, R> {
+final class LocalCommand<P, R> implements ICommandCaller<P, R> {
   FutureOr<R> Function(P params)? _handler;
 
   /// Whether someone serves it now.
@@ -638,7 +638,7 @@ final class Port<P, R> implements ICommandCaller<P, R> {
   /// Serves it with [handler]; another serve fails until this one is
   /// disposed.
   IHandle serve(FutureOr<R> Function(P params) handler) {
-    if (_handler != null) throw StateError('the port is served');
+    if (_handler != null) throw StateError('the command is served');
     _handler = handler;
     return _Release(() {
       if (identical(_handler, handler)) _handler = null;
@@ -649,7 +649,7 @@ final class Port<P, R> implements ICommandCaller<P, R> {
   @override
   Future<R> call(P params) {
     final h = _handler;
-    if (h == null) return Future.error(StateError('no one serves the port'));
+    if (h == null) return Future.error(StateError('no one serves the command'));
     return Future.sync(() => h(params));
   }
 }
