@@ -173,9 +173,13 @@ abstract interface class IBoardClient {
 }
 
 /// The words of [Board] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class BoardClient implements IBoardClient {
-  const BoardClient(this.view);
+  BoardClient(this.view) {
+    view.builtAgainst(boardWords.words, from: boardWords.from);
+  }
 
   final IRegistryView view;
 
@@ -238,7 +242,7 @@ final class BoardClient implements IBoardClient {
   /// Each word of [Board] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, boardWords.words);
 
   /// note.seen, as it is said from now on: its payload, and
@@ -253,7 +257,7 @@ const boardWords = WordSet('note', [
   ...BoardState.values,
   ...BoardCommand.values,
   ...BoardFact.values,
-]);
+], from: 'parlance_generator');
 
 const _$ActionShape = RecordShape<Action>(
   {

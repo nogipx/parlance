@@ -200,6 +200,13 @@ void main() {
     );
   });
 
+  test('a client made tells the registry what it was built against', () {
+    PlayerClient(asAnn);
+    expect(r.mismatches, isEmpty, reason: 'nothing there yet');
+    p.defineState(StateDescriptor('player.volume', type: const TextType()));
+    expect(r.mismatches.map((m) => (m.by, m.word)), [(ann, 'player.volume')]);
+  });
+
   test('every word is listed once, in its vocabulary', () {
     expect(playerWords.words.map((w) => w.name), [
       'player.volume',
@@ -235,7 +242,7 @@ void main() {
     };
     changed['player.next'] = {'is': 'command', 'params': <String, Object?>{}};
     expect(schemaBreaks(now, changed), [
-      'player.volume changed',
+      'player.volume: type.type: was int, is text',
       'player.stop is gone',
     ]);
   });

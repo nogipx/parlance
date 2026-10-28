@@ -27,6 +27,28 @@ enum _State<T> implements IStateWord<T> {
   String? get key => null;
 }
 
+/// The muted state as code built against another owner's knows it.
+enum _Text<T> implements IStateWord<T> {
+  muted<String>(Plain(TextType()));
+
+  const _Text(this.shape);
+
+  @override
+  final Shape<T> shape;
+
+  @override
+  String get name => 'audio.muted';
+
+  @override
+  String? get key => null;
+}
+
+const _otherwise = [
+  Mismatch(user, 'audio.muted', [
+    WordBreak('type.type', BreakKind.type, 'text', 'bool'),
+  ]),
+];
+
 void main() {
   late Fixture f;
 
@@ -67,6 +89,11 @@ void main() {
       expect(view.read('host.secret'), isNull);
       expect(view.readAll('host.secret'), isEmpty);
     });
+
+    test('tells the registry what its code was built against (SPEC §6.9)', () {
+      LocalView(f.r, by: user).builtAgainst(_Text.values);
+      expect(f.r.mismatches, _otherwise);
+    });
   });
 
   group('a view over remote', () {
@@ -83,6 +110,15 @@ void main() {
       await mirror.dispose();
       await link.close();
     });
+
+    test(
+      'tells the host what its code was built against (SPEC §6.9)',
+      () async {
+        view.builtAgainst(_Text.values);
+        await settle();
+        expect(f.r.mismatches, _otherwise);
+      },
+    );
 
     test(
       'keeps what its listeners ask for, all of them, until none does',

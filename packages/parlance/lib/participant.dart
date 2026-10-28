@@ -10,7 +10,12 @@
 library;
 
 export 'src/participant/local.dart'
-    hide registryOf, takeForServing, keepsNothing;
+    hide
+        registryOf,
+        takeForServing,
+        keepsNothing,
+        builtAgainstSchemas,
+        forgetBuiltAgainst;
 export 'src/participant/local_registry.dart';
 export 'src/participant/owner.dart' hide OwnerGroup;
 export 'src/participant/participant.dart';

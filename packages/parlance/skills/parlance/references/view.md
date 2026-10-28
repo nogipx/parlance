@@ -23,6 +23,11 @@ this process or reached over remote, so the same widgets serve both.
 - `descriptor(word)`: the word as the view sees it defined now; a typed
   status (`wordStatus(view, word)`) holds it to the word the code was
   built against, `WordMismatch` when it breaks a promise (§6.5).
+- `builtAgainst(words, {from})`: tells the registry the view's code was
+  built against [words], from the words package [from], for the host to
+  see where one is defined otherwise (`Registry.mismatches`, §6.9); a
+  client tells it as it is made. Across a connection by fingerprint
+  first (§25.4).
 - As a shape has them (§18): `readAs(state, shape, {key})`,
   `factsAs(fact, shape)`, `callAs(command, params, shape)`: in this process
   a word the registry keeps by that shape is the Dart value itself, both

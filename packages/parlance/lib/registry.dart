@@ -5,6 +5,14 @@
 library;
 
 export 'src/registry/cause.dart' show Principal, Cause, Origin;
+export 'src/registry/compat.dart'
+    show
+        WordBreak,
+        BreakKind,
+        keepsPromises,
+        entryBreaks,
+        canonicalSchema,
+        fingerprintOf;
 export 'src/registry/descriptors.dart';
 export 'src/registry/ids.dart'
     show newId, isValidName, checkWordName, wordVersion;

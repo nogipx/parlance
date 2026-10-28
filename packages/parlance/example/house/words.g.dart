@@ -246,9 +246,13 @@ abstract interface class IHouseClient {
 }
 
 /// The words of [House] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class HouseClient implements IHouseClient {
-  const HouseClient(this.view);
+  HouseClient(this.view) {
+    view.builtAgainst(houseWords.words, from: houseWords.from);
+  }
 
   final IRegistryView view;
 
@@ -336,7 +340,7 @@ final class HouseClient implements IHouseClient {
   /// Each word of [House] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, houseWords.words);
 
   /// house.doorbell.rang, as it is said from now on: its payload, and
@@ -357,7 +361,7 @@ const houseWords = WordSet('house', [
   ...HouseCommand.values,
   ...HouseQuery.values,
   ...HouseFact.values,
-]);
+], from: 'parlance');
 
 typedef HouseSetLight = ({String room, bool on});
 
@@ -498,9 +502,13 @@ abstract interface class IVisitClient {
 }
 
 /// The words of [Visit] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class VisitClient implements IVisitClient {
-  const VisitClient(this.view);
+  VisitClient(this.view) {
+    view.builtAgainst(visitWords.words, from: visitWords.from);
+  }
 
   final IRegistryView view;
 
@@ -528,7 +536,7 @@ final class VisitClient implements IVisitClient {
   /// Each word of [Visit] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, visitWords.words);
 }
 
@@ -538,7 +546,7 @@ final class VisitClient implements IVisitClient {
 const visitWords = WordSet('visit', [
   ...VisitState.values,
   ...VisitCommand.values,
-]);
+], from: 'parlance');
 
 typedef VisitLeave = ({String who});
 

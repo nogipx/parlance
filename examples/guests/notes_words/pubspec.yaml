@@ -1,5 +1,6 @@
 name: notes_words
 description: "The notes guest's words: what it gives the app and the other guests."
+version: 1.0.0
 publish_to: none
 resolution: workspace
 

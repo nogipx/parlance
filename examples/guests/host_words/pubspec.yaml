@@ -1,5 +1,6 @@
 name: host_words
 description: "The host's words: what the app gives every widlet guest."
+version: 1.0.0
 publish_to: none
 resolution: workspace
 

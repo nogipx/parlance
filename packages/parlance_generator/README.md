@@ -57,11 +57,12 @@ player.volumeChanges.listen(show);
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```
 
-Keep the schema in the repository and hold it in a test, so a published word does not change by accident:
+Made, the client tells the registry it was built against the vocabulary, and from which words package and version (the generator reads them from the package's pubspec into `playerWords.from`, `player_words 1.2.0`): the host sees in `registry.mismatches`, and in its log, where a word is defined otherwise than this code holds it (a module updated apart) and which version the part took it from, with no code of yours.
+
+Hold the words to every release still in use, so a published word does not change by accident; the releases' schemas come from where releases are (a tag, pub, a registry of frozen versions, SPEC §25.3):
 
 ```dart
-final before = jsonDecode(File('schema/player.json').readAsStringSync());
-expect(schemaBreaks(before, schemaOf(playerWords.words)), isEmpty);
+expect(breaksSince(releases, schemaOf(playerWords.words)), isEmpty);
 ```
 
 `test/fixtures/player.dart` shows every kind of word, bounds, defaults and a json_serializable class; `test/generated_test.dart` holds what its words do in a registry, `test/errors_test.dart` what the generator refuses.

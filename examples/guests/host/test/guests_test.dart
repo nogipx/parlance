@@ -31,7 +31,10 @@ void main() {
   Future<(RemoteParticipant, Board)> board() => loadInMemory(
     host,
     'board',
-    (e) => startBoard(e, onMismatch: (w, b) => mismatches[w] = b),
+    (e) => startBoard(
+      e,
+      onMismatch: (w, b) => mismatches[w] = [for (final x in b) '$x'],
+    ),
   );
 
   test('a guest uses another guest\'s words and the host\'s, typed', () async {
@@ -45,6 +48,7 @@ void main() {
     expect((await heard).text, 'buy milk');
     expect(host.app.toasts, ['pinned: buy milk']);
     expect(mismatches, isEmpty);
+    expect(host.registry.mismatches, isEmpty);
     await b.close();
   });
 
@@ -88,12 +92,17 @@ void main() {
       expect(mismatches['notes.add'], [
         'params.fields.text.type.maxLength: was 200, is 100',
       ]);
-      expect(mismatches['notes.all'], [
-        'type.item.type: was object, is text',
-        'type.item.fields: was {id: {type: {type: text}}, text: {type: {type: '
-            'text}}}, is nothing',
-      ]);
+      expect(mismatches['notes.all'], ['type.item.type: was object, is text']);
       expect(NotesClient(p).mismatches.keys, {'notes.add', 'notes.all'});
+      expect(
+        {
+          for (final m in host.registry.mismatches)
+            if (m.by == Who.widlet('board'))
+              m.word: [for (final b in m.breaks) '$b'],
+        },
+        mismatches,
+        reason: 'the host is told it too, as the board tells it',
+      );
       await b.close();
     },
   );

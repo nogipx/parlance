@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:developer' as developer;
 
 import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
@@ -19,6 +20,7 @@ export '../core/core.dart'
         IStateWriter;
 
 import 'cause.dart';
+import 'compat.dart';
 import 'descriptors.dart';
 import 'ids.dart';
 import 'json.dart';
@@ -551,13 +553,18 @@ final class Registry implements ITypeContext {
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('defined', data: {'word': descriptor.name});
         }
+        _judgeAgain(descriptor.name);
       case DescriptorRemoved(:final descriptor):
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('removed', data: {'word': descriptor.name});
         }
+        _judgeAgain(descriptor.name);
       case AliasChanged(:final alias):
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('alias changed', data: {'alias': alias});
+        }
+        for (final by in [...?_builtBy[alias]]) {
+          _judge(by, alias);
         }
       case KindChanged(:final kind):
         if (_catalogLog.isDebug) {
@@ -1151,6 +1158,166 @@ final class Registry implements ITypeContext {
     for (final name in _uses.keys) name: usesOf(name),
   };
 
+  // --- Built against --------------------------------------------------------
+
+  /// How many words one principal is told built against at most: past
+  /// them a peer's made-up names keep nothing.
+  static const builtPerPrincipal = 1024;
+
+  /// How many schemas it knows by fingerprint at most, the least recently
+  /// told going first (SPEC §25.4).
+  static const knownSchemas = 4096;
+
+  /// The schemas told it, by fingerprint: a part tells a fingerprint
+  /// first, and its schema only when it is not known here.
+  final LinkedHashMap<String, Object?> _known = LinkedHashMap();
+
+  void _know(Object? schema) {
+    final print = fingerprintOf(schema);
+    _known.remove(print);
+    _known[print] = schema;
+    if (_known.length > knownSchemas) _known.remove(_known.keys.first);
+  }
+
+  /// The words each principal's code was built against, by name as it
+  /// names them, each as a schema entry (SPEC §6.9).
+  final Map<Principal, Map<String, _Built>> _built = {};
+
+  /// Who was built against each name.
+  final Map<String, Set<Principal>> _builtBy = {};
+
+  /// Each word a principal was built against that breaks it now, and
+  /// where, in the order found.
+  final Map<(Principal, String), List<WordBreak>> _mismatched = {};
+  final StreamController<Mismatch> _mismatches = StreamController.broadcast();
+
+  /// Every word a principal's code was built against that is defined
+  /// otherwise now, saying where it breaks (SPEC §6.9). What it is told,
+  /// it is told as the code is made (a client); the registry judges it
+  /// whenever such a word comes, goes or is defined again. Diagnostics
+  /// only: nothing waits on it, nothing is refused by it.
+  List<Mismatch> get mismatches => [
+    for (final MapEntry(key: (by, word), value: breaks) in _mismatched.entries)
+      Mismatch(by, word, breaks, from: _built[by]?[word]?.from),
+  ];
+
+  /// A [Mismatch] whenever one is found, breaks otherwise, or ends: then
+  /// its breaks are empty (the word keeps its promises again, it is gone,
+  /// or none built against it is there any more).
+  Stream<Mismatch> get mismatchChanges => _mismatches.stream;
+
+  /// [name] came, went or was defined again: whoever was built against it,
+  /// or an old name of it, judged again.
+  void _judgeAgain(String name) {
+    final names = [
+      name,
+      for (final MapEntry(:key, :value) in _aliases.entries)
+        if (value == name) key,
+    ];
+    for (final n in names) {
+      for (final by in [...?_builtBy[n]]) {
+        _judge(by, n);
+      }
+    }
+  }
+
+  /// Whether [word] as it is now breaks what [by] was built against.
+  void _judge(Principal by, String word) {
+    final built = _built[by]?[word];
+    final live = built == null ? null : descriptorOf(word);
+    final breaks = live == null
+        ? const <WordBreak>[]
+        : entryBreaks(built!.schema, schemaOfDescriptor(live));
+    final key = (by, word);
+    final was = _mismatched[key];
+    if (breaks.isEmpty) {
+      if (was == null) return;
+      _mismatched.remove(key);
+    } else {
+      if (was != null && sameBreaks(was, breaks)) return;
+      _mismatched[key] = breaks;
+      _warnMismatch(by, word, breaks, built!.from);
+    }
+    if (!_mismatches.isClosed) {
+      _mismatches.add(Mismatch(by, word, breaks, from: built?.from));
+    }
+  }
+
+  /// [params] of a call by [by], with what [by] was built against giving
+  /// and [command] no longer takes left out (SPEC §25.5), as Avro's reader
+  /// skips a field it does not know: code built before a param went goes
+  /// on calling. Only for one whose words are told otherwise (a
+  /// [Mismatch] of [command]), and only params of the call itself; what it
+  /// gave is not heard, and the mismatch still says so.
+  Kept _adapted(
+    String command,
+    _CommandEntry entry,
+    Kept params,
+    Principal by,
+  ) {
+    final mine = _built[by];
+    if (mine == null) return params;
+    final name = mine.containsKey(command)
+        ? command
+        : _aliases.entries
+              .where((a) => a.value == command && mine.containsKey(a.key))
+              .firstOrNull
+              ?.key;
+    if (name == null || !_mismatched.containsKey((by, name))) return params;
+    final built = mine[name]!.schema;
+    final gave = ((built as Map?)?['params'] as Map?)?['fields'] as Map?;
+    final json = params.json;
+    if (gave == null || json is! Map) return params;
+    final takes = entry.descriptor.params.fields;
+    final gone = [
+      for (final k in json.keys)
+        if (!takes.containsKey(k) && gave.containsKey(k)) k,
+    ];
+    if (gone.isEmpty) return params;
+    if (_callLog.isEnabled(RpcLogLevel.info)) {
+      _callLog.info(
+        'params left out',
+        data: {'command': command, 'by': by.selector, 'params': gone},
+      );
+    }
+    return Kept.json({
+      for (final MapEntry(:key, :value) in json.entries)
+        if (!gone.contains(key)) key: value,
+    });
+  }
+
+  /// Logs a mismatch found as a warning in `catalog`; with no log, while
+  /// asserts run (in development), in the developer log.
+  void _warnMismatch(
+    Principal by,
+    String word,
+    List<WordBreak> breaks,
+    String? from,
+  ) {
+    if (_catalogLog.isEnabled(RpcLogLevel.warning)) {
+      _catalogLog.warning(
+        'built against otherwise',
+        data: {
+          'by': by.selector,
+          'word': word,
+          'from': ?from,
+          'breaks': [for (final b in breaks) '$b'],
+        },
+      );
+      return;
+    }
+    if (_traced) return;
+    assert(() {
+      developer.log(
+        '${by.selector} was built against $word'
+        '${from == null ? '' : ' of $from'} otherwise: ${breaks.join('; ')}',
+        name: 'parlance',
+        level: 900,
+      );
+      return true;
+    }());
+  }
+
   // --- Calls -----------------------------------------------------------------
 
   final LinkedHashMap<String, _Seen> _calls = LinkedHashMap();
@@ -1344,7 +1511,10 @@ final class Registry implements ITypeContext {
     }
     final d = entry.descriptor;
     try {
-      params = _admitParams(entry.params, rawParams);
+      params = _admitParams(
+        entry.params,
+        _adapted(command, entry, rawParams, cause.by),
+      );
     } on TypeMismatch catch (e) {
       return finish(CallRefused(Refusal.invalidParams, '$e'));
     }
@@ -1571,6 +1741,7 @@ final class Registry implements ITypeContext {
       _availability.close(),
       _hub.dispose(),
       _catalog.close(),
+      _mismatches.close(),
       _records.close(),
       _starts.close(),
       _journal.close(),
@@ -2005,6 +2176,56 @@ extension RawRegistry on Registry {
   /// Calls and asks are counted by the registry itself.
   void usedBy(String word, Principal by) => _used(word, by)?.read();
 
+  /// [by]'s code was built against [schemas], each word's schema entry by
+  /// name (SPEC §6.9): judged now, and whenever one is defined again,
+  /// until the handle is disposed. A word told again is held to the
+  /// newest; one past [builtPerPrincipal] is not kept.
+  IHandle builtAgainst(
+    Principal by,
+    Map<String, Object?> schemas, {
+    String? from,
+  }) {
+    final mine = _built.putIfAbsent(by, () => {});
+    final told = <String>[];
+    for (final MapEntry(key: word, value: schema) in schemas.entries) {
+      final had = mine[word];
+      if (had == null && mine.length >= Registry.builtPerPrincipal) continue;
+      _know(schema);
+      if (had != null &&
+          had.from == from &&
+          fingerprintOf(had.schema) == fingerprintOf(schema)) {
+        had.holders++;
+      } else {
+        mine[word] = _Built(schema, (had?.holders ?? 0) + 1, from);
+      }
+      (_builtBy[word] ??= {}).add(by);
+      told.add(word);
+      _judge(by, word);
+    }
+    if (mine.isEmpty) _built.remove(by);
+    return _Disposer(() {
+      for (final word in told) {
+        final b = _built[by]?[word];
+        if (b == null || --b.holders > 0) continue;
+        _built[by]!.remove(word);
+        if (_built[by]!.isEmpty) _built.remove(by);
+        if (_builtBy[word] case final who?) {
+          who.remove(by);
+          if (who.isEmpty) _builtBy.remove(word);
+        }
+        _judge(by, word);
+      }
+    });
+  }
+
+  /// The schema told it under [print], a fingerprint (SPEC §25.4); null
+  /// when it knows none.
+  Object? knownSchema(String print) {
+    final schema = _known.remove(print);
+    if (schema == null) return null;
+    return _known[print] = schema;
+  }
+
   /// [by] listens to [word] until the handle is disposed: a session's
   /// subscription (SPEC §6.8). Null while there is no word of that name:
   /// ask again when one comes (`catalogChanges`).
@@ -2125,6 +2346,18 @@ extension RawRegistry on Registry {
       if (_guards[id] == g) _guards.remove(id);
     });
   }
+}
+
+/// A word's schema entry a principal was built against, and how many of
+/// its handles hold it.
+final class _Built {
+  _Built(this.schema, this.holders, this.from);
+  final Object? schema;
+  int holders;
+
+  /// The words package it came from, as code says it (`notes_words
+  /// 1.2.0`).
+  final String? from;
 }
 
 /// A call id seen within the dedup window, and the call it was given for.

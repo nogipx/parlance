@@ -46,9 +46,10 @@ enum BuiltCommand<P, R> implements ICommandWord<P, R> {
 
 final _built = _set<Volume>({'volume': const Part(Plain(IntType()))});
 
-/// The same words as the owner defines them now.
+/// The same words as the owner defines them now: the volume may go
+/// higher than the code built against it reads.
 enum Now<T> implements IStateWord<T> {
-  volume<int>('deck.volume', Plain(IntType(min: 0, max: 50))),
+  volume<int>('deck.volume', Plain(IntType(min: 0, max: 150))),
   mode<String>('deck.mode', Plain(EnumType(['a', 'b'])));
 
   const Now(this.name, this.shape);
@@ -111,6 +112,12 @@ final _broken = _set<VolumeNow>({
   'fade': const Part(Plain(BoolType()), optional: true),
 });
 
+/// Each break a status says, as text; none for one that is no mismatch.
+List<String> said(WordStatus s) => [
+  if (s case WordMismatch(:final breaks))
+    for (final b in breaks) '$b',
+];
+
 const deck = Principal('deck');
 const guest = Principal('widlet', 'b');
 const anyone = Callers({'*': Access.allow});
@@ -143,10 +150,9 @@ void main() {
           defineNow();
           final b = await asGuest();
           await b.settle();
-          expect(
-            b.state(Built.volume).status,
-            const WordMismatch(['type.max: was 100, is 50']),
-          );
+          expect(said(b.state(Built.volume).status), [
+            'type.max: was 100, is 150',
+          ]);
           expect(b.state(Built.mode).status, const WordReady());
           expect(
             b.status('deck.volume'),
@@ -161,14 +167,9 @@ void main() {
         p.state(Wide.volume).define();
         final b = await asGuest();
         await b.settle();
-        expect(
-          b.state(Built.volume).status,
-          const WordMismatch([
-            'type.type: was int, is num',
-            'type.min: was 0, is -1',
-            'type.max: was 100, is nothing',
-          ]),
-        );
+        expect(said(b.state(Built.volume).status), [
+          'type.type: was int, is num',
+        ], reason: 'a type changed says no bound of it');
       });
 
       test('a param added beside a break is no break of its own', () async {
@@ -176,12 +177,9 @@ void main() {
         p.command(BrokenCommand.set).define((_) {}, callers: anyone);
         final b = await asGuest();
         await b.settle();
-        expect(
-          b.command(BuiltCommand.set).status,
-          const WordMismatch([
-            'params.fields.volume.type.type: was int, is text',
-          ]),
-        );
+        expect(said(b.command(BuiltCommand.set).status), [
+          'params.fields.volume.type.type: was int, is text',
+        ]);
       });
 
       test('a param added that may be left out keeps every promise', () async {
@@ -195,9 +193,15 @@ void main() {
         defineNow();
         final b = await asGuest();
         await b.settle();
-        expect(wordMismatches(b, [...Built.values, ...BuiltCommand.values]), {
-          'deck.volume': ['type.max: was 100, is 50'],
-        });
+        expect(
+          wordMismatches(b, [
+            ...Built.values,
+            ...BuiltCommand.values,
+          ]).map((w, breaks) => MapEntry(w, [for (final x in breaks) '$x'])),
+          {
+            'deck.volume': ['type.max: was 100, is 150'],
+          },
+        );
       });
 
       test(

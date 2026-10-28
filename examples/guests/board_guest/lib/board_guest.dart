@@ -44,7 +44,7 @@ final class Board {
 /// default it is printed, in development.
 Future<(RemoteParticipant, Board)> startBoard(
   RpcPeerEndpoint endpoint, {
-  void Function(String word, List<String> breaks)? onMismatch,
+  void Function(String word, List<WordBreak> breaks)? onMismatch,
 }) async {
   final p = await RemoteParticipant.over(endpoint);
   final tell =

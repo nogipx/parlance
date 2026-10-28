@@ -79,8 +79,27 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
       client: annotation.peek('client')?.boolValue ?? true,
       recordFields: await _recordFields(element, buildStep.resolver),
       shared: shared,
+      from: await _from(buildStep),
     ).build();
     return DartFormatter(languageVersion: Version(3, 9, 0)).format(out);
+  }
+}
+
+/// The words package and its version, as the package's pubspec says
+/// them (`notes_words 1.2.0`): what a client tells it was built against
+/// (SPEC §6.9). Its name alone when the pubspec says no version or cannot
+/// be read.
+Future<String> _from(BuildStep step) async {
+  final package = step.inputId.package;
+  try {
+    final pubspec = await step.readAsString(AssetId(package, 'pubspec.yaml'));
+    final version = RegExp(
+      r'''^version:\s*["']?([^\s"'#]+)''',
+      multiLine: true,
+    ).firstMatch(pubspec)?.group(1);
+    return version == null ? package : '$package $version';
+  } on Object {
+    return package;
   }
 }
 
@@ -208,9 +227,13 @@ final class _Emitter {
     required this.client,
     required this.recordFields,
     required this.shared,
+    required this.from,
   });
 
   final _Shared shared;
+
+  /// The words package and its version ([_from]).
+  final String from;
 
   final ClassElement cls;
 
@@ -350,7 +373,7 @@ final class _Emitter {
           if (facts.isNotEmpty) '...${_c}Fact.values',
         ].join(', '),
       )
-      ..writeln(']);')
+      ..writeln('], from: ${_quote(from)});')
       ..write(_helpers);
     return out.toString();
   }
@@ -525,7 +548,7 @@ final class _Emitter {
           'with where it breaks; empty when all keep their promises. For a',
           'start in development: `assert(client.mismatches.isEmpty)`.',
         ],
-        signature: 'Map<String, List<String>> get mismatches',
+        signature: 'Map<String, List<WordBreak>> get mismatches',
         body: '=> wordMismatches(view, $_words.words);',
       ),
     ];
@@ -630,9 +653,13 @@ final class _Emitter {
       ..writeln('}')
       ..writeln()
       ..writeln('/// The words of [$_c] through a view: its participant, a')
-      ..writeln('/// `LocalView`, a `MirrorView`.')
+      ..writeln('/// `LocalView`, a `MirrorView`. Made, it tells the registry')
+      ..writeln('/// the code was built against them, for it to say where one')
+      ..writeln('/// is defined otherwise (SPEC §6.9).')
       ..writeln('final class ${_c}Client implements I${_c}Client {')
-      ..writeln('  const ${_c}Client(this.view);')
+      ..writeln('  ${_c}Client(this.view) {')
+      ..writeln('    view.builtAgainst($_words.words, from: $_words.from);')
+      ..writeln('  }')
       ..writeln()
       ..writeln('  final IRegistryView view;');
     for (final m in all) {

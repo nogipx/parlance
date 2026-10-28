@@ -79,9 +79,13 @@ abstract interface class IAppClient {
 }
 
 /// The words of [App] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class AppClient implements IAppClient {
-  const AppClient(this.view);
+  AppClient(this.view) {
+    view.builtAgainst(appWords.words, from: appWords.from);
+  }
 
   final IRegistryView view;
 
@@ -108,14 +112,17 @@ final class AppClient implements IAppClient {
   /// Each word of [App] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, appWords.words);
 }
 
 /// The vocabulary of [App]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const appWords = WordSet('app', [...AppState.values, ...AppCommand.values]);
+const appWords = WordSet('app', [
+  ...AppState.values,
+  ...AppCommand.values,
+], from: 'host_words 1.0.0');
 
 typedef AppToast = ({String text});
 

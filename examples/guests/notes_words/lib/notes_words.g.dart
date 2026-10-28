@@ -107,9 +107,13 @@ abstract interface class INotesClient {
 }
 
 /// The words of [Notes] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class NotesClient implements INotesClient {
-  const NotesClient(this.view);
+  NotesClient(this.view) {
+    view.builtAgainst(notesWords.words, from: notesWords.from);
+  }
 
   final IRegistryView view;
 
@@ -140,7 +144,7 @@ final class NotesClient implements INotesClient {
   /// Each word of [Notes] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, notesWords.words);
 
   /// notes.added, as it is said from now on: its payload, and
@@ -155,7 +159,7 @@ const notesWords = WordSet('notes', [
   ...NotesState.values,
   ...NotesCommand.values,
   ...NotesFact.values,
-]);
+], from: 'notes_words 1.0.0');
 
 const _$NoteShape = RecordShape<Note>(
   {'id': Part(Plain(TextType())), 'text': Part(Plain(TextType()))},

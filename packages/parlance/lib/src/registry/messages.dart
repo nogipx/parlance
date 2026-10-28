@@ -1,4 +1,5 @@
 import 'cause.dart';
+import 'compat.dart';
 import 'json.dart';
 import 'shapes.dart';
 
@@ -426,7 +427,7 @@ final class WordUnavailable extends WordStatus {
 final class WordMismatch extends WordStatus {
   const WordMismatch(this.breaks);
 
-  final List<String> breaks;
+  final List<WordBreak> breaks;
 
   @override
   bool operator ==(Object other) {
@@ -705,6 +706,48 @@ final class WordUse {
     if (listening > 0) 'listening': listening,
     'last': last.toUtc().toIso8601String(),
   };
+}
+
+/// A word a principal's code was built against, defined otherwise now
+/// (SPEC §6.9): who, the word as its code names it, and every place it
+/// breaks, as `WordMismatch` says them. Its [breaks] are empty when it
+/// ends: the word keeps its promises again, is gone, or none built
+/// against it is there any more.
+final class Mismatch {
+  const Mismatch(this.by, this.word, this.breaks, {this.from});
+
+  final Principal by;
+  final String word;
+  final List<WordBreak> breaks;
+
+  /// The words package the code took [word] from, when it said
+  /// (`notes_words 1.2.0`): which version to look at, or to roll back.
+  final String? from;
+
+  Map<String, Object?> toJson() => {
+    'by': by.selector,
+    'word': word,
+    'from': ?from,
+    'breaks': [for (final b in breaks) b.toJson()],
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is Mismatch &&
+      other.by == by &&
+      other.word == word &&
+      other.from == from &&
+      sameBreaks(other.breaks, breaks);
+
+  @override
+  int get hashCode => Object.hash(by, word, Object.hashAll(breaks));
+
+  @override
+  String toString() => breaks.isEmpty
+      ? '${by.selector}: $word keeps its promises'
+      : '${by.selector} was built against $word'
+            '${from == null ? '' : ' of $from'} otherwise: '
+            '${breaks.join('; ')}';
 }
 
 /// A finished call, for journals (SPEC §9).

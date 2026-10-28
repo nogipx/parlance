@@ -53,9 +53,13 @@ abstract interface class IDoorsClient {
 }
 
 /// The words of [Doors] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class DoorsClient implements IDoorsClient {
-  const DoorsClient(this.view);
+  DoorsClient(this.view) {
+    view.builtAgainst(doorsWords.words, from: doorsWords.from);
+  }
 
   final IRegistryView view;
 
@@ -79,14 +83,16 @@ final class DoorsClient implements IDoorsClient {
   /// Each word of [Doors] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, doorsWords.words);
 }
 
 /// The vocabulary of [Doors]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const doorsWords = WordSet('door', [...DoorsState.values]);
+const doorsWords = WordSet('door', [
+  ...DoorsState.values,
+], from: 'parlance_generator');
 
 const _$RoomShape = RecordShape<Room>(
   {
@@ -158,9 +164,13 @@ abstract interface class ILightsClient {
 }
 
 /// The words of [Lights] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class LightsClient implements ILightsClient {
-  const LightsClient(this.view);
+  LightsClient(this.view) {
+    view.builtAgainst(lightsWords.words, from: lightsWords.from);
+  }
 
   final IRegistryView view;
 
@@ -181,14 +191,16 @@ final class LightsClient implements ILightsClient {
   /// Each word of [Lights] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, lightsWords.words);
 }
 
 /// The vocabulary of [Lights]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const lightsWords = WordSet('light', [...LightsCommand.values]);
+const lightsWords = WordSet('light', [
+  ...LightsCommand.values,
+], from: 'parlance_generator');
 
 typedef LightsOn = ({Room room});
 

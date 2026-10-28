@@ -8,6 +8,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import '../participant/owner.dart';
 import '../participant/participant.dart';
 import '../registry/cause.dart';
+import '../registry/compat.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/json.dart';
@@ -15,7 +16,9 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/shapes.dart';
 import '../registry/types.dart';
+import '../registry/words.dart';
 import '../view/mirror_view.dart';
+import 'built.dart';
 import 'contract.dart';
 import 'remote.dart';
 
@@ -339,6 +342,7 @@ final class RemoteParticipant implements IParticipant {
         },
     for (final g in _guards.values)
       {'op': 'guard', 'id': g.id, 'overridable': g.overridable, ..._asOf(g.as)},
+    ..._built.standing(),
   ];
 
   /// The peer endpoint it made on its connection.
@@ -479,6 +483,9 @@ final class RemoteParticipant implements IParticipant {
         for (var i = 0; i < ops.length && i < results.length; i++) {
           if (results[i]['error'] case final String code) {
             _fail(ops[i], code, '${results[i]['message']}');
+          } else if (_built.answered(ops[i], results[i]) case final op?) {
+            // The schemas the host does not know by their fingerprints.
+            _queue.add(op);
           }
         }
       } on Object catch (e) {
@@ -749,6 +756,24 @@ final class RemoteParticipant implements IParticipant {
   @override
   Descriptor? descriptor(String word) => _view.descriptor(word);
 
+  /// The host is told each word once, by fingerprint, and told again on a
+  /// new session.
+  @override
+  void builtAgainst(Iterable<IWord> words, {String? from}) =>
+      _builtAgainst(schemasOf(words), from, null);
+
+  /// What it and its parts told the host they were built against.
+  final BuiltTold _built = BuiltTold();
+
+  void _builtAgainst(
+    Map<String, Object?> schemas,
+    String? from,
+    Principal? as,
+  ) {
+    if (_disposed) return;
+    _built.tell(schemas, from: from, as: as).forEach(_ask);
+  }
+
   // --- Its own words ------------------------------------------------------
 
   @override
@@ -997,6 +1022,7 @@ final class RemoteParticipant implements IParticipant {
     for (final k in _kinds.keys) {
       _ask({'op': 'unkind', 'name': k});
     }
+    _built.forget().forEach(_ask);
     _disposed = true;
     _own.clear();
     _states.clear();
@@ -1329,6 +1355,10 @@ final class _Part implements IParticipant {
 
   @override
   Descriptor? descriptor(String word) => _root.descriptor(word);
+
+  @override
+  void builtAgainst(Iterable<IWord> words, {String? from}) =>
+      _root._builtAgainst(schemasOf(words), from, who);
 
   @override
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) =>

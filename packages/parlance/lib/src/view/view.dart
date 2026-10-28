@@ -79,6 +79,16 @@ abstract interface class IRegistryView {
   /// holds the word code was built against to (SPEC §6.5); null when it
   /// sees none.
   Descriptor? descriptor(String word);
+
+  /// Tells the registry the view's code was built against [words] (SPEC
+  /// §6.9), for it to say where one is defined otherwise
+  /// (`Registry.mismatches`), now and whenever words come and go; across
+  /// a connection the host is told, and told again on a new session. A
+  /// generated client tells it as it is made, with [from], the words
+  /// package and its version (`notes_words 1.2.0`), for a mismatch to say
+  /// which. Diagnostics only: nothing waits on it, nothing is refused by
+  /// it.
+  void builtAgainst(Iterable<IWord> words, {String? from});
 }
 
 /// Whether [word] is there for [view] now, as the code holding [word] was
@@ -102,7 +112,7 @@ Stream<WordStatus> wordStatusChanges(IRegistryView view, IWord word) =>
 /// by name, with where it breaks; empty when every one keeps its promises.
 /// For a part to check as it starts, in development:
 /// `assert(wordMismatches(p, ordersWords.words).isEmpty)`.
-Map<String, List<String>> wordMismatches(
+Map<String, List<WordBreak>> wordMismatches(
   IRegistryView view,
   Iterable<IWord> words,
 ) => {
@@ -302,6 +312,11 @@ final class LocalView implements IRegistryView {
 
   @override
   Descriptor? descriptor(String word) => registry.descriptorOf(word);
+
+  /// Held while the registry lives: a view has no end of its own.
+  @override
+  void builtAgainst(Iterable<IWord> words, {String? from}) =>
+      registry.builtAgainst(by, schemasOf(words), from: from);
 
   /// Views of one registry for one principal are the same view.
   @override

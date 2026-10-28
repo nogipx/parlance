@@ -8,6 +8,8 @@ environment:
 
 dependencies:
   clock: ^1.1.0
+  # A schema's fingerprint (SPEC §25.4).
+  crypto: ^3.0.0
   rpc_dart: ^6.3.0
   # The binary's transport to a host; the libraries do not import it.
   rpc_dart_socket: ^0.1.0

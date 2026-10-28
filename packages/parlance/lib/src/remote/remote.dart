@@ -717,6 +717,24 @@ final class RemoteSession extends ParlanceContractPeer {
         );
       case 'unguard':
         _guards.remove(part.guardId('${m['id']}'))?.dispose();
+      case 'built':
+        // Told by fingerprint first (SPEC §25.4): the schemas it knows it
+        // takes as told, and answers which it does not.
+        final schemas = {..._obj(m['words'])};
+        final unknown = <String>[];
+        for (final MapEntry(key: word, value: print) in _obj(
+          m['prints'],
+        ).entries) {
+          if (registry.knownSchema('$print') case final schema?) {
+            schemas[word] = schema;
+          } else {
+            unknown.add(word);
+          }
+        }
+        builtAgainstSchemas(part, schemas, from: m['from'] as String?);
+        if (unknown.isNotEmpty) return {'unknown': unknown};
+      case 'unbuilt':
+        forgetBuiltAgainst(part);
       default:
         throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }

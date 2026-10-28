@@ -1,6 +1,7 @@
 import 'package:clock/clock.dart' show Clock;
 
 import '../registry/cause.dart';
+import '../registry/compat.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
@@ -83,6 +84,18 @@ bool _overlap(String a, String b) =>
 /// serves [p] across a connection (`serve`); not exported, so a part given
 /// a participant never holds the registry.
 Registry registryOf(LocalParticipant p) => p._r;
+
+/// [p]'s code, or the participant's across a connection that [p] stands
+/// for, was built against [schemas] (SPEC §6.9): held until [p] goes.
+void builtAgainstSchemas(
+  LocalParticipant p,
+  Map<String, Object?> schemas, {
+  String? from,
+}) => p._builtAgainst(schemas, from);
+
+/// What [p] was told it was built against, let go: the participant across
+/// a connection it stands for went, though its session stays.
+void forgetBuiltAgainst(LocalParticipant p) => p._forgetBuilt();
 
 /// The registries a [LocalRegistry] keeps its words in: they keep no
 /// history and serve no connection. Not exported.
@@ -331,6 +344,37 @@ final class LocalParticipant implements IParticipant {
   @override
   Descriptor? descriptor(String word) => _view.descriptor(word);
 
+  /// Each word told once as it was built against it, held until it goes.
+  @override
+  void builtAgainst(Iterable<IWord> words, {String? from}) =>
+      _builtAgainst(schemasOf(words), from);
+
+  /// What it told the registry it was built against, by word: the
+  /// schema's fingerprint and the package it came from.
+  final Map<String, (String, String?)> _built = {};
+  final List<IHandle> _builtHandles = [];
+
+  void _builtAgainst(Map<String, Object?> schemas, String? from) {
+    if (_disposed) return;
+    final told = {
+      for (final MapEntry(:key, :value) in schemas.entries)
+        if (_built[key] != (fingerprintOf(value), from)) key: value,
+    };
+    if (told.isEmpty) return;
+    for (final MapEntry(:key, :value) in told.entries) {
+      _built[key] = (fingerprintOf(value), from);
+    }
+    _builtHandles.add(_r.builtAgainst(who, told, from: from));
+  }
+
+  void _forgetBuilt() {
+    for (final h in _builtHandles) {
+      h.dispose();
+    }
+    _builtHandles.clear();
+    _built.clear();
+  }
+
   // --- Its own words ------------------------------------------------------
 
   @override
@@ -509,6 +553,7 @@ final class LocalParticipant implements IParticipant {
       h.dispose();
     }
     _handles.clear();
+    _forgetBuilt();
     if (parent case final p?) {
       p._children.removeWhere((_, c) => c == this);
       return;

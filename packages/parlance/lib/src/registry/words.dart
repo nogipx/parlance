@@ -23,15 +23,20 @@ abstract interface class IWord {
 /// once, where the words are. The generator makes one per `@Vocabulary`
 /// class; one of hand-written enums is `WordSet('audio', [...])`.
 final class WordSet {
-  const WordSet(this.name, this.words) : open = false;
+  const WordSet(this.name, this.words, {this.from}) : open = false;
 
   /// A vocabulary whose words are not known before they come: a plugin's,
   /// a guest's in another language, a module's named at run time. Said
   /// so, never a vocabulary left out by mistake.
-  const WordSet.open(this.name) : words = const [], open = true;
+  const WordSet.open(this.name) : words = const [], open = true, from = null;
 
   final String name;
   final List<IWord> words;
+
+  /// The package its words come from, and its version (`notes_words
+  /// 1.2.0`), as the generator read them: what a client tells it was built
+  /// against (SPEC §6.9).
+  final String? from;
 
   /// Whether its words come at run time ([WordSet.open]).
   final bool open;

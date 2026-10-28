@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import '../registry/compat.dart';
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/shapes.dart';
+import '../registry/words.dart';
+import '../remote/built.dart';
 import '../remote/remote.dart';
 import 'view.dart';
 
@@ -10,13 +13,46 @@ import 'view.dart';
 /// calls. The mirror keeps the states and hears the facts the view's
 /// listeners ask for, and no others.
 final class MirrorView implements IRegistryView {
-  MirrorView(this.mirror, [this.client]);
+  MirrorView(this.mirror, [ParlanceClient? client]) : _client = client;
 
   final RegistryMirror mirror;
 
   /// The session's client; after a lost connection, set the new one here
-  /// and follow it with the mirror. Null before the first: a call fails.
-  ParlanceClient? client;
+  /// and follow it with the mirror: what the view was built against is
+  /// told to it again. Null before the first: a call fails.
+  ParlanceClient? get client => _client;
+  set client(ParlanceClient? c) {
+    _client = c;
+    if (c != null && !_built.isEmpty) unawaited(_tell(c, _built.standing()));
+  }
+
+  ParlanceClient? _client;
+
+  /// What it told the host it was built against.
+  final BuiltTold _built = BuiltTold();
+
+  /// Each word told once, by fingerprint, and again to a new client.
+  @override
+  void builtAgainst(Iterable<IWord> words, {String? from}) {
+    final ops = _built.tell(schemasOf(words), from: from);
+    if (ops.isEmpty) return;
+    if (_client case final c?) unawaited(_tell(c, ops));
+  }
+
+  /// Tells [ops], then the schemas the host does not know by fingerprint.
+  /// Diagnostics: what the host refuses is not the view's to tell.
+  Future<void> _tell(ParlanceClient c, List<Map<String, Object?>> ops) async {
+    try {
+      final answers = await c.apply(ops);
+      final more = [
+        for (var i = 0; i < ops.length && i < answers.length; i++)
+          ?_built.answered(ops[i], answers[i]),
+      ];
+      if (more.isNotEmpty) await c.apply(more);
+    } on Object {
+      return;
+    }
+  }
 
   final Map<String, int> _states = {};
   final Map<String, int> _facts = {};

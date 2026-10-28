@@ -348,9 +348,13 @@ abstract interface class IPlayerClient {
 }
 
 /// The words of [Player] through a view: its participant, a
-/// `LocalView`, a `MirrorView`.
+/// `LocalView`, a `MirrorView`. Made, it tells the registry
+/// the code was built against them, for it to say where one
+/// is defined otherwise (SPEC §6.9).
 final class PlayerClient implements IPlayerClient {
-  const PlayerClient(this.view);
+  PlayerClient(this.view) {
+    view.builtAgainst(playerWords.words, from: playerWords.from);
+  }
 
   final IRegistryView view;
 
@@ -450,7 +454,7 @@ final class PlayerClient implements IPlayerClient {
   /// Each word of [Player] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
-  Map<String, List<String>> get mismatches =>
+  Map<String, List<WordBreak>> get mismatches =>
       wordMismatches(view, playerWords.words);
 
   /// player.clipped, as it is said from now on: its payload, and
@@ -472,7 +476,7 @@ const playerWords = WordSet('player', [
   ...PlayerCommand.values,
   ...PlayerQuery.values,
   ...PlayerFact.values,
-]);
+], from: 'parlance_generator');
 
 Map<String, Object?> _$PlayerTrackToJson(Track v) => v.toJson();
 

@@ -22,6 +22,11 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Local fact** (§21.3, `LocalFact`): said once, no value kept; one emitter unless open.
 - **Local command** (§21.4, `LocalCommand`): one handler (`serve`) answers `call`.
 - **WordMismatch** (§6.5): a typed word met that breaks a promise of the one the code was built against, by the `schemaBreaks` rule; its `breaks` say where. `wordStatus`, `wordMismatches`, a client's `mismatches`.
+- **Compatibility of words** (§25): one rule (`keepsPromises`) judged before release (`schemaBreaks` against what is out), by a part (`WordMismatch`) and by the host (`Mismatch`); a published word only grows, a break is a new word beside it.
+- **Built against** (§6.9): what a part's code holds of words, told to the registry (`view.builtAgainst(words, from:)`; a client tells it as it is made, `from` its words package and version). The registry says who meets which word otherwise: `Mismatch {by, word, breaks, from}`, `Registry.mismatches`, `mismatchChanges`, a warning in its log. Diagnostics, but params a command no longer takes are left out of such a part's calls (§25.5).
+- **WordBreak** (§25.1): one place a word met breaks what code was built against: `path`, `kind` (`BreakKind`: `word`, `type`, `bound`, `field`, `value`), `was`, `now`, `certain` (every use meets it, or only some values). `entryBreaks(built, live)` judges two schema entries as the data goes; `keepsPromises` is it empty.
+- **Fingerprint** (§25.4): the SHA-256 of a schema's canonical form (`canonicalSchema`: keys in order, descriptions out; `fingerprintOf`). A part across a connection tells words by it first; the registry keeps schemas by it (`knownSchema`).
+- **breaksSince** (§25.3): `schemaBreaks` of the words now against each release still in use, or the latest only.
 - **LocalRegistry** (§22.5): a registry of one process that keeps no history: the same participants and rules as a `Registry`, its commands anyone's unless said, not served across a connection. Moving to a `Registry` changes `main` only.
 - **Interfaces** (§21.6): `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`: what both the core's handles and the registry's typed handles are, so code on them moves from one to the other unchanged.
 
