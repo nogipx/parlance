@@ -187,6 +187,14 @@ void main() {
     );
   });
 
+  test('a part takes the client\'s interface: a stand-in fits it', () async {
+    int? shown(IPlayerClient player) => player.volume;
+
+    expect(shown(_StandIn()), 7);
+    p.attach({'deck': Deck()});
+    expect(shown(PlayerClient(asAnn)), 50);
+  });
+
   test('every word is listed once, in its vocabulary', () {
     expect(playerWords.words.map((w) => w.name), [
       'player.volume',
@@ -328,4 +336,13 @@ void main() {
       );
     });
   });
+}
+
+/// What a test gives a part in place of the player, as mocktail makes one.
+final class _StandIn implements IPlayerClient {
+  @override
+  int? get volume => 7;
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

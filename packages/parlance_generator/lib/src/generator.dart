@@ -470,6 +470,8 @@ final class _Emitter {
   /// a view (a participant, `LocalView`, `MirrorView`): states read and
   /// watched, commands and queries as methods of the class's params that
   /// answer or throw [CallNotDone], facts as streams of their payloads.
+  /// What uses it takes `I<Class>Client`, the same members as an
+  /// interface, so a test or another source of the words stands in.
   String _clientOf(
     List<_State> states,
     List<_Callable> commands,
@@ -489,60 +491,60 @@ final class _Emitter {
       members[name] = w.element;
     }
 
-    final out = StringBuffer()
-      ..writeln('/// The words of [$_c] as a consumer uses them, through a')
-      ..writeln('/// view: its participant, a `LocalView`, a `MirrorView`.')
-      ..writeln('final class ${_c}Client {')
-      ..writeln('  const ${_c}Client(this.view);')
-      ..writeln()
-      ..writeln('  final IRegistryView view;')
-      ..writeln()
-      ..writeln('  /// Whether [word] is there for the view now (SPEC §6.5).')
-      ..writeln('  WordStatus status(IWord word) => view.status(word.name);')
-      ..writeln()
-      ..writeln('  /// [status], then whenever it changes.')
-      ..writeln('  Stream<WordStatus> statusChanges(IWord word) =>')
-      ..writeln('      view.statusChanges(word.name);');
+    // Each member once: what it says, its signature, and its body in the
+    // client over a view.
+    final all = <({List<String> docs, String signature, String body})>[
+      (
+        docs: ['Whether [word] is there for the view now (SPEC §6.5).'],
+        signature: 'WordStatus status(IWord word)',
+        body: '=> view.status(word.name);',
+      ),
+      (
+        docs: ['[status], then whenever it changes.'],
+        signature: 'Stream<WordStatus> statusChanges(IWord word)',
+        body: '=> view.statusChanges(word.name);',
+      ),
+    ];
     for (final st in states) {
       final word = '${_c}State.${st.member}';
       final bare = st.type.endsWith('?')
           ? st.type.substring(0, st.type.length - 1)
           : st.type;
-      out.writeln();
       if (st.key == null) {
         member(st.member, st);
         member('${st.member}Changes', st);
-        out
-          ..writeln('  /// ${st.name} now.')
-          ..writeln('  $bare? get ${st.member} => view.state($word).read();')
-          ..writeln()
-          ..writeln('  /// ${st.name} now, then whenever it changes.')
-          ..writeln('  Stream<$bare?> get ${st.member}Changes =>')
-          ..writeln('      view.state($word).watch();');
+        all
+          ..add((
+            docs: ['${st.name} now.'],
+            signature: '$bare? get ${st.member}',
+            body: '=> view.state($word).read();',
+          ))
+          ..add((
+            docs: ['${st.name} now, then whenever it changes.'],
+            signature: 'Stream<$bare?> get ${st.member}Changes',
+            body: '=> view.state($word).watch();',
+          ));
       } else {
+        final key = _keyParam(st.key!);
         member('${st.member}Of', st);
         member('${st.member}All', st);
         member('${st.member}Changes', st);
-        out
-          ..writeln('  /// ${st.name} of [${st.key}] now.')
-          ..writeln(
-            '  $bare? ${st.member}Of(String ${_keyParam(st.key!)}) =>'
-            ' view.state($word).read(key: ${_keyParam(st.key!)});',
-          )
-          ..writeln()
-          ..writeln('  /// ${st.name} of every ${st.key}, by key.')
-          ..writeln(
-            '  Map<String?, ${st.type}> get ${st.member}All =>'
-            ' view.state($word).readAll();',
-          )
-          ..writeln()
-          ..writeln(
-            '  /// ${st.name} of [${st.key}] now, then on every change.',
-          )
-          ..writeln(
-            '  Stream<$bare?> ${st.member}Changes(String ${_keyParam(st.key!)}) =>'
-            ' view.state($word).watch(key: ${_keyParam(st.key!)});',
-          );
+        all
+          ..add((
+            docs: ['${st.name} of [$key] now.'],
+            signature: '$bare? ${st.member}Of(String $key)',
+            body: '=> view.state($word).read(key: $key);',
+          ))
+          ..add((
+            docs: ['${st.name} of every ${st.key}, by key.'],
+            signature: 'Map<String?, ${st.type}> get ${st.member}All',
+            body: '=> view.state($word).readAll();',
+          ))
+          ..add((
+            docs: ['${st.name} of [$key] now, then on every change.'],
+            signature: 'Stream<$bare?> ${st.member}Changes(String $key)',
+            body: '=> view.state($word).watch(key: $key);',
+          ));
       }
     }
     for (final (kind, words) in [('Command', commands), ('Query', queries)]) {
@@ -553,33 +555,59 @@ final class _Emitter {
         final record = _recordOf(ps);
         final how = kind == 'Command' ? 'command' : 'query';
         final act = kind == 'Command' ? 'call' : 'ask';
-        out
-          ..writeln()
-          ..writeln(
-            '  /// ${kind == 'Command' ? 'Calls' : 'Asks'} ${c.name}; a call '
-            'not done throws [CallNotDone].',
-          )
-          ..writeln('  Future<${c.returns}> ${c.member}($signature) async {')
-          ..writeln(
-            '    final r = await view.$how($_c$kind.${c.member}).$act($record);',
-          )
-          ..writeln('    if (r case CallDone(:final value)) return value;')
-          ..writeln('    throw CallNotDone(r);')
-          ..writeln('  }');
+        all.add((
+          docs: [
+            '${kind == 'Command' ? 'Calls' : 'Asks'} ${c.name}; a call not '
+                'done throws [CallNotDone].',
+          ],
+          signature: 'Future<${c.returns}> ${c.member}($signature)',
+          body:
+              'async {\n'
+              '    final r = await view.$how($_c$kind.${c.member}).$act($record);\n'
+              '    if (r case CallDone(:final value)) return value;\n'
+              '    throw CallNotDone(r);\n'
+              '  }',
+        ));
       }
     }
     for (final f in facts) {
       member(f.member, f);
+      all.add((
+        docs: [
+          '${f.name}, as it is said from now on: its payload, and',
+          'the message (its id, its cause) to follow it from.',
+        ],
+        signature: 'Stream<Fact<${f.type}>> get ${f.member}',
+        body: '=> view.fact(${_c}Fact.${f.member}).stream;',
+      ));
+    }
+
+    final out = StringBuffer()
+      ..writeln('/// The words of [$_c] as a consumer uses them: what a part')
+      ..writeln('/// that uses them takes, so a stand-in can be given in its')
+      ..writeln('/// place. [${_c}Client] is them over a view.')
+      ..writeln('abstract interface class I${_c}Client {');
+    for (final (i, m) in all.indexed) {
+      if (i > 0) out.writeln();
+      for (final d in m.docs) {
+        out.writeln('  /// $d');
+      }
+      out.writeln('  ${m.signature};');
+    }
+    out
+      ..writeln('}')
+      ..writeln()
+      ..writeln('/// The words of [$_c] through a view: its participant, a')
+      ..writeln('/// `LocalView`, a `MirrorView`.')
+      ..writeln('final class ${_c}Client implements I${_c}Client {')
+      ..writeln('  const ${_c}Client(this.view);')
+      ..writeln()
+      ..writeln('  final IRegistryView view;');
+    for (final m in all) {
       out
         ..writeln()
-        ..writeln(
-          '  /// ${f.name}, as it is said from now on: its payload, and',
-        )
-        ..writeln('  /// the message (its id, its cause) to follow it from.')
-        ..writeln(
-          '  Stream<Fact<${f.type}>> get ${f.member} =>'
-          ' view.fact(${_c}Fact.${f.member}).stream;',
-        );
+        ..writeln('  @override')
+        ..writeln('  ${m.signature} ${m.body}');
     }
     out
       ..writeln('}')

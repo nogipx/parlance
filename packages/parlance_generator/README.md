@@ -29,7 +29,7 @@ abstract class Player {
 }
 ```
 
-`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwner` and the client `PlayerClient` into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers and what it has now:
+`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwner` and the client, `IPlayerClient` with `PlayerClient` over a view, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers and what it has now:
 
 ```dart
 final class Deck extends PlayerOwner {
@@ -52,7 +52,7 @@ final class Deck extends PlayerOwner {
 Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over any view: its participant, a `LocalView`, or a `MirrorView` across a connection:
 
 ```dart
-final player = PlayerClient(participant);
+final IPlayerClient player = PlayerClient(participant); // a test gives a stand-in
 player.volumeChanges.listen(show);
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```

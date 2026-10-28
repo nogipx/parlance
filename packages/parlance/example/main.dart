@@ -174,7 +174,7 @@ Future<void> main() async {
   final phone = await Phone.join(registry, Who.phone('ann-phone'));
   // It knows the house through the client made from House: getters and
   // streams for states, methods for commands, no word or record in sight.
-  final home = HouseClient(phone.part);
+  final IHouseClient home = HouseClient(phone.part);
   final heats = home.heatChanges.listen((_) {});
   final modes = home.modeChanges.listen((_) {});
   await home.setHeat(target: 22);

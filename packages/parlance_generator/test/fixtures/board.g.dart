@@ -137,66 +137,107 @@ abstract base class BoardOwner extends Owner {
   void count(CommandCallOf<BoardCount> call);
 }
 
-/// The words of [Board] as a consumer uses them, through a
-/// view: its participant, a `LocalView`, a `MirrorView`.
-final class BoardClient {
+/// The words of [Board] as a consumer uses them: what a part
+/// that uses them takes, so a stand-in can be given in its
+/// place. [BoardClient] is them over a view.
+abstract interface class IBoardClient {
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// note of [note] now.
+  Note? notesOf(String note);
+
+  /// note of every note, by key.
+  Map<String?, Note> get notesAll;
+
+  /// note of [note] now, then on every change.
+  Stream<Note?> notesChanges(String note);
+
+  /// note.anything now.
+  Object? get anything;
+
+  /// note.anything now, then whenever it changes.
+  Stream<Object?> get anythingChanges;
+
+  /// Calls note.put; a call not done throws [CallNotDone].
+  Future<({String id})> put({String? id, required Note note});
+
+  /// Calls note.expire; a call not done throws [CallNotDone].
+  Future<void> expire({required String id, required int ms});
+
+  /// Calls note.pin; a call not done throws [CallNotDone].
+  Future<void> pin({required List<String> ids});
+
+  /// Calls note.count; a call not done throws [CallNotDone].
+  Future<void> count({required int? readers});
+
+  /// note.seen, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<Note>> get seen;
+}
+
+/// The words of [Board] through a view: its participant, a
+/// `LocalView`, a `MirrorView`.
+final class BoardClient implements IBoardClient {
   const BoardClient(this.view);
 
   final IRegistryView view;
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => view.status(word.name);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
-  /// note of [note] now.
+  @override
   Note? notesOf(String note) => view.state(BoardState.notes).read(key: note);
 
-  /// note of every note, by key.
+  @override
   Map<String?, Note> get notesAll => view.state(BoardState.notes).readAll();
 
-  /// note of [note] now, then on every change.
+  @override
   Stream<Note?> notesChanges(String note) =>
       view.state(BoardState.notes).watch(key: note);
 
-  /// note.anything now.
+  @override
   Object? get anything => view.state(BoardState.anything).read();
 
-  /// note.anything now, then whenever it changes.
+  @override
   Stream<Object?> get anythingChanges =>
       view.state(BoardState.anything).watch();
 
-  /// Calls note.put; a call not done throws [CallNotDone].
+  @override
   Future<({String id})> put({String? id, required Note note}) async {
     final r = await view.command(BoardCommand.put).call((id: id, note: note));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Calls note.expire; a call not done throws [CallNotDone].
+  @override
   Future<void> expire({required String id, required int ms}) async {
     final r = await view.command(BoardCommand.expire).call((id: id, ms: ms));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Calls note.pin; a call not done throws [CallNotDone].
+  @override
   Future<void> pin({required List<String> ids}) async {
     final r = await view.command(BoardCommand.pin).call((ids: ids));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Calls note.count; a call not done throws [CallNotDone].
+  @override
   Future<void> count({required int? readers}) async {
     final r = await view.command(BoardCommand.count).call((readers: readers));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// note.seen, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
+  @override
   Stream<Fact<Note>> get seen => view.fact(BoardFact.seen).stream;
 }
 

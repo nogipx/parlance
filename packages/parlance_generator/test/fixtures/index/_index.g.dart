@@ -38,26 +38,46 @@ abstract base class DoorsOwner extends Owner {
   void defineMore(IParticipant p) {}
 }
 
-/// The words of [Doors] as a consumer uses them, through a
-/// view: its participant, a `LocalView`, a `MirrorView`.
-final class DoorsClient {
+/// The words of [Doors] as a consumer uses them: what a part
+/// that uses them takes, so a stand-in can be given in its
+/// place. [DoorsClient] is them over a view.
+abstract interface class IDoorsClient {
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// door.room of [door] now.
+  Room? roomOf(String door);
+
+  /// door.room of every door, by key.
+  Map<String?, Room> get roomAll;
+
+  /// door.room of [door] now, then on every change.
+  Stream<Room?> roomChanges(String door);
+}
+
+/// The words of [Doors] through a view: its participant, a
+/// `LocalView`, a `MirrorView`.
+final class DoorsClient implements IDoorsClient {
   const DoorsClient(this.view);
 
   final IRegistryView view;
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => view.status(word.name);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
-  /// door.room of [door] now.
+  @override
   Room? roomOf(String door) => view.state(DoorsState.room).read(key: door);
 
-  /// door.room of every door, by key.
+  @override
   Map<String?, Room> get roomAll => view.state(DoorsState.room).readAll();
 
-  /// door.room of [door] now, then on every change.
+  @override
   Stream<Room?> roomChanges(String door) =>
       view.state(DoorsState.room).watch(key: door);
 }
@@ -128,20 +148,34 @@ abstract base class LightsOwner extends Owner {
   void on(CommandCallOf<LightsOn> call);
 }
 
-/// The words of [Lights] as a consumer uses them, through a
-/// view: its participant, a `LocalView`, a `MirrorView`.
-final class LightsClient {
+/// The words of [Lights] as a consumer uses them: what a part
+/// that uses them takes, so a stand-in can be given in its
+/// place. [LightsClient] is them over a view.
+abstract interface class ILightsClient {
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// Calls light.on; a call not done throws [CallNotDone].
+  Future<void> on({required Room room});
+}
+
+/// The words of [Lights] through a view: its participant, a
+/// `LocalView`, a `MirrorView`.
+final class LightsClient implements ILightsClient {
   const LightsClient(this.view);
 
   final IRegistryView view;
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => view.status(word.name);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
-  /// Calls light.on; a call not done throws [CallNotDone].
+  @override
   Future<void> on({required Room room}) async {
     final r = await view.command(LightsCommand.on).call((room: room));
     if (r case CallDone(:final value)) return value;

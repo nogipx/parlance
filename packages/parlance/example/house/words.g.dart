@@ -192,48 +192,109 @@ abstract base class HouseOwner extends Owner {
   List<String> rooms(QueryAsk<HouseRooms> ask);
 }
 
-/// The words of [House] as a consumer uses them, through a
-/// view: its participant, a `LocalView`, a `MirrorView`.
-final class HouseClient {
+/// The words of [House] as a consumer uses them: what a part
+/// that uses them takes, so a stand-in can be given in its
+/// place. [HouseClient] is them over a view.
+abstract interface class IHouseClient {
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// house.light.on of [room] now.
+  bool? lightOf(String room);
+
+  /// house.light.on of every room, by key.
+  Map<String?, bool> get lightAll;
+
+  /// house.light.on of [room] now, then on every change.
+  Stream<bool?> lightChanges(String room);
+
+  /// house.heat.target now.
+  num? get heat;
+
+  /// house.heat.target now, then whenever it changes.
+  Stream<num?> get heatChanges;
+
+  /// house.mode now.
+  Mode? get mode;
+
+  /// house.mode now, then whenever it changes.
+  Stream<Mode?> get modeChanges;
+
+  /// house.door.locked now.
+  bool? get locked;
+
+  /// house.door.locked now, then whenever it changes.
+  Stream<bool?> get lockedChanges;
+
+  /// Calls house.light.set; a call not done throws [CallNotDone].
+  Future<void> setLight({required String room, required bool on});
+
+  /// Calls house.heat.set; a call not done throws [CallNotDone].
+  Future<void> setHeat({required num target});
+
+  /// Calls house.mode.set; a call not done throws [CallNotDone].
+  Future<void> setMode({required Mode mode});
+
+  /// Calls house.door.lock; a call not done throws [CallNotDone].
+  Future<void> lock({required bool on});
+
+  /// Asks house.rooms; a call not done throws [CallNotDone].
+  Future<List<String>> rooms({required bool lit});
+
+  /// house.doorbell.rang, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<HouseRang>> get rang;
+
+  /// house.motion.seen, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<HouseMotion>> get motion;
+}
+
+/// The words of [House] through a view: its participant, a
+/// `LocalView`, a `MirrorView`.
+final class HouseClient implements IHouseClient {
   const HouseClient(this.view);
 
   final IRegistryView view;
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => view.status(word.name);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
-  /// house.light.on of [room] now.
+  @override
   bool? lightOf(String room) => view.state(HouseState.light).read(key: room);
 
-  /// house.light.on of every room, by key.
+  @override
   Map<String?, bool> get lightAll => view.state(HouseState.light).readAll();
 
-  /// house.light.on of [room] now, then on every change.
+  @override
   Stream<bool?> lightChanges(String room) =>
       view.state(HouseState.light).watch(key: room);
 
-  /// house.heat.target now.
+  @override
   num? get heat => view.state(HouseState.heat).read();
 
-  /// house.heat.target now, then whenever it changes.
+  @override
   Stream<num?> get heatChanges => view.state(HouseState.heat).watch();
 
-  /// house.mode now.
+  @override
   Mode? get mode => view.state(HouseState.mode).read();
 
-  /// house.mode now, then whenever it changes.
+  @override
   Stream<Mode?> get modeChanges => view.state(HouseState.mode).watch();
 
-  /// house.door.locked now.
+  @override
   bool? get locked => view.state(HouseState.locked).read();
 
-  /// house.door.locked now, then whenever it changes.
+  @override
   Stream<bool?> get lockedChanges => view.state(HouseState.locked).watch();
 
-  /// Calls house.light.set; a call not done throws [CallNotDone].
+  @override
   Future<void> setLight({required String room, required bool on}) async {
     final r = await view.command(HouseCommand.setLight).call((
       room: room,
@@ -243,40 +304,38 @@ final class HouseClient {
     throw CallNotDone(r);
   }
 
-  /// Calls house.heat.set; a call not done throws [CallNotDone].
+  @override
   Future<void> setHeat({required num target}) async {
     final r = await view.command(HouseCommand.setHeat).call((target: target));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Calls house.mode.set; a call not done throws [CallNotDone].
+  @override
   Future<void> setMode({required Mode mode}) async {
     final r = await view.command(HouseCommand.setMode).call((mode: mode));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Calls house.door.lock; a call not done throws [CallNotDone].
+  @override
   Future<void> lock({required bool on}) async {
     final r = await view.command(HouseCommand.lock).call((on: on));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Asks house.rooms; a call not done throws [CallNotDone].
+  @override
   Future<List<String>> rooms({required bool lit}) async {
     final r = await view.query(HouseQuery.rooms).ask((lit: lit));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// house.doorbell.rang, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
+  @override
   Stream<Fact<HouseRang>> get rang => view.fact(HouseFact.rang).stream;
 
-  /// house.motion.seen, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
+  @override
   Stream<Fact<HouseMotion>> get motion => view.fact(HouseFact.motion).stream;
 }
 
@@ -414,27 +473,47 @@ abstract base class VisitOwner extends Owner {
   void leave(CommandCallOf<VisitLeave> call);
 }
 
-/// The words of [Visit] as a consumer uses them, through a
-/// view: its participant, a `LocalView`, a `MirrorView`.
-final class VisitClient {
+/// The words of [Visit] as a consumer uses them: what a part
+/// that uses them takes, so a stand-in can be given in its
+/// place. [VisitClient] is them over a view.
+abstract interface class IVisitClient {
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// visit.guests now.
+  List<String>? get guests;
+
+  /// visit.guests now, then whenever it changes.
+  Stream<List<String>?> get guestsChanges;
+
+  /// Calls visit.leave; a call not done throws [CallNotDone].
+  Future<void> leave({required String who});
+}
+
+/// The words of [Visit] through a view: its participant, a
+/// `LocalView`, a `MirrorView`.
+final class VisitClient implements IVisitClient {
   const VisitClient(this.view);
 
   final IRegistryView view;
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => view.status(word.name);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
-  /// visit.guests now.
+  @override
   List<String>? get guests => view.state(VisitState.guests).read();
 
-  /// visit.guests now, then whenever it changes.
+  @override
   Stream<List<String>?> get guestsChanges =>
       view.state(VisitState.guests).watch();
 
-  /// Calls visit.leave; a call not done throws [CallNotDone].
+  @override
   Future<void> leave({required String who}) async {
     final r = await view.command(VisitCommand.leave).call((who: who));
     if (r case CallDone(:final value)) return value;
