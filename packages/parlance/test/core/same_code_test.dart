@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:parlance/core.dart';
 import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
-/// Code written against the core's interfaces (SPEC §21.6) runs the same on
-/// local states, commands and facts and on the registry's typed words: moving from
-/// one to the other changes only where they are made.
+/// Code written against the core's interfaces (SPEC §21.6) runs the same
+/// on local states, commands and facts and on participants of either
+/// registry: moving from one to the other changes only where they are made.
 void main() {
   Future<void> settle() => Future<void>.delayed(Duration.zero);
 
@@ -29,21 +30,41 @@ void main() {
     await feature.dispose();
   });
 
+  /// The feature on [owner]'s words, reading and calling as [user]: the
+  /// participants `main` hands out, whichever registry made them.
+  Counter onParticipants(LocalParticipant owner, LocalParticipant user) {
+    final writer = owner.state(CounterState.count).define();
+    owner
+        .command(CounterCommand.double)
+        .define((c) => c.params.n * 2, callers: Callers.only(['user']));
+    return Counter(
+      count: user.state(CounterState.count).reader(),
+      write: writer,
+      double: user.command(CounterCommand.double).caller,
+      say: owner.fact(CounterFact.said).define(),
+      heard: user.fact(CounterFact.said).listener,
+    );
+  }
+
+  test('on a local registry', () async {
+    final r = LocalRegistry();
+    final feature = onParticipants(
+      r.participant(const Principal('owner'), vocabularies: [counterWords]),
+      r.participant(const Principal('user')),
+    );
+    expect(await feature.run(), [21, 42, 'doubled to 42']);
+    await settle();
+    expect(feature.log, ['doubled to 42']);
+    await feature.dispose();
+    await r.dispose();
+  });
+
   test('on the registry', () async {
     final r = Registry();
-    const owner = Principal('owner');
-    final writer = r.state(CounterState.count).define(by: owner);
-    r
-        .command(CounterCommand.double)
-        .define((c) => c.params.n * 2, callers: Callers.only(['owner']));
-    final feature = Counter(
-      count: r.state(CounterState.count).reader(),
-      write: writer,
-      double: r.command(CounterCommand.double).caller(by: owner),
-      say: r.fact(CounterFact.said).define(by: owner),
-      heard: r.fact(CounterFact.said).listener,
+    final feature = onParticipants(
+      r.participant(const Principal('owner'), vocabularies: [counterWords]),
+      r.participant(const Principal('user')),
     );
-
     expect(await feature.run(), [21, 42, 'doubled to 42']);
     await settle();
     expect(feature.log, ['doubled to 42']);
@@ -147,3 +168,9 @@ enum CounterFact<T> implements IFactWord<T> {
   @override
   final Shape<T> shape;
 }
+
+const counterWords = WordSet('counter', [
+  ...CounterState.values,
+  ...CounterCommand.values,
+  ...CounterFact.values,
+]);

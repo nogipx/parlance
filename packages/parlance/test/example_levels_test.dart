@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:test/test.dart';
 
-import '../example/levels/level0_core.dart' as core;
+import '../example/levels/core.dart' as core;
+import '../example/levels/level0_local.dart' as local;
 import '../example/levels/level1_registry.dart' as registry;
 import '../example/levels/level3_remote.dart' as remote;
 import '../example/levels/level4_agent.dart' as agent;
@@ -27,6 +28,16 @@ void main() {
         'a second writer: refused',
         'knob shows: 95',
         'knob hears: clipped at 95',
+        'a late part sees: 95',
+      ],
+    ),
+    'local': (
+      local.main,
+      [
+        'knob shows: 95',
+        'knob hears: clipped at 95',
+        'ann defines player.volume: listener/ann defines in no vocabulary',
+        '150: volume: above 100',
         'a late part sees: 95',
       ],
     ),

@@ -84,12 +84,21 @@ bool _overlap(String a, String b) =>
 /// a participant never holds the registry.
 Registry registryOf(LocalParticipant p) => p._r;
 
+/// The registries a [LocalRegistry] keeps its words in: they keep no
+/// history and serve no connection. Not exported.
+final Expando<bool> keepsNothing = Expando('keeps nothing');
+
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
 /// guards, kinds, owners or parts would go with the session. Not exported.
 void takeForServing(LocalParticipant p) {
   p._live();
+  if (keepsNothing[p._r] == true) {
+    throw StateError(
+      '${p.who} is a LocalRegistry\'s: across a connection, use a Registry',
+    );
+  }
   if (p._served) throw StateError('${p.who} is served already');
   if (p._handles.isNotEmpty ||
       p._children.isNotEmpty ||

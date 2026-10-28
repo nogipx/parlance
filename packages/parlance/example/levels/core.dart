@@ -1,10 +1,10 @@
-/// Level 0, the core: two parts of one app talk, no names, no registry.
+/// The bare core: two parts of one app talk, no names, no registry.
 ///
 /// A local state holds the volume, a local command sets it, a local fact
 /// says it clipped. The player owns all three; the knob gets them through
 /// the interfaces.
 ///
-/// Run: `dart run example/levels/level0_core.dart`.
+/// Run: `dart run example/levels/core.dart`.
 library;
 
 import 'package:parlance/core.dart';
@@ -12,7 +12,7 @@ import 'package:parlance/core.dart';
 import 'player.dart';
 
 Future<void> main() async {
-  print('Level 0: the core');
+  print('The core');
 
   // The player: the only writer of its state, the one who serves its
   // command and says its fact.

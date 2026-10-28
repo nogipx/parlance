@@ -63,3 +63,12 @@ A participant **holds its owners** (§19): an `Owner` is code that owns words; i
 - **A lost connection is not its end, while the connection comes back.** While away it keeps what it defines and writes; only what it says waits to be sent. When the connection is back, the host's new session gets, in one tick: its kinds, its words, its own states' values as they stand, its guards, its commands' availability; then the facts it said while away (the last `keepAway`, §14.1), their ids letting the registry drop one it took before the drop. Its mirror resumes after the seq it has (§12). Calls made while away answer `lost` (§14). The host must have closed the old session first: its vocabularies are one live participant's (§22.1).
 - **It goes with its session**, or by `close()`, which withdraws its owners (as a local participant's go with it), its words, guards and kinds and closes its endpoint; the connection stays the caller's to dispose.
 - A fact's `true` does not say the host took it: a repeat of an id is dropped there.
+
+### 22.5 A local registry
+
+`LocalRegistry` (`package:parlance/participant.dart`) is the light way in: the words of an app in one process, keeping nothing past what is now. It makes participants as a `Registry` does, with the same `participant(who, vocabularies:, rights:, access:)`, `alias` and `registerType`, and they are the same `LocalParticipant`s held to the same rules: vocabularies, callers and readers, types (§2, §18: a typed word is kept as its Dart value here as there), availability, guards, causes and conversations, ticks, status, scopes. The owners, the words, the generated owner bases and clients and the parts that use them run on it unchanged.
+
+- **It remembers nothing.** No ticks are retained, no call records, no recent facts: `recent` is empty, `explain` tells the value and no trail, `conversation` finds nothing. The journal (§9.3) is the registry's and not offered here.
+- **Its commands are anyone's to call** unless a word or a participant's `access` says otherwise; a `Registry` refuses a command with no callers at all (§22.2).
+- **Its participants are not served across a connection** (`serve` is refused, `StateError`): what goes across needs a feed to resume, and so a `Registry`.
+- **Moving to a `Registry`** is `LocalRegistry()` made `Registry()`, and who may call the commands said where nothing says it; nothing else changes. `test/participant/levels_test.dart` holds both to the same promises.

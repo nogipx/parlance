@@ -4,7 +4,7 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 
 The core is the level everything else stands on: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. A small task takes it alone (`package:parlance/core.dart`); the registry (§1–12) is built on it, and remote, the MCP tools and views on the registry. Nothing above writes a value, emits or serves a command any other way.
 
-Its parts are the package's words, local: a `LocalState` is a state, a `LocalCommand` a command, a `LocalFact` a fact, the same as the registry's without names, principals or JSON; `Local` says they live in this process, as a `LocalParticipant` and a `LocalView` do. A part that starts on them moves to the registry's words keeping its code (§21.6).
+It is the level under both registries; a small app that wants owners, words and rules but no history starts on a `LocalRegistry` (§22.5) rather than here, and moves to a `Registry` by changing `main`. Its parts are the package's words, local: a `LocalState` is a state, a `LocalCommand` a command, a `LocalFact` a fact, the same as the registry's without names, principals or JSON; `Local` says they live in this process, as a `LocalParticipant` and a `LocalView` do. A part that starts on them moves to the registry's words keeping its code (§21.6).
 
 ## 21.1 Local hub
 
