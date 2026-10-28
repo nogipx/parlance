@@ -40,7 +40,7 @@ final class Bench {
         if (call.params['n'] == -1) throw StateError('no -1');
       },
     );
-    links = Links(p, namespace: 'plug', onError: (e, _) => errors.add(e));
+    links = Links(p, vocabulary: 'plug', onError: (e, _) => errors.add(e));
   }
 
   final registry = Registry();
@@ -103,7 +103,7 @@ void main() {
     final b = Bench(callers: Callers({'user': Access.allow}));
     addTearDown(b.dispose);
     final runs = <LinkRun>[];
-    final links = Links(b.p, namespace: 'plug', onRun: runs.add);
+    final links = Links(b.p, vocabulary: 'plug', onRun: runs.add);
     addTearDown(links.dispose);
     await links.load([
       {
@@ -345,7 +345,7 @@ void main() {
       addTearDown(b.dispose);
       final links = Links(
         b.p,
-        namespace: 'plug',
+        vocabulary: 'plug',
         extensions: [
           TriggerExtension(
             'says',
@@ -394,7 +394,7 @@ void main() {
       var runs = 0;
       final links = Links(
         b.p,
-        namespace: 'plug',
+        vocabulary: 'plug',
         conversationLimit: 5,
         onRun: (_) => runs++,
         onError: (e, _) => b.errors.add(e),

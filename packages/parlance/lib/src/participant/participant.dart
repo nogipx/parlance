@@ -11,18 +11,18 @@ import '../view/view.dart';
 import 'owner.dart';
 
 /// A participant asked for what it may not do: a word outside its
-/// namespaces, a right it lacks, an act as someone else (SPEC §22.2).
+/// vocabularies, a right it lacks, an act as someone else (SPEC §22.2).
 final class NotPermitted extends StateError {
   NotPermitted(super.message);
 }
 
-/// What a participant may do beyond defining words in its namespaces
+/// What a participant may do beyond defining words in its vocabularies
 /// (SPEC §22.2). Each check answers why not, or null to allow.
 final class ParticipantRights {
   const ParticipantRights({this.define, this.produce, this.speakFor});
 
-  /// Define [d], a word in its namespaces: a further check (callers that
-  /// name outsiders, a kind of word). Null: every word in its namespaces.
+  /// Define [d], a word in its vocabularies: a further check (callers that
+  /// name outsiders, a kind of word). Null: every word in its vocabularies.
   final String? Function(Principal who, Descriptor d)? define;
 
   /// Say [fact], an open fact another defined. Null: none.
@@ -32,7 +32,7 @@ final class ParticipantRights {
   /// rights of what follows from it. Null: no one.
   final String? Function(Principal who, Principal by, String fact)? speakFor;
 
-  /// Defines in its namespaces, and nothing more.
+  /// Defines in its vocabularies, and nothing more.
   static const none = ParticipantRights();
 }
 
@@ -93,7 +93,7 @@ final class WordAccess {
 
 /// A part of the app as it speaks (SPEC §22): it sees the registry only
 /// through this, as one principal, [who]. It reads, watches, hears and
-/// calls what [who] may; it defines words only in its [namespaces], and
+/// calls what [who] may; it defines words only in its [vocabularies], and
 /// writes and says them as [who]. The same whether the registry is in this
 /// process ([LocalParticipant]) or across a connection.
 ///
@@ -119,7 +119,7 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
 
   /// The first words of the names it may define: `orders` for
   /// `orders.cancel` and `orders.list.page`.
-  Set<String> get namespaces;
+  Set<String> get vocabularies;
 
   /// Who may read and call its words when a word does not say.
   WordAccess get access;
@@ -204,14 +204,14 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   void sync();
 
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`, in the
-  /// same namespaces with the same rights, so what each part does is told
+  /// same vocabularies with the same rights, so what each part does is told
   /// as that part's in causes, records and `explain`. Its guards judge its
   /// own commands; a cause of this one passed to it is taken as its own.
   IParticipant child(String name);
 
   /// Withdraws its owners, the last attached first, then everything it
   /// defined, registered and added, and its parts: a scope (a user's
-  /// session, a feature) leaves nothing of itself, and its namespaces are
+  /// session, a feature) leaves nothing of itself, and its vocabularies are
   /// free again.
   @override
   void dispose();

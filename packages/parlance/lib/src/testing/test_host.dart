@@ -108,7 +108,7 @@ final class TestHost {
   }
 
   /// The participant standing in for the owner of [name]: one of a word
-  /// of its own, so it takes no namespace the module under test has
+  /// of its own, so it takes no vocabulary the module under test has
   /// (`audio.mix.level` beside a module of `audio.voice`).
   LocalParticipant _standInFor(String name) {
     for (final p in _standIns.values) {

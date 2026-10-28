@@ -273,7 +273,7 @@ final class HouseClient {
   Stream<Fact<HouseMotion>> get motion => view.fact(HouseFact.motion).stream;
 }
 
-/// The vocabulary of [House]: its namespace and every word, for
+/// The vocabulary of [House]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
 const houseWords = WordSet('house', [
@@ -417,7 +417,7 @@ final class VisitClient {
   }
 }
 
-/// The vocabulary of [Visit]: its namespace and every word, for
+/// The vocabulary of [Visit]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
 const visitWords = WordSet('visit', [

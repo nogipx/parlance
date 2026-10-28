@@ -22,7 +22,7 @@ typedef Action = ({
 /// A board: the words this generator learnt beyond `Player`'s.
 @Vocabulary('note')
 abstract class Board {
-  /// The notes up, by id: a word named as its namespace.
+  /// The notes up, by id: a word named as its vocabulary.
   @StateWord(name: '', key: 'note')
   Note get notes;
 

@@ -51,7 +51,7 @@ extension ServeParticipant on LocalParticipant {
 
 /// One session of a participant served across a connection
 /// ([ServeParticipant.serve], SPEC §14, §22.4): the registry as the
-/// participant may see and use it; and, in its [namespaces] and as far as
+/// participant may see and use it; and, in its [vocabularies] and as far as
 /// [rights] let it, an owner of words of its own, whose commands it serves
 /// over the same connection. [close] it when the connection ends, so its
 /// words go.
@@ -101,10 +101,10 @@ final class RemoteSession extends ParlanceContractPeer {
   final String session;
 
   /// The session as a participant in this process: what it defines, writes
-  /// and says goes through it, in its namespaces and with its rights.
+  /// and says goes through it, in its vocabularies and with its rights.
   final LocalParticipant _p;
 
-  Set<String> get namespaces => _p.namespaces;
+  Set<String> get vocabularies => _p.vocabularies;
   ParticipantRights get rights => _p.rights;
 
   /// The participant's side, serving the session's commands.
@@ -167,7 +167,7 @@ final class RemoteSession extends ParlanceContractPeer {
       ...registry.describeFor(principal),
       'protocol': parlanceProtocol,
       'principal': principal.toJson(),
-      'namespaces': [..._p.namespaces],
+      'vocabularies': [..._p.vocabularies],
       // Who may read and call its words by default, as the host said: the
       // part across fills its words' descriptors so.
       'defaults': {

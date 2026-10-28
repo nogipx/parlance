@@ -94,7 +94,7 @@ final class RemoteParticipant implements IParticipant {
     this._client,
     this._mirror,
     this.who,
-    this.namespaces,
+    this.vocabularies,
     this.access,
     this._onError,
     this.log,
@@ -122,7 +122,7 @@ final class RemoteParticipant implements IParticipant {
   /// the participant makes its peer endpoint on the connection's transport
   /// ([endpoint], for other contracts on the same connection), waits until
   /// it is online, and joins again each time it is back. Its principal and
-  /// namespaces are the session's the host made. [interceptors] go on that
+  /// vocabularies are the session's the host made. [interceptors] go on that
   /// endpoint before its first call (an OTel pair, say); on a peer endpoint
   /// they see the calls it makes and those it serves.
   static Future<RemoteParticipant> join(
@@ -186,7 +186,7 @@ final class RemoteParticipant implements IParticipant {
       client,
       RegistryMirror(),
       Principal.fromJson(d['principal']),
-      {...(d['namespaces'] as List? ?? const []).cast<String>()},
+      {...(d['vocabularies'] as List? ?? const []).cast<String>()},
       _accessOf(d['defaults']),
       onError,
       log ?? LogScope.noop,
@@ -352,7 +352,7 @@ final class RemoteParticipant implements IParticipant {
   final Principal who;
 
   @override
-  final Set<String> namespaces;
+  final Set<String> vocabularies;
 
   final StreamController<ParticipantError> _errors =
       StreamController.broadcast();
@@ -390,13 +390,13 @@ final class RemoteParticipant implements IParticipant {
   }
 
   bool _owns(String name) =>
-      namespaces.any((ns) => name == ns || name.startsWith('$ns.'));
+      vocabularies.any((ns) => name == ns || name.startsWith('$ns.'));
 
   void _mayDefine(Descriptor d) {
     _live();
     if (!_owns(d.name)) {
       throw NotPermitted(
-        '$who defines in ${namespaces.isEmpty ? 'no namespace' : namespaces.join(', ')}, not ${d.name}',
+        '$who defines in ${vocabularies.isEmpty ? 'no vocabulary' : vocabularies.join(', ')}, not ${d.name}',
       );
     }
   }
@@ -1177,7 +1177,7 @@ final class _Part implements IParticipant {
   final Principal who;
 
   @override
-  Set<String> get namespaces => _root.namespaces;
+  Set<String> get vocabularies => _root.vocabularies;
 
   @override
   WordAccess get access => _root.access;

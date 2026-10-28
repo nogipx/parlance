@@ -29,7 +29,7 @@ Future<void> main() async {
   final devices = Devices();
   final house = Home(devices);
   // The house speaks through a participant main makes: who it is, its
-  // vocabulary (the namespace its words are in, said once, in House), who calls its commands when a command does
+  // vocabulary (the name its words are named in, said once, in House), who calls its commands when a command does
   // not say (the household), and that the doorbell says who rang (a fact
   // on a visitor's behalf). The owner's code never says what it may.
   final houseSide = registry.participant(

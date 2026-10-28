@@ -62,8 +62,12 @@ final class Deck extends PlayerOwner {
 void main() {
   late Registry r;
   late IParticipant p;
+  late IParticipant asAnn;
+  late IParticipant asBob;
   setUp(() {
     r = Registry(onError: (e, st) => throw e);
+    asAnn = r.participant(ann);
+    asBob = r.participant(const Principal('guest', 'bob'));
     p = r.participant(
       me,
       vocabularies: [playerWords],
@@ -76,18 +80,18 @@ void main() {
     final playing = p.state(PlayerState.playing).define();
     const track = Track(title: 'Song', seconds: 200, artist: Artist('Ann'));
     playing.set(track);
-    expect(r.read('player.playing'), {
+    expect(asAnn.read('player.playing'), {
       'title': 'Song',
       'length': 200,
       'artist': {'name': 'Ann'},
     });
-    expect(r.state(PlayerState.playing).read()!.artist!.name, 'Ann');
+    expect(asAnn.state(PlayerState.playing).read()!.artist!.name, 'Ann');
     final volume = p.state(PlayerState.volume).define();
     expect(() => volume.set(150), throwsA(isA<TypeMismatch>()));
     final level = p.state(PlayerState.speakerLevel).define();
     level.set(0.5, key: 'left');
     expect(r.stateDescriptor('player.speaker.level')!.key, 'speaker');
-    expect(r.state(PlayerState.speakerLevel).read(key: 'left'), 0.5);
+    expect(asAnn.state(PlayerState.speakerLevel).read(key: 'left'), 0.5);
   });
 
   test('commands take their params, defaults filled and bounds held', () async {
@@ -97,21 +101,19 @@ void main() {
     p.command(PlayerCommand.play).define((c) => played.add(c.params));
     p.command(PlayerCommand.skip).define((c) => c.params.count * 2);
     p.command(PlayerCommand.setVolume).define((_) {});
-    final done = await r.call('player.play', {
+    final done = await asAnn.call('player.play', {
       'track': {'title': 'A'},
       'on': 'left',
-    }, by: ann);
+    });
     expect(done.ok, isTrue, reason: '$done');
     expect(played.single.repeat, Repeat.off);
     expect(played.single.track.title, 'A');
     expect(played.single.on, 'left');
-    final skipped = await r.command(PlayerCommand.skip).call((
-      count: 3,
-    ), by: ann);
+    final skipped = await asAnn.command(PlayerCommand.skip).call((count: 3));
     expect((skipped as CallDone<int>).value, 6);
-    final loud = await r.command(PlayerCommand.setVolume).call((
+    final loud = await asAnn.command(PlayerCommand.setVolume).call((
       volume: 101,
-    ), by: ann);
+    ));
     expect((loud as CallRefused).code, Refusal.invalidParams);
     expect(PlayerCommand.stop.params, same(RecordShape.none));
   });
@@ -123,23 +125,27 @@ void main() {
           (q) =>
               [Track(title: q.params.text)].take(q.params.limit ?? 9).toList(),
         );
-    final found = await r.query(PlayerQuery.search).ask((
+    final found = await asAnn.query(PlayerQuery.search).ask((
       text: 'B',
       limit: null,
-    ), by: ann);
+    ));
     expect((found as CallDone<List<Track>>).value.single.title, 'B');
-    final long = await r.query(PlayerQuery.search).ask((
+    final long = await asAnn.query(PlayerQuery.search).ask((
       text: 'x' * 41,
       limit: null,
-    ), by: ann);
+    ));
     expect((long as CallRefused).code, Refusal.invalidParams);
 
     final finished = p.fact(PlayerFact.finished).define();
     finished.emit(const Track(title: 'C'));
-    expect(r.recent('player.finished').single.payload, {'title': 'C'});
+    expect((await asAnn.recent('player.finished', 9)).single.payload, {
+      'title': 'C',
+      'length': null,
+      'artist': null,
+    });
   });
 
-  test('every word is listed once, in the namespace', () {
+  test('every word is listed once, in its vocabulary', () {
     expect(playerWords.words.map((w) => w.name), [
       'player.volume',
       'player.repeat',
@@ -191,7 +197,7 @@ void main() {
         'label': 'Volume',
         'steps': [0, 50, 100],
       });
-      expect(r.state(PlayerState.volume).read(), 50);
+      expect(asAnn.state(PlayerState.volume).read(), 50);
       expect(
         r.commandDescriptor('player.play')!.deadline,
         const Duration(seconds: 5),
@@ -199,37 +205,34 @@ void main() {
     });
 
     test('serves the calls through its handlers, as its part', () async {
-      final done = await r.command(PlayerCommand.setVolume).call((
+      final done = await asAnn.command(PlayerCommand.setVolume).call((
         volume: 95,
-      ), by: ann);
+      ));
       expect(done.ok, isTrue, reason: '$done');
-      expect(r.state(PlayerState.volume).read(), 95);
+      expect(asAnn.state(PlayerState.volume).read(), 95);
       expect(r.lastChange('player.volume')!.cause.by, me.child('deck'));
-      expect(r.recent('player.clipped').single.payload, {'volume': 95});
-      final found = await r.query(PlayerQuery.search).ask((
+      expect((await asAnn.recent('player.clipped', 9)).single.payload, {
+        'volume': 95,
+      });
+      final found = await asBob.query(PlayerQuery.search).ask((
         text: 'B',
         limit: null,
-      ), by: const Principal('guest', 'bob'));
+      ));
       expect((found as CallDone<List<Track>>).value.single.title, 'B');
     });
 
     test('says what the class says of who may call, and when', () async {
-      final asGuest = await r
-          .command(PlayerCommand.stop)
-          .call((), by: const Principal('guest', 'bob'));
+      final asGuest = await asBob.command(PlayerCommand.stop).call(());
       expect((asGuest as CallRefused).code, Refusal.notPermitted);
-      expect(
-        (await r.command(PlayerCommand.stop).call((), by: ann)).ok,
-        isTrue,
-      );
+      expect((await asAnn.command(PlayerCommand.stop).call(())).ok, isTrue);
       expect(deck.stopped, 1);
       deck.library.clear();
       p.child('deck').availabilityChanged('player.play');
-      final play = await r.command(PlayerCommand.play).call((
+      final play = await asAnn.command(PlayerCommand.play).call((
         track: const Track(title: 'A'),
         repeat: Repeat.off,
         on: null,
-      ), by: ann);
+      ));
       expect(play.whyNot, contains('nothing to play'));
     });
   });

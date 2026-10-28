@@ -12,14 +12,14 @@ import 'participant.dart';
 
 /// Participants of a registry in this process (SPEC §22.1).
 extension Participants on Registry {
-  /// A participant speaking as [who], defining words only in the
-  /// namespaces of its [vocabularies] (SPEC §22.1, §23); a namespace whose
-  /// words come at run time is `WordSet.open`. A namespace is one
-  /// vocabulary's: two of [vocabularies] with the same namespace, or one
-  /// inside the other, are refused, so the words of a namespace are those
-  /// of one owner. It is one participant's: one that another live
-  /// participant has, or one inside or around it (`orders` and
-  /// `orders.archive`), is refused.
+  /// A participant speaking as [who], defining words only in its
+  /// [vocabularies] (SPEC §22.1, §23); one whose words come at run time is
+  /// `WordSet.open`. A word is named in its vocabulary: `orders.cancel` is
+  /// in `orders`. Two of [vocabularies] of one name, or one inside the
+  /// other (`orders` and `orders.archive`), are refused, so the words
+  /// named under a vocabulary are those of one owner. A vocabulary is one
+  /// participant's: one that another live participant has, or one inside
+  /// or around it, is refused.
   LocalParticipant participant(
     Principal who, {
     Iterable<WordSet> vocabularies = const [],
@@ -32,7 +32,7 @@ extension Participants on Registry {
     for (final v in vocabularies) {
       v.check();
     }
-    final given = [for (final v in vocabularies) v.namespace];
+    final given = [for (final v in vocabularies) v.name];
     for (final (i, a) in given.indexed) {
       for (final b in given.skip(i + 1)) {
         if (_overlap(a, b)) {
@@ -40,37 +40,38 @@ extension Participants on Registry {
             vocabularies,
             'vocabularies',
             a == b
-                ? 'namespace $a is given twice: one vocabulary each'
-                : 'namespaces $a and $b: one inside the other',
+                ? 'the vocabulary $a is given twice'
+                : 'the vocabularies $a and $b: one inside the other',
           );
         }
       }
     }
-    final namespaces = given.toSet();
-    final taken = _namespaces[this] ??= {};
-    for (final ns in namespaces) {
-      checkName(ns, 'namespace');
+    final names = given.toSet();
+    final taken = _taken[this] ??= {};
+    for (final ns in names) {
+      checkName(ns, 'vocabulary');
       for (final e in taken.entries) {
         if (_overlap(ns, e.key)) {
-          throw NotPermitted('namespace $ns: ${e.key} is ${e.value.who}\'s');
+          throw NotPermitted('vocabulary $ns: ${e.key} is ${e.value.who}\'s');
         }
       }
     }
     final p = LocalParticipant._(
       this,
       who,
-      Set.unmodifiable(namespaces),
+      Set.unmodifiable(names),
       rights,
       access,
     );
-    for (final ns in namespaces) {
+    for (final ns in names) {
       taken[ns] = p;
     }
     return p;
   }
 }
 
-final Expando<Map<String, LocalParticipant>> _namespaces = Expando();
+/// The vocabularies taken, by name, and whose they are.
+final Expando<Map<String, LocalParticipant>> _taken = Expando();
 
 bool _overlap(String a, String b) =>
     a == b || a.startsWith('$b.') || b.startsWith('$a.');
@@ -104,7 +105,7 @@ final class LocalParticipant implements IParticipant {
   LocalParticipant._(
     this._r,
     this.who,
-    this.namespaces,
+    this.vocabularies,
     this.rights,
     this.access, {
     this.parent,
@@ -125,9 +126,9 @@ final class LocalParticipant implements IParticipant {
   final Principal who;
 
   @override
-  final Set<String> namespaces;
+  final Set<String> vocabularies;
 
-  /// What it may do beyond defining in its namespaces.
+  /// What it may do beyond defining in its vocabularies.
   final ParticipantRights rights;
 
   /// What it defined, registered and added, to withdraw on [dispose]: each
@@ -164,15 +165,15 @@ final class LocalParticipant implements IParticipant {
     return _keep(d);
   }
 
-  /// Whether [name] is in its namespaces.
+  /// Whether [name] is in its vocabularies.
   bool owns(String name) =>
-      namespaces.any((ns) => name == ns || name.startsWith('$ns.'));
+      vocabularies.any((ns) => name == ns || name.startsWith('$ns.'));
 
   void _mayDefine(Descriptor d) {
     _live();
     if (!owns(d.name)) {
       throw NotPermitted(
-        '$who defines in ${namespaces.isEmpty ? 'no namespace' : namespaces.join(', ')}, not ${d.name}',
+        '$who defines in ${vocabularies.isEmpty ? 'no vocabulary' : vocabularies.join(', ')}, not ${d.name}',
       );
     }
     if (rights.define?.call(who, d) case final why?) throw NotPermitted(why);
@@ -199,7 +200,7 @@ final class LocalParticipant implements IParticipant {
   }
 
   /// A part of it, named [name] (SPEC §22.3): it speaks as `who.child(name)`
-  /// in the same namespaces, with the same rights and access; what it
+  /// in the same vocabularies, with the same rights and access; what it
   /// defines and does is told as its own, and its guards judge its own
   /// commands. One part per name; it goes with this one.
   @override
@@ -208,7 +209,7 @@ final class LocalParticipant implements IParticipant {
     return _children[name] ??= LocalParticipant._(
       _r,
       who.child(name),
-      namespaces,
+      vocabularies,
       rights,
       access,
       parent: this,
@@ -439,7 +440,7 @@ final class LocalParticipant implements IParticipant {
       p._children.removeWhere((_, c) => c == this);
       return;
     }
-    final taken = _namespaces[_r];
+    final taken = _taken[_r];
     taken?.removeWhere((_, p) => p == this);
   }
 }

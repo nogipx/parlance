@@ -36,7 +36,7 @@ void main() {
         'knob hears: clipped at 95',
         'for a guest the command is notPermitted',
         'a guest turns it: guest/bob may not call player.volume.set',
-        'a guest defines player.volume: guest/bob defines in no namespace',
+        'a guest defines player.volume: guest/bob defines in no vocabulary',
         '150: volume: above 100',
         'why 95: listener/ann called player.volume.set, and player/deck '
             'wrote it',

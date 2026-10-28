@@ -105,7 +105,7 @@ void main() {
   /// A connection in memory that does not come back once lost: the
   /// factory gives the one transport, and it does not reconnect.
   Future<RemoteParticipant> join({
-    Set<String> namespaces = const {'kittens'},
+    Set<String> names = const {'kittens'},
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
     LogScope? log,
@@ -116,7 +116,7 @@ void main() {
     session = r
         .participant(
           kittens,
-          vocabularies: [for (final n in namespaces) WordSet.open(n)],
+          vocabularies: [for (final n in names) WordSet.open(n)],
           rights: rights,
           access: access,
         )
@@ -139,11 +139,11 @@ void main() {
   });
 
   test(
-    'it is the session\'s principal, in the session\'s namespaces',
+    'it is the session\'s principal, in the session\'s vocabularies',
     () async {
       final p = await join();
       expect(p.who, kittens);
-      expect(p.namespaces, {'kittens'});
+      expect(p.vocabularies, {'kittens'});
     },
   );
 
@@ -272,7 +272,7 @@ void main() {
     await sub.cancel();
   });
 
-  test('outside its namespaces it is refused at once; what the host refuses '
+  test('outside its vocabularies it is refused at once; what the host refuses '
       'comes after, to its errors', () async {
     final p = await join(
       rights: ParticipantRights(

@@ -40,13 +40,15 @@ final class Pinboard extends BoardOwner {
 /// What a vocabulary says beyond `Player`'s: records of named fields as
 /// values, params, answers and payloads, their fields annotated in the
 /// typedef; any value; a duration; a param named otherwise in JSON; a word
-/// named as its namespace; an open fact.
+/// named as its vocabulary; an open fact.
 void main() {
   late Registry r;
   late IParticipant p;
   late Pinboard board;
+  late IParticipant asAnn;
   setUp(() {
     r = Registry(onError: (e, st) => throw e);
+    asAnn = r.participant(ann);
     p = r.participant(
       me,
       vocabularies: [boardWords],
@@ -117,21 +119,21 @@ void main() {
 
   test('a record goes in and out as JSON, its fields by their JSON names, '
       'defaults filled', () async {
-    final done = await r.call('note.put', {
+    final done = await asAnn.call('note.put', {
       'note': {
         'level': 'warning',
         'text': 'Hi',
         'by': 'Ann',
         'action': {'call': 'note.expire'},
       },
-    }, by: ann);
+    });
     expect(done.ok, isTrue, reason: '$done');
     expect((done as CallDone).value, {'id': 'n1'});
     final note = board.up['n1']!;
     expect(note.author, 'Ann');
     expect(note.tags, isEmpty);
     expect(note.action!.params, isEmpty);
-    expect(r.read('note', key: 'n1'), {
+    expect(asAnn.read('note', key: 'n1'), {
       'level': 'warning',
       'text': 'Hi',
       'tags': <Object?>[],
@@ -141,13 +143,13 @@ void main() {
     expect(BoardClient(LocalView(r, by: ann)).notesOf('n1')!.author, 'Ann');
   });
 
-  test('a word named as its namespace, any value, a duration by its JSON '
+  test('a word named as its vocabulary, any value, a duration by its JSON '
       'name', () async {
     expect(BoardState.notes.name, 'note');
     board.anything.set({'a': 1});
-    expect(r.read('note.anything'), {'a': 1});
+    expect(asAnn.read('note.anything'), {'a': 1});
     board.anything.set(null);
-    expect(r.read('note.anything'), isNull);
+    expect(asAnn.read('note.anything'), isNull);
     expect(r.commandDescriptor('note.expire')!.params.toJson()['fields'], {
       'id': {
         'type': {'type': 'ref', 'kind': 'note'},
@@ -156,16 +158,13 @@ void main() {
         'type': {'type': 'duration', 'max': 60000},
       },
     });
-    await r.call('note.put', {
+    await asAnn.call('note.put', {
       'note': {'level': 'info', 'text': 'x'},
-    }, by: ann);
-    final done = await r.call('note.expire', {'id': 'n1', 'in': 500}, by: ann);
+    });
+    final done = await asAnn.call('note.expire', {'id': 'n1', 'in': 500});
     expect(done.ok, isTrue, reason: '$done');
     expect(board.expiries, [500]);
-    final long = await r.call('note.expire', {
-      'id': 'n1',
-      'in': 60001,
-    }, by: ann);
+    final long = await asAnn.call('note.expire', {'id': 'n1', 'in': 60001});
     expect((long as CallRefused).code, Refusal.invalidParams);
   });
 
@@ -201,7 +200,7 @@ void main() {
     });
   });
 
-  test('an open fact is said by others too', () {
+  test('an open fact is said by others too', () async {
     expect(r.factDescriptor('note.seen')!.open, isTrue);
     board.seen((
       level: Level.info,
@@ -210,7 +209,7 @@ void main() {
       author: null,
       action: null,
     ));
-    expect(r.recent('note.seen').single.payload, {
+    expect((await asAnn.recent('note.seen', 9)).single.payload, {
       'level': 'info',
       'text': 'seen',
       'tags': <Object?>[],

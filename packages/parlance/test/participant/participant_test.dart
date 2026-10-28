@@ -75,7 +75,7 @@ void main() {
 
   group('a participant defines', () {
     test(
-      'words in its namespaces, used by others through typed words',
+      'words in its vocabularies, used by others through typed words',
       () async {
         ordersModule();
         final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
@@ -100,7 +100,7 @@ void main() {
       },
     );
 
-    test('nothing outside its namespaces', () {
+    test('nothing outside its vocabularies', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(() => p.state(_Other.flag).define(), throwsA(isA<StateError>()));
       expect(r.stateDescriptor('cart.flag'), isNull);
@@ -108,7 +108,7 @@ void main() {
       expect(
         () => none.state(OrderState.last).define(),
         throwsA(isA<StateError>()),
-        reason: 'no namespace, no words',
+        reason: 'no vocabulary, no words',
       );
     });
 
@@ -128,7 +128,7 @@ void main() {
     });
   });
 
-  group('namespaces', () {
+  group('vocabularies', () {
     test('are one participant\'s, until it goes', () {
       final a = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(
@@ -143,7 +143,9 @@ void main() {
       );
       a.dispose();
       expect(
-        r.participant(cart, vocabularies: [WordSet.open('orders')]).namespaces,
+        r
+            .participant(cart, vocabularies: [WordSet.open('orders')])
+            .vocabularies,
         {'orders'},
       );
     });
@@ -432,42 +434,48 @@ void main() {
     expect(() => p.entitiesChanged('scene'), throwsA(isA<StateError>()));
   });
 
-  test('a namespace is one vocabulary\'s, so its words are one owner\'s', () {
-    expect(
-      () => r.participant(
-        orders,
-        vocabularies: [WordSet.open('orders'), WordSet.open('orders')],
-      ),
-      throwsArgumentError,
-    );
-    expect(
-      () => r.participant(
-        orders,
-        vocabularies: [WordSet.open('orders'), WordSet.open('orders.archive')],
-      ),
-      throwsArgumentError,
-    );
-    expect(
-      r
-          .participant(
-            orders,
-            vocabularies: [WordSet.open('orders'), WordSet.open('cart')],
-          )
-          .namespaces,
-      {'orders', 'cart'},
-    );
-  });
+  test(
+    'two vocabularies of one name, or one inside the other, are refused',
+    () {
+      expect(
+        () => r.participant(
+          orders,
+          vocabularies: [WordSet.open('orders'), WordSet.open('orders')],
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => r.participant(
+          orders,
+          vocabularies: [
+            WordSet.open('orders'),
+            WordSet.open('orders.archive'),
+          ],
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        r
+            .participant(
+              orders,
+              vocabularies: [WordSet.open('orders'), WordSet.open('cart')],
+            )
+            .vocabularies,
+        {'orders', 'cart'},
+      );
+    },
+  );
 
-  test('a vocabulary granted is its namespace, said once where its words '
+  test('a vocabulary granted is named once, where its words '
       'are', () {
     const ordersWords = WordSet('orders', [...OrderState.values]);
     final p = r.participant(orders, vocabularies: [ordersWords]);
-    expect(p.namespaces, {'orders'});
+    expect(p.vocabularies, {'orders'});
     p.state(OrderState.last).define();
     expect(
       () => r.participant(cart, vocabularies: [ordersWords]),
       throwsA(isA<NotPermitted>()),
-      reason: 'a namespace is one participant\'s',
+      reason: 'a vocabulary is one participant\'s',
     );
     expect(
       () => r.participant(
@@ -477,7 +485,7 @@ void main() {
         ],
       ),
       throwsArgumentError,
-      reason: 'a word of the vocabulary lies outside its namespace',
+      reason: 'a word of the vocabulary is not named in it',
     );
     expect(
       () => r.participant(

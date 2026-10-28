@@ -48,13 +48,13 @@ final class LinkRun {
 /// [participant], with its rights and no more, so a link may do exactly
 /// what its owner may.
 ///
-/// The owner's buttons go under [namespace]: the state
-/// `<namespace>.links.buttons` (how each looks now, meta `buttons: true`)
-/// and the command `<namespace>.links.press`, which [pressers] may call.
+/// The owner's buttons go in its [vocabulary]: the state
+/// `<vocabulary>.links.buttons` (how each looks now, meta `buttons: true`)
+/// and the command `<vocabulary>.links.press`, which [pressers] may call.
 final class Links {
   Links(
     this.participant, {
-    required this.namespace,
+    required this.vocabulary,
     Callers? pressers,
     List<TriggerExtension> extensions = const [],
     this.onError,
@@ -64,7 +64,7 @@ final class Links {
        _extensions = {for (final e in extensions) e.name: e};
 
   final IParticipant participant;
-  final String namespace;
+  final String vocabulary;
   final Callers pressers;
   final Map<String, TriggerExtension> _extensions;
   final ErrorSink? onError;
@@ -86,8 +86,8 @@ final class Links {
   List<Object?> _shown = const [];
   bool _disposed = false;
 
-  String get buttonsState => '$namespace.links.buttons';
-  String get pressCommand => '$namespace.links.press';
+  String get buttonsState => '$vocabulary.links.buttons';
+  String get pressCommand => '$vocabulary.links.press';
 
   /// The links taken, in order.
   List<Link> get links => _links;
@@ -163,7 +163,7 @@ final class Links {
   }
 
   /// How each button looks now, in the order of the links: what
-  /// `<namespace>.links.buttons` holds.
+  /// `<vocabulary>.links.buttons` holds.
   List<Map<String, Object?>> buttons() => [
     for (final l in _links)
       if (l.button case final b? when l.enabled) _look(l, b),

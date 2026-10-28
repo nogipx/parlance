@@ -7,12 +7,12 @@ import '../registry/descriptors.dart';
 
 /// A module's words: each member of the class marked [StateWord],
 /// [CommandWord], [QueryWord] or [FactWord] is one, named
-/// `<namespace>.<name>`.
+/// `<vocabulary>.<name>`.
 final class Vocabulary {
-  const Vocabulary(this.namespace, {this.owner = true, this.client = true});
+  const Vocabulary(this.name, {this.owner = true, this.client = true});
 
   /// The first words of every name: `orders` for `orders.cancel`.
-  final String namespace;
+  final String name;
 
   /// Whether to make `<Class>Owner` too (SPEC §23.4), an owner base with a
   /// handler to write per command and query.
@@ -27,8 +27,8 @@ final class Vocabulary {
 final class StateWord {
   const StateWord({this.name, this.key, this.readers, this.meta = const {}});
 
-  /// Its name after the namespace; by default the member's in snake case;
-  /// `''` names the namespace itself (`signal`, beside `signal.raise`).
+  /// Its name after the vocabulary's; by default the member's in snake case;
+  /// `''` names the vocabulary itself (`signal`, beside `signal.raise`).
   final String? name;
 
   /// The entity kind of its keys, for a keyed state.

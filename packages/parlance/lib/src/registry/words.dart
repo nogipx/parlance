@@ -268,32 +268,32 @@ abstract interface class IWord {
   String get name;
 }
 
-/// A vocabulary: a module's words, all in its one [namespace] (SPEC §22.1,
-/// §23). It is the only way a participant gets a namespace: `main` grants
-/// it (`participant(who, vocabularies:)`), so the namespace is written
+/// A vocabulary: a module's words, all in its one [name] (SPEC §22.1,
+/// §23). It is the only way a participant gets one: `main` grants
+/// it (`participant(who, vocabularies:)`), so its name is written
 /// once, where the words are. The generator makes one per `@Vocabulary`
 /// class; one of hand-written enums is `WordSet('audio', [...])`.
 final class WordSet {
-  const WordSet(this.namespace, this.words) : open = false;
+  const WordSet(this.name, this.words) : open = false;
 
-  /// A namespace whose words are not known before they come: a plugin's,
+  /// A vocabulary whose words are not known before they come: a plugin's,
   /// a guest's in another language, a module's named at run time. Said
   /// so, never a vocabulary left out by mistake.
-  const WordSet.open(this.namespace) : words = const [], open = true;
+  const WordSet.open(this.name) : words = const [], open = true;
 
-  final String namespace;
+  final String name;
   final List<IWord> words;
 
   /// Whether its words come at run time ([WordSet.open]).
   final bool open;
 
-  /// Throws when a word lies outside [namespace].
-  /// Throws when its namespace or a word's name is no name (SPEC §1), or a
-  /// word lies outside its namespace: told when the vocabulary is granted,
+  /// Throws when a word lies outside [name].
+  /// Throws when its name or a word's name is no name (SPEC §1), or a
+  /// word is not named in it: told when the vocabulary is granted,
   /// at the start, for every word at once, not when one is defined.
   void check() {
     final bad = <String>[];
-    if (!isValidName(namespace)) bad.add('the namespace "$namespace"');
+    if (!isValidName(name)) bad.add('the vocabulary name "$name"');
     for (final w in words) {
       try {
         checkWordName(w.name);
@@ -301,13 +301,13 @@ final class WordSet {
         bad.add('"${w.name}" (${e.message})');
         continue;
       }
-      if (w.name != namespace && !w.name.startsWith('$namespace.')) {
-        bad.add('"${w.name}" (not in the namespace $namespace)');
+      if (w.name != name && !w.name.startsWith('$name.')) {
+        bad.add('"${w.name}" (not named in $name)');
       }
     }
     if (bad.isEmpty) return;
     throw ArgumentError(
-      'the vocabulary $namespace has what is no word name: ${bad.join('; ')}. '
+      'the vocabulary $name has what is no word name: ${bad.join('; ')}. '
       'A name is lower-case words split by ., each from a letter, joined by _ '
       'or -',
     );

@@ -62,7 +62,7 @@ final class DoorsClient {
       view.state(DoorsState.room).watch(key: door);
 }
 
-/// The vocabulary of [Doors]: its namespace and every word, for
+/// The vocabulary of [Doors]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
 const doorsWords = WordSet('door', [...DoorsState.values]);
@@ -142,7 +142,7 @@ final class LightsClient {
   }
 }
 
-/// The vocabulary of [Lights]: its namespace and every word, for
+/// The vocabulary of [Lights]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
 const lightsWords = WordSet('light', [...LightsCommand.values]);

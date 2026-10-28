@@ -34,7 +34,7 @@ Future<void> main() async {
   print('  for a guest the command is ${turn.status}');
   final asGuest = await turn.call((volume: 10));
   print('  a guest turns it: ${asGuest.whyNot}');
-  // Nor may it put words in the player's namespace.
+  // Nor may it put words in the player's vocabulary.
   try {
     bob.state(PlayerState.volume).define();
   } on NotPermitted catch (e) {

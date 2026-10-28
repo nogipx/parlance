@@ -47,7 +47,7 @@ const room = 'room';
 
 enum Mode { home, away, night }
 
-/// The house's words, in its one namespace.
+/// The house's words, in its one vocabulary.
 @Vocabulary('house')
 abstract class House {
   /// Whether a room's light is on, by room.

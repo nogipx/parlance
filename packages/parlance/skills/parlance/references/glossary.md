@@ -5,7 +5,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Values, names, types
 
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
-- **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `audio.gain.set`, `audio.voice.muted_talk`. The first word is the owner's namespace by convention; ownership is by handle, not by name.
+- **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `audio.gain.set`, `audio.voice.muted_talk`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
 - **Key** (§1): the entity id a keyed state's value belongs to (`mic` in `audio.muted[mic]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
@@ -102,7 +102,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`) and what happened read back (`written`, `said`, `callsOf`).
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
-- **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(namespace)`; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
+- **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first words of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **Handles**: the set of handles an owner keeps, withdrawn together.
 - **`keep`**: keeps a handle and gives it back with its own type.
 - **`trackKind`**: registers a kind of entities the owner keeps; its sync announces `entitiesChanged` only when the list changed, and answers the ids that went, whose keyed values the owner removes.
@@ -136,8 +136,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`McpTool.typed`**: a host's own tool, its JSON Schema derived from a `RecordShape`.
 - **`McpSocketServer`**: agents on a Unix socket (`mcp_io.dart`); `toolsChanged()` reaches every session.
 - **`parlance-mcp`**: an agent's participant across a connection as a stdio server.
-- **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `namespaces`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
-- **Namespace** (§22.1): the first words of the names a participant may define (`orders` for `orders.cancel`); one live participant's alone.
+- **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
 - **Participant rights** (§22.2): `define` (a further check on its words), `produce` (open facts of others), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
 - **Part** (§4, §22.3): `principal.child(name)` (`studio/sound`), and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, and its acts are told as its own, for audit.

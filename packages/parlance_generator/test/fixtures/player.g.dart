@@ -386,7 +386,7 @@ final class PlayerClient {
   Stream<Fact<Track>> get finished => view.fact(PlayerFact.finished).stream;
 }
 
-/// The vocabulary of [Player]: its namespace and every word, for
+/// The vocabulary of [Player]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
 const playerWords = WordSet('player', [

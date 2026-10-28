@@ -1321,7 +1321,7 @@ final class Registry implements ITypeContext {
 }
 
 /// What the registry does on behalf of whoever it is told (SPEC §22):
-/// defines words with no namespace to keep them in, calls and writes as
+/// defines words with no vocabulary to keep them in, calls and writes as
 /// any principal, guards every command. The package's own, for what it
 /// builds on the registry (participants, sessions, views, tests); not
 /// exported, so a host's code reaches the registry through participants

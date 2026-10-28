@@ -65,16 +65,16 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
         element: element,
       );
     }
-    final namespace = annotation.read('namespace').stringValue;
-    if (!isValidName(namespace)) {
+    final vocabulary = annotation.read('name').stringValue;
+    if (!isValidName(vocabulary)) {
       throw InvalidGenerationSourceError(
-        '@Vocabulary: "$namespace" is no namespace: $_nameRule',
+        '@Vocabulary: "$vocabulary" is no name: $_nameRule',
         element: element,
       );
     }
     final out = _Emitter(
       element,
-      namespace,
+      vocabulary,
       owner: annotation.peek('owner')?.boolValue ?? true,
       client: annotation.peek('client')?.boolValue ?? true,
       recordFields: await _recordFields(element, buildStep.resolver),
@@ -203,7 +203,7 @@ final class _Fact extends _Word {
 final class _Emitter {
   _Emitter(
     this.cls,
-    this.namespace, {
+    this.vocabulary, {
     required this.owner,
     required this.client,
     required this.recordFields,
@@ -219,7 +219,7 @@ final class _Emitter {
 
   /// The shapes of the records made so far, by name: each made once.
   Set<String> get _recordShapes => shared.recordShapes;
-  final String namespace;
+  final String vocabulary;
   final bool owner;
   final bool client;
 
@@ -334,12 +334,10 @@ final class _Emitter {
     if (owner) out.write(_ownerBase(states, commands, queries, facts));
     if (client) out.write(_clientOf(states, commands, queries, facts));
     out
-      ..writeln(
-        '/// The vocabulary of [$_c]: its namespace and every word, for',
-      )
+      ..writeln('/// The vocabulary of [$_c]: its name and every word, for')
       ..writeln('/// `main` to grant a participant (`vocabularies:`) and for')
       ..writeln('/// `schemaOf`.')
-      ..writeln('const $_words = WordSet(${_quote(namespace)}, [')
+      ..writeln('const $_words = WordSet(${_quote(vocabulary)}, [')
       ..writeln(
         [
           if (states.isNotEmpty) '...${_c}State.values',
@@ -361,8 +359,8 @@ final class _Emitter {
 
   String _name(Element e, ConstantReader r) {
     final own = r.peek('name')?.stringValue ?? _snake(e.displayName);
-    // '' is the namespace itself: `signal`, beside `signal.raise`.
-    final name = own.isEmpty ? namespace : '$namespace.$own';
+    // '' is the vocabulary itself: `signal`, beside `signal.raise`.
+    final name = own.isEmpty ? vocabulary : '$vocabulary.$own';
     try {
       checkWordName(name);
     } on ArgumentError catch (x) {

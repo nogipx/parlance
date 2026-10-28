@@ -196,7 +196,7 @@ final class BoardClient {
   Stream<Fact<Note>> get seen => view.fact(BoardFact.seen).stream;
 }
 
-/// The vocabulary of [Board]: its namespace and every word, for
+/// The vocabulary of [Board]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
 const boardWords = WordSet('note', [

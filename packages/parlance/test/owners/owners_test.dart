@@ -104,11 +104,8 @@ void main() {
   tearDown(() => r.dispose());
 
   /// The module's participant, as `main` makes it.
-  IParticipant module([Set<String> namespaces = const {'test'}]) =>
-      r.participant(
-        me,
-        vocabularies: [for (final n in namespaces) WordSet.open(n)],
-      );
+  IParticipant module([Set<String> names = const {'test'}]) =>
+      r.participant(me, vocabularies: [for (final n in names) WordSet.open(n)]);
 
   test('owners define, sync as one tick, and withdraw their words', () async {
     final ticks = <Tick>[];
@@ -159,13 +156,16 @@ void main() {
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'o still has it');
   });
 
-  test('an owner defines only in the namespaces main gave its participant', () {
-    expect(
-      () => module({'test.level'})..attach({'other': Other()}),
-      throwsA(isA<NotPermitted>()),
-    );
-    expect(r.stateDescriptor('test.on'), isNull);
-  });
+  test(
+    'an owner defines only in the vocabularies main gave its participant',
+    () {
+      expect(
+        () => module({'test.level'})..attach({'other': Other()}),
+        throwsA(isA<NotPermitted>()),
+      );
+      expect(r.stateDescriptor('test.on'), isNull);
+    },
+  );
 
   test('the participant main made says who reads the owners\' words', () {
     r
@@ -178,7 +178,7 @@ void main() {
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
   });
 
-  test('going, a participant takes its owners with it, and its namespace '
+  test('going, a participant takes its owners with it, and its vocabulary '
       'is free again', () {
     final p = module()..attach({'other': Other()});
     p.dispose();
