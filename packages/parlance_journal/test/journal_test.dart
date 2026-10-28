@@ -290,6 +290,31 @@ call chat.say by viewer/twitch.7 -> done
     expect(talks, {'irc:2'});
   });
 
+  test('the same questions of lines read anywhere, in a browser too; each '
+      'conversation in brief', () async {
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await s.chat('irc:2');
+    await w.close();
+    await s.r.dispose();
+    final text = JournalReader(dir).files.single.readAsStringSync();
+    final j = Journal.parse('$text{"cut sh');
+    expect(j.entries, hasLength(JournalReader(dir).entries().length));
+    expect(j.conversation('irc:1'), hasLength(7));
+    expect(j.tree('irc:1').single.word, 'chat.say');
+    final talks = j.conversations();
+    expect(talks.map((c) => c.id), ['irc:1', 'irc:2']);
+    final first = talks.first;
+    expect(first.origin, const Origin('chat.say', viewer));
+    expect(
+      (first.entries, first.calls, first.refused, first.failed),
+      (7, 3, 1, 0),
+    );
+    expect(first.duration, first.last.difference(first.started));
+    expect(first.epoch, isNotEmpty);
+  });
+
   test('a file a day; days older than kept go; a line cut short is '
       'skipped', () async {
     File('${dir.path}/journal-2026-01-01.jsonl').writeAsStringSync('{}\n');
