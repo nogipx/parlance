@@ -23,6 +23,7 @@ import 'descriptors.dart';
 import 'ids.dart';
 import 'json.dart';
 import 'messages.dart';
+import 'shapes.dart';
 import 'types.dart';
 
 /// Serves a command: answers its result (checked against `returns`), or
@@ -274,8 +275,11 @@ final class _Disposer implements IHandle {
 }
 
 final class _StateEntry {
-  _StateEntry(this.descriptor, this.local) : writer = local.claim();
+  _StateEntry(this.descriptor, this.local, this.shape) : writer = local.claim();
   final StateDescriptor descriptor;
+
+  /// How its values are checked, kept and told as JSON (SPEC §18).
+  final Shape<Object?> shape;
 
   /// Its values by key, null for an unkeyed state; the registry is the
   /// local state's only writer.
@@ -284,7 +288,16 @@ final class _StateEntry {
 }
 
 final class _CommandEntry {
-  _CommandEntry(this.descriptor, this.local, this.serving, this.available);
+  _CommandEntry(this.descriptor, this.local, this.serving, this.available)
+    : params = JsonValue(descriptor.params),
+      returns = switch (descriptor.returns) {
+        final t? => JsonValue(t),
+        null => null,
+      };
+
+  /// How its params and its answer are checked and kept (SPEC §18).
+  final Shape<Object?> params;
+  final Shape<Object?>? returns;
 
   /// A command's or a query's: both are called through the same stages.
   final CallableDescriptor descriptor;
@@ -296,8 +309,11 @@ final class _CommandEntry {
 }
 
 final class _FactEntry {
-  _FactEntry(this.descriptor, this.local);
+  _FactEntry(this.descriptor, this.local, this.shape);
   final FactDescriptor descriptor;
+
+  /// How its payloads are checked, kept and told as JSON (SPEC §18).
+  final Shape<Object?> shape;
 
   /// Its payloads, tagged with their id and cause.
   final LocalFact<Object?> local;
@@ -659,7 +675,7 @@ final class Registry implements ITypeContext {
     refuseInQuery('write ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
-    final v = freezeJson(d.type.check(value, this));
+    final v = e.shape.check(value, this);
     e.writer.set(key, v, tag: cause);
   }
 
@@ -871,12 +887,13 @@ final class Registry implements ITypeContext {
     String id,
     Cause cause,
   ) {
-    if (_facts[d.name]?.descriptor != d) throw StateError('${d.name} is gone');
+    final entry = _facts[d.name];
+    if (entry?.descriptor != d) throw StateError('${d.name} is gone');
     refuseInQuery('say ${d.name}');
     final now = clock.now();
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
-    final v = freezeJson(d.type.check(payload, this));
+    final v = entry!.shape.check(payload, this);
     cause = _inConversation(cause);
     _converse(id, d.name, cause);
     _seenFacts[id] = now;
@@ -1192,8 +1209,7 @@ final class Registry implements ITypeContext {
     }
     final d = entry.descriptor;
     try {
-      params =
-          freezeJson(d.params.check(rawParams, this)) as Map<String, Object?>;
+      params = entry.params.check(rawParams, this) as Map<String, Object?>;
     } on TypeMismatch catch (e) {
       return finish(CallRefused(Refusal.invalidParams, '$e'));
     }
@@ -1262,9 +1278,9 @@ final class Registry implements ITypeContext {
     }
 
     CallResult<Object?> answered(Object? answer) {
-      if (d.returns case final t?) {
+      if (entry.returns case final t?) {
         try {
-          return CallDone(freezeJson(t.check(answer, this)));
+          return CallDone(t.check(answer, this));
         } on TypeMismatch catch (e) {
           return CallFailed('returned a wrong value: $e');
         }
@@ -1542,12 +1558,13 @@ extension RawRegistry on Registry {
   /// Defines a state; the returned writer is its only write handle.
   RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
     _checkFree(d.name);
+    final shape = JsonValue(d.type);
     final local = LocalKeyedState<String?, Object?>(
       hub: _hub,
-      equals: jsonEquals,
+      equals: shape.equals,
     );
     _names[local] = d.name;
-    _states[d.name] = _StateEntry(d, local);
+    _states[d.name] = _StateEntry(d, local, shape);
     _announce(DescriptorAdded(d));
     return RawStateWriter._(this, d, by);
   }
@@ -1593,7 +1610,7 @@ extension RawRegistry on Registry {
   RawFactEmitter defineFact(FactDescriptor d, {required Principal by}) {
     _checkFree(d.name);
     final local = LocalFact<Object?>(hub: _hub, open: d.open);
-    _facts[d.name] = _FactEntry(d, local);
+    _facts[d.name] = _FactEntry(d, local, JsonValue(d.type));
     _names[local] = d.name;
     _announce(DescriptorAdded(d));
     return RawFactEmitter._(this, d, by, local.claim(), definer: true);

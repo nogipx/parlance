@@ -11,6 +11,7 @@ export 'src/registry/ids.dart'
 export 'src/registry/json.dart';
 export 'src/registry/messages.dart';
 export 'src/registry/registry.dart' hide RawRegistry;
+export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';
 export 'src/registry/words.dart'
     hide TypedRegistry, StateOf, CommandOf, QueryOf, FactOf;

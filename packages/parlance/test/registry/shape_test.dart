@@ -174,10 +174,12 @@ void main() {
     same(cue, (scene: 'side', note: null, fade: 1, label: null));
     same(cue, (scene: null, note: null, fade: 1, label: null));
     same(cue, (scene: 'main', note: null, fade: 900, label: null));
-    final kept = cue.check(
-      (scene: 'main', note: null, fade: null, label: null),
-      ctx,
-    );
+    final kept = cue.check((
+      scene: 'main',
+      note: null,
+      fade: null,
+      label: null,
+    ), ctx);
     expect(kept.fade, 250, reason: 'the default is given');
   });
 
@@ -207,12 +209,11 @@ void main() {
     equalAlike(levels, {'mic': 1}, {'desk': 1});
     equalAlike(shot, Wide(35), Wide(35));
     equalAlike(shot, Wide(35), Close('ann'));
-    equalAlike(cue, (
-      scene: 'main',
-      note: null,
-      fade: 1,
-      label: null,
-    ), (scene: 'main', note: null, fade: 1, label: null));
+    equalAlike(
+      cue,
+      (scene: 'main', note: null, fade: 1, label: null),
+      (scene: 'main', note: null, fade: 1, label: null),
+    );
   });
 
   test('what is kept cannot change: its lists are its own', () {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../registry/types.dart';
-import '../registry/words.dart';
+import '../registry/shapes.dart';
 import 'schema.dart';
 
 /// What a tool gives back: text, and pictures (PNG, base64 in MCP).
