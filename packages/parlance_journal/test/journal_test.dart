@@ -315,6 +315,34 @@ call chat.say by viewer/twitch.7 -> done
     expect(first.epoch, isNotEmpty);
   });
 
+  test('the days asked for, exported as one file a viewer reads as it '
+      'reads the days', () async {
+    File('${dir.path}/journal-2026-10-26.jsonl').writeAsStringSync('old\n');
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await w.close();
+    await s.r.dispose();
+    final today = JournalReader(dir).files.last;
+    final out = File(
+      '${dir.path}/../export-${dir.uri.pathSegments[dir.uri.pathSegments.length - 2]}.jsonl',
+    );
+    addTearDown(() => out.existsSync() ? out.deleteSync() : null);
+    final day = DateTime.parse(
+      '${today.uri.pathSegments.last.substring(8, 18)}T12:00:00Z',
+    );
+    final n = await JournalReader(dir).export(out, since: day);
+    expect(n, 7);
+    expect(
+      Journal.parse(out.readAsStringSync()).conversation('irc:1'),
+      hasLength(7),
+    );
+    expect(await JournalReader(dir).export(out), 8, reason: 'all days');
+    final none = File('${out.path}.none');
+    expect(await JournalReader(dir).export(none, until: DateTime.utc(2000)), 0);
+    expect(none.existsSync(), isFalse);
+  });
+
   test('a file a day; days older than kept go; a line cut short is '
       'skipped', () async {
     File('${dir.path}/journal-2026-01-01.jsonl').writeAsStringSync('{}\n');

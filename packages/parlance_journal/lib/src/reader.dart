@@ -38,6 +38,36 @@ final class JournalReader {
     }
   }
 
+  /// Writes the days from [since] to [until] (UTC days, both included;
+  /// all when null) to [to] as one file of JSON lines, oldest first, the
+  /// lines as they were written: what to send or open elsewhere (a
+  /// viewer reads it as it reads the days). Answers how many lines it
+  /// wrote; none and no file when there are none.
+  Future<int> export(File to, {DateTime? since, DateTime? until}) async {
+    final from = since == null ? null : dayOf(since);
+    final last = until == null ? null : dayOf(until);
+    final days = [
+      for (final (day, f) in journalFiles(dir))
+        if ((from == null || day.compareTo(from) >= 0) &&
+            (last == null || day.compareTo(last) <= 0))
+          f,
+    ];
+    var lines = 0;
+    IOSink? out;
+    try {
+      for (final f in days) {
+        for (final line in await f.readAsLines()) {
+          if (line.trim().isEmpty) continue;
+          (out ??= to.openWrite()).writeln(line);
+          lines++;
+        }
+      }
+    } finally {
+      await out?.close();
+    }
+    return lines;
+  }
+
   /// The days from [since] to [until], as a [Journal] to ask.
   Journal days({DateTime? since, DateTime? until}) =>
       Journal(entries(since: since, until: until));
