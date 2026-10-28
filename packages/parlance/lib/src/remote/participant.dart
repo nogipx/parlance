@@ -13,6 +13,7 @@ import '../registry/ids.dart';
 import '../registry/json.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/shapes.dart';
 import '../registry/types.dart';
 import '../view/mirror_view.dart';
 import 'contract.dart';
@@ -536,6 +537,11 @@ final class RemoteParticipant implements IParticipant {
   Object? read(String state, {String? key}) =>
       _own.containsKey(state) ? _own[state]![key] : _view.read(state, key: key);
 
+  /// Across a connection a value is JSON: decoded, once a value.
+  @override
+  T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
+      decodeWith(shape, read(state, key: key));
+
   @override
   Map<String?, Object?> readAll(String state) => _own.containsKey(state)
       ? Map.unmodifiable(_own[state]!)
@@ -640,10 +646,18 @@ final class RemoteParticipant implements IParticipant {
   }
 
   @override
+  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) =>
+      watch(state, key: key).map((v) => decodeWith(shape, v));
+
+  @override
   Stream<void> changes(Set<String> states) => _view.changes(states);
 
   @override
   Stream<FactMessage> facts(String fact) => _view.facts(fact);
+
+  @override
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
+      _view.factsAs(fact, shape);
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) =>
@@ -718,7 +732,10 @@ final class RemoteParticipant implements IParticipant {
   // --- Its own words ------------------------------------------------------
 
   @override
-  IStateHandle defineState(StateDescriptor d) => _defineState(d, null);
+  /// Across a connection its values go as JSON: its handle takes JSON,
+  /// whatever [shape].
+  IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) =>
+      _defineState(d, null);
 
   IStateHandle _defineState(StateDescriptor raw, Principal? as) {
     _mayDefine(raw);
@@ -762,7 +779,8 @@ final class RemoteParticipant implements IParticipant {
   }
 
   @override
-  IFactHandle defineFact(FactDescriptor d) => _defineFact(d, null);
+  IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) =>
+      _defineFact(d, null);
 
   IFactHandle _defineFact(FactDescriptor raw, Principal? as) {
     _mayDefine(raw);
@@ -775,7 +793,8 @@ final class RemoteParticipant implements IParticipant {
   /// Another producer of an open [fact]; the host's rights decide, and a
   /// refusal comes to [errors] with its first fact.
   @override
-  IFactHandle producer(String fact) => _producer(fact, null);
+  IFactHandle producer(String fact, {Shape<Object?>? shape}) =>
+      _producer(fact, null);
 
   IFactHandle _producer(String fact, Principal? as) {
     _live();
@@ -1064,6 +1083,10 @@ final class _State implements IStateHandle {
   @override
   final StateDescriptor descriptor;
 
+  /// It goes across as JSON.
+  @override
+  Shape<Object?>? get shape => null;
+
   @override
   void set(Object? value, {String? key, Cause? cause}) {
     final c = _p._as(cause, _by);
@@ -1125,6 +1148,10 @@ final class _Fact implements IFactHandle {
 
   @override
   final FactDescriptor descriptor;
+
+  /// It goes across as JSON.
+  @override
+  Shape<Object?>? get shape => null;
 
   /// Says [payload]. True: whether the registry took it (a repeat of [id]
   /// is dropped there) is not known when it is said.
@@ -1193,6 +1220,10 @@ final class _Part implements IParticipant {
   Object? read(String state, {String? key}) => _root.read(state, key: key);
 
   @override
+  T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
+      _root.readAs(state, shape, key: key);
+
+  @override
   Map<String?, Object?> readAll(String state) => _root.readAll(state);
 
   @override
@@ -1214,10 +1245,18 @@ final class _Part implements IParticipant {
       _root.watch(state, key: key);
 
   @override
+  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) =>
+      _root.watchAs(state, shape, key: key);
+
+  @override
   Stream<void> changes(Set<String> states) => _root.changes(states);
 
   @override
   Stream<FactMessage> facts(String fact) => _root.facts(fact);
+
+  @override
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
+      _root.factsAs(fact, shape);
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) =>
@@ -1249,7 +1288,8 @@ final class _Part implements IParticipant {
   Stream<WordStatus> statusChanges(String word) => _root.statusChanges(word);
 
   @override
-  IStateHandle defineState(StateDescriptor d) => _root._defineState(d, who);
+  IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) =>
+      _root._defineState(d, who);
 
   @override
   IHandle defineCommand(
@@ -1266,10 +1306,12 @@ final class _Part implements IParticipant {
   }) => _root._defineCommand(d, handler, available, who);
 
   @override
-  IFactHandle defineFact(FactDescriptor d) => _root._defineFact(d, who);
+  IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) =>
+      _root._defineFact(d, who);
 
   @override
-  IFactHandle producer(String fact) => _root._producer(fact, who);
+  IFactHandle producer(String fact, {Shape<Object?>? shape}) =>
+      _root._producer(fact, who);
 
   @override
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) =>

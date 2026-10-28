@@ -16,6 +16,14 @@
 ///     write a list of 10000      core  17.430 us  registry 11961.560 us
 ///     read                       core   0.005 us  registry     0.070 us
 ///     a command call             core   0.104 us  registry    11.829 us
+///
+/// After typed values were kept as they are, and what is the same as the
+/// value kept before passed unvisited:
+///
+///     write one record           core   0.220 us  registry     1.177 us
+///     write a list of 1000       core   2.147 us  registry    17.142 us
+///     write a list of 10000      core  17.735 us  registry    95.480 us
+///     read                       core   0.005 us  registry     0.045 us
 library;
 
 import 'package:parlance/core.dart';
@@ -43,7 +51,14 @@ const itemShape = RecordShape<Item>(
   },
   to: _itemTo,
   from: _itemFrom,
+  get: _itemAt,
 );
+
+Object? _itemAt(Item v, int i) => switch (i) {
+  0 => v.id,
+  1 => v.title,
+  _ => v.done,
+};
 
 enum BenchState<T> implements IStateWord<T> {
   item<Item>('bench.item', itemShape),

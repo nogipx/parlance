@@ -9,7 +9,8 @@ export 'src/registry/descriptors.dart';
 export 'src/registry/ids.dart'
     show newId, isValidName, checkWordName, wordVersion;
 export 'src/registry/json.dart';
-export 'src/registry/messages.dart';
+export 'src/registry/messages.dart'
+    hide keptChange, keptValueOf, keptFact, keptPayloadOf;
 export 'src/registry/registry.dart' hide RawRegistry;
 export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';

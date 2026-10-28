@@ -5,6 +5,7 @@ import '../registry/descriptors.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/shapes.dart';
 import '../registry/words.dart';
 import '../view/view.dart';
 import 'owner.dart';
@@ -222,6 +223,10 @@ final class LocalParticipant implements IParticipant {
   Object? read(String state, {String? key}) => _view.read(state, key: key);
 
   @override
+  T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
+      _view.readAs(state, shape, key: key);
+
+  @override
   Map<String?, Object?> readAll(String state) => _view.readAll(state);
 
   @override
@@ -246,10 +251,20 @@ final class LocalParticipant implements IParticipant {
       _r.mayRead(who, state) ? _r.watch(state, key: key) : Stream.value(null);
 
   @override
+  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) =>
+      _r.mayRead(who, state)
+      ? _r.watchAs(state, shape, key: key)
+      : Stream.value(null);
+
+  @override
   Stream<void> changes(Set<String> states) => _view.changes(states);
 
   @override
   Stream<FactMessage> facts(String fact) => _view.facts(fact);
+
+  @override
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
+      _view.factsAs(fact, shape);
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) =>
@@ -287,9 +302,11 @@ final class LocalParticipant implements IParticipant {
   // --- Its own words ------------------------------------------------------
 
   @override
-  IStateHandle defineState(StateDescriptor d) {
+  IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) {
     _mayDefine(d);
-    return _keep(_OwnState(this, _r.defineState(access.state(d), by: who)));
+    return _keep(
+      _OwnState(this, _r.defineState(access.state(d), by: who, shape: shape)),
+    );
   }
 
   @override
@@ -323,20 +340,22 @@ final class LocalParticipant implements IParticipant {
   }
 
   @override
-  IFactHandle defineFact(FactDescriptor d) {
+  IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) {
     _mayDefine(d);
-    return _keep(_OwnFact(this, _r.defineFact(access.fact(d), by: who)));
+    return _keep(
+      _OwnFact(this, _r.defineFact(access.fact(d), by: who, shape: shape)),
+    );
   }
 
   @override
-  IFactHandle producer(String fact) {
+  IFactHandle producer(String fact, {Shape<Object?>? shape}) {
     _live();
     final check = rights.produce;
     if ((check == null ? '$who may produce nothing' : check(who, fact))
         case final why?) {
       throw NotPermitted(why);
     }
-    return _keep(_OwnFact(this, _r.producer(fact, by: who)));
+    return _keep(_OwnFact(this, _r.producer(fact, by: who, shape: shape)));
   }
 
   /// The id the registry knows its guard [id] by: `<who>#<id>`, so two
@@ -461,6 +480,9 @@ final class _OwnState implements IStateHandle {
   StateDescriptor get descriptor => _raw.descriptor;
 
   @override
+  Shape<Object?>? get shape => _raw.shape;
+
+  @override
   void set(Object? value, {String? key, Cause? cause}) =>
       _raw.set(value, key: key, cause: _p._as(cause));
 
@@ -484,6 +506,9 @@ final class _OwnFact implements IFactHandle {
 
   @override
   FactDescriptor get descriptor => _raw.descriptor;
+
+  @override
+  Shape<Object?>? get shape => _raw.shape;
 
   @override
   bool emit(Object? payload, {String? id, Cause? cause}) {

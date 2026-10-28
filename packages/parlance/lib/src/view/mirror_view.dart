@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../registry/messages.dart';
+import '../registry/shapes.dart';
 import '../remote/remote.dart';
 import 'view.dart';
 
@@ -21,6 +22,11 @@ final class MirrorView implements IRegistryView {
 
   @override
   Object? read(String state, {String? key}) => mirror.read(state, key: key);
+
+  /// Across a connection a value is JSON: decoded, once a value.
+  @override
+  T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
+      decodeWith(shape, read(state, key: key));
 
   @override
   Map<String?, Object?> readAll(String state) => mirror.readAll(state);
@@ -83,6 +89,10 @@ final class MirrorView implements IRegistryView {
     );
     return out.stream;
   }
+
+  @override
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
+      facts(fact).map((m) => (decodeWith(shape, m.payload) as T, m));
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) async =>

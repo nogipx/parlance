@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import '../registry/cause.dart';
-import '../registry/json.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/shapes.dart';
 import '../registry/words.dart';
 
 /// What a screen reads and calls, whether the registry is in this process
@@ -16,6 +16,11 @@ abstract interface class IRegistryView {
   /// The value of [state] (of [key]) now; null when there is none, or the
   /// view does not have it.
   Object? read(String state, {String? key});
+
+  /// [read] as [shape] has it (SPEC §18): the value itself when the
+  /// registry is in this process and keeps it by [shape], else its JSON
+  /// decoded.
+  T? readAs<T>(String state, Shape<T> shape, {String? key});
 
   /// Every value of [state], by key.
   Map<String?, Object?> readAll(String state);
@@ -36,6 +41,9 @@ abstract interface class IRegistryView {
   /// The facts of [fact] said from now on; while it is listened to, a
   /// remote view hears them.
   Stream<FactMessage> facts(String fact);
+
+  /// [facts] with their payloads as [shape] has them (SPEC §18).
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape);
 
   /// The last [count] facts of [fact] the registry keeps, oldest first.
   Future<List<FactMessage>> recent(String fact, int count);
@@ -90,7 +98,7 @@ final class ViewStateOf<T> {
   final IStateWord<T> word;
 
   /// Its value (of [key]) now.
-  T? read({String? key}) => word.decode(view.read(word.name, key: key));
+  T? read({String? key}) => view.readAs(word.name, word.shape, key: key);
 
   /// Every value, by key; a null one too, of a state that may be null.
   Map<String?, T> readAll() => {
@@ -103,14 +111,14 @@ final class ViewStateOf<T> {
   Stream<T?> watch({String? key}) {
     late StreamController<T?> out;
     StreamSubscription<void>? sub;
-    Object? last;
+    T? last;
     var told = false;
     void tell() {
-      final now = view.read(word.name, key: key);
-      if (told && jsonEquals(now, last)) return;
+      final now = view.readAs(word.name, word.shape, key: key);
+      if (told && _same(word.shape, now, last)) return;
       told = true;
       last = now;
-      out.add(word.decode(now));
+      out.add(now);
     }
 
     out = StreamController<T?>(
@@ -157,7 +165,7 @@ final class ViewFactOf<T> {
 
   /// Those said from now on.
   Stream<Fact<T>> get stream =>
-      view.facts(word.name).map((m) => Fact(word.shape.fromJson(m.payload), m));
+      view.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
   WordStatus get status => view.status(word.name);
   Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
@@ -175,6 +183,12 @@ final class LocalView implements IRegistryView {
   @override
   Object? read(String state, {String? key}) =>
       registry.mayRead(by, state) ? registry.read(state, key: key) : null;
+
+  @override
+  T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
+      registry.mayRead(by, state)
+      ? registry.readAs(state, shape, key: key)
+      : null;
 
   @override
   Map<String?, Object?> readAll(String state) =>
@@ -205,6 +219,12 @@ final class LocalView implements IRegistryView {
       : const Stream.empty();
 
   @override
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
+      registry.mayRead(by, fact)
+      ? registry.factsAs(fact, shape)
+      : const Stream.empty();
+
+  @override
   Future<List<FactMessage>> recent(String fact, int count) async =>
       registry.mayRead(by, fact) ? registry.recent(fact, count) : const [];
 
@@ -232,3 +252,7 @@ final class LocalView implements IRegistryView {
   @override
   int get hashCode => Object.hash(registry, by);
 }
+
+/// Whether [a] and [b], values of [shape] or none, are one value.
+bool _same<T>(Shape<T> shape, T? a, T? b) =>
+    identical(a, b) || (a != null && b != null && shape.equals(a, b));

@@ -1,20 +1,39 @@
 import 'cause.dart';
+import 'json.dart';
+import 'shapes.dart';
 
 DateTime _at(Object? v) => DateTime.parse(v as String);
 
 /// A committed change of one state value (SPEC §7).
 final class StateChange {
-  const StateChange({
+  StateChange({
     required this.seq,
     required this.id,
     required this.state,
     required this.key,
-    required this.value,
-    required this.previous,
+    required Object? value,
+    required Object? previous,
     required this.removed,
     required this.cause,
     required this.at,
-  });
+  }) : _value = value,
+       _previous = previous,
+       _shape = null;
+
+  StateChange._kept({
+    required this.seq,
+    required this.id,
+    required this.state,
+    required this.key,
+    required Object? value,
+    required Object? previous,
+    required this.removed,
+    required this.cause,
+    required this.at,
+    required Shape<Object?> shape,
+  }) : _value = value,
+       _previous = previous,
+       _shape = shape;
 
   factory StateChange.fromJson(Object? json) {
     final m = json as Map;
@@ -38,9 +57,23 @@ final class StateChange {
   /// The key of a keyed state; null for an unkeyed one.
   final String? key;
 
-  /// The new value; null when [removed].
-  final Object? value;
-  final Object? previous;
+  /// The values as the registry keeps them, and the shape it keeps them
+  /// by; null: they are JSON.
+  final Object? _value;
+  final Object? _previous;
+  final Shape<Object?>? _shape;
+  Object? _valueJson = _unmade;
+  Object? _previousJson = _unmade;
+
+  /// The new value, as JSON; null when [removed].
+  Object? get value => identical(_valueJson, _unmade)
+      ? _valueJson = _jsonOf(_shape, _value)
+      : _valueJson;
+
+  /// The value before, as JSON.
+  Object? get previous => identical(_previousJson, _unmade)
+      ? _previousJson = _jsonOf(_shape, _previous)
+      : _previousJson;
 
   /// The key (or the whole unkeyed value) is gone.
   final bool removed;
@@ -65,16 +98,73 @@ final class StateChange {
       '${removed ? 'removed' : '= $value'} ($cause)';
 }
 
+/// Not made yet: a JSON value is made of a kept one when first asked.
+const Object _unmade = _Unmade();
+
+final class _Unmade {
+  const _Unmade();
+}
+
+/// The JSON of [kept], a value [shape] keeps (as it is, when null), frozen
+/// as every value the registry tells is.
+Object? _jsonOf(Shape<Object?>? shape, Object? kept) =>
+    shape == null || kept == null || shape is JsonValue
+    ? kept
+    : freezeJson(shape.toJson(kept));
+
+/// A change of a value the registry keeps by [shape]: its JSON is made
+/// when someone asks for it (SPEC §18). The package's own.
+StateChange keptChange({
+  required int seq,
+  required String id,
+  required String state,
+  required String? key,
+  required Object? value,
+  required Object? previous,
+  required bool removed,
+  required Cause cause,
+  required DateTime at,
+  required Shape<Object?> shape,
+}) => StateChange._kept(
+  seq: seq,
+  id: id,
+  state: state,
+  key: key,
+  value: value,
+  previous: previous,
+  removed: removed,
+  cause: cause,
+  at: at,
+  shape: shape,
+);
+
+/// The value of [c] as the registry keeps it, when it keeps it by
+/// [shape]; [none] when it is another's or JSON. The package's own.
+Object? keptValueOf(StateChange c, Shape<Object?> shape, Object? none) =>
+    identical(c._shape, shape) ? c._value : none;
+
 /// A committed fact (SPEC §6.3).
 final class FactMessage {
-  const FactMessage({
+  FactMessage({
     required this.seq,
     required this.id,
     required this.fact,
-    required this.payload,
+    required Object? payload,
     required this.cause,
     required this.at,
-  });
+  }) : _payload = payload,
+       _shape = null;
+
+  FactMessage._kept({
+    required this.seq,
+    required this.id,
+    required this.fact,
+    required Object? payload,
+    required this.cause,
+    required this.at,
+    required Shape<Object?> shape,
+  }) : _payload = payload,
+       _shape = shape;
 
   factory FactMessage.fromJson(Object? json) {
     final m = json as Map;
@@ -91,7 +181,18 @@ final class FactMessage {
   final int seq;
   final String id;
   final String fact;
-  final Object? payload;
+
+  /// The payload as the registry keeps it, and the shape it keeps it by;
+  /// null: it is JSON.
+  final Object? _payload;
+  final Shape<Object?>? _shape;
+  Object? _payloadJson = _unmade;
+
+  /// The payload, as JSON.
+  Object? get payload => identical(_payloadJson, _unmade)
+      ? _payloadJson = _jsonOf(_shape, _payload)
+      : _payloadJson;
+
   final Cause cause;
   final DateTime at;
 
@@ -107,6 +208,31 @@ final class FactMessage {
   @override
   String toString() => 'Fact#$seq $fact $payload ($cause)';
 }
+
+/// A fact whose payload the registry keeps by [shape]: its JSON is made
+/// when someone asks for it (SPEC §18). The package's own.
+FactMessage keptFact({
+  required int seq,
+  required String id,
+  required String fact,
+  required Object? payload,
+  required Cause cause,
+  required DateTime at,
+  required Shape<Object?> shape,
+}) => FactMessage._kept(
+  seq: seq,
+  id: id,
+  fact: fact,
+  payload: payload,
+  cause: cause,
+  at: at,
+  shape: shape,
+);
+
+/// The payload of [m] as the registry keeps it, when it keeps it by
+/// [shape]; [none] when it is another's or JSON. The package's own.
+Object? keptPayloadOf(FactMessage m, Shape<Object?> shape, Object? none) =>
+    identical(m._shape, shape) ? m._payload : none;
 
 /// What a feed gives: a snapshot or a tick (SPEC §12).
 sealed class FeedItem {

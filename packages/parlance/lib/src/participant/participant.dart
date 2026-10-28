@@ -6,6 +6,7 @@ import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
+import '../registry/shapes.dart';
 import '../registry/words.dart';
 import '../view/view.dart';
 import 'owner.dart';
@@ -131,6 +132,9 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// alone when [who] may not read it.
   Stream<Object?> watch(String state, {String? key});
 
+  /// [watch] as [shape] has it (SPEC §18).
+  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key});
+
   /// Calls [command] as [who]. A handler's nested call passes [cause]
   /// (`call.causeFor(who)`), so it follows from the call being served.
   /// [override] passes a guard's overridable denial, when [who]'s kind is
@@ -145,8 +149,9 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   });
 
   /// Defines a state of its own, with [who] its only writer; readers
-  /// from [access] when [d] names none.
-  IStateHandle defineState(StateDescriptor d);
+  /// from [access] when [d] names none. Given its values' [shape], its
+  /// handle takes Dart values when the registry keeps them so (SPEC §18).
+  IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape});
 
   /// Defines a command of its own, served by [handler].
   IHandle defineCommand(
@@ -163,11 +168,12 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   });
 
   /// Defines a fact of its own, with [who] its producer; readers from
-  /// [access] when [d] names none.
-  IFactHandle defineFact(FactDescriptor d);
+  /// [access] when [d] names none. Given its payloads' [shape], its handle
+  /// takes Dart values when the registry keeps them so (SPEC §18).
+  IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape});
 
   /// Another producer of an open [fact], as far as [rights] let it.
-  IFactHandle producer(String fact);
+  IFactHandle producer(String fact, {Shape<Object?>? shape});
 
   /// A guard (SPEC §10) on calls of its own commands only: what it judges
   /// is its own, never another's command.
@@ -284,12 +290,13 @@ final class ParticipantStateOf<T> {
         readers: readers,
         meta: meta,
       ),
+      shape: word.shape,
     ),
     word.shape,
   );
 
   /// Its value (of [key]) now.
-  T? read({String? key}) => word.decode(participant.read(word.name, key: key));
+  T? read({String? key}) => participant.readAs(word.name, word.shape, key: key);
 
   /// Every value, by key; a null one too, of a state that may be null.
   Map<String?, T> readAll() => {
@@ -299,7 +306,7 @@ final class ParticipantStateOf<T> {
 
   /// Its value now, then on every change.
   Stream<T?> watch({String? key}) =>
-      participant.watch(word.name, key: key).map(word.decode);
+      participant.watchAs(word.name, word.shape, key: key);
 
   /// Its value (of [key]) as the core reads a cell (SPEC §21.6), here or
   /// across a connection; over one, another's state is there while it is
@@ -427,18 +434,22 @@ final class ParticipantFactOf<T> {
         readers: readers,
         meta: meta,
       ),
+      shape: word.shape,
     ),
     word.shape,
   );
 
   /// Another producer of it, an open fact.
-  FactEmitterOf<T> producer() =>
-      FactEmitterOf(participant.producer(word.name), word.shape);
+  FactEmitterOf<T> producer() => FactEmitterOf(
+    participant.producer(word.name, shape: word.shape),
+    word.shape,
+  );
 
   Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
 
   /// Those said from now on.
-  Stream<Fact<T>> get stream => participant.facts(word.name).map(_decode);
+  Stream<Fact<T>> get stream =>
+      participant.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
   /// Its payloads as the core hears a signal (SPEC §21.6).
   IFactListener<T> get listener => _ParticipantListener(this);

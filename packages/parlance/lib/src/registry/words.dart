@@ -98,22 +98,10 @@ abstract interface class IFactWord<T> implements IWord {
   Shape<T> get shape;
 }
 
-final Expando<(Shape<Object?>, Object?)> _decoded = Expando('decoded');
-
 /// A state's value from its JSON, wherever it was read (a registry, a
 /// mirror).
 extension StateValues<T> on IStateWord<T> {
-  T? decode(Object? json) {
-    if (json == null) return null;
-    // A registry's values are frozen, so one decoded value serves every
-    // read of the same JSON; a write puts another JSON there.
-    if (json is! List && json is! Map) return shape.fromJson(json);
-    final cached = _decoded[json];
-    if (cached != null && identical(cached.$1, shape)) return cached.$2 as T;
-    final value = shape.fromJson(json);
-    _decoded[json] = (shape, value);
-    return value;
-  }
+  T? decode(Object? json) => decodeWith(shape, json);
 }
 
 /// A done call's value decoded by [shape] (`failed` when it does not
@@ -200,14 +188,13 @@ final class StateOf<T> {
         meta: meta,
       ),
       by: by,
+      shape: word.shape,
     ),
     word.shape,
   );
 
-  T? _decode(Object? json) => word.decode(json);
-
   /// Its value (of [key]); null when there is none.
-  T? read({String? key}) => _decode(registry.read(word.name, key: key));
+  T? read({String? key}) => registry.readAs(word.name, word.shape, key: key);
 
   bool has({String? key}) => registry.has(word.name, key: key);
 
@@ -219,7 +206,7 @@ final class StateOf<T> {
 
   /// Its value now, then on every change.
   Stream<T?> watch({String? key}) =>
-      registry.watch(word.name, key: key).map(_decode);
+      registry.watchAs(word.name, word.shape, key: key);
 
   /// Its value (of [key]) as the core reads a cell (SPEC §21.6): code
   /// that only reads takes a [IStateReader] and does not change when a cell
@@ -253,9 +240,14 @@ final class StateWriterOf<T> implements IHandle, IStateWriter<T> {
   final Shape<T> _shape;
 
   /// As [RawStateWriter.set].
+  /// The value as it is when the registry keeps it so (SPEC §18), else its
+  /// JSON.
   @override
-  void set(T value, {String? key, Cause? cause}) =>
-      raw.set(_shape.toJson(value), key: key, cause: cause);
+  void set(T value, {String? key, Cause? cause}) => raw.set(
+    raw.shape == null ? _shape.toJson(value) : value,
+    key: key,
+    cause: cause,
+  );
 
   @override
   void remove({String? key, Cause? cause}) =>
@@ -505,18 +497,22 @@ final class FactOf<T> {
         meta: meta,
       ),
       by: by,
+      shape: word.shape,
     ),
     word.shape,
   );
 
   /// Another producer of an open fact.
-  FactEmitterOf<T> producer({required Principal by}) =>
-      FactEmitterOf(registry.producer(word.name, by: by), word.shape);
+  FactEmitterOf<T> producer({required Principal by}) => FactEmitterOf(
+    registry.producer(word.name, by: by, shape: word.shape),
+    word.shape,
+  );
 
   Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
 
   /// Its facts as they are committed.
-  Stream<Fact<T>> get stream => registry.facts(fact: word.name).map(_decode);
+  Stream<Fact<T>> get stream =>
+      registry.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
   /// The last [n], oldest first.
   List<Fact<T>> recent([int? n]) => [
@@ -545,8 +541,11 @@ final class FactEmitterOf<T> implements IHandle, IFactEmitter<T> {
 
   /// As [RawFactEmitter.emit].
   @override
-  bool emit(T payload, {String? id, Cause? cause}) =>
-      raw.emit(_shape.toJson(payload), id: id, cause: cause);
+  bool emit(T payload, {String? id, Cause? cause}) => raw.emit(
+    raw.shape == null ? _shape.toJson(payload) : payload,
+    id: id,
+    cause: cause,
+  );
 
   @override
   void dispose() => raw.dispose();

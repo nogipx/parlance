@@ -19,6 +19,21 @@ final class _Ctx implements ITypeContext {
       value is String && value.startsWith('#') ? null : 'not a color';
 }
 
+/// Scenes that come and go.
+final class _Known implements ITypeContext {
+  _Known(this.ids);
+  final Set<String> ids;
+
+  @override
+  bool hasKind(String kind) => kind == 'scene';
+
+  @override
+  bool hasEntity(String kind, String id) => ids.contains(id);
+
+  @override
+  String? checkCustom(String name, Object? value) => null;
+}
+
 enum Mood { calm, loud }
 
 typedef Track = ({String title, int volume, Mood mood, List<String> tags});
@@ -107,6 +122,26 @@ final shot = UnionShape<Shot>(
   },
 );
 
+/// [track], its fields read by place rather than through a map.
+const trackByPlace = RecordShape<Track>(
+  {
+    'title': Part(Plain(TextType(maxLength: 8))),
+    'volume': Part(Plain(IntType(min: 0, max: 100))),
+    'mood': Part(EnumShape(Mood.values)),
+    'tags': Part(ListShape(Plain(TextType()), maxItems: 3)),
+  },
+  to: _trackTo,
+  from: _trackFrom,
+  get: _trackAt,
+);
+
+Object? _trackAt(Track t, int i) => switch (i) {
+  0 => t.title,
+  1 => t.volume,
+  2 => t.mood,
+  _ => t.tags,
+};
+
 const playlist = ListShape(track, maxItems: 2);
 const levels = MapShape(Plain(IntType(min: 0)), maxEntries: 2);
 const color = Plain<Object?>(CustomType('color'));
@@ -161,11 +196,15 @@ void main() {
   );
 
   test('a record passes and is refused as its JSON is', () {
-    same(track, t('song', tags: ['a']));
-    same(track, t('much too long'));
-    same(track, t('song', volume: 101));
-    same(track, t('song', tags: ['a', 'b', 'c', 'd']));
-    same(track, t('song', mood: Mood.loud));
+    for (final s in [track, trackByPlace]) {
+      same(s, t('song', tags: ['a']));
+      same(s, t('much too long'));
+      same(s, t('song', volume: 101));
+      same(s, t('song', tags: ['a', 'b', 'c', 'd']));
+      same(s, t('song', mood: Mood.loud));
+      equalAlike(s, t('a', tags: ['x']), t('a', tags: ['x']));
+      equalAlike(s, t('a'), t('a', volume: 51));
+    }
   });
 
   test('left-out fields: defaults, nulls, missing, refs', () {
@@ -235,6 +274,63 @@ void main() {
     expect(identical(playlist.check(list, ctx), list), isTrue);
     final map = levels.check({'mic': 1}, ctx);
     expect(identical(levels.check(map, ctx), map), isTrue);
+  });
+
+  test('what is the same as the value kept before passes as it is', () {
+    const songs = ListShape(track);
+    final before = songs.check([t('a'), t('b'), t('c')], ctx);
+    expect(songs.weigh(before), jsonWeight(songs.toJson(before)));
+    for (final next in [
+      [before[0], t('B'), before[2]],
+      [before[0], before[1]],
+      [before[0], before[1], before[2], t('d')],
+      <Track>[],
+    ]) {
+      final kept = songs.check(next, ctx, was: before);
+      final whole = songs.check(next, ctx);
+      expect(jsonEquals(songs.toJson(kept), songs.toJson(whole)), isTrue);
+      expect(
+        songs.weigh(kept),
+        jsonWeight(songs.toJson(kept)),
+        reason: 'the weight told what changed is the weight',
+      );
+      for (var i = 0; i < next.length && i < before.length; i++) {
+        if (identical(next[i], before[i])) {
+          expect(identical(kept[i], before[i]), isTrue);
+        }
+      }
+    }
+    expect(
+      () => songs.check([before[0], t('far too long title')], ctx, was: before),
+      throwsA(
+        isA<TypeMismatch>().having(
+          (e) => '$e',
+          'text',
+          '1.title: longer than 8',
+        ),
+      ),
+    );
+  });
+
+  test('what asks the registry is asked again, the same or not', () {
+    const cues = ListShape(cue);
+    final known = _Known({'main'});
+    final before = cues.check([
+      (scene: 'main', note: null, fade: 1, label: null),
+    ], known);
+    expect(cue.checkedAlone, isFalse);
+    expect(track.checkedAlone, isTrue);
+    known.ids.clear();
+    expect(
+      () => cues.check([before[0]], known, was: before),
+      throwsA(
+        isA<TypeMismatch>().having(
+          (e) => '$e',
+          'text',
+          '0.scene: no scene main',
+        ),
+      ),
+    );
   });
 
   test('a class that serializes itself is kept as its JSON only', () {

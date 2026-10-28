@@ -161,6 +161,10 @@ final class AliasChanged extends CatalogChange {
 abstract interface class IStateHandle implements IHandle {
   StateDescriptor get descriptor;
 
+  /// The shape whose Dart values [set] takes as they are (SPEC §18); null:
+  /// it takes JSON.
+  Shape<Object?>? get shape;
+
   /// Writes [value] (of [key] for a keyed state).
   void set(Object? value, {String? key, Cause? cause});
 
@@ -172,17 +176,24 @@ abstract interface class IStateHandle implements IHandle {
 abstract interface class IFactHandle implements IHandle {
   FactDescriptor get descriptor;
 
+  /// The shape whose Dart values [emit] takes as they are (SPEC §18); null:
+  /// it takes JSON.
+  Shape<Object?>? get shape;
+
   /// Says [payload]; false when [id] was said already.
   bool emit(Object? payload, {String? id, Cause? cause});
 }
 
 /// The only write handle of a state.
 final class RawStateWriter implements IStateHandle {
-  RawStateWriter._(this._r, this.descriptor, this.by);
+  RawStateWriter._(this._r, this.descriptor, this.by, this.shape);
 
   final Registry _r;
   @override
   final StateDescriptor descriptor;
+
+  @override
+  final Shape<Object?>? shape;
 
   /// Who writes, for the causes of its writes.
   final Principal by;
@@ -195,7 +206,13 @@ final class RawStateWriter implements IStateHandle {
   @override
   void set(Object? value, {String? key, Cause? cause}) {
     _live();
-    _r._writeState(descriptor, key, value, cause ?? Cause(by));
+    _r._writeState(
+      descriptor,
+      key,
+      value,
+      cause ?? Cause(by),
+      asIs: shape != null,
+    );
   }
 
   /// Removes the value (of [key]).
@@ -225,12 +242,16 @@ final class RawFactEmitter implements IFactHandle {
     this.by,
     this._emitter, {
     required this.definer,
+    this.shape,
   });
 
   final Registry _r;
   final LocalFactEmitter<Object?> _emitter;
   @override
   final FactDescriptor descriptor;
+
+  @override
+  final Shape<Object?>? shape;
 
   /// The producer, for the causes of its facts.
   final Principal by;
@@ -250,6 +271,7 @@ final class RawFactEmitter implements IFactHandle {
       payload,
       id ?? newId(),
       cause ?? Cause(by),
+      asIs: shape != null,
     );
   }
 
@@ -280,6 +302,21 @@ final class _StateEntry {
 
   /// How its values are checked, kept and told as JSON (SPEC §18).
   final Shape<Object?> shape;
+
+  /// The JSON last told of each key's value, beside the value it is of:
+  /// made when asked, once a value.
+  final Map<String?, (Object?, Object?)> _json = {};
+
+  /// The JSON of [kept], the value of [key].
+  Object? jsonOf(String? key, Object? kept) {
+    if (kept == null || shape is JsonValue) return kept;
+    if (_json[key] case (final of, final json) when identical(of, kept)) {
+      return json;
+    }
+    final json = freezeJson(shape.toJson(kept));
+    _json[key] = (kept, json);
+    return json;
+  }
 
   /// Its values by key, null for an unkeyed state; the registry is the
   /// local state's only writer.
@@ -458,6 +495,9 @@ final class Registry implements ITypeContext {
 
   /// The word each local state and fact holds.
   final Map<Object, String> _names = Map.identity();
+
+  /// The shape each local state and fact keeps its values by.
+  final Map<Object, Shape<Object?>> _shapeOf = Map.identity();
   final StreamController<CatalogChange> _catalog = StreamController.broadcast();
 
   void _announce(CatalogChange c) {
@@ -617,6 +657,7 @@ final class Registry implements ITypeContext {
   void _retire(LocalKeyedState<String?, Object?> local) {
     local.close();
     _names.remove(local);
+    _shapeOf.remove(local);
   }
 
   void _undefine(String name) {
@@ -641,6 +682,7 @@ final class Registry implements ITypeContext {
     } else if (_facts.remove(name) case final f?) {
       f.local.close();
       _names.remove(f.local);
+      _shapeOf.remove(f.local);
       _announce(DescriptorRemoved(f.descriptor));
     } else {
       return;
@@ -670,14 +712,32 @@ final class Registry implements ITypeContext {
   /// Every commit, in seq order, delivered asynchronously.
   Stream<Tick> get ticks => _ticks.stream;
 
-  void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
+  void _writeState(
+    StateDescriptor d,
+    String? key,
+    Object? value,
+    Cause cause, {
+    bool asIs = false,
+  }) {
     cause = _inConversation(cause);
     refuseInQuery('write ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
-    final v = e.shape.check(value, this);
+    // What is the same of the value kept now passes as it is (SPEC §18).
+    final was = e.local.read(key);
+    final v = asIs
+        ? e.shape.check(value, this, was: was)
+        : _admit(e.shape, value, was);
     e.writer.set(key, v, tag: cause);
   }
+
+  /// [json] as [shape] keeps it: checked as JSON first, so what is refused
+  /// says so as the JSON's type says it, then made the Dart value [shape]
+  /// keeps.
+  Object? _admit(Shape<Object?> shape, Object? json, [Object? was]) =>
+      shape is JsonValue
+      ? shape.check(json, this, was: was)
+      : shape.check(shape.fromJson(shape.type.check(json, this)), this);
 
   void _removeState(StateDescriptor d, String? key, Cause cause) {
     cause = _inConversation(cause);
@@ -786,7 +846,7 @@ final class Registry implements ITypeContext {
         // Of a state that went, only its removals: a batch that threw puts
         // back what was written before it went.
         if (c.removed || !_retired.contains(c.state))
-          StateChange(
+          keptChange(
             seq: c.seq,
             id: newId(),
             state: _names[c.state]!,
@@ -796,18 +856,20 @@ final class Registry implements ITypeContext {
             removed: c.removed,
             cause: c.tag! as Cause,
             at: now,
+            shape: _shapeOf[c.state]!,
           ),
     ];
     final committed = <FactMessage>[
       for (final e in t.facts)
         if (e.tag case (final String id, final Cause cause))
-          FactMessage(
+          keptFact(
             seq: e.seq,
             id: id,
             fact: _names[e.fact]!,
             payload: e.value,
             cause: cause,
             at: now,
+            shape: _shapeOf[e.fact]!,
           ),
     ];
     final tick = Tick(
@@ -819,12 +881,22 @@ final class Registry implements ITypeContext {
     );
     _logTick(tick);
     if (_journaling) _journalTick(tick);
+    int weigh(Object of, Object? v) => v == null ? 8 : _shapeOf[of]!.weigh(v);
     var weight = 0;
-    for (final c in changes) {
-      weight += jsonWeight(c.value) + jsonWeight(c.previous);
+    final factWeights = <int>[];
+    for (final c in t.changes) {
+      // The JSON told of a value that changed is of the value before.
+      final state = _states[_names[c.state]];
+      if (state != null && identical(state.local, c.state)) {
+        state._json.remove(c.key);
+      }
+      weight += weigh(c.state, c.value) + weigh(c.state, c.previous);
     }
-    for (final f in committed) {
-      weight += jsonWeight(f.payload);
+    for (final e in t.facts) {
+      if (e.tag is! (String, Cause)) continue;
+      final w = weigh(e.fact, e.value);
+      factWeights.add(w);
+      weight += w;
     }
     _retained.add(tick);
     _retainedWeights.add(weight);
@@ -835,9 +907,9 @@ final class Registry implements ITypeContext {
       _retainedBytes -= _retainedWeights.removeFirst();
       _forgotTicks = true;
     }
-    for (final f in committed) {
+    for (final (i, f) in committed.indexed) {
       final q = _recent.putIfAbsent(f.fact, _RecentFacts.new);
-      q.add(f);
+      q.add(f, factWeights[i]);
       while (q.length > recentPerFact ||
           (q.length > 1 && q.bytes > retainBytes)) {
         q.removeFirst();
@@ -855,6 +927,11 @@ final class Registry implements ITypeContext {
       {};
   StreamSubscription<Tick>? _watching;
 
+  /// What each watcher is told of a change it follows: its JSON, or the
+  /// value as the watcher's shape has it.
+  final Map<StreamController<Object?>, Object? Function(StateChange)> _tell =
+      Map.identity();
+
   /// The registry was disposed: every watch ends.
   void _endWatchers() {
     for (final set in [..._watchers.values]) {
@@ -863,6 +940,7 @@ final class Registry implements ITypeContext {
       }
     }
     _watchers.clear();
+    _tell.clear();
     _watching = null;
   }
 
@@ -871,7 +949,7 @@ final class Registry implements ITypeContext {
       final set = _watchers[(c.state, c.key)];
       if (set == null) continue;
       for (final e in [...set.entries]) {
-        if (c.seq > e.value) e.key.add(c.value);
+        if (c.seq > e.value) e.key.add(_tell[e.key]!(c));
       }
     }
   }
@@ -885,15 +963,18 @@ final class Registry implements ITypeContext {
     LocalFactEmitter<Object?> emitter,
     Object? payload,
     String id,
-    Cause cause,
-  ) {
+    Cause cause, {
+    bool asIs = false,
+  }) {
     final entry = _facts[d.name];
     if (entry?.descriptor != d) throw StateError('${d.name} is gone');
     refuseInQuery('say ${d.name}');
     final now = clock.now();
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
-    final v = entry!.shape.check(payload, this);
+    final v = asIs
+        ? entry!.shape.check(payload, this)
+        : _admit(entry!.shape, payload);
     cause = _inConversation(cause);
     _converse(id, d.name, cause);
     _seenFacts[id] = now;
@@ -1556,17 +1637,27 @@ extension RawRegistry on Registry {
   void entitiesChanged(String kind) => _announce(KindChanged(kind));
 
   /// Defines a state; the returned writer is its only write handle.
-  RawStateWriter defineState(StateDescriptor d, {required Principal by}) {
+  ///
+  /// Given a [shape] that keeps its values as they are, the registry keeps
+  /// them so (SPEC §18) and the writer takes Dart values; else it keeps
+  /// JSON, and the writer takes JSON.
+  RawStateWriter defineState(
+    StateDescriptor d, {
+    required Principal by,
+    Shape<Object?>? shape,
+  }) {
     _checkFree(d.name);
-    final shape = JsonValue(d.type);
+    final kept = shape != null && shape.keptAsIs ? shape : null;
+    final keep = kept ?? JsonValue(d.type);
     final local = LocalKeyedState<String?, Object?>(
       hub: _hub,
-      equals: shape.equals,
+      equals: keep.equals,
     );
     _names[local] = d.name;
-    _states[d.name] = _StateEntry(d, local, shape);
+    _shapeOf[local] = keep;
+    _states[d.name] = _StateEntry(d, local, keep);
     _announce(DescriptorAdded(d));
-    return RawStateWriter._(this, d, by);
+    return RawStateWriter._(this, d, by, kept);
   }
 
   /// Defines a command served by [handler]; dispose the handle to remove it.
@@ -1607,23 +1698,53 @@ extension RawRegistry on Registry {
   }
 
   /// Defines a fact; the returned emitter belongs to the definer.
-  RawFactEmitter defineFact(FactDescriptor d, {required Principal by}) {
+  ///
+  /// Given a [shape] that keeps its payloads as they are, the registry
+  /// keeps them so (SPEC §18) and the emitter takes Dart values; else
+  /// JSON.
+  RawFactEmitter defineFact(
+    FactDescriptor d, {
+    required Principal by,
+    Shape<Object?>? shape,
+  }) {
     _checkFree(d.name);
+    final kept = shape != null && shape.keptAsIs ? shape : null;
+    final keep = kept ?? JsonValue(d.type);
     final local = LocalFact<Object?>(hub: _hub, open: d.open);
-    _facts[d.name] = _FactEntry(d, local, JsonValue(d.type));
+    _facts[d.name] = _FactEntry(d, local, keep);
     _names[local] = d.name;
+    _shapeOf[local] = keep;
     _announce(DescriptorAdded(d));
-    return RawFactEmitter._(this, d, by, local.claim(), definer: true);
+    return RawFactEmitter._(
+      this,
+      d,
+      by,
+      local.claim(),
+      definer: true,
+      shape: kept,
+    );
   }
 
   /// Another emit handle of an open fact, for producer [by]. The host
-  /// decides who gets one.
-  RawFactEmitter producer(String fact, {required Principal by}) {
+  /// decides who gets one. It takes Dart values when its [shape] is the
+  /// one the fact keeps its payloads by, else JSON.
+  RawFactEmitter producer(
+    String fact, {
+    required Principal by,
+    Shape<Object?>? shape,
+  }) {
     final f = _facts[canonical(fact)];
     if (f == null) throw StateError('no fact $fact');
     final d = f.descriptor;
     if (!d.open) throw StateError('$fact is not open');
-    return RawFactEmitter._(this, d, by, f.local.claim(), definer: false);
+    return RawFactEmitter._(
+      this,
+      d,
+      by,
+      f.local.claim(),
+      definer: false,
+      shape: identical(shape, f.shape) ? shape : null,
+    );
   }
 
   /// Runs [body] synchronously and commits everything it wrote as one tick
@@ -1644,7 +1765,20 @@ extension RawRegistry on Registry {
   /// The value of [state] (of [key]); inside a batch, the batch's own
   /// writes count (SPEC §7). Null when there is none.
   Object? read(String state, {String? key}) {
-    return _states[canonical(state)]?.local.read(key);
+    final e = _states[canonical(state)];
+    return e?.jsonOf(key, e.local.read(key));
+  }
+
+  /// [read] as [shape] has it (SPEC §18): the value itself when the
+  /// registry keeps it by [shape], else its JSON decoded.
+  T? readAs<T>(String state, Shape<T> shape, {String? key}) {
+    final e = _states[canonical(state)];
+    if (e == null) return null;
+    final v = e.local.read(key);
+    if (v == null) return null;
+    return identical(e.shape, shape)
+        ? v as T
+        : decodeWith(shape, e.jsonOf(key, v));
   }
 
   /// Whether [state] (of [key]) has a committed value.
@@ -1652,24 +1786,62 @@ extension RawRegistry on Registry {
       _states[canonical(state)]?.local.has(key) ?? false;
 
   /// Every committed value of [state], by key (null for an unkeyed one).
-  Map<String?, Object?> readAll(String state) =>
-      _states[canonical(state)]?.local.values ?? const {};
+  Map<String?, Object?> readAll(String state) {
+    final e = _states[canonical(state)];
+    if (e == null) return const {};
+    if (e.shape is JsonValue) return e.local.values;
+    return {
+      for (final MapEntry(:key, :value) in e.local.values.entries)
+        key: e.jsonOf(key, value),
+    };
+  }
 
   /// The value of [state] (of [key]) now, then on every change; null when
   /// there is none.
-  Stream<Object?> watch(String state, {String? key}) {
+  Stream<Object?> watch(String state, {String? key}) =>
+      _watch(state, key, () => read(state, key: key), (c) => c.value);
+
+  /// [watch] as [shape] has it (SPEC §18).
+  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) =>
+      _watch<T>(
+        state,
+        key,
+        () => readAs(state, shape, key: key),
+        (c) => c.removed ? null : _valueAs(c, shape),
+      );
+
+  static const Object _other = Object();
+
+  T? _valueAs<T>(StateChange c, Shape<T> shape) {
+    final kept = keptValueOf(c, shape, _other);
+    return identical(kept, _other) ? decodeWith(shape, c.value) : kept as T?;
+  }
+
+  T _payloadAs<T>(FactMessage m, Shape<T> shape) {
+    final kept = keptPayloadOf(m, shape, _other);
+    return (identical(kept, _other) ? decodeWith(shape, m.payload) : kept) as T;
+  }
+
+  Stream<V?> _watch<V>(
+    String state,
+    String? key,
+    V? Function() now,
+    V? Function(StateChange c) of,
+  ) {
     state = canonical(state);
     final at = (state, key);
-    late StreamController<Object?> out;
-    out = StreamController<Object?>(
+    late StreamController<V?> out;
+    out = StreamController<V?>(
       onListen: () {
-        out.add(read(state, key: key));
+        out.add(now());
+        _tell[out] = of;
         // Ticks committed before it read are on their way to the others'
         // listener still: what it read is newer than they are.
         (_watchers[at] ??= {})[out] = seq;
         _watching ??= ticks.listen(_toWatchers, onDone: _endWatchers);
       },
       onCancel: () {
+        _tell.remove(out);
         final set = _watchers[at];
         if (set == null) return;
         set.remove(out);
@@ -1682,6 +1854,10 @@ extension RawRegistry on Registry {
     );
     return out.stream;
   }
+
+  /// The facts of [fact] as [shape] has their payloads (SPEC §18).
+  Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
+      facts(fact: fact).map((m) => (_payloadAs(m, shape), m));
 
   /// Facts as they are committed, of [fact] only when given.
   Stream<FactMessage> facts({String? fact}) {
@@ -1733,9 +1909,7 @@ extension RawRegistry on Registry {
             Snapshot(
               epoch: this.epoch,
               seq: seq,
-              states: {
-                for (final e in _states.entries) e.key: e.value.local.values,
-              },
+              states: {for (final e in _states.keys) e: readAll(e)},
               factsLost: since != null,
             ),
           );
@@ -1867,16 +2041,21 @@ final class _Seen {
 /// The recent facts of one name, and about how much they weigh.
 final class _RecentFacts {
   final ListQueue<FactMessage> _q = ListQueue();
+  final ListQueue<int> _weights = ListQueue();
   int bytes = 0;
 
   int get length => _q.length;
 
-  void add(FactMessage f) {
+  void add(FactMessage f, int weight) {
     _q.add(f);
-    bytes += jsonWeight(f.payload);
+    _weights.add(weight);
+    bytes += weight;
   }
 
-  void removeFirst() => bytes -= jsonWeight(_q.removeFirst().payload);
+  void removeFirst() {
+    _q.removeFirst();
+    bytes -= _weights.removeFirst();
+  }
 
   List<FactMessage> toList() => _q.toList();
 }
