@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'cause.dart';
 import 'descriptors.dart';
@@ -13,14 +14,89 @@ import 'types.dart';
 // registry underneath keeps names and JSON, as remote participants and
 // agents see it.
 
-/// How a value the registry keeps (JSON, checked by [type]) is the Dart
-/// type [T].
+/// How a value of the Dart type [T] is checked, kept and told as JSON
+/// (checked by [type]) (SPEC §18).
+///
+/// What it does to a Dart value is what [type] does to its JSON: [check]
+/// passes and refuses what [type] passes and refuses, with the same words
+/// at the same path, [equals] holds where the JSON is equal, [weigh] is
+/// about the JSON's weight. So a value written here and one come as JSON
+/// are held to one rule.
 abstract base class Shape<T> {
   const Shape();
 
   ValueType<Object?> get type;
   Object? toJson(T value);
   T fromJson(Object? json);
+
+  /// Whether the registry can keep a value of it as the value itself;
+  /// false when only its JSON can be kept, as for a class that serializes
+  /// itself ([JsonShape]): what it holds inside is its own.
+  bool get keptAsIs => true;
+
+  /// [value] as the registry keeps it: checked as [type] checks its JSON,
+  /// its left-out fields given their defaults, and unmodifiable all the
+  /// way down, so nobody changes it after it is kept. The same value when
+  /// nothing of it had to change. Throws [TypeMismatch] where its JSON
+  /// would fail.
+  T check(T value, ITypeContext ctx, [String path = '']);
+
+  /// Whether [a] and [b] are one value: whether their JSON is equal.
+  bool equals(T a, T b);
+
+  /// About how many bytes its JSON takes, as `jsonWeight` weighs it.
+  int weigh(T value);
+}
+
+/// The lists and maps the shapes made: unmodifiable, and checked already
+/// but for what the registry knows now (entities, the host's types).
+final Expando<bool> _kept = Expando('kept');
+
+String _at(String path, String key) => path.isEmpty ? key : '$path.$key';
+
+/// [list] with each item [at] gives, unmodifiable; [list] itself when it
+/// is one the shapes made and [at] changed none of it.
+List<T> _keepList<T>(List<T> list, T Function(int i) at) {
+  var same = _kept[list] == true;
+  final out = List<T>.generate(list.length, (i) {
+    final v = at(i);
+    if (same && !identical(v, list[i])) same = false;
+    return v;
+  }, growable: false);
+  if (same) return list;
+  final kept = UnmodifiableListView(out);
+  _kept[kept] = true;
+  return kept;
+}
+
+/// The JSON values of a shape that holds JSON ([Plain] of an object or a
+/// list, [JsonValue]): frozen, as the registry has always kept JSON.
+Object? _keepJson(Object? v) => v is List || v is Map ? freezeJson(v) : v;
+
+/// A value that is JSON itself: what the registry keeps of a word with no
+/// Dart type (a plugin's, a guest's in another language, one named at run
+/// time), checked by [type].
+final class JsonValue extends Shape<Object?> {
+  const JsonValue(this.type);
+
+  @override
+  final ValueType<Object?> type;
+
+  @override
+  Object? toJson(Object? value) => value;
+
+  @override
+  Object? fromJson(Object? json) => json;
+
+  @override
+  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
+      _keepJson(type.check(value, ctx, path));
+
+  @override
+  bool equals(Object? a, Object? b) => jsonEquals(a, b);
+
+  @override
+  int weigh(Object? value) => jsonWeight(value);
 }
 
 /// A value kept as it is: a bool, an int, a num, a text or an entity id.
@@ -36,6 +112,16 @@ final class Plain<T> extends Shape<T> {
 
   @override
   T fromJson(Object? json) => json as T;
+
+  @override
+  T check(T value, ITypeContext ctx, [String path = '']) =>
+      _keepJson(type.check(value, ctx, path)) as T;
+
+  @override
+  bool equals(T a, T b) => jsonEquals(a, b);
+
+  @override
+  int weigh(T value) => jsonWeight(value);
 }
 
 /// A class that serializes itself, as json_serializable and freezed make
@@ -73,6 +159,21 @@ final class JsonShape<T> extends Shape<T> {
 
   @override
   T fromJson(Object? json) => _from((json! as Map).cast<String, Object?>());
+
+  /// What it holds inside is its own: kept as its JSON, so [check] goes
+  /// through it.
+  @override
+  bool get keptAsIs => false;
+
+  @override
+  T check(T value, ITypeContext ctx, [String path = '']) =>
+      fromJson(freezeJson(type.check(toJson(value), ctx, path)));
+
+  @override
+  bool equals(T a, T b) => jsonEquals(toJson(a), toJson(b));
+
+  @override
+  int weigh(T value) => jsonWeight(toJson(value));
 }
 
 /// One of a Dart enum's [values], kept as its name.
@@ -89,6 +190,16 @@ final class EnumShape<E extends Enum> extends Shape<E> {
 
   @override
   E fromJson(Object? json) => values.byName(json! as String);
+
+  /// One of [values] by its type: nothing to check.
+  @override
+  E check(E value, ITypeContext ctx, [String path = '']) => value;
+
+  @override
+  bool equals(E a, E b) => identical(a, b);
+
+  @override
+  int weigh(E value) => 16 + value.name.length;
 }
 
 /// A list of [item]s.
@@ -108,6 +219,36 @@ final class ListShape<T> extends Shape<List<T>> {
   List<T> fromJson(Object? json) => List.unmodifiable([
     for (final v in json! as List<Object?>) item.fromJson(v),
   ]);
+
+  @override
+  bool get keptAsIs => item.keptAsIs;
+
+  @override
+  List<T> check(List<T> value, ITypeContext ctx, [String path = '']) {
+    if (maxItems case final m? when value.length > m) {
+      throw TypeMismatch(path, 'more than $m items');
+    }
+    return _keepList(value, (i) => item.check(value[i], ctx, _at(path, '$i')));
+  }
+
+  @override
+  bool equals(List<T> a, List<T> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i], b[i]) && !item.equals(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int weigh(List<T> value) {
+    var n = 16;
+    for (final v in value) {
+      n += item.weigh(v);
+    }
+    return n;
+  }
 }
 
 /// [of], or null.
@@ -124,6 +265,20 @@ final class Nullable<T> extends Shape<T?> {
 
   @override
   T? fromJson(Object? json) => json == null ? null : of.fromJson(json);
+
+  @override
+  bool get keptAsIs => of.keptAsIs;
+
+  @override
+  T? check(T? value, ITypeContext ctx, [String path = '']) =>
+      value == null ? null : of.check(value, ctx, path);
+
+  @override
+  bool equals(T? a, T? b) =>
+      a == null || b == null ? a == null && b == null : of.equals(a, b);
+
+  @override
+  int weigh(T? value) => value == null ? 8 : of.weigh(value);
 }
 
 /// A map from text to [value]s.
@@ -146,6 +301,48 @@ final class MapShape<T> extends Shape<Map<String, T>> {
     for (final e in (json! as Map<Object?, Object?>).entries)
       e.key! as String: value.fromJson(e.value),
   });
+
+  @override
+  bool get keptAsIs => value.keptAsIs;
+
+  @override
+  Map<String, T> check(Map<String, T> v, ITypeContext ctx, [String path = '']) {
+    if (maxEntries case final m? when v.length > m) {
+      throw TypeMismatch(path, 'more than $m entries');
+    }
+    var same = _kept[v] == true;
+    final out = <String, T>{};
+    for (final MapEntry(:key, value: e) in v.entries) {
+      final c = value.check(e, ctx, _at(path, key));
+      if (same && !identical(c, e)) same = false;
+      out[key] = c;
+    }
+    if (same) return v;
+    final kept = UnmodifiableMapView(out);
+    _kept[kept] = true;
+    return kept;
+  }
+
+  @override
+  bool equals(Map<String, T> a, Map<String, T> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final MapEntry(:key, value: x) in a.entries) {
+      if (!b.containsKey(key)) return false;
+      final y = b[key] as T;
+      if (!identical(x, y) && !value.equals(x, y)) return false;
+    }
+    return true;
+  }
+
+  @override
+  int weigh(Map<String, T> v) {
+    var n = 16;
+    for (final MapEntry(:key, value: e) in v.entries) {
+      n += 16 + key.length + value.weigh(e);
+    }
+    return n;
+  }
 }
 
 /// A field of a [RecordShape].
@@ -218,6 +415,73 @@ final class RecordShape<T> extends Shape<T> {
     });
   }
 
+  @override
+  bool get keptAsIs => fields.values.every((p) => p.shape.keptAsIs);
+
+  /// Whether field [p] of value [v] is in its JSON: a null is said only of
+  /// a field that may be null and is not optional ([toJson]).
+  static bool _said(Part p, Object? v) =>
+      v != null || (p.shape is Nullable && !p.optional);
+
+  /// Checks each field as `ObjectType` checks it, in the same order, and
+  /// gives a left-out one its default; a new record only when a field
+  /// changed.
+  @override
+  T check(T value, ITypeContext ctx, [String path = '']) {
+    final dart = to(value);
+    for (final k in dart.keys) {
+      if (!fields.containsKey(k)) throw ArgumentError('no field $k');
+    }
+    Map<String, Object?>? changed;
+    for (final MapEntry(:key, value: p) in fields.entries) {
+      final v = dart[key];
+      final at = _at(path, key);
+      final Object? c;
+      if (_said(p, v)) {
+        c = v == null ? null : p.shape.check(v, ctx, at);
+      } else if (p.defaultValue != null) {
+        final json = p.shape.type.check(p.defaultValue, ctx, at);
+        c = p.shape.check(p.shape.fromJson(json), ctx, at);
+      } else if (!p.optional) {
+        throw TypeMismatch(at, 'missing');
+      } else {
+        c = null;
+      }
+      if (!identical(c, v)) (changed ??= Map.of(dart))[key] = c;
+    }
+    if (changed == null) return value;
+    return from({
+      for (final MapEntry(:key, :value) in changed.entries) key: ?value,
+    });
+  }
+
+  @override
+  bool equals(T a, T b) {
+    if (identical(a, b)) return true;
+    final x = to(a);
+    final y = to(b);
+    for (final MapEntry(:key, value: p) in fields.entries) {
+      final u = x[key];
+      final v = y[key];
+      if (identical(u, v)) continue;
+      if (u == null || v == null || !p.shape.equals(u, v)) return false;
+    }
+    return true;
+  }
+
+  @override
+  int weigh(T value) {
+    final dart = to(value);
+    var n = 16;
+    for (final MapEntry(:key, value: p) in fields.entries) {
+      final v = dart[key];
+      if (_said(p, v)) {
+        n += 16 + key.length + (v == null ? 8 : p.shape.weigh(v));
+      }
+    }
+    return n;
+  }
+
   static Map<String, Object?> _noFields(() _) => const {};
   static () _unit(Map<String, Object?> _) => ();
 }
@@ -261,6 +525,27 @@ final class UnionShape<T> extends Shape<T> {
         if (e.key != key) e.key: e.value,
     });
   }
+
+  @override
+  bool get keptAsIs => variants.values.every((v) => v.keptAsIs);
+
+  RecordShape<T> _variant(T value) {
+    final tag = tagOf(value);
+    return variants[tag] ?? (throw ArgumentError('no variant $tag'));
+  }
+
+  @override
+  T check(T value, ITypeContext ctx, [String path = '']) =>
+      _variant(value).check(value, ctx, path);
+
+  @override
+  bool equals(T a, T b) =>
+      identical(a, b) || (tagOf(a) == tagOf(b) && _variant(a).equals(a, b));
+
+  /// Its variant's fields, and the tag beside them.
+  @override
+  int weigh(T value) =>
+      _variant(value).weigh(value) + 32 + key.length + tagOf(value).length;
 }
 
 /// A word of any kind, by its name: what a vocabulary lists.
