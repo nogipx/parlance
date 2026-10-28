@@ -440,11 +440,18 @@ final class PlayerClient implements IPlayerClient {
   Stream<Track> get finished =>
       view.fact(PlayerFact.finished).stream.map((f) => f.payload);
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word) => view.status(word.name);
+  /// Whether [word] is there for the view now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word) => wordStatus(view, word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+
+  /// Each word of [Player] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<String>> get mismatches =>
+      wordMismatches(view, playerWords.words);
 
   /// player.clipped, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.

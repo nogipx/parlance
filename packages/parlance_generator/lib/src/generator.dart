@@ -484,7 +484,12 @@ final class _Emitter {
   ) {
     final members = <String, Element>{};
     void member(String name, _Word w) {
-      if (const {'view', 'status', 'statusChanges'}.contains(name) ||
+      if (const {
+            'view',
+            'status',
+            'statusChanges',
+            'mismatches',
+          }.contains(name) ||
           members.containsKey(name)) {
         throw InvalidGenerationSourceError(
           '$name is had twice by ${_c}Client: name ${w.member} otherwise, or '
@@ -502,14 +507,26 @@ final class _Emitter {
     final all = <({List<String> docs, String signature, String body})>[];
     final own = <({List<String> docs, String signature, String body})>[
       (
-        docs: ['Whether [word] is there for the view now (SPEC §6.5).'],
+        docs: [
+          'Whether [word] is there for the view now, as this code was built',
+          'against it: `WordMismatch`, saying where, when not (SPEC §6.5).',
+        ],
         signature: 'WordStatus status(IWord word)',
-        body: '=> view.status(word.name);',
+        body: '=> wordStatus(view, word);',
       ),
       (
         docs: ['[status], then whenever it changes.'],
         signature: 'Stream<WordStatus> statusChanges(IWord word)',
-        body: '=> view.statusChanges(word.name);',
+        body: '=> wordStatusChanges(view, word);',
+      ),
+      (
+        docs: [
+          'Each word of [$_c] there but not as this code was built against,',
+          'with where it breaks; empty when all keep their promises. For a',
+          'start in development: `assert(client.mismatches.isEmpty)`.',
+        ],
+        signature: 'Map<String, List<String>> get mismatches',
+        body: '=> wordMismatches(view, $_words.words);',
       ),
     ];
     for (final st in states) {

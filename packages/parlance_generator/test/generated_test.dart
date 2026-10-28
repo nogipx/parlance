@@ -193,6 +193,11 @@ void main() {
     expect(shown(_StandIn()), 7);
     p.attach({'deck': Deck()});
     expect(shown(PlayerClient(asAnn)), 50);
+    expect(
+      PlayerClient(asAnn).mismatches,
+      isEmpty,
+      reason: 'the words met are the words it was built against',
+    );
   });
 
   test('every word is listed once, in its vocabulary', () {

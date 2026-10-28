@@ -746,6 +746,9 @@ final class RemoteParticipant implements IParticipant {
   @override
   Stream<WordStatus> statusChanges(String word) => _view.statusChanges(word);
 
+  @override
+  Descriptor? descriptor(String word) => _view.descriptor(word);
+
   // --- Its own words ------------------------------------------------------
 
   @override
@@ -1323,6 +1326,9 @@ final class _Part implements IParticipant {
 
   @override
   Stream<WordStatus> statusChanges(String word) => _root.statusChanges(word);
+
+  @override
+  Descriptor? descriptor(String word) => _root.descriptor(word);
 
   @override
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) =>

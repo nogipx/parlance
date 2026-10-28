@@ -286,8 +286,9 @@ final class ParticipantQueryOf<P, R> {
     await participant.callAs(word.name, params, word.params, cause: cause),
   );
 
-  WordStatus get status => participant.status(word.name);
-  Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(participant, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
 }
 
 /// A state as a participant has it, typed.
@@ -333,8 +334,9 @@ final class ParticipantStateOf<T> {
   /// watched.
   IStateReader<T> reader({String? key}) => _ParticipantReader(this, key);
 
-  WordStatus get status => participant.status(word.name);
-  Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(participant, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
 }
 
 final class _ParticipantReader<T> implements IStateReader<T> {
@@ -408,8 +410,9 @@ final class ParticipantCommandOf<P, R> {
   /// call, else [CallNotDone] with how it ended.
   ICommandCaller<P, R> get caller => _ParticipantCaller(this);
 
-  WordStatus get status => participant.status(word.name);
-  Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(participant, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
 }
 
 final class _ParticipantCaller<P, R> implements ICommandCaller<P, R> {
@@ -470,8 +473,9 @@ final class ParticipantFactOf<T> {
     for (final m in await participant.recent(word.name, count)) _decode(m),
   ];
 
-  WordStatus get status => participant.status(word.name);
-  Stream<WordStatus> get statusChanges => participant.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(participant, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
 }
 
 final class _ParticipantListener<T> implements IFactListener<T> {

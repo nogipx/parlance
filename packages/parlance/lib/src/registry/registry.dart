@@ -1828,6 +1828,15 @@ extension RawRegistry on Registry {
     }
   }
 
+  /// The word named [name] (or an old name of it) as it is defined now;
+  /// null when there is none.
+  Descriptor? descriptorOf(String name) {
+    final n = canonical(name);
+    return _states[n]?.descriptor ??
+        _commands[n]?.descriptor ??
+        _facts[n]?.descriptor;
+  }
+
   /// The value of [state] (of [key]); inside a batch, the batch's own
   /// writes count (SPEC §7). Null when there is none.
   Object? read(String state, {String? key}) {

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import '../registry/cause.dart';
+import '../registry/compat.dart';
+import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/shapes.dart';
@@ -72,7 +74,41 @@ abstract interface class IRegistryView {
 
   /// [status] now, then whenever it changes.
   Stream<WordStatus> statusChanges(String word);
+
+  /// The word [word] as the view sees it defined now: what a typed status
+  /// holds the word code was built against to (SPEC §6.5); null when it
+  /// sees none.
+  Descriptor? descriptor(String word);
 }
+
+/// Whether [word] is there for [view] now, as the code holding [word] was
+/// built against it (SPEC §6.5): its status by name, and a word there
+/// whose kind or types break a promise of [word] (§23.3) is
+/// [WordMismatch], saying where.
+WordStatus wordStatus(IRegistryView view, IWord word) {
+  final now = view.status(word.name);
+  if (now is WordMissing || now is WordNotPermitted) return now;
+  final live = view.descriptor(word.name);
+  if (live == null) return now;
+  final breaks = wordBreaks(word, live);
+  return breaks.isEmpty ? now : WordMismatch(breaks);
+}
+
+/// [wordStatus] now, then whenever it changes.
+Stream<WordStatus> wordStatusChanges(IRegistryView view, IWord word) =>
+    view.statusChanges(word.name).map((_) => wordStatus(view, word)).distinct();
+
+/// Each of [words] there for [view] but not as the code was built against,
+/// by name, with where it breaks; empty when every one keeps its promises.
+/// For a part to check as it starts, in development:
+/// `assert(wordMismatches(p, ordersWords.words).isEmpty)`.
+Map<String, List<String>> wordMismatches(
+  IRegistryView view,
+  Iterable<IWord> words,
+) => {
+  for (final w in words)
+    if (wordStatus(view, w) case WordMismatch(:final breaks)) w.name: breaks,
+};
 
 /// A view through typed words (SPEC §18): the word fixes the types.
 extension TypedView on IRegistryView {
@@ -95,8 +131,9 @@ final class ViewQueryOf<P, R> {
   Future<CallResult<R>> ask(P params) async =>
       word.answer(await view.callAs(word.name, params, word.params));
 
-  WordStatus get status => view.status(word.name);
-  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(view, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(view, word);
 }
 
 /// A state as a view has it, typed.
@@ -140,8 +177,9 @@ final class ViewStateOf<T> {
     return out.stream;
   }
 
-  WordStatus get status => view.status(word.name);
-  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(view, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(view, word);
 }
 
 /// A command through a view, typed.
@@ -155,8 +193,9 @@ final class ViewCommandOf<P, R> {
   Future<CallResult<R>> call(P params) async =>
       word.answer(await view.callAs(word.name, params, word.params));
 
-  WordStatus get status => view.status(word.name);
-  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(view, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(view, word);
 }
 
 /// A fact through a view, typed.
@@ -176,8 +215,9 @@ final class ViewFactOf<T> {
   Stream<Fact<T>> get stream =>
       view.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
-  WordStatus get status => view.status(word.name);
-  Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
+  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
+  WordStatus get status => wordStatus(view, word);
+  Stream<WordStatus> get statusChanges => wordStatusChanges(view, word);
 }
 
 /// A view of a registry in this process, calling as [by].
@@ -259,6 +299,9 @@ final class LocalView implements IRegistryView {
   @override
   Stream<WordStatus> statusChanges(String word) =>
       registry.statusChanges(word, by: by);
+
+  @override
+  Descriptor? descriptor(String word) => registry.descriptorOf(word);
 
   /// Views of one registry for one principal are the same view.
   @override

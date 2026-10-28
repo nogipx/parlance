@@ -21,6 +21,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Local state**, **local keyed state** (§21.2, `LocalState`, `LocalKeyedState`): one value, or one value per key, with one writer (`claim`), `watch` from the value now.
 - **Local fact** (§21.3, `LocalFact`): said once, no value kept; one emitter unless open.
 - **Local command** (§21.4, `LocalCommand`): one handler (`serve`) answers `call`.
+- **WordMismatch** (§6.5): a typed word met that breaks a promise of the one the code was built against, by the `schemaBreaks` rule; its `breaks` say where. `wordStatus`, `wordMismatches`, a client's `mismatches`.
 - **LocalRegistry** (§22.5): a registry of one process that keeps no history: the same participants and rules as a `Registry`, its commands anyone's unless said, not served across a connection. Moving to a `Registry` changes `main` only.
 - **Interfaces** (§21.6): `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`: what both the core's handles and the registry's typed handles are, so code on them moves from one to the other unchanged.
 

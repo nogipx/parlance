@@ -418,6 +418,34 @@ final class WordUnavailable extends WordStatus {
   String toString() => 'unavailable($why)';
 }
 
+/// The word is there, but not as the code asking was built against
+/// (SPEC §6.5): its kind or its types changed in a way that breaks a
+/// promise (§23.3). [breaks] say where, each as `path: was …, is …`. What
+/// uses it would be refused or misread: it is a word to update to, or a
+/// version (`.v2`) its owner should have kept beside the old one.
+final class WordMismatch extends WordStatus {
+  const WordMismatch(this.breaks);
+
+  final List<String> breaks;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! WordMismatch || other.breaks.length != breaks.length) {
+      return false;
+    }
+    for (var i = 0; i < breaks.length; i++) {
+      if (other.breaks[i] != breaks[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll(breaks);
+
+  @override
+  String toString() => 'mismatch(${breaks.join('; ')})';
+}
+
 final class WordReady extends WordStatus {
   const WordReady();
 

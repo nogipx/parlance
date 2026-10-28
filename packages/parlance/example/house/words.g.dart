@@ -326,11 +326,18 @@ final class HouseClient implements IHouseClient {
   Stream<({String room})> get motion =>
       view.fact(HouseFact.motion).stream.map((f) => f.payload);
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word) => view.status(word.name);
+  /// Whether [word] is there for the view now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word) => wordStatus(view, word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+
+  /// Each word of [House] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<String>> get mismatches =>
+      wordMismatches(view, houseWords.words);
 
   /// house.doorbell.rang, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
@@ -511,11 +518,18 @@ final class VisitClient implements IVisitClient {
     throw CallNotDone(r);
   }
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word) => view.status(word.name);
+  /// Whether [word] is there for the view now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word) => wordStatus(view, word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+
+  /// Each word of [Visit] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<String>> get mismatches =>
+      wordMismatches(view, visitWords.words);
 }
 
 /// The vocabulary of [Visit]: its name and every word, for

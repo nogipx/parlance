@@ -69,11 +69,18 @@ final class DoorsClient implements IDoorsClient {
   Stream<Room?> roomChanges(String door) =>
       view.state(DoorsState.room).watch(key: door);
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word) => view.status(word.name);
+  /// Whether [word] is there for the view now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word) => wordStatus(view, word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+
+  /// Each word of [Doors] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<String>> get mismatches =>
+      wordMismatches(view, doorsWords.words);
 }
 
 /// The vocabulary of [Doors]: its name and every word, for
@@ -164,11 +171,18 @@ final class LightsClient implements ILightsClient {
     throw CallNotDone(r);
   }
 
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word) => view.status(word.name);
+  /// Whether [word] is there for the view now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word) => wordStatus(view, word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+
+  /// Each word of [Lights] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<String>> get mismatches =>
+      wordMismatches(view, lightsWords.words);
 }
 
 /// The vocabulary of [Lights]: its name and every word, for

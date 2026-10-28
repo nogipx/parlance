@@ -328,6 +328,9 @@ final class LocalParticipant implements IParticipant {
   @override
   Stream<WordStatus> statusChanges(String word) => _view.statusChanges(word);
 
+  @override
+  Descriptor? descriptor(String word) => _view.descriptor(word);
+
   // --- Its own words ------------------------------------------------------
 
   @override

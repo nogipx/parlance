@@ -1503,10 +1503,28 @@ final class RegistryMirror {
     _changes.add(null);
   }
 
+  /// The descriptors the catalog told, made of its JSON when asked.
+  Map<String, Object?> _descriptorJson = const {};
+  final Map<String, Descriptor> _descriptors = {};
+
+  /// The word named [name] as the catalog last told it; null when it told
+  /// none.
+  Descriptor? descriptorOf(String name) {
+    final n = canonical(name);
+    if (_descriptors[n] case final d?) return d;
+    final json = _descriptorJson[n];
+    return json == null ? null : _descriptors[n] = Descriptor.fromJson(json);
+  }
+
   /// Takes [json], the catalog as the session's principal sees it
   /// (`describe` answers it too), as the one it has now.
   void takeCatalog(Map<String, Object?> json) {
     _catalog = json;
+    _descriptorJson = {
+      for (final d in json['descriptors'] as List? ?? const [])
+        (d as Map)['name'] as String: d,
+    };
+    _descriptors.clear();
     _words = {
       for (final d in json['descriptors'] as List? ?? const [])
         (d as Map)['name'] as String: d['is'] as String,

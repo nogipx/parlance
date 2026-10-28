@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/shapes.dart';
 import '../remote/remote.dart';
@@ -159,6 +160,9 @@ final class MirrorView implements IRegistryView {
 
   @override
   WordStatus status(String word) => mirror.statusOf(word);
+
+  @override
+  Descriptor? descriptor(String word) => mirror.descriptorOf(word);
 
   @override
   Stream<WordStatus> statusChanges(String word) {

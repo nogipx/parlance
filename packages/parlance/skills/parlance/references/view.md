@@ -20,6 +20,9 @@ this process or reached over remote, so the same widgets serve both.
 - `status(word)`, `statusChanges(word)`: whether the view's principal
   can use the word now (§6.5), and each change of it; a part shows a
   missing or unavailable command for what it is rather than fail on it.
+- `descriptor(word)`: the word as the view sees it defined now; a typed
+  status (`wordStatus(view, word)`) holds it to the word the code was
+  built against, `WordMismatch` when it breaks a promise (§6.5).
 - As a shape has them (§18): `readAs(state, shape, {key})`,
   `factsAs(fact, shape)`, `callAs(command, params, shape)`: in this process
   a word the registry keeps by that shape is the Dart value itself, both
