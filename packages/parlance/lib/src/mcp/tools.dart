@@ -313,8 +313,10 @@ Map<String, Object?> _why(Explanation e) => {
       'at': c.at.toUtc().toIso8601String(),
       'from': c.previous,
       'by': c.cause.by.selector,
-      // What it was part of, for asking what else happened in it.
+      // What it was part of, for asking what else happened in it, and
+      // who set that going.
       'conversation': c.cause.conversationOf(c.id),
+      'origin': c.cause.startedBy.selector,
     },
   if (e.forgotten) 'changed': 'not within what the registry remembers',
   if (e.trail.isNotEmpty)

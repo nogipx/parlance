@@ -414,6 +414,17 @@ final class CallStarted {
     required this.started,
   });
 
+  factory CallStarted.fromJson(Object? json) {
+    final m = json as Map;
+    return CallStarted(
+      id: m['id'] as String,
+      command: m['command'] as String,
+      params: (m['params'] as Map? ?? const {}).cast<String, Object?>(),
+      cause: Cause.fromJson(m['cause']),
+      started: _at(m['started']),
+    );
+  }
+
   final String id;
   final String command;
   final Map<String, Object?> params;
@@ -548,6 +559,182 @@ final class CallRecord {
 
   @override
   String toString() => 'Call $command $params -> $result ($cause)';
+}
+
+/// One entry of the journal (SPEC §9.3): what happened in the system at
+/// the level of use, as it happened. A call that began, a call that ended
+/// (refused ones too), a fact said, and a state written in a conversation
+/// (its cause has a parent); never an owner's own write of how the world
+/// is now, which is no history. [n] orders the entries of one [epoch].
+sealed class JournalEntry {
+  const JournalEntry({required this.epoch, required this.n, this.trace});
+
+  factory JournalEntry.fromJson(Object? json) {
+    final m = (json as Map).cast<String, Object?>();
+    final epoch = m['epoch']! as String;
+    final n = m['n']! as int;
+    final trace = m['trace'] as String?;
+    return switch (m['kind']) {
+      'start' => JournalStart(
+        CallStarted.fromJson(m),
+        epoch: epoch,
+        n: n,
+        trace: trace,
+      ),
+      'end' => JournalEnd(
+        CallRecord.fromJson(m),
+        epoch: epoch,
+        n: n,
+        trace: trace,
+      ),
+      'fact' => JournalFact(
+        FactMessage.fromJson(m),
+        epoch: epoch,
+        n: n,
+        trace: trace,
+      ),
+      'write' => JournalWrite(
+        StateChange.fromJson(m),
+        epoch: epoch,
+        n: n,
+        trace: trace,
+      ),
+      final k => throw FormatException('no journal entry of kind $k'),
+    };
+  }
+
+  /// The registry's run it is of.
+  final String epoch;
+
+  /// Its place in the journal of [epoch], from 1.
+  final int n;
+
+  /// The W3C `traceparent` of the span it is in, or follows from, when
+  /// the registry keeps spans (SPEC §9.2): where its telemetry and the
+  /// lines logged in it are. Null without one.
+  final String? trace;
+
+  /// `start`, `end`, `fact` or `write`.
+  String get kind;
+
+  /// The id of its message: a call's, a fact's, a change's.
+  String get id;
+  Cause get cause;
+  DateTime get at;
+
+  /// The conversation it is part of (SPEC §4), as its spans and the
+  /// registry's log lines name it too.
+  String get conversation => cause.conversationOf(id);
+
+  /// Who set its conversation going (SPEC §4).
+  Principal get origin => cause.startedBy;
+
+  /// Its message's JSON, with `epoch`, `n`, `kind`, `conversation`,
+  /// `origin` and `trace` beside: one flat object a line of a file holds.
+  Map<String, Object?> toJson() => {
+    'epoch': epoch,
+    'n': n,
+    'kind': kind,
+    'conversation': conversation,
+    'origin': origin.selector,
+    'trace': ?trace,
+    ..._message(),
+  };
+
+  Map<String, Object?> _message();
+}
+
+/// A call whose handler began: it passed every stage.
+final class JournalStart extends JournalEntry {
+  const JournalStart(
+    this.call, {
+    required super.epoch,
+    required super.n,
+    super.trace,
+  });
+
+  final CallStarted call;
+
+  @override
+  String get kind => 'start';
+  @override
+  String get id => call.id;
+  @override
+  Cause get cause => call.cause;
+  @override
+  DateTime get at => call.started;
+  @override
+  Map<String, Object?> _message() => call.toJson();
+}
+
+/// A call that ended: answered, failed, timed out or refused (a refused
+/// one never began). A late end follows the end of its timeout.
+final class JournalEnd extends JournalEntry {
+  const JournalEnd(
+    this.call, {
+    required super.epoch,
+    required super.n,
+    super.trace,
+  });
+
+  final CallRecord call;
+
+  @override
+  String get kind => 'end';
+  @override
+  String get id => call.id;
+  @override
+  Cause get cause => call.cause;
+  @override
+  DateTime get at => call.finished;
+  @override
+  Map<String, Object?> _message() => call.toJson();
+}
+
+/// A fact said.
+final class JournalFact extends JournalEntry {
+  const JournalFact(
+    this.fact, {
+    required super.epoch,
+    required super.n,
+    super.trace,
+  });
+
+  final FactMessage fact;
+
+  @override
+  String get kind => 'fact';
+  @override
+  String get id => fact.id;
+  @override
+  Cause get cause => fact.cause;
+  @override
+  DateTime get at => fact.at;
+  @override
+  Map<String, Object?> _message() => fact.toJson();
+}
+
+/// A state written in a conversation: in reply to a call or a fact.
+final class JournalWrite extends JournalEntry {
+  const JournalWrite(
+    this.change, {
+    required super.epoch,
+    required super.n,
+    super.trace,
+  });
+
+  final StateChange change;
+
+  @override
+  String get kind => 'write';
+  @override
+  String get id => change.id;
+  @override
+  Cause get cause => change.cause;
+  @override
+  DateTime get at => change.at;
+  @override
+  Map<String, Object?> _message() => change.toJson();
 }
 
 /// Why a state (of a key) is as it is (SPEC §9): its value, its last

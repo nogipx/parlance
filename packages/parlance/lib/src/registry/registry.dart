@@ -733,6 +733,34 @@ final class Registry implements ITypeContext {
     }
   }
 
+  /// Journals [t]'s facts, and its writes in a conversation, in the order
+  /// they were made.
+  void _journalTick(Tick t) {
+    final writes = [
+      for (final c in t.changes)
+        if (c.cause.parent != null) c,
+    ];
+    var w = 0, f = 0;
+    while (w < writes.length || f < t.facts.length) {
+      if (f >= t.facts.length ||
+          (w < writes.length && writes[w].seq < t.facts[f].seq)) {
+        final c = writes[w++];
+        _write(
+          (n, trace) => JournalWrite(c, epoch: epoch, n: n, trace: trace),
+          c.id,
+          c.cause,
+        );
+      } else {
+        final m = t.facts[f++];
+        _write(
+          (n, trace) => JournalFact(m, epoch: epoch, n: n, trace: trace),
+          m.id,
+          m.cause,
+        );
+      }
+    }
+  }
+
   /// Turns what the hub committed into the registry's tick: names, ids,
   /// causes and the time.
   void _committed(HubTick t) {
@@ -774,6 +802,7 @@ final class Registry implements ITypeContext {
       facts: List.unmodifiable(committed),
     );
     _logTick(tick);
+    if (_journaling) _journalTick(tick);
     var weight = 0;
     for (final c in changes) {
       weight += jsonWeight(c.value) + jsonWeight(c.previous);
@@ -873,12 +902,17 @@ final class Registry implements ITypeContext {
 
   // --- Conversations ---------------------------------------------------------
 
-  /// The conversation of each call and fact still remembered, by its id:
-  /// what a cause made by hand, naming only its parent, is found in.
-  final LinkedHashMap<String, String> _conversations = LinkedHashMap();
+  /// The conversation of each call and fact still remembered, and who set
+  /// it going, by its id: what a cause made by hand, naming only its
+  /// parent, is found in.
+  final LinkedHashMap<String, ({String conversation, Principal origin})>
+  _conversations = LinkedHashMap();
 
   void _converse(String id, Cause cause) {
-    _conversations[id] = cause.conversationOf(id);
+    _conversations[id] = (
+      conversation: cause.conversationOf(id),
+      origin: cause.startedBy,
+    );
     if (_conversations.length > dedupLimit) {
       _conversations.remove(_conversations.keys.first);
     }
@@ -887,14 +921,26 @@ final class Registry implements ITypeContext {
   /// [cause] in its parent's conversation: one made by hand
   /// (`Cause(by, parent: fact.id)`) names its parent only; the registry
   /// finds the conversation that parent is in, or takes the parent as one
-  /// that started it.
+  /// that started it. Who set it going is the parent's to say, as far as
+  /// the registry remembers it, never the cause's: a message that follows
+  /// from nothing is its own origin, whatever it claims.
   Cause _correlated(Cause cause) {
     final parent = cause.parent;
-    if (cause.correlation != null || parent == null) return cause;
+    if (parent == null) {
+      if (cause.origin == null) return cause;
+      return Cause(cause.by, correlation: cause.correlation);
+    }
+    final known = _conversations[parent];
+    final correlation = cause.correlation ?? known?.conversation ?? parent;
+    final origin = known?.origin ?? cause.origin;
+    if (correlation == cause.correlation && origin == cause.origin) {
+      return cause;
+    }
     return Cause(
       cause.by,
       parent: parent,
-      correlation: _conversations[parent] ?? parent,
+      correlation: correlation,
+      origin: origin,
     );
   }
 
@@ -959,6 +1005,44 @@ final class Registry implements ITypeContext {
   final Map<String, _Guard> _guards = {};
   final StreamController<CallRecord> _records = StreamController.broadcast();
   final StreamController<CallStarted> _starts = StreamController.broadcast();
+
+  /// Synchronous: an entry is with its listeners as it happens, in order,
+  /// so a writer keeps all of it, however the registry goes after.
+  final StreamController<JournalEntry> _journal = StreamController.broadcast(
+    sync: true,
+  );
+  int _journaled = 0;
+
+  /// What happened, at the level of use (SPEC §9.3): every call as it
+  /// begins and as it ends, refused ones too, every fact said, and every
+  /// state written in a conversation, in one order. It keeps nothing: a
+  /// host that must not lose it writes it where it lasts. Nothing of it is
+  /// made while no one listens.
+  Stream<JournalEntry> get journal => _journal.stream;
+
+  bool get _journaling => _journal.hasListener;
+
+  void _write(
+    JournalEntry Function(int n, String? trace) entry,
+    String id,
+    Cause cause,
+  ) {
+    if (_journal.isClosed) return;
+    _journal.add(entry(++_journaled, _traceOf(id, cause)));
+  }
+
+  /// The trace a message is in: its own span's, running or ended, else
+  /// the one of what it follows from.
+  String? _traceOf(String id, Cause cause) {
+    if (!_traced) return null;
+    final parent = cause.parent;
+    return _spans[id]?.traceparent ??
+        _traces[id] ??
+        (parent == null
+            ? null
+            : _spans[parent]?.traceparent ?? _traces[parent]);
+  }
+
   final Map<String, CallStarted> _running = {};
 
   /// Every finished call (SPEC §9).
@@ -991,6 +1075,13 @@ final class Registry implements ITypeContext {
     }
     _recentCalls[record.id] = record;
     _recentCallBytes += _callWeight(record);
+    if (_journaling) {
+      _write(
+        (n, trace) => JournalEnd(record, epoch: epoch, n: n, trace: trace),
+        record.id,
+        record.cause,
+      );
+    }
     while (_recentCalls.length > retainTicks ||
         (_recentCalls.length > 1 && _recentCallBytes > retainBytes)) {
       final first = _recentCalls.keys.first;
@@ -1069,6 +1160,7 @@ final class Registry implements ITypeContext {
               'id': id,
               'conversation': cause.conversationOf(id),
               'by': cause.by.selector,
+              'origin': cause.startedBy.selector,
               'reason': reason,
               'guard': ?guard,
             },
@@ -1199,6 +1291,13 @@ final class Registry implements ITypeContext {
       );
       _running[id] = s;
       if (!_starts.isClosed) _starts.add(s);
+      if (_journaling) {
+        _write(
+          (n, trace) => JournalStart(s, epoch: epoch, n: n, trace: trace),
+          id,
+          cause,
+        );
+      }
     }
     final work = Future.sync(
       () => entry.query
@@ -1265,6 +1364,7 @@ final class Registry implements ITypeContext {
       // not tell, a message come in and what it led to minutes after.
       'conversation': cause.conversationOf(id),
       'by': cause.by.selector,
+      'origin': cause.startedBy.selector,
       if (query) 'query': true,
       if (log.isDebug) 'params': params,
     });
@@ -1316,6 +1416,7 @@ final class Registry implements ITypeContext {
       _catalog.close(),
       _records.close(),
       _starts.close(),
+      _journal.close(),
     ]);
   }
 }

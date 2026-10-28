@@ -27,8 +27,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **Principal** (§4): who acts, `kind[/id][@owner]` (`user/local`, `plugin/hydra`, `viewer/twitch.123`, `studio@screen`). Kinds are the host's; the package reserves `system` (the registry).
 - **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`plugin/hydra`), or `*`. The most specific one that matches wins.
-- **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from) and `correlation` (the conversation it is part of). Passed explicitly: `call.causeFor(by)`.
-- **Conversation** (§4): everything that followed from one message, however far; its id is that message's. `registry.conversation(id)`, a span's `conversation`.
+- **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from), `correlation` (the conversation it is part of) and `origin` (who set that conversation going; `startedBy`). Passed explicitly: `call.causeFor(by)`.
+- **Conversation** (§4): everything that followed from one message, however far; its id is that message's. `registry.conversation(id)` (bounded), a span's and a journal entry's `conversation`.
 - **Overrider** (§9): a principal kind the host allows to override an overridable denial (`Registry(overriders: {...})`).
 
 ## Words
@@ -80,7 +80,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`timedOut`** (§9): no answer within the deadline. Not an end: the handler is told (`call.expired`); what it then does stands, and its end comes as a second call record marked `late`.
 - **`lost`** (§9, §14): the answer did not come back over remote; whether it ran is unknown, and a retry with the id runs it at most once.
 - **Override** (§9, §10): a call that goes past an overridable denial, by a principal whose kind may; its record says so.
-- **Call record** (§9): every finished call (request, cause, stages passed, result, override, timings) on `registry.calls`, for journals. `callStarts` tells a call as its handler begins (`CallStarted`), `running` the ones in flight now.
+- **Call record** (§9): every finished call (request, cause, stages passed, result, override, timings) on `registry.calls`. `callStarts` tells a call as its handler begins (`CallStarted`), `running` the ones in flight now.
+- **Journal** (§9.3): `registry.journal`, what happened at the level of use, in one order: calls begun and ended (refused too), facts said, writes in a conversation; each entry with `epoch`, `n`, `conversation` and, with spans, `trace`. The registry keeps none of it; a host writes it (`parlance_journal`).
 - **Guard** (§10): a synchronous check asked on every call that reaches its stage; returns a denial reason or nothing. **Overridable** unless it says not.
 - **Log, span** (§9.2): `Registry(log:)`, a `LogScope` of rpc_dart's logger, `noop` unless given: then nothing is logged or made. Each call a span whatever the level (nested calls its children, one trace, across a connection too; a call answering a fact or an ended call links that span); refusals, ticks, the catalog and errors by level, constant messages with their fields in `data`. A handler logs in `call.span`.
 - **Explanation** (§9, §16): why a state is as it is: its last change, on whose behalf, and the calls that led to it (`registry.explain`, `why`). `forgotten` and `trailCut` say what is no longer kept.

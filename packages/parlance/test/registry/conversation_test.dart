@@ -49,6 +49,63 @@ void main() {
     await r.dispose();
   });
 
+  test('who set a conversation going stays with all that follows, whoever '
+      'acts on the way; a message that follows from nothing is its own '
+      'origin, whatever it claims', () async {
+    final r = Registry();
+    const viewer = Principal('viewer', 'twitch.7');
+    const plugin = Principal('plugin', 'basics');
+    final said = r.defineFact(
+      FactDescriptor('chat.line', type: const TextType()),
+      by: owner,
+    );
+    final clipped = r.defineState(
+      StateDescriptor('clip.last', type: const TextType()),
+      by: owner,
+    );
+    r.defineCommand(
+      CommandDescriptor('chat.say', callers: Callers.only(['viewer'])),
+      (c) => said.emit('!clip', cause: c.causeFor(owner)),
+    );
+    r.defineCommand(
+      CommandDescriptor('clip.save', callers: Callers.only(['plugin'])),
+      (c) => clipped.set('clip-1', cause: c.causeFor(owner)),
+    );
+    // The plugin names the fact it answers, and claims another origin.
+    r
+        .facts(fact: 'chat.line')
+        .listen(
+          (f) => r.call(
+            'clip.save',
+            {},
+            by: plugin,
+            id: 'save',
+            cause: Cause(plugin, parent: f.id, origin: user),
+          ),
+        );
+    await r.call('chat.say', {}, by: viewer, id: 'irc:1');
+    await pumpEventQueue();
+    final talk = r.conversation('irc:1');
+    expect(talk.calls.map((c) => (c.command, c.cause.startedBy)), [
+      ('chat.say', viewer),
+      ('clip.save', viewer),
+    ]);
+    expect(talk.calls.first.cause.origin, isNull, reason: 'it started it');
+    expect(talk.facts.single.cause.origin, viewer);
+    expect(r.lastChange('clip.last')!.cause.startedBy, viewer);
+    expect(r.lastChange('clip.last')!.cause.by, owner);
+
+    await r.call(
+      'clip.save',
+      {},
+      by: plugin,
+      id: 'claims',
+      cause: const Cause(plugin, origin: viewer),
+    );
+    expect(r.callRecord('claims')!.cause.startedBy, plugin);
+    await r.dispose();
+  });
+
   test('across a connection, what an owner does in answer stays in the '
       'conversation', () async {
     final host = TestHost();
@@ -67,6 +124,7 @@ void main() {
     await host.registry.call('clips.save', {}, by: user, id: 'press');
     await host.settle();
     expect(host.registry.lastChange('clips.last')!.cause.correlation, 'press');
+    expect(host.registry.lastChange('clips.last')!.cause.startedBy, user);
     await host.dispose();
   });
 
@@ -82,6 +140,7 @@ void main() {
     await f.r.call('audio.mute', {'on': true}, by: user, id: 'm');
     await pumpEventQueue();
     expect(spans.single.data, containsPair('conversation', 'm'));
+    expect(spans.single.data, containsPair('origin', 'user/local'));
     await f.r.dispose();
     logs.dispose();
   });

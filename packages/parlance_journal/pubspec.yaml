@@ -1,0 +1,14 @@
+name: parlance_journal
+description: "A registry's journal kept where it lasts: JSON lines a file a day, and read back as conversations, traces and the links there are."
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  parlance: any
+
+dev_dependencies:
+  rpc_dart: any
+  test: ^1.25.0

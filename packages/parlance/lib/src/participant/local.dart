@@ -186,7 +186,7 @@ final class LocalParticipant implements IParticipant {
     if (cause == null) return Cause(who);
     if (cause.by == who) return cause;
     if (_wholeOf(cause.by)) {
-      return Cause(who, parent: cause.parent, correlation: cause.correlation);
+      return cause.withBy(who);
     }
     throw NotPermitted('$who acts as itself, not as ${cause.by}');
   }
