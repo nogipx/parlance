@@ -49,7 +49,8 @@ final class LinkRun {
 /// what its owner may.
 ///
 /// The owner's buttons go in its [vocabulary]: the state
-/// `<vocabulary>.links.buttons` (how each looks now, meta `buttons: true`)
+/// `<vocabulary>.links.buttons` (how each looks now; meta `buttons: true`,
+/// and `press`: the command that presses one)
 /// and the command `<vocabulary>.links.press`, which [pressers] may call.
 final class Links {
   Links(
@@ -211,7 +212,7 @@ final class Links {
       StateDescriptor(
         buttonsState,
         type: const ListType(AnyType()),
-        meta: const {'buttons': true, 'label': 'Buttons'},
+        meta: {'buttons': true, 'press': pressCommand, 'label': 'Buttons'},
       ),
     );
     _press = participant.defineCommand(
