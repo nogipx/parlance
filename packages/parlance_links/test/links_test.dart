@@ -1,0 +1,477 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
+import 'package:parlance/participant.dart';
+import 'package:parlance/registry.dart';
+import 'package:parlance_links/parlance_links.dart';
+import 'package:test/test.dart';
+
+const studio = Principal('studio');
+const plug = Principal('plugin', 'plug');
+const user = Principal('user', 'local');
+
+/// A studio with a state, a command and a fact, and a plugin whose links
+/// run as it.
+final class Bench {
+  Bench({Callers? callers}) {
+    s = registry.participant(studio, vocabularies: [const WordSet.open('st')]);
+    p = registry.participant(plug, vocabularies: [const WordSet.open('plug')]);
+    level = s.defineState(StateDescriptor('st.level', type: const IntType()));
+    said = s.defineFact(
+      FactDescriptor(
+        'st.said',
+        type: const ObjectType({
+          'viewer': Field(TextType(), optional: true),
+          'n': Field(IntType(), optional: true),
+        }),
+      ),
+    );
+    s.defineCommand(
+      CommandDescriptor(
+        'st.note',
+        params: const ObjectType({
+          'n': Field(IntType(), optional: true),
+          'viewer': Field(TextType(), optional: true),
+        }),
+        callers: callers ?? Callers({'plugin': Access.allow}),
+      ),
+      (call) {
+        notes.add((params: call.params, cause: call.cause));
+        if (call.params['n'] == -1) throw StateError('no -1');
+      },
+    );
+    links = Links(p, namespace: 'plug', onError: (e, _) => errors.add(e));
+  }
+
+  final registry = Registry();
+  late final LocalParticipant s;
+  late final LocalParticipant p;
+  late final IStateHandle level;
+  late final IFactHandle said;
+  late final Links links;
+  final notes = <({Map<String, Object?> params, Cause cause})>[];
+  final errors = <Object>[];
+
+  Future<void> dispose() async {
+    await links.dispose();
+    await registry.dispose();
+  }
+}
+
+Future<void> pump() async {
+  for (var i = 0; i < 5; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+void main() {
+  test('a fact said calls as the owner, in the fact\'s conversation', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    await b.links.load([
+      {
+        'id': 'note',
+        'when': [
+          {
+            'fact': 'st.said',
+            'where': {
+              'n': {'>=': 2},
+            },
+          },
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'n': r'$trigger.n', 'viewer': r'$trigger.viewer'},
+          },
+        ],
+      },
+    ]);
+    b.said.emit({'n': 1});
+    b.said.emit({'n': 3}, id: 'f1');
+    await pump();
+    expect(b.notes.map((x) => x.params), [
+      {'n': 3},
+    ]);
+    final cause = b.notes.single.cause;
+    expect(cause.by, plug);
+    expect(cause.parent, 'f1');
+    expect(cause.conversationOf('x'), 'f1');
+  });
+
+  test('a link calls only what its owner may', () async {
+    final b = Bench(callers: Callers({'user': Access.allow}));
+    addTearDown(b.dispose);
+    final runs = <LinkRun>[];
+    final links = Links(b.p, namespace: 'plug', onRun: runs.add);
+    addTearDown(links.dispose);
+    await links.load([
+      {
+        'id': 'note',
+        'when': [
+          {'fact': 'st.said'},
+        ],
+        'do': [
+          {'call': 'st.note'},
+        ],
+      },
+    ]);
+    b.said.emit({'n': 1});
+    await pump();
+    expect(b.notes, isEmpty);
+    expect(runs.single.why, isNotNull);
+  });
+
+  test('a state becomes: a change fires it, its first value does not, '
+      'unless already', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    await b.links.load([
+      {
+        'id': 'changed',
+        'when': [
+          {'state': 'st.level', 'becomes': 0},
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'n': 0},
+          },
+        ],
+      },
+      {
+        'id': 'already',
+        'when': [
+          {'state': 'st.level', 'becomes': 0, 'already': true},
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'n': 100},
+          },
+        ],
+      },
+    ]);
+    b.level.set(0);
+    await pump();
+    expect(b.notes.map((x) => x.params['n']), [100]);
+    b.level.set(5);
+    await pump();
+    b.level.set(0);
+    await pump();
+    expect(b.notes.map((x) => x.params['n']), [100, 0, 100]);
+  });
+
+  test('already fires for what holds when the link starts', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    b.level.set(0);
+    await b.links.load([
+      {
+        'id': 'already',
+        'when': [
+          {'state': 'st.level', 'becomes': 0, 'already': true},
+        ],
+        'do': [
+          {'call': 'st.note'},
+        ],
+      },
+    ]);
+    await pump();
+    expect(b.notes, hasLength(1));
+  });
+
+  test('for: fires once the value held that long, not when it went', () {
+    fakeAsync((async) {
+      final b = Bench();
+      unawaited(
+        b.links.load([
+          {
+            'id': 'quiet',
+            'when': [
+              {'state': 'st.level', 'becomes': 0, 'for': '1m'},
+            ],
+            'do': [
+              {'call': 'st.note'},
+            ],
+          },
+        ]),
+      );
+      b.level.set(1);
+      async.flushMicrotasks();
+      b.level.set(0);
+      async.elapse(const Duration(seconds: 30));
+      b.level.set(2);
+      async.elapse(const Duration(minutes: 2));
+      expect(b.notes, isEmpty);
+      b.level.set(0);
+      async.elapse(const Duration(seconds: 61));
+      expect(b.notes, hasLength(1));
+      unawaited(b.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('only holds a run back while it does not hold', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    b.level.set(0);
+    await b.links.load([
+      {
+        'id': 'note',
+        'when': [
+          {'fact': 'st.said'},
+        ],
+        'only': {'state': 'st.level', '>': 0},
+        'do': [
+          {'call': 'st.note'},
+        ],
+      },
+    ]);
+    b.said.emit({});
+    await pump();
+    b.level.set(1);
+    await pump();
+    b.said.emit({});
+    await pump();
+    expect(b.notes, hasLength(1));
+  });
+
+  test('a throttle per viewer lets each through once in its while', () {
+    fakeAsync((async) {
+      final b = Bench();
+      unawaited(
+        b.links.load([
+          {
+            'id': 'note',
+            'when': [
+              {
+                'fact': 'st.said',
+                'throttle': {'every': '1m', 'per': r'$trigger.viewer'},
+              },
+            ],
+            'do': [
+              {
+                'call': 'st.note',
+                'params': {'viewer': r'$trigger.viewer'},
+              },
+            ],
+          },
+        ]),
+      );
+      async.flushMicrotasks();
+      for (final v in ['ann', 'ann', 'bob']) {
+        b.said.emit({'viewer': v});
+        async.flushMicrotasks();
+      }
+      async.elapse(const Duration(minutes: 1));
+      b.said.emit({'viewer': 'ann'});
+      async.flushMicrotasks();
+      expect(b.notes.map((x) => x.params['viewer']), ['ann', 'bob', 'ann']);
+      unawaited(b.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('a button is shown under the owner, lit and pressed as it', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    b.level.set(0);
+    await b.links.load([
+      {
+        'id': 'up',
+        'when': [
+          {
+            'button': {
+              'label': 'Up',
+              'litLabel': 'Up!',
+              'icon': 'up',
+              'lit': {'state': 'st.level', 'is': 1},
+            },
+          },
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'n': 1},
+          },
+        ],
+      },
+    ]);
+    await pump();
+    final desk = b.registry.participant(user);
+    expect(desk.read('plug.links.buttons'), [
+      {'id': 'up', 'icon': 'up', 'label': 'Up', 'lit': false},
+    ]);
+    b.level.set(1);
+    await pump();
+    expect((desk.read('plug.links.buttons')! as List).single, {
+      'id': 'up',
+      'icon': 'up',
+      'label': 'Up!',
+      'lit': true,
+    });
+    final r = await desk.call('plug.links.press', {'button': 'up'});
+    expect(r, isA<CallDone<Object?>>());
+    expect(b.notes.single.cause.by, plug);
+  });
+
+  test('a button whose command cannot run says why', () async {
+    final b = Bench(callers: Callers({'user': Access.allow}));
+    addTearDown(b.dispose);
+    await b.links.load([
+      {
+        'id': 'up',
+        'when': [
+          {
+            'button': {'label': 'Up'},
+          },
+        ],
+        'do': [
+          {'call': 'st.note'},
+        ],
+      },
+    ]);
+    await pump();
+    final shown = (b.p.read('plug.links.buttons')! as List).single as Map;
+    expect(shown['unavailable'], isNotNull);
+    expect(await b.links.press('up'), isNotNull);
+  });
+
+  test(
+    'an extension stands for a trigger, and picks what a run gets',
+    () async {
+      final b = Bench();
+      addTearDown(b.dispose);
+      final links = Links(
+        b.p,
+        namespace: 'plug',
+        extensions: [
+          TriggerExtension(
+            'says',
+            translate: (o) => const FactTrigger('st.said', Filter({})),
+            accept: (data, o) => (data! as Map)['viewer'] == o['says']
+                ? {'viewer': 'it was ${o['says']}'}
+                : null,
+          ),
+        ],
+      );
+      addTearDown(links.dispose);
+      await links.load([
+        {
+          'id': 'note',
+          'when': [
+            {'says': 'ann'},
+          ],
+          'do': [
+            {
+              'call': 'st.note',
+              'params': {'viewer': r'$trigger.viewer'},
+            },
+          ],
+        },
+      ]);
+      b.said.emit({'viewer': 'bob'});
+      b.said.emit({'viewer': 'ann'});
+      await pump();
+      expect(b.notes.single.params, {'viewer': 'it was ann'});
+    },
+  );
+
+  test(
+    'links that set each other off stop at the conversation\'s limit',
+    () async {
+      final b = Bench();
+      addTearDown(b.dispose);
+      // A command that says the fact that calls it.
+      b.s.defineCommand(
+        CommandDescriptor(
+          'st.again',
+          callers: Callers({'plugin': Access.allow}),
+        ),
+        (call) => b.said.emit({}, cause: call.causeFor(studio)),
+      );
+      var runs = 0;
+      final links = Links(
+        b.p,
+        namespace: 'plug',
+        conversationLimit: 5,
+        onRun: (_) => runs++,
+        onError: (e, _) => b.errors.add(e),
+      );
+      addTearDown(links.dispose);
+      await links.load([
+        {
+          'id': 'loop',
+          'mode': 'queue',
+          'when': [
+            {'fact': 'st.said'},
+          ],
+          'do': [
+            {'call': 'st.again'},
+          ],
+        },
+      ]);
+      b.said.emit({});
+      for (var i = 0; i < 20; i++) {
+        await pump();
+      }
+      expect(runs, 5);
+      expect(b.errors, isNotEmpty);
+    },
+  );
+
+  test('a link that cannot be taken is told; the others run', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    await b.links.load([
+      {'id': 'bad', 'when': <Object?>[], 'do': <Object?>[]},
+      {
+        'id': 'odd',
+        'when': [
+          {'nothing': 1},
+        ],
+      },
+      {
+        'id': 'good',
+        'when': [
+          {'fact': 'st.said'},
+        ],
+        'do': [
+          {'call': 'st.note'},
+        ],
+      },
+    ]);
+    expect(b.links.problems.map((x) => x.link), ['bad', 'odd']);
+    b.said.emit({});
+    await pump();
+    expect(b.notes, hasLength(1));
+  });
+
+  test('a run that stops short says at which step', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    await b.links.load([
+      {
+        'id': 'two',
+        'when': [
+          {
+            'button': {'label': 'Two'},
+          },
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'n': 1},
+          },
+          {
+            'call': 'st.note',
+            'params': {'n': -1},
+          },
+        ],
+      },
+    ]);
+    final why = await b.links.press('two');
+    expect(why, startsWith('step 2 of 2 (st.note), after step 1 done: '));
+  });
+}
