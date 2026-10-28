@@ -35,6 +35,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
       },
       to: _$BoardPutTo,
       from: _$BoardPutFrom,
+      get: _$BoardPutAt,
     ),
     _$BoardPutValueShape,
   ),
@@ -47,6 +48,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
       },
       to: _$BoardExpireTo,
       from: _$BoardExpireFrom,
+      get: _$BoardExpireAt,
     ),
     null,
   ),
@@ -56,6 +58,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
       {'ids': Part(ListShape(Plain(RefType('note')), maxItems: 3))},
       to: _$BoardPinTo,
       from: _$BoardPinFrom,
+      get: _$BoardPinAt,
     ),
     null,
   ),
@@ -65,6 +68,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
       {'readers': Part(Nullable<int>(Plain(IntType())))},
       to: _$BoardCountTo,
       from: _$BoardCountFrom,
+      get: _$BoardCountAt,
     ),
     null,
   );
@@ -212,6 +216,7 @@ const _$ActionShape = RecordShape<Action>(
   },
   to: _$ActionTo,
   from: _$ActionFrom,
+  get: _$ActionAt,
 );
 
 Map<String, Object?> _$ActionTo(Action v) => {
@@ -224,6 +229,11 @@ Action _$ActionFrom(Map<String, Object?> m) => (
   params: (m['params'] as Map<String, Object?>?) ?? {},
 );
 
+Object? _$ActionAt(Action v, int i) => switch (i) {
+  0 => v.call,
+  _ => v.params,
+};
+
 const _$NoteShape = RecordShape<Note>(
   {
     'level': Part(EnumShape(Level.values)),
@@ -234,6 +244,7 @@ const _$NoteShape = RecordShape<Note>(
   },
   to: _$NoteTo,
   from: _$NoteFrom,
+  get: _$NoteAt,
 );
 
 Map<String, Object?> _$NoteTo(Note v) => {
@@ -252,6 +263,14 @@ Note _$NoteFrom(Map<String, Object?> m) => (
   action: m['action'] as Action?,
 );
 
+Object? _$NoteAt(Note v, int i) => switch (i) {
+  0 => v.level,
+  1 => v.text,
+  2 => v.tags,
+  3 => v.author,
+  _ => v.action,
+};
+
 typedef BoardPut = ({String? id, Note note});
 
 Map<String, Object?> _$BoardPutTo(BoardPut p) => {'id': p.id, 'note': p.note};
@@ -259,16 +278,24 @@ Map<String, Object?> _$BoardPutTo(BoardPut p) => {'id': p.id, 'note': p.note};
 BoardPut _$BoardPutFrom(Map<String, Object?> m) =>
     (id: m['id'] as String?, note: m['note']! as Note);
 
+Object? _$BoardPutAt(BoardPut p, int i) => switch (i) {
+  0 => p.id,
+  _ => p.note,
+};
+
 const _$BoardPutValueShape = RecordShape<({String id})>(
   {'id': Part(Plain(TextType()))},
   to: _$BoardPutValueTo,
   from: _$BoardPutValueFrom,
+  get: _$BoardPutValueAt,
 );
 
 Map<String, Object?> _$BoardPutValueTo(({String id}) v) => {'id': v.id};
 
 ({String id}) _$BoardPutValueFrom(Map<String, Object?> m) =>
     (id: m['id']! as String);
+
+Object? _$BoardPutValueAt(({String id}) v, int i) => v.id;
 
 typedef BoardExpire = ({String id, int ms});
 
@@ -277,6 +304,11 @@ Map<String, Object?> _$BoardExpireTo(BoardExpire p) => {'id': p.id, 'in': p.ms};
 BoardExpire _$BoardExpireFrom(Map<String, Object?> m) =>
     (id: m['id']! as String, ms: m['in']! as int);
 
+Object? _$BoardExpireAt(BoardExpire p, int i) => switch (i) {
+  0 => p.id,
+  _ => p.ms,
+};
+
 typedef BoardPin = ({List<String> ids});
 
 Map<String, Object?> _$BoardPinTo(BoardPin p) => {'ids': p.ids};
@@ -284,9 +316,13 @@ Map<String, Object?> _$BoardPinTo(BoardPin p) => {'ids': p.ids};
 BoardPin _$BoardPinFrom(Map<String, Object?> m) =>
     (ids: m['ids']! as List<String>);
 
+Object? _$BoardPinAt(BoardPin p, int i) => p.ids;
+
 typedef BoardCount = ({int? readers});
 
 Map<String, Object?> _$BoardCountTo(BoardCount p) => {'readers': p.readers};
 
 BoardCount _$BoardCountFrom(Map<String, Object?> m) =>
     (readers: m['readers'] as int?);
+
+Object? _$BoardCountAt(BoardCount p, int i) => p.readers;

@@ -30,6 +30,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
       {'room': Part(Plain(RefType(room))), 'on': Part(Plain(BoolType()))},
       to: _$HouseSetLightTo,
       from: _$HouseSetLightFrom,
+      get: _$HouseSetLightAt,
     ),
     null,
   ),
@@ -39,6 +40,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
       {'target': Part(Plain(NumType(min: 10, max: 28)))},
       to: _$HouseSetHeatTo,
       from: _$HouseSetHeatFrom,
+      get: _$HouseSetHeatAt,
     ),
     null,
   ),
@@ -48,6 +50,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
       {'mode': Part(EnumShape(Mode.values))},
       to: _$HouseSetModeTo,
       from: _$HouseSetModeFrom,
+      get: _$HouseSetModeAt,
     ),
     null,
   ),
@@ -57,6 +60,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
       {'on': Part(Plain(BoolType()))},
       to: _$HouseLockTo,
       from: _$HouseLockFrom,
+      get: _$HouseLockAt,
     ),
     null,
   );
@@ -78,6 +82,7 @@ enum HouseQuery<P, R> implements IQueryWord<P, R> {
       {'lit': Part(Plain(BoolType()))},
       to: _$HouseRoomsTo,
       from: _$HouseRoomsFrom,
+      get: _$HouseRoomsAt,
     ),
     ListShape(Plain(TextType())),
   );
@@ -99,6 +104,7 @@ enum HouseFact<T> implements IFactWord<T> {
       {'who': Part(Plain(TextType()))},
       to: _$HouseRangTo,
       from: _$HouseRangFrom,
+      get: _$HouseRangAt,
     ),
   ),
   motion<HouseMotion>(
@@ -107,6 +113,7 @@ enum HouseFact<T> implements IFactWord<T> {
       {'room': Part(Plain(TextType()))},
       to: _$HouseMotionTo,
       from: _$HouseMotionFrom,
+      get: _$HouseMotionAt,
     ),
   );
 
@@ -293,12 +300,19 @@ Map<String, Object?> _$HouseSetLightTo(HouseSetLight p) => {
 HouseSetLight _$HouseSetLightFrom(Map<String, Object?> m) =>
     (room: m['room']! as String, on: m['on']! as bool);
 
+Object? _$HouseSetLightAt(HouseSetLight p, int i) => switch (i) {
+  0 => p.room,
+  _ => p.on,
+};
+
 typedef HouseSetHeat = ({num target});
 
 Map<String, Object?> _$HouseSetHeatTo(HouseSetHeat p) => {'target': p.target};
 
 HouseSetHeat _$HouseSetHeatFrom(Map<String, Object?> m) =>
     (target: m['target']! as num);
+
+Object? _$HouseSetHeatAt(HouseSetHeat p, int i) => p.target;
 
 typedef HouseSetMode = ({Mode mode});
 
@@ -307,11 +321,15 @@ Map<String, Object?> _$HouseSetModeTo(HouseSetMode p) => {'mode': p.mode};
 HouseSetMode _$HouseSetModeFrom(Map<String, Object?> m) =>
     (mode: m['mode']! as Mode);
 
+Object? _$HouseSetModeAt(HouseSetMode p, int i) => p.mode;
+
 typedef HouseLock = ({bool on});
 
 Map<String, Object?> _$HouseLockTo(HouseLock p) => {'on': p.on};
 
 HouseLock _$HouseLockFrom(Map<String, Object?> m) => (on: m['on']! as bool);
+
+Object? _$HouseLockAt(HouseLock p, int i) => p.on;
 
 typedef HouseRooms = ({bool lit});
 
@@ -319,11 +337,15 @@ Map<String, Object?> _$HouseRoomsTo(HouseRooms p) => {'lit': p.lit};
 
 HouseRooms _$HouseRoomsFrom(Map<String, Object?> m) => (lit: m['lit']! as bool);
 
+Object? _$HouseRoomsAt(HouseRooms p, int i) => p.lit;
+
 typedef HouseRang = ({String who});
 
 Map<String, Object?> _$HouseRangTo(HouseRang p) => {'who': p.who};
 
 HouseRang _$HouseRangFrom(Map<String, Object?> m) => (who: m['who']! as String);
+
+Object? _$HouseRangAt(HouseRang p, int i) => p.who;
 
 typedef HouseMotion = ({String room});
 
@@ -331,6 +353,8 @@ Map<String, Object?> _$HouseMotionTo(HouseMotion p) => {'room': p.room};
 
 HouseMotion _$HouseMotionFrom(Map<String, Object?> m) =>
     (room: m['room']! as String);
+
+Object? _$HouseMotionAt(HouseMotion p, int i) => p.room;
 
 /// The states of [Visit].
 enum VisitState<T> implements IStateWord<T> {
@@ -353,6 +377,7 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
       {'who': Part(Plain(TextType()))},
       to: _$VisitLeaveTo,
       from: _$VisitLeaveFrom,
+      get: _$VisitLeaveAt,
     ),
     null,
   );
@@ -431,3 +456,5 @@ Map<String, Object?> _$VisitLeaveTo(VisitLeave p) => {'who': p.who};
 
 VisitLeave _$VisitLeaveFrom(Map<String, Object?> m) =>
     (who: m['who']! as String);
+
+Object? _$VisitLeaveAt(VisitLeave p, int i) => p.who;

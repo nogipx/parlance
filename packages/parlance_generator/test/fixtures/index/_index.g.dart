@@ -74,12 +74,18 @@ const _$RoomShape = RecordShape<Room>(
   },
   to: _$RoomTo,
   from: _$RoomFrom,
+  get: _$RoomAt,
 );
 
 Map<String, Object?> _$RoomTo(Room v) => {'name': v.name, 'floor': v.floor};
 
 Room _$RoomFrom(Map<String, Object?> m) =>
     (name: m['name']! as String, floor: m['floor']! as int);
+
+Object? _$RoomAt(Room v, int i) => switch (i) {
+  0 => v.name,
+  _ => v.floor,
+};
 
 /// The commands of [Lights].
 enum LightsCommand<P, R> implements ICommandWord<P, R> {
@@ -89,6 +95,7 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
       {'room': Part(_$RoomShape)},
       to: _$LightsOnTo,
       from: _$LightsOnFrom,
+      get: _$LightsOnAt,
     ),
     null,
   );
@@ -152,3 +159,5 @@ typedef LightsOn = ({Room room});
 Map<String, Object?> _$LightsOnTo(LightsOn p) => {'room': p.room};
 
 LightsOn _$LightsOnFrom(Map<String, Object?> m) => (room: m['room']! as Room);
+
+Object? _$LightsOnAt(LightsOn p, int i) => p.room;

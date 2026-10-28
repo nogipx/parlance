@@ -794,6 +794,7 @@ final class _Emitter {
     final parts = <String>[];
     final to = <String>[];
     final from = <String>[];
+    final at = <String>[];
     for (final p in ps) {
       final n = p.displayName;
       final key = _jsonName(p);
@@ -818,6 +819,7 @@ final class _Emitter {
       ];
       parts.add('${_quote(key)}: Part(${args.join(', ')})');
       to.add('${_quote(key)}: p.$n');
+      at.add('p.$n');
       final bare = _dart(p.type).replaceFirst(RegExp(r'\?$'), '');
       from.add(switch ((nullable, dflt)) {
         (_, final String d) => '$n: (m[${_quote(key)}] as $bare?) ?? $d',
@@ -836,13 +838,24 @@ final class _Emitter {
       ..writeln()
       ..writeln(
         '$rec _\$${rec}From(Map<String, Object?> m) => (${from.join(', ')});',
-      );
+      )
+      ..writeln()
+      ..writeln('Object? _\$${rec}At($rec p, int i) => ${_byPlace(at)};');
     return (
       rec,
       'RecordShape<$rec>({${parts.join(', ')}}, '
-          'to: _\$${rec}To, from: _\$${rec}From)',
+          'to: _\$${rec}To, from: _\$${rec}From, get: _\$${rec}At)',
     );
   }
+
+  /// A field read by its place: each of [fields] by its index, so a
+  /// record shape reads a value with no map made of it (SPEC §18).
+  static String _byPlace(List<String> fields) => switch (fields.length) {
+    0 => 'null',
+    1 => fields.single,
+    _ =>
+      'switch (i) {${[for (final (i, f) in fields.indexed) i == fields.length - 1 ? '_ => $f' : '$i => $f'].join(', ')}}',
+  };
 
   /// A parameter's default as JSON, for its part.
   String _json(FormalParameterElement p) {
@@ -1031,6 +1044,7 @@ final class _Emitter {
     final parts = <String>[];
     final to = <String>[];
     final from = <String>[];
+    final at = <String>[];
     // In the order the typedef says them: the analyzer sorts them by name.
     final byName = {for (final f in t.namedFields) f.name: f};
     for (final f in [
@@ -1066,6 +1080,7 @@ final class _Emitter {
       ];
       parts.add('${_quote(key)}: Part(${args.join(', ')})');
       to.add('${_quote(key)}: v.$n');
+      at.add('v.$n');
       final bare = _dart(f.type).replaceFirst(RegExp(r'\?$'), '');
       from.add(switch ((nullable, dflt)) {
         (_, final DartObject d) =>
@@ -1079,7 +1094,7 @@ final class _Emitter {
       ..writeln()
       ..writeln(
         'const $shape = RecordShape<$type>({${parts.join(', ')}}, '
-        'to: _\$${name}To, from: _\$${name}From);',
+        'to: _\$${name}To, from: _\$${name}From, get: _\$${name}At);',
       )
       ..writeln()
       ..writeln(
@@ -1088,7 +1103,9 @@ final class _Emitter {
       ..writeln()
       ..writeln(
         '$type _\$${name}From(Map<String, Object?> m) => (${from.join(', ')});',
-      );
+      )
+      ..writeln()
+      ..writeln('Object? _\$${name}At($type v, int i) => ${_byPlace(at)};');
     return shape;
   }
 

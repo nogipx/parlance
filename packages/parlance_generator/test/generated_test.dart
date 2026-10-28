@@ -145,6 +145,48 @@ void main() {
     });
   });
 
+  test('a record is read by place as its map has it, and held alike', () {
+    void byPlace<T>(RecordShape<T> s, T v) {
+      final keys = s.fields.keys.toList();
+      final map = s.to(v);
+      for (var i = 0; i < keys.length; i++) {
+        expect(s.get!(v, i), map[keys[i]], reason: keys[i]);
+      }
+    }
+
+    byPlace(PlayerCommand.play.params, (
+      track: const Track(title: 'a'),
+      repeat: Repeat.one,
+      on: 'x',
+    ));
+    byPlace(PlayerQuery.search.params, (text: 'a', limit: 3));
+    byPlace(PlayerCommand.skip.params, (count: 2));
+
+    final search = PlayerQuery.search.params;
+    String? why(Object? Function() check) {
+      try {
+        check();
+        return null;
+      } on TypeMismatch catch (e) {
+        return '$e';
+      }
+    }
+
+    for (final text in ['a', 'x' * 41]) {
+      final v = (text: text, limit: null);
+      expect(
+        why(() => search.check(v, r)),
+        why(() => search.type.check(search.toJson(v), r)),
+      );
+    }
+    expect(PlayerQuery.search.params.keptAsIs, isTrue);
+    expect(
+      PlayerCommand.play.params.keptAsIs,
+      isFalse,
+      reason: 'a class that serializes itself is kept as its JSON',
+    );
+  });
+
   test('every word is listed once, in its vocabulary', () {
     expect(playerWords.words.map((w) => w.name), [
       'player.volume',

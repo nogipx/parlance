@@ -75,6 +75,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
       {'volume': Part(Plain(IntType(min: 0, max: 100)))},
       to: _$PlayerSetVolumeTo,
       from: _$PlayerSetVolumeFrom,
+      get: _$PlayerSetVolumeAt,
     ),
     null,
   ),
@@ -101,6 +102,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
       },
       to: _$PlayerPlayTo,
       from: _$PlayerPlayFrom,
+      get: _$PlayerPlayAt,
     ),
     null,
   ),
@@ -110,6 +112,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
       {'count': Part(Plain(IntType()), defaultValue: 1)},
       to: _$PlayerSkipTo,
       from: _$PlayerSkipFrom,
+      get: _$PlayerSkipAt,
     ),
     Plain(IntType()),
   ),
@@ -135,6 +138,7 @@ enum PlayerQuery<P, R> implements IQueryWord<P, R> {
       },
       to: _$PlayerSearchTo,
       from: _$PlayerSearchFrom,
+      get: _$PlayerSearchAt,
     ),
     ListShape(
       JsonShape<Track>(
@@ -169,6 +173,7 @@ enum PlayerFact<T> implements IFactWord<T> {
       {'volume': Part(Plain(IntType()))},
       to: _$PlayerClippedTo,
       from: _$PlayerClippedFrom,
+      get: _$PlayerClippedAt,
     ),
   ),
   finished<Track>(
@@ -407,6 +412,8 @@ Map<String, Object?> _$PlayerSetVolumeTo(PlayerSetVolume p) => {
 PlayerSetVolume _$PlayerSetVolumeFrom(Map<String, Object?> m) =>
     (volume: m['volume']! as int);
 
+Object? _$PlayerSetVolumeAt(PlayerSetVolume p, int i) => p.volume;
+
 typedef PlayerPlay = ({Track track, Repeat repeat, String? on});
 
 Map<String, Object?> _$PlayerPlayTo(PlayerPlay p) => {
@@ -421,12 +428,20 @@ PlayerPlay _$PlayerPlayFrom(Map<String, Object?> m) => (
   on: m['on'] as String?,
 );
 
+Object? _$PlayerPlayAt(PlayerPlay p, int i) => switch (i) {
+  0 => p.track,
+  1 => p.repeat,
+  _ => p.on,
+};
+
 typedef PlayerSkip = ({int count});
 
 Map<String, Object?> _$PlayerSkipTo(PlayerSkip p) => {'count': p.count};
 
 PlayerSkip _$PlayerSkipFrom(Map<String, Object?> m) =>
     (count: (m['count'] as int?) ?? 1);
+
+Object? _$PlayerSkipAt(PlayerSkip p, int i) => p.count;
 
 typedef PlayerSearch = ({String text, int? limit});
 
@@ -438,9 +453,16 @@ Map<String, Object?> _$PlayerSearchTo(PlayerSearch p) => {
 PlayerSearch _$PlayerSearchFrom(Map<String, Object?> m) =>
     (text: m['text']! as String, limit: m['limit'] as int?);
 
+Object? _$PlayerSearchAt(PlayerSearch p, int i) => switch (i) {
+  0 => p.text,
+  _ => p.limit,
+};
+
 typedef PlayerClipped = ({int volume});
 
 Map<String, Object?> _$PlayerClippedTo(PlayerClipped p) => {'volume': p.volume};
 
 PlayerClipped _$PlayerClippedFrom(Map<String, Object?> m) =>
     (volume: m['volume']! as int);
+
+Object? _$PlayerClippedAt(PlayerClipped p, int i) => p.volume;
