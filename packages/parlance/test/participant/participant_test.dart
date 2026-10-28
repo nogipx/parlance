@@ -354,6 +354,23 @@ void main() {
       expect((await r.call('orders.b', {}, by: cart)).ok, isTrue);
     });
 
+    test('a whole\'s guard judges the commands of all its parts', () async {
+      final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
+      p
+          .child('a')
+          .child('deep')
+          .defineCommand(
+            CommandDescriptor(
+              'orders.a',
+              callers: const Callers({'*': Access.allow}),
+            ),
+            (_) {},
+          );
+      p.addGuard('orders.no', (_) => 'no');
+      final refused = await r.call('orders.a', {}, by: cart);
+      expect((refused as CallRefused).guard, '${orders.selector}#orders.no');
+    });
+
     test('a part going withdraws its words only; its whole going withdraws '
         'its parts', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);

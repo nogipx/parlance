@@ -345,13 +345,19 @@ final class LocalParticipant implements IParticipant {
   String guardId(String id) => '${who.selector}#$id';
 
   @override
+  /// Whether its guards judge calls of [command]: one it, or a part of
+  /// it, defined.
+  bool _judges(String command) =>
+      _commands.contains(command) ||
+      _children.values.any((c) => c._judges(command));
+
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
     _live();
     return _keepDoing(
       _r
           .addGuard(
             guardId(id),
-            (c) => _commands.contains(c.command.name) ? check(c) : null,
+            (c) => _judges(c.command.name) ? check(c) : null,
             overridable: overridable,
           )
           .dispose,
@@ -371,7 +377,7 @@ final class LocalParticipant implements IParticipant {
       _r
           .addAskedGuard(
             guardId(id),
-            (c) async => _commands.contains(c.command.name) ? ask(c) : null,
+            (c) async => _judges(c.command.name) ? ask(c) : null,
             overridable: overridable,
             timeout: timeout,
           )
