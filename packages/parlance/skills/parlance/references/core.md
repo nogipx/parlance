@@ -22,7 +22,7 @@ A `LocalHub` commits the writes of its states and the emits of its facts in **ti
 A `LocalState<V>` holds one value; a `LocalKeyedState<K, V>` one value per key.
 
 - **One writer.** `claim()` gives the only write handle (`LocalStateWriter`, `LocalKeyedStateWriter`); another claim fails until it is released (`dispose`). A released writer cannot write; the values stay.
-- **Equality** is `==` unless the state is made with `equals` (the registry gives deep JSON equality).
+- **Equality** is `==` unless the state is made with `equals` (the registry gives the word's shape's).
 - `watch` gives the value now (null when there is none), then every committed change, a remove as null.
 - `close()` drops the writes of the state waiting in a batch, and lets no one claim it again.
 - A keyed state's writer `clear()`s it: every committed key is removed, and what the batch running now wrote of it is dropped, so a key written there and never committed leaves nothing.
@@ -46,7 +46,7 @@ A `LocalCommand<P, R>` is asked and answers.
 
 | Registry | Core |
 |---|---|
-| a state's values | a `LocalKeyedState<String?, Object?>` (null key for an unkeyed state), deep JSON equality, the registry its only writer |
+| a state's values | a `LocalKeyedState<String?, Object?>` (null key for an unkeyed state) of the values as the word's shape keeps them (§18), its equality the shape's, the registry its only writer |
 | `batch`, seq, ticks | one `LocalHub`; `onCommit` turns a `LocalTick` into a `Tick` with names, ids, causes and the time |
 | a fact | a `LocalFact<Object?>`, open as the fact is; the tag is its id and cause |
 | a command's handler | a `LocalCommand<CommandCall, Object?>`; the stages of §9 run before it is asked |

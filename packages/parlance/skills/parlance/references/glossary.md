@@ -89,7 +89,9 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Typed words (§18)
 
 - **IStateWord<T>**, **ICommandWord<P, R>**, **IFactWord<T>**: a word's name with its Dart types; a host's enum of its words implements them, so no name or param key is typed twice.
-- **Shape**: how a JSON value is a Dart one, and the registry type it gives: `Plain`, `EnumShape`, `ListShape`, `MapShape`, `Nullable`, `RecordShape` (an object as a record), `UnionShape` (one of several objects as a sealed class).
+- **Shape**: how a Dart value is checked, kept and told as JSON, and the registry type it gives: `Plain`, `EnumShape`, `ListShape`, `MapShape`, `Nullable`, `RecordShape` (an object as a record, its fields read by place with `get`), `UnionShape` (one of several objects as a sealed class), `JsonValue` (JSON itself). Its `check`, `equals` and `weigh` do to a Dart value what its type does to the value's JSON (§18).
+- **Kept as it is** (§18): a word a typed owner in this process defines is kept as its Dart value, JSON made only when asked (by name, across a connection, the journal); `keptAsIs` false for a class that serializes itself. `readAs`, `watchAs`, `factsAs`, `callAs` read, hear and call as a shape has the values.
+- **`was`, `checkedAlone`** (§18): a write is checked against the value kept before; what is the same of it passes unvisited when its check asks nothing of the registry.
 - **Part**: a field of a `RecordShape`: its shape, optional or default, description.
 - **`RecordShape.none`**: the params of a command that takes none.
 - **Typed handles**: `StateOf`, `StateWriterOf`, `CommandOf`, `CommandCallOf`, `FactOf`, `FactEmitterOf`, `Fact<T>`; through `participant.state(word)`, `command(word)`, `fact(word)` (`StateOf`, `CommandOf`, `FactOf` are the package's own, on the registry).

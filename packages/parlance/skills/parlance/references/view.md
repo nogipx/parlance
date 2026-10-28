@@ -20,6 +20,11 @@ this process or reached over remote, so the same widgets serve both.
 - `status(word)`, `statusChanges(word)`: whether the view's principal
   can use the word now (§6.5), and each change of it; a part shows a
   missing or unavailable command for what it is rather than fail on it.
+- As a shape has them (§18): `readAs(state, shape, {key})`,
+  `factsAs(fact, shape)`, `callAs(command, params, shape)`: in this process
+  a word the registry keeps by that shape is the Dart value itself, both
+  ways; else JSON decoded, or encoded for the call. The typed handles
+  below go through them.
 - Typed (§18): `view.state(word).read()`, `.readAll()`, `.watch()` (now, then whenever it changes, deduplicated; a remote view keeps the state while it is listened to); an old name of a word (§6.4) is told the word's changes and hears its facts, here and across a connection;
   `view.command(word).call(params)`; `view.fact(word).stream`,
   `.recent(count)`; `.status`, `.statusChanges` on each.
