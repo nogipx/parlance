@@ -1,0 +1,25 @@
+name: _parlance_workspace
+description: parlance, a language modules speak to each other in, and its tools.
+publish_to: none
+
+environment:
+  sdk: ^3.13.1
+
+workspace:
+  - packages/parlance
+  - packages/parlance_generator
+  - packages/parlance_links
+  - packages/parlance_journal
+
+dev_dependencies:
+  lints: ^6.0.0
+
+# rpc_dart from the local checkout until it is published with what parlance
+# uses; then the versions in the packages' pubspecs.
+dependency_overrides:
+  rpc_dart:
+    path: ../rpc_dart/packages/core/rpc_dart
+  rpc_dart_socket:
+    path: ../rpc_dart/packages/transport/rpc_dart_socket
+  rpc_dart_generator:
+    path: ../rpc_dart/packages/core/rpc_dart_generator

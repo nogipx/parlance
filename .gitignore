@@ -1,0 +1,54 @@
+# macOS
+.DS_Store
+
+# FVM (local SDK symlink and cache)
+.fvm/
+
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+**/doc/api/
+.widget_preview/
+migrate_working_dir/
+*.symbols
+*.map.json
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode / CocoaPods
+xcuserdata/
+DerivedData/
+**/Pods/
+**/Flutter/ephemeral/
+**/dgph
+
+# Logs
+*.log
+
+# Local scratch: fixtures, sockets, recordings
+.tmp/
+
+# Local code signing identity (make signing)
+app/macos/Runner/Configs/Signing.local.xcconfig
+
+# RNNoise build (make rnnoise)
+engine/RNNoise/
+
+# Experiments, kept local
+spikes/
+
+# Editor transcripts
+.nimbalyst/
