@@ -344,13 +344,13 @@ final class LocalParticipant implements IParticipant {
   /// whose it was.
   String guardId(String id) => '${who.selector}#$id';
 
-  @override
   /// Whether its guards judge calls of [command]: one it, or a part of
   /// it, defined.
   bool _judges(String command) =>
       _commands.contains(command) ||
       _children.values.any((c) => c._judges(command));
 
+  @override
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
     _live();
     return _keepDoing(
