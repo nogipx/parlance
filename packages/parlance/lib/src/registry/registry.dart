@@ -101,7 +101,7 @@ final class CommandCall {
 
   /// The cause of what the handler does on behalf of [by]: nested calls
   /// and writes. Its parent is this call.
-  Cause causeFor(Principal by) => cause.child(id, by: by);
+  Cause causeFor(Principal by) => cause.child(id, by: by, word: command);
 
   /// The span of this call in the registry's log (SPEC §9.2): what the
   /// handler logs in it, events and spans of its own, goes with the call
@@ -655,7 +655,7 @@ final class Registry implements ITypeContext {
   Stream<Tick> get ticks => _ticks.stream;
 
   void _writeState(StateDescriptor d, String? key, Object? value, Cause cause) {
-    cause = _correlated(cause);
+    cause = _inConversation(cause);
     refuseInQuery('write ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
@@ -664,7 +664,7 @@ final class Registry implements ITypeContext {
   }
 
   void _removeState(StateDescriptor d, String? key, Cause cause) {
-    cause = _correlated(cause);
+    cause = _inConversation(cause);
     refuseInQuery('remove ${d.name}');
     final e = _liveState(d);
     _checkKey(d, key);
@@ -877,8 +877,8 @@ final class Registry implements ITypeContext {
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
     final v = freezeJson(d.type.check(payload, this));
-    cause = _correlated(cause);
-    _converse(id, cause);
+    cause = _inConversation(cause);
+    _converse(id, d.name, cause);
     _seenFacts[id] = now;
     if (_seenFacts.length > dedupLimit) {
       _seenFacts.remove(_seenFacts.keys.first);
@@ -905,13 +905,13 @@ final class Registry implements ITypeContext {
   /// The conversation of each call and fact still remembered, and who set
   /// it going, by its id: what a cause made by hand, naming only its
   /// parent, is found in.
-  final LinkedHashMap<String, ({String conversation, Principal origin})>
+  final LinkedHashMap<String, ({String conversation, Origin origin})>
   _conversations = LinkedHashMap();
 
-  void _converse(String id, Cause cause) {
+  void _converse(String id, String word, Cause cause) {
     _conversations[id] = (
       conversation: cause.conversationOf(id),
-      origin: cause.startedBy,
+      origin: cause.originOf(word),
     );
     if (_conversations.length > dedupLimit) {
       _conversations.remove(_conversations.keys.first);
@@ -924,22 +924,22 @@ final class Registry implements ITypeContext {
   /// that started it. Who set it going is the parent's to say, as far as
   /// the registry remembers it, never the cause's: a message that follows
   /// from nothing is its own origin, whatever it claims.
-  Cause _correlated(Cause cause) {
+  Cause _inConversation(Cause cause) {
     final parent = cause.parent;
     if (parent == null) {
       if (cause.origin == null) return cause;
-      return Cause(cause.by, correlation: cause.correlation);
+      return Cause(cause.by, conversation: cause.conversation);
     }
     final known = _conversations[parent];
-    final correlation = cause.correlation ?? known?.conversation ?? parent;
+    final conversation = cause.conversation ?? known?.conversation ?? parent;
     final origin = known?.origin ?? cause.origin;
-    if (correlation == cause.correlation && origin == cause.origin) {
+    if (conversation == cause.conversation && origin == cause.origin) {
       return cause;
     }
     return Cause(
       cause.by,
       parent: parent,
-      correlation: correlation,
+      conversation: conversation,
       origin: origin,
     );
   }
@@ -1160,7 +1160,8 @@ final class Registry implements ITypeContext {
               'id': id,
               'conversation': cause.conversationOf(id),
               'by': cause.by.selector,
-              'origin': cause.startedBy.selector,
+              'origin': cause.originOf(command).word,
+              'originBy': cause.originOf(command).by.selector,
               'reason': reason,
               'guard': ?guard,
             },
@@ -1364,7 +1365,8 @@ final class Registry implements ITypeContext {
       // not tell, a message come in and what it led to minutes after.
       'conversation': cause.conversationOf(id),
       'by': cause.by.selector,
-      'origin': cause.startedBy.selector,
+      'origin': cause.originOf(command).word,
+      'originBy': cause.originOf(command).by.selector,
       if (query) 'query': true,
       if (log.isDebug) 'params': params,
     });
@@ -1750,8 +1752,8 @@ extension RawRegistry on Registry {
     command = canonical(command);
     if (_commands.containsKey(command)) _used(asked, by)?.called();
     final callId = id ?? newId();
-    cause = _correlated(cause ?? Cause(by));
-    _converse(callId, cause);
+    cause = _inConversation(cause ?? Cause(by));
+    _converse(callId, command, cause);
     final query = _commands[command]?.query ?? false;
     // A query may ask another; a command it may not call.
     if (!query) refuseInQuery('call $command');

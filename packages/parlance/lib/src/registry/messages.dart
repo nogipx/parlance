@@ -617,6 +617,10 @@ sealed class JournalEntry {
   /// `start`, `end`, `fact` or `write`.
   String get kind;
 
+  /// The word it is of: the command called, the fact said, the state
+  /// written.
+  String get word;
+
   /// The id of its message: a call's, a fact's, a change's.
   String get id;
   Cause get cause;
@@ -626,8 +630,9 @@ sealed class JournalEntry {
   /// registry's log lines name it too.
   String get conversation => cause.conversationOf(id);
 
-  /// Who set its conversation going (SPEC §4).
-  Principal get origin => cause.startedBy;
+  /// What its conversation started with (SPEC §4): the first message's
+  /// word and who; its own for the first.
+  Origin get origin => cause.originOf(word);
 
   /// Its message's JSON, with `epoch`, `n`, `kind`, `conversation`,
   /// `origin` and `trace` beside: one flat object a line of a file holds.
@@ -636,7 +641,7 @@ sealed class JournalEntry {
     'n': n,
     'kind': kind,
     'conversation': conversation,
-    'origin': origin.selector,
+    'origin': origin.toJson(),
     'trace': ?trace,
     ..._message(),
   };
@@ -657,6 +662,8 @@ final class JournalStart extends JournalEntry {
 
   @override
   String get kind => 'start';
+  @override
+  String get word => call.command;
   @override
   String get id => call.id;
   @override
@@ -682,6 +689,8 @@ final class JournalEnd extends JournalEntry {
   @override
   String get kind => 'end';
   @override
+  String get word => call.command;
+  @override
   String get id => call.id;
   @override
   Cause get cause => call.cause;
@@ -705,6 +714,8 @@ final class JournalFact extends JournalEntry {
   @override
   String get kind => 'fact';
   @override
+  String get word => fact.fact;
+  @override
   String get id => fact.id;
   @override
   Cause get cause => fact.cause;
@@ -727,6 +738,8 @@ final class JournalWrite extends JournalEntry {
 
   @override
   String get kind => 'write';
+  @override
+  String get word => change.state;
   @override
   String get id => change.id;
   @override

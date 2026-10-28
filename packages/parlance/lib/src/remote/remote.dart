@@ -150,7 +150,7 @@ final class RemoteSession extends ParlanceContractPeer {
     if (parent != null) {
       if (_serving[parent] case final c?) return c.causeFor(who);
       if (registry.recentFact(parent) case final f? when _reads(f.fact)) {
-        return f.cause.child(f.id, by: who);
+        return f.cause.child(f.id, by: who, word: f.fact);
       }
     }
     return Cause(who);

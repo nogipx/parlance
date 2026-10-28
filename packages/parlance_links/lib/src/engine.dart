@@ -503,7 +503,7 @@ final class _Active {
   ) async {
     final cause = parent == null
         ? null
-        : Cause(_p.who, parent: parent, correlation: conversation);
+        : Cause(_p.who, parent: parent, conversation: conversation);
     final calls = link.steps.length;
     for (final (i, s) in link.steps.indexed) {
       if (_stopped) return 'stopped';

@@ -316,7 +316,7 @@ Map<String, Object?> _why(Explanation e) => {
       // What it was part of, for asking what else happened in it, and
       // who set that going.
       'conversation': c.cause.conversationOf(c.id),
-      'origin': c.cause.startedBy.selector,
+      'origin': c.cause.originOf(c.state).toJson(),
     },
   if (e.forgotten) 'changed': 'not within what the registry remembers',
   if (e.trail.isNotEmpty)

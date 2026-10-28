@@ -4,7 +4,7 @@
 /// The contract: skills/parlance/references/registry.md (§1–12).
 library;
 
-export 'src/registry/cause.dart' show Principal, Cause;
+export 'src/registry/cause.dart' show Principal, Cause, Origin;
 export 'src/registry/descriptors.dart';
 export 'src/registry/ids.dart'
     show newId, isValidName, checkWordName, wordVersion;

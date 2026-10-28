@@ -170,17 +170,44 @@ final class Principal {
   String toString() => selector;
 }
 
+/// What a conversation started with (SPEC §4): the word of its first
+/// message (a command's or a fact's name) and on whose behalf it was. Which
+/// conversation it is, the cause's `conversation` (its id) says.
+final class Origin {
+  const Origin(this.word, this.by);
+
+  factory Origin.fromJson(Object? json) {
+    final m = json as Map;
+    return Origin(m['word'] as String, Principal.fromJson(m['by']));
+  }
+
+  final String word;
+  final Principal by;
+
+  Map<String, Object?> toJson() => {'word': word, 'by': by.toJson()};
+
+  @override
+  bool operator ==(Object other) =>
+      other is Origin && other.word == word && other.by == by;
+
+  @override
+  int get hashCode => Object.hash(word, by);
+
+  @override
+  String toString() => '$word by $by';
+}
+
 /// Why something happens (SPEC §4).
 final class Cause {
-  const Cause(this.by, {this.parent, this.correlation, this.origin});
+  const Cause(this.by, {this.parent, this.conversation, this.origin});
 
   factory Cause.fromJson(Object? json) {
     final m = json as Map;
     return Cause(
       Principal.fromJson(m['by']),
       parent: m['parent'] as String?,
-      correlation: m['correlation'] as String?,
-      origin: m['origin'] == null ? null : Principal.fromJson(m['origin']),
+      conversation: m['conversation'] as String?,
+      origin: m['origin'] == null ? null : Origin.fromJson(m['origin']),
     );
   }
 
@@ -195,46 +222,47 @@ final class Cause {
   /// far (a message come in, the call it led to, the timer that call set). Null
   /// for a message that starts one: its conversation is its own id
   /// ([conversationOf]).
-  final String? correlation;
+  final String? conversation;
 
-  /// Who set the conversation going: the one on whose behalf its first
-  /// message was (a member's request, a device's report), the same for
-  /// everything that followed from it, whoever acts on the way. Null for a
-  /// message that starts one: it is its own [by] ([startedBy]). The
-  /// registry gives it from the message a cause follows from, never takes
-  /// it from the one that acts.
-  final Principal? origin;
+  /// What the conversation started with: the word of its first message
+  /// and on whose behalf it was, the same for everything that followed
+  /// from it, whoever acts on the way. Null for a message that starts one:
+  /// it is its own ([originOf]). The registry gives it
+  /// from the message a cause follows from, never takes it from the one
+  /// that acts.
+  final Origin? origin;
 
   /// The conversation of the message of [id] this cause is of.
-  String conversationOf(String id) => correlation ?? id;
+  String conversationOf(String id) => conversation ?? id;
 
-  /// Who set its conversation going: [origin], or [by] for a message that
-  /// starts one.
-  Principal get startedBy => origin ?? by;
+  /// What the conversation of a message of [word] with this cause started
+  /// with: [origin], or that message itself.
+  Origin originOf(String word) => origin ?? Origin(word, by);
 
-  /// The cause of what a message caused: [parent] is that message, [by]
-  /// may change; it stays in the message's conversation.
-  Cause child(String parentId, {Principal? by}) => Cause(
+  /// The cause of what a message caused: [parent] is that message (of
+  /// [word], when the caller knows it), [by] may change; it stays in the
+  /// message's conversation, and keeps its origin.
+  Cause child(String parentId, {Principal? by, String? word}) => Cause(
     by ?? this.by,
     parent: parentId,
-    correlation: correlation ?? parentId,
-    origin: startedBy,
+    conversation: conversation ?? parentId,
+    origin: origin ?? (word == null ? null : Origin(word, this.by)),
   );
 
   /// The same cause, on behalf of [by].
   Cause withBy(Principal by) =>
-      Cause(by, parent: parent, correlation: correlation, origin: origin);
+      Cause(by, parent: parent, conversation: conversation, origin: origin);
 
   Map<String, Object?> toJson() => {
     'by': by.toJson(),
     'parent': ?parent,
-    'correlation': ?correlation,
+    'conversation': ?conversation,
     'origin': ?origin?.toJson(),
   };
 
   @override
   String toString() =>
       'Cause($by${parent == null ? '' : ' <- $parent'}'
-      '${correlation == null ? '' : ' in $correlation'}'
+      '${conversation == null ? '' : ' in $conversation'}'
       '${origin == null ? '' : ' from $origin'})';
 }

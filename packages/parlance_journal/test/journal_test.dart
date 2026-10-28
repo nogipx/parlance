@@ -108,13 +108,13 @@ void main() {
     final w = JournalWriter(r.journal, dir: dir);
     said.emit('a', id: 'f1');
     await pumpEventQueue();
-    // As if the registry had forgotten f1: a correlation of its own.
+    // As if the registry had forgotten f1: a conversation of its own.
     await r
         .participant(user)
         .call(
           'x.do',
           {},
-          cause: const Cause(user, parent: 'f1', correlation: 'other'),
+          cause: const Cause(user, parent: 'f1', conversation: 'other'),
         );
     await w.close();
     await r.dispose();

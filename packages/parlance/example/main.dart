@@ -2,7 +2,9 @@
 /// whether a word is there for them, why a state is as it is and which
 /// part did it, a guard, a question that changes nothing, a device changed
 /// by hand, modules that say what they need and a visit that comes and
-/// goes as a scope, a phone that joins over remote and an agent over MCP.
+/// goes as a scope, a phone that joins over remote, an agent over MCP, and
+/// the journal of it all: who did what, following what, and who set it
+/// going.
 ///
 /// Run: `dart run example/main.dart`.
 library;
@@ -26,6 +28,11 @@ Future<void> main() async {
     overriders: Who.overriders,
     onError: (e, st) => print('error: $e'),
   );
+  // Everything done, as it happens, from the start: a host writes it where
+  // it lasts (package:parlance_journal), since what the registry itself
+  // remembers is bounded.
+  final journal = <JournalEntry>[];
+  final journaling = registry.journal.listen(journal.add);
   final devices = Devices();
   final house = Home(devices);
   // The house speaks through a participant main makes: who it is, its
@@ -62,10 +69,14 @@ Future<void> main() async {
     await ann.command(HouseCommand.setLight).call((room: 'kitchen', on: true)),
   );
   print('  kitchen light: ${light.read(key: 'kitchen')}');
-  // Why it is on: on whose behalf the owner wrote it, and the call it was
-  // answering.
+  // Why it is on: on whose behalf the owner wrote it, the message that set
+  // it going, and the call it was answering.
   final why = registry.explain(HouseState.light.name, key: 'kitchen');
-  print('  why: written by ${why.change?.cause.by}');
+  final wrote = why.change!;
+  print(
+    '  why: written by ${wrote.cause.by}, '
+    'started by ${wrote.cause.originOf(wrote.state)}',
+  );
   for (final c in why.trail) {
     print('    answering ${c.command} ${c.params} by ${c.cause.by}');
   }
@@ -145,6 +156,10 @@ Future<void> main() async {
   await settle();
   final guests = ann.state(VisitState.guests);
   print('  guests: ${guests.read()}');
+  // The guest book wrote it, answering the ring: nobody passed where it
+  // started, the registry gives it from the fact the book followed.
+  final booked = registry.lastChange(VisitState.guests.name)!.cause;
+  print('  written by ${booked.by}, started by ${booked.origin}');
   visitSide.dispose();
   print(
     '  after the visit: visit.guests ${asBob.status(VisitState.guests.name)}',
@@ -191,6 +206,21 @@ Future<void> main() async {
     'params': HouseCommand.setLight.params.toJson((room: 'hall', on: false)),
   });
   print('  the agent turns the hall light off: ${answer.text.trim()}');
+
+  // --- 8. The journal -------------------------------------------------------
+
+  section('The journal');
+  // The ring's conversation, as it happened: what it led to, by whom, and
+  // the message that set it going, on every entry.
+  final ring = journal.whereType<JournalFact>().firstWhere(
+    (e) => e.fact.fact == HouseFact.rang.name,
+  );
+  for (final e in journal.where((e) => e.conversation == ring.conversation)) {
+    print('  ${e.kind} ${e.word} by ${e.cause.by}, started by ${e.origin}');
+  }
+  final talks = {for (final e in journal) e.conversation};
+  print('  in all: ${journal.length} entries, ${talks.length} conversations');
+  await journaling.cancel();
 
   ann.dispose();
   bob.dispose();

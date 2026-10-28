@@ -91,7 +91,7 @@ void main() {
     for (final e in journal) {
       final json = e.toJson();
       expect(json, containsPair('conversation', 'm'));
-      expect(json, containsPair('origin', 'user/local'));
+      expect(json['origin'], {'word': 'audio.mute', 'by': user.toJson()});
       expect(json, containsPair('kind', e.kind));
       final back = JournalEntry.fromJson(json);
       expect((back.runtimeType, back.id, back.n), (e.runtimeType, e.id, e.n));
