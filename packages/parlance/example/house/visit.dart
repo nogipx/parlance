@@ -16,7 +16,7 @@ final class GuestBook extends VisitOwner {
   void defineMore(IParticipant p) {
     // It hears the house through the house's client: the fact with its
     // message, so what it writes follows from the ring.
-    listen(HouseClient(p).rang, (f) {
+    listen(HouseClient(p).rangFacts, (f) {
       _in.add(f.payload.who);
       guests.set([..._in], cause: Cause(p.who, parent: f.message.id));
     });

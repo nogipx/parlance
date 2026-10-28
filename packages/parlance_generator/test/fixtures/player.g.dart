@@ -294,12 +294,6 @@ abstract base class PlayerOwner extends Owner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [PlayerClient] is them over a view.
 abstract interface class IPlayerClient {
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word);
-
-  /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word);
-
   /// player.volume now.
   int? get volume;
 
@@ -346,13 +340,11 @@ abstract interface class IPlayerClient {
   /// Asks player.search; a call not done throws [CallNotDone].
   Future<List<Track>> search({required String text, int? limit});
 
-  /// player.clipped, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<PlayerClipped>> get clipped;
+  /// player.clipped, as it is said from now on: what it says.
+  Stream<({int volume})> get clipped;
 
-  /// player.finished, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<Track>> get finished;
+  /// player.finished, as it is said from now on: what it says.
+  Stream<Track> get finished;
 }
 
 /// The words of [Player] through a view: its participant, a
@@ -361,12 +353,6 @@ final class PlayerClient implements IPlayerClient {
   const PlayerClient(this.view);
 
   final IRegistryView view;
-
-  @override
-  WordStatus status(IWord word) => view.status(word.name);
-
-  @override
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
   @override
   int? get volume => view.state(PlayerState.volume).read();
@@ -447,11 +433,28 @@ final class PlayerClient implements IPlayerClient {
   }
 
   @override
-  Stream<Fact<PlayerClipped>> get clipped =>
-      view.fact(PlayerFact.clipped).stream;
+  Stream<({int volume})> get clipped =>
+      view.fact(PlayerFact.clipped).stream.map((f) => f.payload);
 
   @override
-  Stream<Fact<Track>> get finished => view.fact(PlayerFact.finished).stream;
+  Stream<Track> get finished =>
+      view.fact(PlayerFact.finished).stream.map((f) => f.payload);
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+
+  /// player.clipped, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<PlayerClipped>> get clippedFacts =>
+      view.fact(PlayerFact.clipped).stream;
+
+  /// player.finished, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<Track>> get finishedFacts =>
+      view.fact(PlayerFact.finished).stream;
 }
 
 /// The vocabulary of [Player]: its name and every word, for

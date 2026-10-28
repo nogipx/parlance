@@ -301,10 +301,18 @@ void main() {
         final seen = <int?>[];
         final sub = asAnn.volumeChanges.listen(seen.add);
         final clipped = <Fact<PlayerClipped>>[];
-        final heard = asAnn.clipped.listen(clipped.add);
+        final heard = asAnn.clippedFacts.listen(clipped.add);
+        final said = <({int volume})>[];
+        final payloads = asAnn.clipped.listen(said.add);
         await asAnn.setVolume(volume: 95);
         await pumpEventQueue();
         expect(seen, [50, 95]);
+        expect(
+          said.single.volume,
+          95,
+          reason: 'the interface says the payload',
+        );
+        await payloads.cancel();
         expect(clipped.single.payload.volume, 95);
         expect(
           clipped.single.message.cause.by,

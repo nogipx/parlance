@@ -141,12 +141,6 @@ abstract base class BoardOwner extends Owner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [BoardClient] is them over a view.
 abstract interface class IBoardClient {
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word);
-
-  /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word);
-
   /// note of [note] now.
   Note? notesOf(String note);
 
@@ -174,9 +168,8 @@ abstract interface class IBoardClient {
   /// Calls note.count; a call not done throws [CallNotDone].
   Future<void> count({required int? readers});
 
-  /// note.seen, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<Note>> get seen;
+  /// note.seen, as it is said from now on: what it says.
+  Stream<Note> get seen;
 }
 
 /// The words of [Board] through a view: its participant, a
@@ -185,12 +178,6 @@ final class BoardClient implements IBoardClient {
   const BoardClient(this.view);
 
   final IRegistryView view;
-
-  @override
-  WordStatus status(IWord word) => view.status(word.name);
-
-  @override
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
   @override
   Note? notesOf(String note) => view.state(BoardState.notes).read(key: note);
@@ -238,7 +225,18 @@ final class BoardClient implements IBoardClient {
   }
 
   @override
-  Stream<Fact<Note>> get seen => view.fact(BoardFact.seen).stream;
+  Stream<Note> get seen =>
+      view.fact(BoardFact.seen).stream.map((f) => f.payload);
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+
+  /// note.seen, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<Note>> get seenFacts => view.fact(BoardFact.seen).stream;
 }
 
 /// The vocabulary of [Board]: its name and every word, for

@@ -196,12 +196,6 @@ abstract base class HouseOwner extends Owner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [HouseClient] is them over a view.
 abstract interface class IHouseClient {
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word);
-
-  /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word);
-
   /// house.light.on of [room] now.
   bool? lightOf(String room);
 
@@ -244,13 +238,11 @@ abstract interface class IHouseClient {
   /// Asks house.rooms; a call not done throws [CallNotDone].
   Future<List<String>> rooms({required bool lit});
 
-  /// house.doorbell.rang, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<HouseRang>> get rang;
+  /// house.doorbell.rang, as it is said from now on: what it says.
+  Stream<({String who})> get rang;
 
-  /// house.motion.seen, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<HouseMotion>> get motion;
+  /// house.motion.seen, as it is said from now on: what it says.
+  Stream<({String room})> get motion;
 }
 
 /// The words of [House] through a view: its participant, a
@@ -259,12 +251,6 @@ final class HouseClient implements IHouseClient {
   const HouseClient(this.view);
 
   final IRegistryView view;
-
-  @override
-  WordStatus status(IWord word) => view.status(word.name);
-
-  @override
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 
   @override
   bool? lightOf(String room) => view.state(HouseState.light).read(key: room);
@@ -333,10 +319,27 @@ final class HouseClient implements IHouseClient {
   }
 
   @override
-  Stream<Fact<HouseRang>> get rang => view.fact(HouseFact.rang).stream;
+  Stream<({String who})> get rang =>
+      view.fact(HouseFact.rang).stream.map((f) => f.payload);
 
   @override
-  Stream<Fact<HouseMotion>> get motion => view.fact(HouseFact.motion).stream;
+  Stream<({String room})> get motion =>
+      view.fact(HouseFact.motion).stream.map((f) => f.payload);
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
+
+  /// house.doorbell.rang, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<HouseRang>> get rangFacts => view.fact(HouseFact.rang).stream;
+
+  /// house.motion.seen, as it is said from now on: its payload, and
+  /// the message (its id, its cause) to follow it from.
+  Stream<Fact<HouseMotion>> get motionFacts =>
+      view.fact(HouseFact.motion).stream;
 }
 
 /// The vocabulary of [House]: its name and every word, for
@@ -477,12 +480,6 @@ abstract base class VisitOwner extends Owner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [VisitClient] is them over a view.
 abstract interface class IVisitClient {
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word);
-
-  /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word);
-
   /// visit.guests now.
   List<String>? get guests;
 
@@ -501,12 +498,6 @@ final class VisitClient implements IVisitClient {
   final IRegistryView view;
 
   @override
-  WordStatus status(IWord word) => view.status(word.name);
-
-  @override
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
-
-  @override
   List<String>? get guests => view.state(VisitState.guests).read();
 
   @override
@@ -519,6 +510,12 @@ final class VisitClient implements IVisitClient {
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 }
 
 /// The vocabulary of [Visit]: its name and every word, for

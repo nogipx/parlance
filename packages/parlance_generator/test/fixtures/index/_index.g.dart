@@ -42,12 +42,6 @@ abstract base class DoorsOwner extends Owner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [DoorsClient] is them over a view.
 abstract interface class IDoorsClient {
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word);
-
-  /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word);
-
   /// door.room of [door] now.
   Room? roomOf(String door);
 
@@ -66,12 +60,6 @@ final class DoorsClient implements IDoorsClient {
   final IRegistryView view;
 
   @override
-  WordStatus status(IWord word) => view.status(word.name);
-
-  @override
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
-
-  @override
   Room? roomOf(String door) => view.state(DoorsState.room).read(key: door);
 
   @override
@@ -80,6 +68,12 @@ final class DoorsClient implements IDoorsClient {
   @override
   Stream<Room?> roomChanges(String door) =>
       view.state(DoorsState.room).watch(key: door);
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 }
 
 /// The vocabulary of [Doors]: its name and every word, for
@@ -152,12 +146,6 @@ abstract base class LightsOwner extends Owner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [LightsClient] is them over a view.
 abstract interface class ILightsClient {
-  /// Whether [word] is there for the view now (SPEC §6.5).
-  WordStatus status(IWord word);
-
-  /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word);
-
   /// Calls light.on; a call not done throws [CallNotDone].
   Future<void> on({required Room room});
 }
@@ -170,17 +158,17 @@ final class LightsClient implements ILightsClient {
   final IRegistryView view;
 
   @override
-  WordStatus status(IWord word) => view.status(word.name);
-
-  @override
-  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
-
-  @override
   Future<void> on({required Room room}) async {
     final r = await view.command(LightsCommand.on).call((room: room));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
+
+  /// Whether [word] is there for the view now (SPEC §6.5).
+  WordStatus status(IWord word) => view.status(word.name);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => view.statusChanges(word.name);
 }
 
 /// The vocabulary of [Lights]: its name and every word, for

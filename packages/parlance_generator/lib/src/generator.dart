@@ -230,6 +230,10 @@ final class _Emitter {
 
   /// Code after the enums: records, their conversions, toJson tear-offs.
   final StringBuffer _helpers = StringBuffer();
+
+  /// The record each generated record's name stands for: `({int volume})`
+  /// of `PlayerClipped`, for what must say no name of the generated file.
+  final Map<String, String> _inline = {};
   Set<String> get _jsonHelpers => shared.jsonHelpers;
 
   String build() {
@@ -492,8 +496,11 @@ final class _Emitter {
     }
 
     // Each member once: what it says, its signature, and its body in the
-    // client over a view.
-    final all = <({List<String> docs, String signature, String body})>[
+    // client over a view. The interface says only Dart's types and the
+    // vocabulary's own; what is parlance's (a word's status, a fact's
+    // message) is the client's alone.
+    final all = <({List<String> docs, String signature, String body})>[];
+    final own = <({List<String> docs, String signature, String body})>[
       (
         docs: ['Whether [word] is there for the view now (SPEC §6.5).'],
         signature: 'WordStatus status(IWord word)',
@@ -572,12 +579,20 @@ final class _Emitter {
     }
     for (final f in facts) {
       member(f.member, f);
+      member('${f.member}Facts', f);
+      final payload = _inline[f.type] ?? f.type;
       all.add((
+        docs: ['${f.name}, as it is said from now on: what it says.'],
+        signature: 'Stream<$payload> get ${f.member}',
+        body:
+            '=> view.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload);',
+      ));
+      own.add((
         docs: [
           '${f.name}, as it is said from now on: its payload, and',
           'the message (its id, its cause) to follow it from.',
         ],
-        signature: 'Stream<Fact<${f.type}>> get ${f.member}',
+        signature: 'Stream<Fact<${f.type}>> get ${f.member}Facts',
         body: '=> view.fact(${_c}Fact.${f.member}).stream;',
       ));
     }
@@ -608,6 +623,13 @@ final class _Emitter {
         ..writeln()
         ..writeln('  @override')
         ..writeln('  ${m.signature} ${m.body}');
+    }
+    for (final m in own) {
+      out.writeln();
+      for (final d in m.docs) {
+        out.writeln('  /// $d');
+      }
+      out.writeln('  ${m.signature} ${m.body}');
     }
     out
       ..writeln('}')
@@ -856,6 +878,7 @@ final class _Emitter {
         (false, null) => '$n: m[${_quote(key)}]! as $bare',
       });
     }
+    _inline[rec] = '({${fields.join(', ')}})';
     _helpers
       ..writeln()
       ..writeln('typedef $rec = ({${fields.join(', ')}});')
