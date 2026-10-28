@@ -51,6 +51,15 @@ abstract interface class IRegistryView {
   /// Calls [command]; a read after it reads what it wrote.
   Future<CallResult<Object?>> call(String command, Map<String, Object?> params);
 
+  /// [call] with [params] as [shape] has them (SPEC §18): a command in
+  /// this process that keeps its params by [shape] takes them as they are,
+  /// and its answer comes as it keeps it; else they go as JSON.
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape,
+  );
+
   /// Whether what it reads is the registry's now: false while a remote
   /// view is cut off from it.
   bool get synced;
@@ -84,7 +93,7 @@ final class ViewQueryOf<P, R> {
 
   /// Asks it; asking again asks again.
   Future<CallResult<R>> ask(P params) async =>
-      word.answer(await view.call(word.name, word.params.toJson(params)));
+      word.answer(await view.callAs(word.name, params, word.params));
 
   WordStatus get status => view.status(word.name);
   Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
@@ -144,7 +153,7 @@ final class ViewCommandOf<P, R> {
 
   /// Calls it; its answer decoded as the word says.
   Future<CallResult<R>> call(P params) async =>
-      word.answer(await view.call(word.name, word.params.toJson(params)));
+      word.answer(await view.callAs(word.name, params, word.params));
 
   WordStatus get status => view.status(word.name);
   Stream<WordStatus> get statusChanges => view.statusChanges(word.name);
@@ -233,6 +242,13 @@ final class LocalView implements IRegistryView {
     String command,
     Map<String, Object?> params,
   ) => registry.call(command, params, by: by);
+
+  @override
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape,
+  ) => registry.callKept(command, Kept(params, shape), by: by);
 
   @override
   bool get synced => true;

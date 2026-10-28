@@ -111,9 +111,13 @@ CallResult<R> _answer<R>(
   Shape<R>? shape,
   CallResult<Object?> raw,
 ) {
-  if (raw case CallDone(:final value)) {
+  if (raw is CallDone<Object?>) {
+    // An answer the registry keeps by this shape is the value itself.
+    if (keptAnswerOf(raw) case final kept? when identical(kept.shape, shape)) {
+      return CallDone(kept.value as R);
+    }
     try {
-      return CallDone(shape == null ? null as R : shape.fromJson(value));
+      return CallDone(shape == null ? null as R : shape.fromJson(raw.value));
     } on Object catch (e) {
       return CallFailed('the answer is not what $name says: $e');
     }
@@ -127,6 +131,21 @@ extension CommandAnswers<P, R> on ICommandWord<P, R> {
   /// A done call's value decoded as the word says (`failed` when it does
   /// not decode); any other end as it is.
   CallResult<R> answer(CallResult<Object?> raw) => _answer(name, returns, raw);
+
+  /// Its handler as the registry serves it: the params as the word has
+  /// them, the answer as the command keeps it (SPEC §18); [servedBy] who
+  /// serves it, for `inReply`.
+  CommandHandler serve(
+    FutureOr<R> Function(CommandCallOf<P> call) handler, {
+    Principal? servedBy,
+  }) => (c) {
+    final asIs = answersAs(c, returns);
+    Object? answer(R value) => asIs ? value : returns?.toJson(value);
+    final out = handler(
+      CommandCallOf(c, paramsAs(c, params), servedBy: servedBy),
+    );
+    return out is Future<R> ? out.then(answer) : answer(out);
+  };
 }
 
 /// A query's answer, wherever it was asked.
@@ -147,11 +166,13 @@ extension QueryAnswers<P, R> on IQueryWord<P, R> {
     meta: meta,
   );
 
-  /// Its handler as the registry serves it: params decoded, the answer
-  /// encoded.
+  /// Its handler as the registry serves it: the params as the word has
+  /// them, the answer as the query keeps it (SPEC §18).
   CommandHandler serve(FutureOr<R> Function(QueryAsk<P> ask) handler) => (c) {
-    final out = handler(QueryAsk(c, params.fromJson(c.params)));
-    return out is Future<R> ? out.then(returns.toJson) : returns.toJson(out);
+    final asIs = answersAs(c, returns);
+    Object? answer(R value) => asIs ? value : returns.toJson(value);
+    final out = handler(QueryAsk(c, paramsAs(c, params)));
+    return out is Future<R> ? out.then(answer) : answer(out);
   };
 }
 
@@ -358,24 +379,20 @@ final class CommandOf<P, R> {
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     Availability? available,
-  }) {
-    Object? answer(R value) => word.returns?.toJson(value);
-    return registry.defineCommand(
-      CommandDescriptor(
-        word.name,
-        params: word.params.type,
-        returns: word.returns?.type,
-        callers: callers,
-        deadline: deadline,
-        meta: meta,
-      ),
-      (c) {
-        final out = handler(CommandCallOf(c, word.params.fromJson(c.params)));
-        return out is Future<R> ? out.then(answer) : answer(out);
-      },
-      available: available,
-    );
-  }
+  }) => registry.defineCommand(
+    CommandDescriptor(
+      word.name,
+      params: word.params.type,
+      returns: word.returns?.type,
+      callers: callers,
+      deadline: deadline,
+      meta: meta,
+    ),
+    word.serve(handler),
+    available: available,
+    params: word.params,
+    returns: word.returns,
+  );
 
   /// Calls it with [params] on behalf of [by] (SPEC §9).
   Future<CallResult<R>> call(
@@ -385,9 +402,9 @@ final class CommandOf<P, R> {
     bool override = false,
     Cause? cause,
   }) async {
-    final r = await registry.call(
+    final r = await registry.callKept(
       word.name,
-      word.params.toJson(params),
+      Kept(params, word.params),
       by: by,
       id: id,
       override: override,
@@ -442,6 +459,8 @@ final class QueryOf<P, R> {
     ),
     word.serve(handler),
     available: available,
+    params: word.params,
+    returns: word.returns,
   );
 
   /// Asks it with [params] on behalf of [by]; asking again asks again.
@@ -450,9 +469,9 @@ final class QueryOf<P, R> {
     required Principal by,
     Cause? cause,
   }) async => word.answer(
-    await registry.call(
+    await registry.callKept(
       word.name,
-      word.params.toJson(params),
+      Kept(params, word.params),
       by: by,
       cause: cause,
     ),

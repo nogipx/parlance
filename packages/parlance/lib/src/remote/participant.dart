@@ -679,6 +679,23 @@ final class RemoteParticipant implements IParticipant {
     bool override = false,
   }) => _call(command, params, id: id, cause: cause, override: override);
 
+  /// Across a connection the params go as JSON.
+  @override
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape, {
+    String? id,
+    Cause? cause,
+    bool override = false,
+  }) => call(
+    command,
+    shape.toJson(params)! as Map<String, Object?>,
+    id: id,
+    cause: cause,
+    override: override,
+  );
+
   Future<CallResult<Object?>> _call(
     String command,
     Map<String, Object?> params, {
@@ -751,6 +768,8 @@ final class RemoteParticipant implements IParticipant {
     CommandDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) => _defineCommand(d, handler, available, null);
 
   @override
@@ -758,6 +777,8 @@ final class RemoteParticipant implements IParticipant {
     QueryDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) => _defineCommand(d, handler, available, null);
 
   /// A command or a query of its own, or of [as], a part of it.
@@ -1279,6 +1300,22 @@ final class _Part implements IParticipant {
   );
 
   @override
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape, {
+    String? id,
+    Cause? cause,
+    bool override = false,
+  }) => call(
+    command,
+    shape.toJson(params)! as Map<String, Object?>,
+    id: id,
+    cause: cause,
+    override: override,
+  );
+
+  @override
   bool get synced => _root.synced;
 
   @override
@@ -1296,6 +1333,8 @@ final class _Part implements IParticipant {
     CommandDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) => _root._defineCommand(d, handler, available, who);
 
   @override
@@ -1303,6 +1342,8 @@ final class _Part implements IParticipant {
     QueryDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) => _root._defineCommand(d, handler, available, who);
 
   @override

@@ -245,6 +245,8 @@ final class ListShape<T> extends Shape<List<T>> {
     if (maxItems case final m? when value.length > m) {
       throw TypeMismatch('', 'more than $m items');
     }
+    // One the shapes made is checked already, all of it.
+    if (_kept[value] == true && item.checkedAlone) return value;
     final before = was != null && _kept[was] == true && item.checkedAlone
         ? was
         : null;
@@ -373,6 +375,7 @@ final class MapShape<T> extends Shape<Map<String, T>> {
     if (maxEntries case final m? when v.length > m) {
       throw TypeMismatch('', 'more than $m entries');
     }
+    if (_kept[v] == true && value.checkedAlone) return v;
     final before = was != null && _kept[was] == true && value.checkedAlone
         ? was
         : null;

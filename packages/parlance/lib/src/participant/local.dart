@@ -291,6 +291,26 @@ final class LocalParticipant implements IParticipant {
   }
 
   @override
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape, {
+    String? id,
+    Cause? cause,
+    bool override = false,
+  }) {
+    _live();
+    return _r.callKept(
+      command,
+      Kept(params, shape),
+      by: who,
+      id: id,
+      cause: _as(cause),
+      override: override,
+    );
+  }
+
+  @override
   bool get synced => true;
 
   @override
@@ -314,9 +334,17 @@ final class LocalParticipant implements IParticipant {
     CommandDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) {
     _mayDefine(d);
-    final h = _r.defineCommand(d, handler, available: available);
+    final h = _r.defineCommand(
+      d,
+      handler,
+      available: available,
+      params: params,
+      returns: returns,
+    );
     _commands.add(d.name);
     return _keepDoing(() {
       _commands.remove(d.name);
@@ -329,9 +357,17 @@ final class LocalParticipant implements IParticipant {
     QueryDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) {
     _mayDefine(d);
-    final h = _r.defineQuery(d, handler, available: available);
+    final h = _r.defineQuery(
+      d,
+      handler,
+      available: available,
+      params: params,
+      returns: returns,
+    );
     _commands.add(d.name);
     return _keepDoing(() {
       _commands.remove(d.name);

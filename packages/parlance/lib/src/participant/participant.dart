@@ -148,23 +148,41 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
     bool override = false,
   });
 
+  /// [call] with [params] as [shape] has them (SPEC §18).
+  @override
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape, {
+    String? id,
+    Cause? cause,
+    bool override = false,
+  });
+
   /// Defines a state of its own, with [who] its only writer; readers
   /// from [access] when [d] names none. Given its values' [shape], its
   /// handle takes Dart values when the registry keeps them so (SPEC §18).
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape});
 
-  /// Defines a command of its own, served by [handler].
+  /// Defines a command of its own, served by [handler]. Given the shapes
+  /// of its [params] and what it [returns], its handler gets and answers
+  /// Dart values where the registry keeps them so (SPEC §18).
   IHandle defineCommand(
     CommandDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   });
 
-  /// Defines a query of its own, answered by [handler] (SPEC §6.6).
+  /// Defines a query of its own, answered by [handler] (SPEC §6.6), its
+  /// shapes as [defineCommand]'s.
   IHandle defineQuery(
     QueryDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   });
 
   /// Defines a fact of its own, with [who] its producer; readers from
@@ -259,11 +277,13 @@ final class ParticipantQueryOf<P, R> {
     ),
     word.serve(handler),
     available: available,
+    params: word.params,
+    returns: word.returns,
   );
 
   /// Asks it as the participant; asking again asks again.
   Future<CallResult<R>> ask(P params, {Cause? cause}) async => word.answer(
-    await participant.call(word.name, word.params.toJson(params), cause: cause),
+    await participant.callAs(word.name, params, word.params, cause: cause),
   );
 
   WordStatus get status => participant.status(word.name);
@@ -351,30 +371,20 @@ final class ParticipantCommandOf<P, R> {
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     Availability? available,
-  }) {
-    Object? answer(R value) => word.returns?.toJson(value);
-    return participant.defineCommand(
-      CommandDescriptor(
-        word.name,
-        params: word.params.type,
-        returns: word.returns?.type,
-        callers: participant.access.callersOf(word.name, callers),
-        deadline: deadline,
-        meta: meta,
-      ),
-      (c) {
-        final out = handler(
-          CommandCallOf(
-            c,
-            word.params.fromJson(c.params),
-            servedBy: participant.who,
-          ),
-        );
-        return out is Future<R> ? out.then(answer) : answer(out);
-      },
-      available: available,
-    );
-  }
+  }) => participant.defineCommand(
+    CommandDescriptor(
+      word.name,
+      params: word.params.type,
+      returns: word.returns?.type,
+      callers: participant.access.callersOf(word.name, callers),
+      deadline: deadline,
+      meta: meta,
+    ),
+    word.serve(handler, servedBy: participant.who),
+    available: available,
+    params: word.params,
+    returns: word.returns,
+  );
 
   /// Calls it with [params] as the participant; [override] as
   /// [IParticipant.call] says.
@@ -384,9 +394,10 @@ final class ParticipantCommandOf<P, R> {
     Cause? cause,
     bool override = false,
   }) async => word.answer(
-    await participant.call(
+    await participant.callAs(
       word.name,
-      word.params.toJson(params),
+      params,
+      word.params,
       id: id,
       cause: cause,
       override: override,

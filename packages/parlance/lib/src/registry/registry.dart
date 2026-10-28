@@ -77,20 +77,39 @@ void refuseInQuery(String tried) {
 /// A call being served: what a handler gets. The registry makes it; a
 /// remote participant (SPEC §22.4) makes it of what the host sent.
 final class CommandCall {
-  const CommandCall(
+  CommandCall(
     this.id,
     this.command,
-    this.params,
+    Map<String, Object?> params,
     this.cause,
     this.expired, {
+    LogSpanHandle? span,
+  }) : _params = Kept.json(params),
+       _answers = null,
+       _span = span;
+
+  CommandCall._kept(
+    this.id,
+    this.command,
+    this._params,
+    this.cause,
+    this.expired,
+    this._answers, {
     LogSpanHandle? span,
   }) : _span = span;
 
   final String id;
   final String command;
 
-  /// Checked, with defaults filled.
-  final Map<String, Object?> params;
+  /// As the command keeps them (SPEC §18).
+  final Kept _params;
+
+  /// The shape the answer is kept by, when the command keeps it as it is:
+  /// then the handler answers the Dart value, else its JSON.
+  final Shape<Object?>? _answers;
+
+  /// Checked, with defaults filled; as JSON.
+  Map<String, Object?> get params => _params.json! as Map<String, Object?>;
   final Cause cause;
 
   Principal get by => cause.by;
@@ -115,15 +134,32 @@ final class CommandCall {
 
 final LogSpanHandle _noSpan = LogScope.noop.startSpan('');
 
+/// The params of [call] as [shape] has them: the value itself when the
+/// command keeps them by [shape], else their JSON decoded. The package's
+/// own.
+T paramsAs<T>(CommandCall call, Shape<T> shape) => call._params.asShape(shape);
+
+/// Whether [call]'s handler answers the Dart value of [shape]: when the
+/// command keeps its answer by it; else it answers JSON. The package's
+/// own.
+bool answersAs(CommandCall call, Shape<Object?>? shape) =>
+    identical(call._answers, shape);
+
 /// A call on its way, as guards see it.
 final class PendingCall {
-  const PendingCall(this.id, this.command, this.params, this.cause);
+  PendingCall(this.id, this.command, Map<String, Object?> params, this.cause)
+    : _params = Kept.json(params);
+
+  PendingCall._kept(this.id, this.command, this._params, this.cause);
 
   final String id;
 
   /// The command's, or the query's, descriptor.
   final CallableDescriptor command;
-  final Map<String, Object?> params;
+  final Kept _params;
+
+  /// Its params, checked, as JSON: made when a guard reads them.
+  Map<String, Object?> get params => _params.json! as Map<String, Object?>;
   final Cause cause;
 
   Principal get by => cause.by;
@@ -325,12 +361,21 @@ final class _StateEntry {
 }
 
 final class _CommandEntry {
-  _CommandEntry(this.descriptor, this.local, this.serving, this.available)
-    : params = JsonValue(descriptor.params),
-      returns = switch (descriptor.returns) {
-        final t? => JsonValue(t),
-        null => null,
-      };
+  _CommandEntry(
+    this.descriptor,
+    this.local,
+    this.serving,
+    this.available, {
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
+  }) : params = params != null && params.keptAsIs
+           ? params
+           : JsonValue(descriptor.params),
+       returns = switch (descriptor.returns) {
+         null => null,
+         final t =>
+           returns != null && returns.keptAsIs ? returns : JsonValue(t),
+       };
 
   /// How its params and its answer are checked and kept (SPEC §18).
   final Shape<Object?> params;
@@ -738,6 +783,15 @@ final class Registry implements ITypeContext {
       shape is JsonValue
       ? shape.check(json, this, was: was)
       : shape.check(shape.fromJson(shape.type.check(json, this)), this);
+
+  /// [params] as [shape] keeps a call's params: as they are when they
+  /// come by that shape, else from their JSON.
+  Kept _admitParams(Shape<Object?> shape, Kept params) {
+    final v = params.shape != null && identical(params.shape, shape)
+        ? shape.check(params.value, this)
+        : _admit(shape, params.json);
+    return Kept(v, shape is JsonValue ? null : shape);
+  }
 
   void _removeState(StateDescriptor d, String? key, Cause cause) {
     cause = _inConversation(cause);
@@ -1238,7 +1292,7 @@ final class Registry implements ITypeContext {
   Future<CallResult<Object?>> _run(
     String id,
     String command,
-    Map<String, Object?> rawParams,
+    Kept rawParams,
     Cause cause, {
     required bool override,
     bool record = true,
@@ -1268,7 +1322,7 @@ final class Registry implements ITypeContext {
       }
       if (record && !_records.isClosed) {
         _remember(
-          CallRecord(
+          keptRecord(
             id: id,
             command: command,
             params: params,
@@ -1290,7 +1344,7 @@ final class Registry implements ITypeContext {
     }
     final d = entry.descriptor;
     try {
-      params = entry.params.check(rawParams, this) as Map<String, Object?>;
+      params = _admitParams(entry.params, rawParams);
     } on TypeMismatch catch (e) {
       return finish(CallRefused(Refusal.invalidParams, '$e'));
     }
@@ -1302,7 +1356,7 @@ final class Registry implements ITypeContext {
     if (entry.available?.call() case final why?) {
       return finish(CallRefused(Refusal.unavailable, why));
     }
-    final pending = PendingCall(id, d, params, cause);
+    final pending = PendingCall._kept(id, d, params, cause);
     var asked = false;
     for (final g in [..._guards.values]) {
       String? why;
@@ -1361,7 +1415,9 @@ final class Registry implements ITypeContext {
     CallResult<Object?> answered(Object? answer) {
       if (entry.returns case final t?) {
         try {
-          return CallDone(t.check(answer, this));
+          return keptDone(
+            Kept(t.check(answer, this), t is JsonValue ? null : t),
+          );
         } on TypeMismatch catch (e) {
           return CallFailed('returned a wrong value: $e');
         }
@@ -1371,16 +1427,18 @@ final class Registry implements ITypeContext {
 
     final expired = Completer<void>();
     final span = _open(id, command, params, cause, query: entry.query);
-    final served = CommandCall(
+    final returns = entry.returns;
+    final served = CommandCall._kept(
       id,
       command,
       params,
       cause,
       expired.future,
+      returns is JsonValue ? null : returns,
       span: span,
     );
     if (record) {
-      final s = CallStarted(
+      final s = keptStarted(
         id: id,
         command: command,
         params: params,
@@ -1440,7 +1498,7 @@ final class Registry implements ITypeContext {
   LogSpanHandle _open(
     String id,
     String command,
-    Map<String, Object?> params,
+    Kept params,
     Cause cause, {
     required bool query,
   }) {
@@ -1465,7 +1523,7 @@ final class Registry implements ITypeContext {
       'origin': cause.originOf(command).word,
       'originBy': cause.originOf(command).by.selector,
       if (query) 'query': true,
-      if (log.isDebug) 'params': params,
+      if (log.isDebug) 'params': params.json!,
     });
     _spans[id] = span;
     return span;
@@ -1665,6 +1723,8 @@ extension RawRegistry on Registry {
     CommandDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) {
     _checkFree(d.name);
     final local = LocalCommand<CommandCall, Object?>();
@@ -1673,6 +1733,8 @@ extension RawRegistry on Registry {
       local,
       local.serve(handler),
       available,
+      params: params,
+      returns: returns,
     );
     _announce(DescriptorAdded(d));
     return _Disposer(() => _undefine(d.name));
@@ -1684,6 +1746,8 @@ extension RawRegistry on Registry {
     QueryDescriptor d,
     CommandHandler handler, {
     Availability? available,
+    Shape<Object?>? params,
+    Shape<Object?>? returns,
   }) {
     _checkFree(d.name);
     final local = LocalCommand<CommandCall, Object?>();
@@ -1692,6 +1756,8 @@ extension RawRegistry on Registry {
       local,
       local.serve(handler),
       available,
+      params: params,
+      returns: returns,
     );
     _announce(DescriptorAdded(d));
     return _Disposer(() => _undefine(d.name));
@@ -1951,6 +2017,24 @@ extension RawRegistry on Registry {
     String? id,
     bool override = false,
     Cause? cause,
+  }) => callKept(
+    command,
+    Kept.json(params),
+    by: by,
+    id: id,
+    override: override,
+    cause: cause,
+  );
+
+  /// [call] with [params] as their shape has them (SPEC §18): a command
+  /// that keeps its params by that shape takes them as they are.
+  Future<CallResult<Object?>> callKept(
+    String command,
+    Kept params, {
+    required Principal by,
+    String? id,
+    bool override = false,
+    Cause? cause,
   }) {
     final asked = command;
     command = canonical(command);
@@ -1979,7 +2063,7 @@ extension RawRegistry on Registry {
       // answered the first call's result.
       if (seen.command != command ||
           seen.by != by ||
-          !jsonEquals(seen.params, params)) {
+          !jsonEquals(seen.params.json, params.json)) {
         return Future.value(
           CallRefused(
             Refusal.idConflict,
@@ -1993,7 +2077,13 @@ extension RawRegistry on Registry {
     // Only an id the caller gave can be given again: one made here is
     // nobody's to retry with.
     if (id != null) {
-      _calls[callId] = _Seen(now, command, freezeJson(params), by, result);
+      _calls[callId] = _Seen(
+        now,
+        command,
+        params.shape == null ? Kept.json(freezeJson(params.json)) : params,
+        by,
+        result,
+      );
       if (_calls.length > dedupLimit) _calls.remove(_calls.keys.first);
     }
     return result;
@@ -2033,7 +2123,7 @@ final class _Seen {
   _Seen(this.at, this.command, this.params, this.by, this.result);
   final DateTime at;
   final String command;
-  final Object? params;
+  final Kept params;
   final Principal by;
   Future<CallResult<Object?>> result;
 }

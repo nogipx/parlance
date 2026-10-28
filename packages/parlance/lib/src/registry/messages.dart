@@ -112,6 +112,29 @@ Object? _jsonOf(Shape<Object?>? shape, Object? kept) =>
     ? kept
     : freezeJson(shape.toJson(kept));
 
+/// A value as the registry keeps it, and the shape it keeps it by (null:
+/// it is JSON), its JSON made when first asked, once (SPEC §18): the
+/// params of a call and its answer. The package's own.
+final class Kept {
+  Kept(this.value, this.shape) : _json = _unmade;
+
+  /// JSON as it is.
+  Kept.json(Object? json) : value = json, shape = null, _json = json;
+
+  final Object? value;
+  final Shape<Object?>? shape;
+  Object? _json;
+
+  /// Its JSON, frozen.
+  Object? get json =>
+      identical(_json, _unmade) ? _json = _jsonOf(shape, value) : _json;
+
+  /// The value as [as] has it: itself when it is kept by [as], else its
+  /// JSON decoded.
+  T asShape<T>(Shape<T> as) =>
+      (identical(shape, as) ? value : decodeWith(as, json)) as T;
+}
+
 /// A change of a value the registry keeps by [shape]: its JSON is made
 /// when someone asks for it (SPEC §18). The package's own.
 StateChange keptChange({
@@ -470,11 +493,30 @@ sealed class CallResult<R> {
 final class CallDone<R> extends CallResult<R> {
   const CallDone(this.value);
 
+  /// The answer; as JSON when the registry answers a call by name.
   final R value;
 
   @override
   String toString() => 'done($value)';
 }
+
+/// A done call whose answer the registry keeps by its shape: [value] is
+/// its JSON, made when first asked.
+final class _KeptDone extends CallDone<Object?> {
+  _KeptDone(this._kept) : super(null);
+  final Kept _kept;
+
+  @override
+  Object? get value => _kept.json;
+}
+
+/// A call done with [answer]. The package's own.
+CallDone<Object?> keptDone(Kept answer) =>
+    answer.shape == null ? CallDone(answer.value) : _KeptDone(answer);
+
+/// The answer of [r] as the registry keeps it, when it keeps one by a
+/// shape. The package's own.
+Kept? keptAnswerOf(CallResult<Object?> r) => r is _KeptDone ? r._kept : null;
 
 final class CallRefused extends CallResult<Never> {
   const CallRefused(
@@ -532,13 +574,21 @@ final class CallLost extends CallResult<Never> {
 /// comes as the [CallRecord] of the same id; one that timed out runs on
 /// until its late record.
 final class CallStarted {
-  const CallStarted({
+  CallStarted({
     required this.id,
     required this.command,
-    required this.params,
+    required Map<String, Object?> params,
     required this.cause,
     required this.started,
-  });
+  }) : _params = Kept.json(params);
+
+  CallStarted._kept({
+    required this.id,
+    required this.command,
+    required Kept params,
+    required this.cause,
+    required this.started,
+  }) : _params = params;
 
   factory CallStarted.fromJson(Object? json) {
     final m = json as Map;
@@ -553,7 +603,10 @@ final class CallStarted {
 
   final String id;
   final String command;
-  final Map<String, Object?> params;
+  final Kept _params;
+
+  /// Its params, as JSON.
+  Map<String, Object?> get params => _params.json! as Map<String, Object?>;
   final Cause cause;
 
   /// When the call came, as its record says.
@@ -628,21 +681,36 @@ final class WordUse {
 
 /// A finished call, for journals (SPEC §9).
 final class CallRecord {
-  const CallRecord({
+  CallRecord({
     required this.id,
     required this.command,
-    required this.params,
+    required Map<String, Object?> params,
     required this.cause,
     required this.result,
     required this.overridden,
     required this.started,
     required this.finished,
     this.late = false,
-  });
+  }) : _params = Kept.json(params);
+
+  CallRecord._kept({
+    required this.id,
+    required this.command,
+    required Kept params,
+    required this.cause,
+    required this.result,
+    required this.overridden,
+    required this.started,
+    required this.finished,
+    this.late = false,
+  }) : _params = params;
 
   final String id;
   final String command;
-  final Map<String, Object?> params;
+  final Kept _params;
+
+  /// Its params, as JSON.
+  Map<String, Object?> get params => _params.json! as Map<String, Object?>;
   final Cause cause;
   final CallResult<Object?> result;
 
@@ -933,3 +1001,43 @@ final class Explanation {
     if (trailCut) 'trailCut': true,
   };
 }
+
+/// A call begun, its [params] as the registry keeps them. The package's
+/// own.
+CallStarted keptStarted({
+  required String id,
+  required String command,
+  required Kept params,
+  required Cause cause,
+  required DateTime started,
+}) => CallStarted._kept(
+  id: id,
+  command: command,
+  params: params,
+  cause: cause,
+  started: started,
+);
+
+/// A call ended, its [params] as the registry keeps them. The package's
+/// own.
+CallRecord keptRecord({
+  required String id,
+  required String command,
+  required Kept params,
+  required Cause cause,
+  required CallResult<Object?> result,
+  required List<String> overridden,
+  required DateTime started,
+  required DateTime finished,
+  bool late = false,
+}) => CallRecord._kept(
+  id: id,
+  command: command,
+  params: params,
+  cause: cause,
+  result: result,
+  overridden: overridden,
+  started: started,
+  finished: finished,
+  late: late,
+);

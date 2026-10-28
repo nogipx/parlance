@@ -133,6 +133,13 @@ final class MirrorView implements IRegistryView {
   Future<void> get settled => _settled ?? Future.value();
 
   @override
+  Future<CallResult<Object?>> callAs(
+    String command,
+    Object? params,
+    Shape<Object?> shape,
+  ) => call(command, shape.toJson(params)! as Map<String, Object?>);
+
+  @override
   Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params,
