@@ -25,7 +25,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Who and why
 
-- **Principal** (§4): who acts, a `kind` and an `id` (`user/local`, `plugin/hydra`, `viewer/twitch/123`). Kinds are the host's; the package reserves `system` (the registry).
+- **Principal** (§4): who acts, `kind[/id][@owner]` (`user/local`, `plugin/hydra`, `viewer/twitch.123`, `studio@screen`). Kinds are the host's; the package reserves `system` (the registry).
 - **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`plugin/hydra`), or `*`. The most specific one that matches wins.
 - **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from) and `correlation` (the conversation it is part of). Passed explicitly: `call.causeFor(by)`.
 - **Conversation** (§4): everything that followed from one message, however far; its id is that message's. `registry.conversation(id)`, a span's `conversation`.
@@ -139,7 +139,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
 - **Participant rights** (§22.2): `define` (a further check on its words), `produce` (open facts of others), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
-- **Part** (§4, §22.3): `principal.child(name)` (`studio/sound`), and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, and its acts are told as its own, for audit.
+- **Part** (§4, §22.3): `principal.child(name)` (`studio@sound`), an owner of a principal, and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no parts.
 - **Version** (§1): a word's breaking change beside the old one, the same name with `.v<N>` (N >= 2); the name alone is version 1. A version is a word of its own; `wordVersion(name)` parses one.
 - **Query** (§6.6, §18): a word that only answers, a kind of its own (`QueryDescriptor`, `is: query`; `IQueryWord`, asked with `.ask`): no dedup, no call record, nothing changed from its handler; safe to ask again.
 - **JsonShape** (§18): the shape of a class that serializes itself (json_serializable, freezed), with an optional `type` for checks and `describe`.

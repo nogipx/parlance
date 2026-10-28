@@ -194,7 +194,7 @@ void main() {
     p.attach({'dials': Dials(), 'other': Other()});
     expect(r.lastChange('test.level', key: 'a')!.cause.by, me.child('dials'));
     expect(r.lastChange('test.on'), isNull);
-    expect(me.child('dials').selector, 'host/dials');
+    expect(me.child('dials').selector, 'host@dials');
   });
 
   test('an owner listens while attached, and stops when it goes', () async {

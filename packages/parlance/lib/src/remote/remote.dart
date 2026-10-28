@@ -670,15 +670,10 @@ final class RemoteSession extends ParlanceContractPeer {
     if (as == null) return _p;
     final who = _principal(as);
     if (who == principal) return _p;
-    if (!who.isWithin(principal)) _deny('$who is no part of $principal');
-    final rest = principal.id.isEmpty
-        ? who.id
-        : who.id.substring(principal.id.length + 1);
-    var p = _p;
-    for (final name in rest.split('/')) {
-      p = p.child(name);
+    if (who.owner.isEmpty || who.parent != principal) {
+      _deny('$who is no part of $principal');
     }
-    return p;
+    return _p.child(who.owner);
   }
 
   Map<String, Object?> _op(Map<String, Object?> m) {

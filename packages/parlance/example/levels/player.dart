@@ -139,7 +139,7 @@ const playerWords = WordSet('player', [
 
 /// Starts the player in [r]: its participant, given the player's words,
 /// its commands called by [Who.turners] unless one says otherwise, and its
-/// owner as the part `deck` (what it writes is told as `player/deck`).
+/// owner as the part `deck` (what it writes is told as `player@deck`).
 LocalParticipant startPlayer(Registry r) => r.participant(
   Who.player,
   vocabularies: [playerWords],

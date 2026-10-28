@@ -289,19 +289,29 @@ void main() {
   });
 
   group('parts', () {
-    test('a selector names the parts of what it names; the nearest wins', () {
+    test('a selector names the owners of what it names; the nearest wins; '
+        'an owner has none', () {
       final sync = orders.child('sync');
-      expect(sync, const Principal('module', 'orders/sync'));
-      expect(sync.child('push').selector, 'module/orders/sync/push');
+      expect(sync, const Principal('module', 'orders', 'sync'));
+      expect(sync.selector, 'module/orders@sync');
+      expect(Principal.parse('module/orders@sync'), sync);
+      expect(Principal.fromJson(sync.toJson()), sync);
+      expect(
+        const Principal('studio').child('screen').selector,
+        'studio@screen',
+      );
+      expect(() => sync.child('push'), throwsStateError);
       expect(sync.isWithin(orders), isTrue);
+      expect(sync.isWithin(const Principal('module')), isTrue);
       expect(orders.isWithin(sync), isFalse);
+      expect(orders.child('ui').isWithin(sync), isFalse);
+      expect(sync.parent, orders);
       final callers = Callers({
         'module/orders': Access.allow,
-        'module/orders/sync': Access.deny,
+        'module/orders@sync': Access.deny,
       });
       expect(callers.allows(orders.child('ui')), isTrue, reason: 'its whole');
       expect(callers.allows(sync), isFalse, reason: 'its own rule');
-      expect(callers.allows(sync.child('push')), isFalse, reason: 'nearest');
       expect(callers.allows(cart), isFalse);
       expect(() => orders.child('Sync'), throwsArgumentError);
     });
@@ -358,7 +368,6 @@ void main() {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       p
           .child('a')
-          .child('deep')
           .defineCommand(
             CommandDescriptor(
               'orders.a',
@@ -522,19 +531,21 @@ void main() {
     );
   });
 
-  test('a selector is a path: every level after / is a level, and the '
-      'nearest one said decides', () {
-    final viewer = Principal.parse('viewer/twitch/123');
-    expect(viewer.kind, 'viewer');
-    expect(viewer.parent!.selector, 'viewer/twitch');
+  test('a selector is kind[/id][@owner], and the nearest one said '
+      'decides', () {
+    final viewer = Principal.parse('viewer/twitch.123');
+    expect(
+      (viewer.kind, viewer.id, viewer.owner),
+      ('viewer', 'twitch.123', ''),
+    );
+    expect(viewer.parent!.selector, 'viewer');
     const rules = Callers({
-      'viewer': Access.deny,
-      'viewer/twitch': Access.allow,
-      'viewer/twitch/42': Access.deny,
+      'viewer': Access.allow,
+      'viewer/twitch.42': Access.deny,
     });
     expect(rules.accessOf(viewer), Access.allow);
-    expect(rules.accessOf(Principal.parse('viewer/twitch/42')), Access.deny);
-    expect(rules.accessOf(Principal.parse('viewer/youtube/9')), Access.deny);
+    expect(rules.accessOf(Principal.parse('viewer/twitch.42')), Access.deny);
+    expect(rules.accessOf(Principal.parse('member/9')), Access.deny);
   });
 
   test('a selector that names no one is refused, not left to match nobody', () {
@@ -552,15 +563,20 @@ void main() {
       reason: 'a : in an id would be a level that is not one',
     );
     expect(() => Principal.parse('module/orders/'), throwsArgumentError);
-    for (final reserved in ['#', '@', ':', '*', ' ', '~', '%']) {
+    expect(() => Principal.parse('module/'), throwsArgumentError);
+    expect(() => Principal.parse('module/orders@'), throwsArgumentError);
+    expect(() => Principal.parse('viewer/twitch/1'), throwsArgumentError);
+    expect(() => Principal.parse('studio@a@b'), throwsArgumentError);
+    expect(() => Principal.parse('studio@Screen'), throwsArgumentError);
+    for (final reserved in ['#', '/', ':', '*', ' ', '~', '%']) {
       expect(
-        () => Principal.parse('viewer/twitch/bo${reserved}1'),
+        () => Principal.parse('viewer/bo${reserved}1'),
         throwsArgumentError,
         reason: '$reserved is reserved',
       );
     }
     expect(() => Principal.parse('Viewer/x'), throwsArgumentError);
-    expect(Principal.parse('viewer/YouTube/UC_a-b.c').id, 'YouTube/UC_a-b.c');
+    expect(Principal.parse('viewer/UC_a-b.c').id, 'UC_a-b.c');
   });
 
   test('a text from outside becomes a level: as it is when it is one, else '

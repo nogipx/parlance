@@ -29,7 +29,7 @@ fvm dart run example/main.dart
 
 What the tour shows:
 
-1. **Typed calls, and why a state is so.** `ann.command(HouseCommand.setLight).call((room: 'kitchen', on: true))`, on ann's participant: `main` hands out participants, never the registry. `explain` tells who wrote the light (`house/devices`, the owner's part) and the call it was answering. A guest is refused what its callers do not allow (the heating's callers come from the participant's default), and a room that does not exist is refused as `invalidParams`. A view's `status` says, before any call, what is there for the guest: `notPermitted`, `ready`, `missing`.
+1. **Typed calls, and why a state is so.** `ann.command(HouseCommand.setLight).call((room: 'kitchen', on: true))`, on ann's participant: `main` hands out participants, never the registry. `explain` tells who wrote the light (`house@devices`, the owner's part) and the call it was answering. A guest is refused what its callers do not allow (the heating's callers come from the participant's default), and a room that does not exist is refused as `invalidParams`. A view's `status` says, before any call, what is there for the guest: `notPermitted`, `ready`, `missing`.
 2. **A guard.** The door stays locked at night (`denied`, overridable). A resident overrides it.
 3. **A query.** `bob.query(HouseQuery.rooms).ask((lit: true))`: a question that changes nothing, asked rather than called; asking again is safe, and the registry keeps nothing of it.
 4. **By hand.** A switch flipped by hand, not through a command: the owner said where its devices' changes come from (`changes`), so it is synced on its own and nobody calls `sync()` on its participant.

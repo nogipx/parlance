@@ -203,10 +203,11 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// Writes what every owner attached to it has now, as one tick.
   void sync();
 
-  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`, in the
-  /// same vocabularies with the same rights, so what each part does is told
-  /// as that part's in causes, records and `explain`. Its guards judge its
-  /// own commands; a cause of this one passed to it is taken as its own.
+  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
+  /// (`studio@screen`), in the same vocabularies with the same rights, so
+  /// what each part does is told as that part's in causes, records and
+  /// `explain`. Its guards judge its own commands; a cause of this one
+  /// passed to it is taken as its own. A part has no parts (`StateError`).
   IParticipant child(String name);
 
   /// Withdraws its owners, the last attached first, then everything it

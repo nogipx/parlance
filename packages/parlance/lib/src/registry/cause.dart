@@ -1,41 +1,50 @@
 import 'dart:convert';
 
-/// Who acts: a kind the host declared and an id within it (SPEC §4).
+/// Who acts: a kind the host declared, an id within it, and the owner of
+/// it that acts, if one does (SPEC §4).
 final class Principal {
-  const Principal(this.kind, [this.id = '']);
+  const Principal(this.kind, [this.id = '', this.owner = '']);
 
   factory Principal.fromJson(Object? json) {
     final m = json as Map;
-    return Principal(m['kind'] as String, m['id'] as String? ?? '')..check();
+    return Principal(
+      m['kind'] as String,
+      m['id'] as String? ?? '',
+      m['owner'] as String? ?? '',
+    )..check();
   }
 
   /// The registry itself: the values of a word that went, removed with it.
   static const system = Principal('system');
 
   final String kind;
+
+  /// One level, maybe from outside; empty for a kind of one (`studio`).
   final String id;
 
-  /// Its path (SPEC §4): `kind/id`, each level after `/`; just the kind
-  /// when there is no id (`user/local`, `studio/sound`,
-  /// `member/forum/123`).
-  String get selector => id.isEmpty ? kind : '$kind/$id';
+  /// The owner of it that acts ([child]); empty for the whole.
+  final String owner;
 
-  /// The levels (SPEC §4). A kind and a part's name are ours, as a word's
-  /// name is: lower-case letters and digits joined by `_` or `-`, so `.` and
-  /// `/` are only ever separators. A level of an id may come from outside:
-  /// letters, digits, `.`, `-` and `_`, its case kept (`levelOf` makes one
-  /// of any text). Every other sign is reserved.
+  /// Its selector (SPEC §4): `kind[/id][@owner]` (`user/local`,
+  /// `studio@screen`, `plugin/hydra@ui`, `member/forum.123`).
+  String get selector =>
+      '$kind${id.isEmpty ? '' : '/$id'}${owner.isEmpty ? '' : '@$owner'}';
+
+  /// Its parts (SPEC §4). A kind and an owner's name are ours, as a word's
+  /// name is: lower-case letters and digits joined by `_` or `-`. An id may
+  /// come from outside: letters, digits, `.`, `-` and `_`, its case kept
+  /// (`levelOf` makes one of any text). So `/` and `@` are only ever
+  /// separators, and every other sign is reserved.
   static final RegExp _kind = RegExp(r'^[a-z][a-z0-9_-]*$');
-  static final RegExp _part = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
+  static final RegExp _owner = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
   static final RegExp _level = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
   static final RegExp _outside = RegExp(r'[^A-Za-z0-9._-]+');
 
-  /// A level of an id made of [text] from outside (a member's id, a
-  /// device's name), by the rule Kubernetes and Helm name things by: a
-  /// text that is one already stays as it is; else every run of other
-  /// signs becomes `_` and a hash of the whole text is added after a `.`
-  /// (`ann@mail.com` → `ann_mail.com.<hash>`), so two texts never become
-  /// one level.
+  /// An id made of [text] from outside (a member's id, a device's name),
+  /// by the rule Kubernetes and Helm name things by: a text that is one
+  /// already stays as it is; else every run of other signs becomes `_` and
+  /// a hash of the whole text is added after a `.` (`ann@mail.com` →
+  /// `ann_mail.com.<hash>`), so two texts never become one id.
   static String levelOf(String text) {
     if (_level.hasMatch(text)) return text;
     var slug = text.replaceAll(_outside, '_');
@@ -60,18 +69,29 @@ final class Principal {
     return h.toRadixString(16).padLeft(8, '0');
   }
 
-  /// The principal [selector] names: `kind` or `kind/level/...`.
+  /// The principal [selector] names: `kind[/id][@owner]`.
   factory Principal.parse(String selector) {
-    final i = selector.indexOf('/');
+    var rest = selector;
+    var owner = '';
+    final at = rest.indexOf('@');
+    if (at >= 0) {
+      owner = rest.substring(at + 1);
+      rest = rest.substring(0, at);
+      if (owner.isEmpty) throw ArgumentError.value(selector, 'owner', 'empty');
+    }
+    final i = rest.indexOf('/');
     final p = i < 0
-        ? Principal(selector)
-        : Principal(selector.substring(0, i), selector.substring(i + 1));
+        ? Principal(rest, '', owner)
+        : Principal(rest.substring(0, i), rest.substring(i + 1), owner);
+    if (i >= 0 && p.id.isEmpty) {
+      throw ArgumentError.value(selector, 'id', 'empty');
+    }
     p.check();
     return p;
   }
 
-  /// Throws when its kind or a level of its id is not one (SPEC §4): so
-  /// the path of a principal from outside is the levels it says.
+  /// Throws when its kind, id or owner is not one (SPEC §4): so a
+  /// principal from outside is the parts it says.
   void check() {
     if (!_kind.hasMatch(kind)) {
       throw ArgumentError.value(
@@ -80,53 +100,71 @@ final class Principal {
         'lower-case letters and digits joined by _ or -, from a letter',
       );
     }
-    if (id.isEmpty) return;
-    for (final level in id.split('/')) {
-      if (!_level.hasMatch(level)) {
-        throw ArgumentError.value(
-          id,
-          'id',
-          'levels split by /, each of letters, digits, ., - and _ '
-              '(Principal.levelOf makes one of any text)',
-        );
-      }
+    if (id.isNotEmpty && !_level.hasMatch(id)) {
+      throw ArgumentError.value(
+        id,
+        'id',
+        'letters, digits, ., - and _, from a letter or digit '
+            '(Principal.levelOf makes one of any text)',
+      );
+    }
+    if (owner.isNotEmpty && !_owner.hasMatch(owner)) {
+      throw ArgumentError.value(
+        owner,
+        'owner',
+        'lower-case letters and digits joined by _ or -',
+      );
     }
   }
 
-  /// A part of this one, named [name] (SPEC §4): `studio` → `studio/sound`,
-  /// `module/orders` → `module/orders/sync`. What names this one names its
-  /// parts too, unless something names the part.
+  /// Its owner named [name] (SPEC §4): `studio` → `studio@screen`,
+  /// `plugin/hydra` → `plugin/hydra@ui`. What names the whole names its
+  /// owners too, unless something names the owner. An owner has none.
   Principal child(String name) {
-    if (!_part.hasMatch(name)) {
+    if (owner.isNotEmpty) {
+      throw StateError('$selector is an owner: it has no parts');
+    }
+    if (!_owner.hasMatch(name)) {
       throw ArgumentError.value(
         name,
         'name',
         'lower-case letters and digits joined by _ or -',
       );
     }
-    return Principal(kind, id.isEmpty ? name : '$id/$name');
+    return Principal(kind, id, name);
   }
 
-  /// Whether this is [other] or a part of it, at any depth.
-  bool isWithin(Principal other) =>
-      kind == other.kind &&
-      (other.id.isEmpty || id == other.id || id.startsWith('${other.id}/'));
+  /// Whether a selector of [other] names this one: [other] itself, its
+  /// owners, and for a bare kind every principal of it.
+  bool isWithin(Principal other) {
+    if (kind != other.kind) return false;
+    if (other.owner.isNotEmpty) return this == other;
+    return other.id.isEmpty || id == other.id;
+  }
 
-  /// The one this is a part of; null for a whole.
+  /// The one this is a part of: the whole of an owner, the kind of an id;
+  /// null for a bare kind.
   Principal? get parent {
-    if (id.isEmpty) return null;
-    final i = id.lastIndexOf('/');
-    return i < 0 ? Principal(kind) : Principal(kind, id.substring(0, i));
+    if (owner.isNotEmpty) return Principal(kind, id);
+    if (id.isNotEmpty) return Principal(kind);
+    return null;
   }
 
-  Map<String, Object?> toJson() => {'kind': kind, if (id.isNotEmpty) 'id': id};
+  Map<String, Object?> toJson() => {
+    'kind': kind,
+    if (id.isNotEmpty) 'id': id,
+    if (owner.isNotEmpty) 'owner': owner,
+  };
 
   @override
   bool operator ==(Object other) =>
-      other is Principal && other.kind == kind && other.id == id;
+      other is Principal &&
+      other.kind == kind &&
+      other.id == id &&
+      other.owner == owner;
 
   @override
-  int get hashCode => Object.hash(kind, id);
+  int get hashCode => Object.hash(kind, id, owner);
 
   @override
   String toString() => selector;

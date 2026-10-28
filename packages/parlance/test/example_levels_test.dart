@@ -38,7 +38,7 @@ void main() {
         'a guest turns it: guest/bob may not call player.volume.set',
         'a guest defines player.volume: guest/bob defines in no vocabulary',
         '150: volume: above 100',
-        'why 95: listener/ann called player.volume.set, and player/deck '
+        'why 95: listener/ann called player.volume.set, and player@deck '
             'wrote it',
         'words: [player.volume, player.volume.set, player.clipped]',
       ],

@@ -43,7 +43,7 @@ Future<void> main() async {
     ),
   );
   // The owner is the participant's part `devices`, named here: what it
-  // writes and says is told as house/devices.
+  // writes and says is told as house@devices.
   houseSide.attach({'devices': house});
 
   // Ann and bob act through participants of their own, as every part does:

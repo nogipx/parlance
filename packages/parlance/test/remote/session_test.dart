@@ -224,7 +224,7 @@ void main() {
     );
   });
 
-  test('the owners of a remote participant\'s parts go with it', () async {
+  test('the owners of a remote participant go with it', () async {
     final host = TestHost();
     addTearDown(host.dispose);
     final p = await host.join(
@@ -232,7 +232,7 @@ void main() {
       vocabularies: [const WordSet.open('plug')],
     );
     final owner = Ticking();
-    p.child('ui').attach({'tick': owner});
+    p.attach({'tick': owner});
     expect(owner.changed.hasListener, isTrue);
     await p.close();
     expect(owner.changed.hasListener, isFalse);
