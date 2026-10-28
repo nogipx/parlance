@@ -1,0 +1,78 @@
+/// The host of widlet guests: one registry, the app's own words, and a
+/// session for each guest it loads, its words in its own vocabulary.
+library;
+
+import 'package:host_words/host_words.dart';
+import 'package:parlance/participant.dart';
+import 'package:parlance/registry.dart';
+import 'package:parlance/remote.dart';
+import 'package:rpc_dart/rpc_dart.dart';
+
+/// Who acts in the app.
+abstract final class Who {
+  static const app = Principal('app');
+  static const user = Principal('user');
+  static Principal widlet(String id) =>
+      Principal('widlet', Principal.levelOf(id));
+
+  /// Who may call a guest's commands, and the app's: the guests and the
+  /// user. The host says it, never a guest of itself.
+  static const callers = Callers({
+    'widlet': Access.allow,
+    'user': Access.allow,
+  });
+}
+
+/// The owner of the app's words.
+final class AppHost extends AppOwner {
+  bool darkNow = false;
+  final List<String> toasts = [];
+
+  @override
+  void sync() => dark.set(darkNow);
+
+  @override
+  void toast(CommandCallOf<AppToast> call) => toasts.add(call.params.text);
+}
+
+/// The app's registry and its words.
+final class Host {
+  Host() {
+    _app = registry.participant(
+      Who.app,
+      vocabularies: [appWords],
+      access: const WordAccess(call: Who.callers),
+    )..attach({'shell': app});
+  }
+
+  final Registry registry = Registry();
+  final AppHost app = AppHost();
+  late final LocalParticipant _app;
+  final Map<String, RemoteSession> _guests = {};
+
+  /// Serves the guest [id] over [endpoint]: a participant of its own, its
+  /// words named in the vocabulary of its id (a guest's words come at run
+  /// time), its commands called by the guests and the user.
+  RemoteSession load(String id, RpcPeerEndpoint endpoint) {
+    final session = registry
+        .participant(
+          Who.widlet(id),
+          vocabularies: [WordSet.open(id)],
+          access: const WordAccess(call: Who.callers),
+        )
+        .serve(endpoint);
+    _guests[id] = session;
+    return session;
+  }
+
+  /// Unloads the guest [id]: its session ends, and its words go with it.
+  void unload(String id) => _guests.remove(id)?.close();
+
+  Future<void> dispose() async {
+    for (final s in _guests.values) {
+      s.close();
+    }
+    _app.dispose();
+    await registry.dispose();
+  }
+}

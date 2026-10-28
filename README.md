@@ -12,6 +12,7 @@ of it all. Moved out of Tephra, its first host.
 | `packages/parlance_journal` | The journal kept where it lasts, and read back. |
 
 | `apps/journal_viewer` | Conversations of a journal, loaded, drawn as trees on their time and played back; web and macOS. |
+| `examples/guests` | A host and two widlet guests: each guest a participant of the host's registry, one using the other's words and the host's, typed, through their words packages. |
 
 `docs/термины.md` is the glossary in Russian.
 

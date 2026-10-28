@@ -1,0 +1,13 @@
+name: board_guest
+description: "Guest B: a board widlet. It uses the app's words and the notes' words, typed, through their words packages alone."
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  host_words: any
+  notes_words: any
+  parlance: any
+  rpc_dart: any

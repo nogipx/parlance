@@ -1,0 +1,12 @@
+name: notes_guest
+description: "Guest A: a notebook widlet. It owns the notes' words and knows no other guest."
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  notes_words: any
+  parlance: any
+  rpc_dart: any

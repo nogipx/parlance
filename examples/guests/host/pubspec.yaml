@@ -1,0 +1,20 @@
+name: guests_host
+description: "The host of two widlet guests: one registry, a session for each guest, the app's own words."
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  host_words: any
+  parlance: any
+  rpc_dart: any
+  # Only to run the guests in this process, for the demo and its test: a
+  # real host loads their WASM and hands each its endpoint.
+  board_guest: any
+  notes_guest: any
+
+dev_dependencies:
+  notes_words: any
+  test: ^1.25.0

@@ -11,6 +11,11 @@ workspace:
   - packages/parlance_links
   - packages/parlance_journal
   - apps/journal_viewer
+  - examples/guests/host_words
+  - examples/guests/notes_words
+  - examples/guests/notes_guest
+  - examples/guests/board_guest
+  - examples/guests/host
 
 dev_dependencies:
   lints: ^6.0.0

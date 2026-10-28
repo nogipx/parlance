@@ -1,0 +1,14 @@
+name: host_words
+description: "The host's words: what the app gives every widlet guest."
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  parlance: any
+
+dev_dependencies:
+  build_runner: ^2.11.1
+  parlance_generator: any
