@@ -5,14 +5,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:parlance/participant.dart';
+import 'package:parlance/registry.dart';
+import 'package:parlance/remote.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_socket/rpc_dart_socket.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
-import '../registry/fixture.dart';
-import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+const agent = Principal('agent', 'claude');
 
 /// The binary itself: a host serves its registry on a Unix socket, an agent
 /// speaks MCP to parlance-mcp on stdio.
@@ -21,7 +21,23 @@ void main() {
     'parlance-mcp serves a host over a socket on stdio',
     timeout: const Timeout(Duration(minutes: 2)),
     () async {
-      final f = Fixture();
+      final r = Registry();
+      addTearDown(r.dispose);
+      final studio = r.participant(
+        const Principal('studio'),
+        vocabularies: [const WordSet.open('studio')],
+      );
+      final program = studio.defineState(
+        StateDescriptor('studio.program', type: const TextType()),
+      );
+      studio.defineCommand(
+        CommandDescriptor(
+          'studio.show',
+          params: const ObjectType({'scene': Field(TextType())}),
+          callers: const Callers({'agent': Access.allow}),
+        ),
+        (c) => program.set(c.params['scene']),
+      );
       final dir = Directory.systemTemp.createTempSync('sbmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
       final path = '${dir.path}/r.sock';
@@ -29,7 +45,7 @@ void main() {
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
         mode: RpcPeerMode((endpoint) {
-          final s = f.r.participant(agent).serve(endpoint);
+          final s = r.participant(agent).serve(endpoint);
           sessions.add(s);
         }),
       );
@@ -92,7 +108,7 @@ void main() {
         },
       });
       expect((call['result'] as Map)['isError'], isFalse);
-      expect(f.r.read('studio.program'), 'break');
+      expect(studio.read('studio.program'), 'break');
       expect(sessions, hasLength(1));
       await mcp.stdin.close();
       expect(await mcp.exitCode.timeout(const Duration(seconds: 20)), 0);

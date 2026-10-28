@@ -145,7 +145,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`parlanceTools`**: the curated tools: `describe`, `read`, `call`, `recent_facts`, `why`; with `commandTools`, a tool per command too.
 - **`McpTool.typed`**: a host's own tool, its JSON Schema derived from a `RecordShape`.
 - **`McpSocketServer`**: agents on a Unix socket (`mcp_io.dart`); `toolsChanged()` reaches every session.
-- **`parlance-mcp`**: an agent's participant across a connection as a stdio server.
+- **`parlance-mcp`**: an agent's participant across a connection as a stdio server; the package `parlance_mcp`.
 - **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
 - **Participant rights** (§22.2): `define` (a further check on its words), `produce` (open facts of others), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.

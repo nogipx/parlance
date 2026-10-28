@@ -20,7 +20,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | `testing` | `TestHost`: a registry for a test, stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`), the module here or across a connection in memory (`join`), and what happened read back (`written`, `said`, `callsOf`, `errors`) | [references/testing.md](references/testing.md): §24 |
 | compatibility | how a module built apart is held to the words it meets: one rule, what may change and how, the baseline before release, the part's and the host's view at run time, the protocol; what each check is and when it runs | [references/compatibility.md](references/compatibility.md): §25 |
 | glossary | every term of the package in a line, with its section | [references/glossary.md](references/glossary.md) |
-| `mcp` | curated agent tools on an agent's participant (here or across a connection); `mcp_io`: the server on a Unix socket; the binary `parlance-mcp` | [references/mcp.md](references/mcp.md): §16 |
+| `mcp` | curated agent tools on an agent's participant (here or across a connection); `mcp_io`: the server on a Unix socket; the binary `parlance-mcp`, in the package `parlance_mcp` | [references/mcp.md](references/mcp.md): §16 |
 
 ## Adding to the registry
 

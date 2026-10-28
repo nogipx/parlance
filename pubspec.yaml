@@ -10,6 +10,7 @@ workspace:
   - packages/parlance_generator
   - packages/parlance_links
   - packages/parlance_journal
+  - packages/parlance_mcp
   - apps/journal_viewer
   - examples/guests/host_words
   - examples/guests/notes_words

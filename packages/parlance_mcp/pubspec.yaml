@@ -1,0 +1,19 @@
+name: parlance_mcp
+description: "parlance-mcp: a host's parlance for agents over stdio, reached over a Unix socket or TCP."
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  parlance: any
+  rpc_dart: ^6.3.0
+  # The transport to a host; parlance's libraries do not need it.
+  rpc_dart_socket: ^0.1.0
+
+executables:
+  parlance-mcp: parlance_mcp
+
+dev_dependencies:
+  test: ^1.25.0

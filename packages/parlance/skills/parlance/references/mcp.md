@@ -28,7 +28,7 @@ They answer the same here and across a connection, and say so where they cannot:
 
 The session asks for the tools once and again after `toolsChanged()` (or when asking failed), and answers each message when it is done: a long call holds no other back.
 
-`parlance-mcp --connect unix:/path | tcp://host/port [--command-tools]` is an agent's participant across a connection as a stdio server: it joins the host, joins again after a drop, and lists no tools while the host is away.
+`parlance-mcp --connect unix:/path | tcp://host/port [--command-tools]` (the package `parlance_mcp`, which alone takes `rpc_dart_socket`) is an agent's participant across a connection as a stdio server: it joins the host, joins again after a drop, and lists no tools while the host is away.
 
 **On this machine.** `package:parlance/mcp_io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone (`start` fails rather than serve one it could not make so), opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `mcp.dart` because it needs `dart:io`.
 
