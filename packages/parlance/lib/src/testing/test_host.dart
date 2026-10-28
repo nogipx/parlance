@@ -79,14 +79,16 @@ final class TestHost {
 
   /// The module under test across a connection, in memory: the host
   /// serves it a participant made as [participant] makes one, and it
-  /// joins.
+  /// joins. The connection carries frames as bytes, encoded and decoded as
+  /// across a process boundary, so what passes here passes over a real
+  /// wire: a value that is no JSON fails here as it would there.
   Future<RemoteParticipant> join(
     Principal who, {
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
   }) async {
-    final (client, server) = RpcChannelTransport.memoryPair();
+    final (client, server) = RpcChannelTransport.pair();
     final host = RpcPeerEndpoint(transport: server);
     final session = participant(
       who,
