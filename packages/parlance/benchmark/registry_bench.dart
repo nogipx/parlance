@@ -7,6 +7,15 @@
 ///
 /// Run: `fvm dart run benchmark/registry_bench.dart` (AOT:
 /// `fvm dart compile exe benchmark/registry_bench.dart -o .tmp/bench && .tmp/bench`).
+///
+/// 2026-10-28, JIT, before typed values were kept as they are (every value
+/// went through toJson, check, freeze and fromJson):
+///
+///     write one record           core   0.220 us  registry     1.980 us
+///     write a list of 1000       core   2.145 us  registry  1168.921 us
+///     write a list of 10000      core  17.430 us  registry 11961.560 us
+///     read                       core   0.005 us  registry     0.070 us
+///     a command call             core   0.104 us  registry    11.829 us
 library;
 
 import 'package:parlance/core.dart';
