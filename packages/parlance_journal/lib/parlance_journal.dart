@@ -4,4 +4,5 @@
 library;
 
 export 'src/reader.dart';
+export 'src/tree.dart';
 export 'src/writer.dart';

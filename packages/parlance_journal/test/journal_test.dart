@@ -96,6 +96,92 @@ void main() {
     );
   });
 
+  test('every word a conversation led to, found by the word it started '
+      'with and by whom', () async {
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await s.chat('irc:2');
+    await w.close();
+    await s.r.dispose();
+    final led = JournalReader(dir).startedWith('chat.say', by: viewer);
+    expect({for (final e in led) e.conversation}, {'irc:1', 'irc:2'});
+    expect(
+      {for (final e in led) e.word},
+      {'chat.say', 'chat.line', 'clip.save', 'clip.last', 'clip.cover'},
+    );
+    expect({for (final e in led) e.origin}, {const Origin('chat.say', viewer)});
+    expect(JournalReader(dir).startedWith('chat.say', by: user), isEmpty);
+  });
+
+  test('from any message: the conversation it was in, and how it came '
+      'about', () async {
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await s.chat('irc:2');
+    await w.close();
+    await s.r.dispose();
+    final reader = JournalReader(dir);
+    final write = reader.conversation('irc:1').whereType<JournalWrite>().single;
+    final talk = reader.of(write.id);
+    expect({for (final e in talk) e.conversation}, {'irc:1'});
+    expect(talk, hasLength(7));
+    expect(reader.pathTo(write.id).map((e) => '${e.kind} ${e.word}'), [
+      'start chat.say',
+      'fact chat.line',
+      'start clip.save',
+      'write clip.last',
+    ]);
+    final refused = reader
+        .conversation('irc:2')
+        .whereType<JournalEnd>()
+        .singleWhere((e) => e.call.result is CallRefused);
+    expect(reader.pathTo(refused.id).map((e) => '${e.kind} ${e.word}'), [
+      'start chat.say',
+      'fact chat.line',
+      'end clip.cover',
+    ]);
+    expect(reader.of('nothing'), isEmpty);
+    expect(reader.pathTo('nothing'), isEmpty);
+  });
+
+  test('a conversation as a tree: what each message led to under it, a '
+      'call with how it ended', () async {
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await w.close();
+    await s.r.dispose();
+    String draw(JournalNode n, [String indent = '']) => [
+      '$indent${n.kind} ${n.word} by ${n.by}'
+          '${n.end == null ? '' : ' -> ${n.end!.call.result.toJson().keys.first}'}',
+      for (final c in n.children) draw(c, '$indent  '),
+    ].join('\n');
+    final roots = JournalReader(dir).tree('irc:1');
+    expect(roots.map(draw).join('\n'), '''
+call chat.say by viewer/twitch.7 -> done
+  fact chat.line by studio
+    call clip.save by plugin/basics -> done
+      write clip.last by studio
+    call clip.cover by plugin/basics -> refused''');
+    final json = roots.single.toJson();
+    expect(json, containsPair('word', 'chat.say'));
+    expect(json, containsPair('result', {'done': true}));
+    expect(json['ms'], isA<int>());
+    final saved =
+        (((json['children'] as List).single as Map)['children'] as List).first
+            as Map;
+    expect(saved, isNot(contains('params')));
+    final withValues = roots.single.toJson(payloads: true);
+    final save =
+        (((withValues['children'] as List).single as Map)['children'] as List)
+                .first
+            as Map;
+    expect(save['params'], {'len': 90});
+    expect(JournalReader(dir).tree('nothing'), isEmpty);
+  });
+
   test('a cause made by hand whose parent the registry forgot still '
       'follows from it', () async {
     final r = Registry();
@@ -182,6 +268,26 @@ void main() {
     );
     expect({for (final e in traced) e.conversation}, {'irc:1'});
     logs.dispose();
+  });
+
+  test('off, nothing is written, and the registry makes no entry; on '
+      'again, it goes on from then', () async {
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir, on: false);
+    await s.chat('irc:1');
+    expect(dir.listSync(), isEmpty);
+    w.on = true;
+    await s.chat('irc:2');
+    w.on = false;
+    await s.chat('irc:3');
+    await w.close();
+    w.on = true;
+    await s.chat('irc:4');
+    await s.r.dispose();
+    final talks = {
+      for (final e in JournalReader(dir).entries()) e.conversation,
+    };
+    expect(talks, {'irc:2'});
   });
 
   test('a file a day; days older than kept go; a line cut short is '

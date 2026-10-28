@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:parlance/registry.dart';
 
 import 'files.dart';
+import 'tree.dart';
 
 /// Reads what a [JournalWriter] wrote in [dir], in the order it happened.
 /// A line that is no entry (one cut short when the app stopped) is
@@ -57,6 +58,75 @@ final class JournalReader {
     }
     return of;
   }
+
+  /// The conversation message [id] (a call's, a fact's, a write's, at any
+  /// depth) is part of, whole and in order: what a line of a log naming
+  /// one message was in. Empty when no day read has it.
+  List<JournalEntry> of(String id, {DateTime? since, DateTime? until}) {
+    JournalEntry? found;
+    for (final e in entries(since: since, until: until)) {
+      if (e.id == id) {
+        found = e;
+        break;
+      }
+    }
+    if (found == null) return const [];
+    return conversation(
+      found.conversation,
+      epoch: found.epoch,
+      since: since,
+      until: until,
+    );
+  }
+
+  /// Conversation [id] as a tree, to draw: its first message, what each
+  /// message led to under it; a call with how it ended.
+  List<JournalNode> tree(
+    String id, {
+    String? epoch,
+    DateTime? since,
+    DateTime? until,
+  }) => treeOf(conversation(id, epoch: epoch, since: since, until: until));
+
+  /// How message [id] came about: the messages it follows from, each the
+  /// parent of the next, from the first of its conversation to it; a call
+  /// as it began (as it ended, when it was refused). It starts later when
+  /// a parent is in no day read.
+  List<JournalEntry> pathTo(String id, {DateTime? since, DateTime? until}) {
+    final byId = <(String, String), JournalEntry>{};
+    String? epoch;
+    for (final e in entries(since: since, until: until)) {
+      byId.putIfAbsent((e.epoch, e.id), () => e);
+      if (e.id == id) epoch = e.epoch;
+    }
+    if (epoch == null) return const [];
+    final path = <JournalEntry>[];
+    final seen = <String>{};
+    for (String? at = id; at != null && seen.add(at);) {
+      final e = byId[(epoch, at)];
+      if (e == null) break;
+      path.add(e);
+      at = e.cause.parent;
+    }
+    return path.reversed.toList();
+  }
+
+  /// Every entry of the conversations that started with [word] (a
+  /// command called, a fact said), of [by] when given, in order: all that
+  /// a chat line, a press, a ring led to.
+  List<JournalEntry> startedWith(
+    String word, {
+    Principal? by,
+    DateTime? since,
+    DateTime? until,
+  }) => [
+    for (final e in entries(since: since, until: until))
+      if (e.origin case Origin(
+        word: final w,
+        by: final b,
+      ) when w == word && (by == null || b == by))
+        e,
+  ];
 
   /// The entries in trace [traceId] (a span's or a log line's), in order:
   /// from telemetry back to what was done.

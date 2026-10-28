@@ -14,19 +14,21 @@ import 'files.dart';
 ///
 /// Without [payloads] it writes who did what, following what, and how it
 /// ended, never the values: no params, payloads, values or answers.
+///
+/// Turned off ([on]), it stops listening: the registry then makes no entry
+/// at all, and nothing is written or kept open.
 final class JournalWriter {
   JournalWriter(
-    Stream<JournalEntry> journal, {
+    this._journal, {
     required this.dir,
     this.keep = const Duration(days: 30),
     this.payloads = true,
+    bool on = true,
     DateTime Function()? now,
     void Function(Object error, StackTrace stack)? onError,
   }) : _now = now ?? DateTime.now,
        _onError = onError ?? _ignore {
-    dir.createSync(recursive: true);
-    _prune(_now());
-    _sub = journal.listen(_add);
+    this.on = on;
   }
 
   /// Where its files are.
@@ -38,12 +40,43 @@ final class JournalWriter {
   /// Whether values are written.
   final bool payloads;
 
+  final Stream<JournalEntry> _journal;
   final DateTime Function() _now;
   final void Function(Object, StackTrace) _onError;
-  late final StreamSubscription<JournalEntry> _sub;
+  StreamSubscription<JournalEntry>? _sub;
   RandomAccessFile? _file;
   String? _day;
   bool _closed = false;
+
+  /// Whether it writes: on, it listens to the journal from now on; off, it
+  /// does not, and closes its file.
+  bool get on => _sub != null;
+  set on(bool value) {
+    if (value == on || (value && _closed)) return;
+    if (value) {
+      try {
+        dir.createSync(recursive: true);
+        _prune(_now());
+      } catch (err, st) {
+        _onError(err, st);
+      }
+      _sub = _journal.listen(_add);
+    } else {
+      unawaited(_sub!.cancel());
+      _sub = null;
+      _closeFile();
+    }
+  }
+
+  void _closeFile() {
+    try {
+      _file?.closeSync();
+    } catch (err, st) {
+      _onError(err, st);
+    }
+    _file = null;
+    _day = null;
+  }
 
   static void _ignore(Object _, StackTrace _) {}
 
@@ -78,13 +111,13 @@ final class JournalWriter {
     }
   }
 
-  /// Stops writing; what was written stays.
+  /// Stops writing for good; what was written stays.
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    await _sub.cancel();
-    _file?.closeSync();
-    _file = null;
+    await _sub?.cancel();
+    _sub = null;
+    _closeFile();
   }
 }
 
