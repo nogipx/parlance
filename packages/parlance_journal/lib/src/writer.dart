@@ -45,6 +45,7 @@ final class JournalWriter {
   final void Function(Object, StackTrace) _onError;
   StreamSubscription<JournalEntry>? _sub;
   RandomAccessFile? _file;
+  File? _path;
   String? _day;
   bool _closed = false;
 
@@ -79,12 +80,14 @@ final class JournalWriter {
     final day = dayOf(e.at);
     var turned = false;
     try {
-      if (day != _day) {
-        turned = _day != null;
+      // A file gone while it was open (its folder removed) is opened
+      // again: else what is written goes nowhere until the day turns.
+      if (day != _day || !_path!.existsSync()) {
+        turned = _day != null && day != _day;
         // Closed and forgotten first: a file that would not open is
         // opened again with the next entry, not the closed one kept.
         _closeFile();
-        _file = _open(File('${dir.path}/${fileOfDay(day)}'));
+        _file = _open(_path = File('${dir.path}/${fileOfDay(day)}'));
         _day = day;
       }
       final json = payloads ? e.toJson() : _bare(e.toJson());

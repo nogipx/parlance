@@ -429,4 +429,74 @@ call chat.say by viewer/twitch.7 -> done
       {'a', 'c'},
     );
   });
+  group('when the disk fails', () {
+    test(
+      'a folder it may not write in at first is written once it may',
+      () async {
+        final errors = <Object>[];
+        final s = Studio();
+        final w = JournalWriter(
+          s.r.journal,
+          dir: dir,
+          onError: (e, _) => errors.add(e),
+        );
+        Process.runSync('chmod', ['500', dir.path]);
+        await s.chat('irc:1');
+        expect(errors, isNotEmpty);
+        Process.runSync('chmod', ['700', dir.path]);
+        await s.chat('irc:2');
+        await w.close();
+        await s.r.dispose();
+        final read = JournalReader(dir);
+        expect(read.conversation('irc:1'), isEmpty);
+        expect(
+          read.conversation('irc:2'),
+          hasLength(6),
+          reason: 'no write: the clip is as it was',
+        );
+      },
+    );
+
+    test('a folder removed while it writes is made again', () async {
+      final s = Studio();
+      final w = JournalWriter(s.r.journal, dir: dir);
+      await s.chat('irc:1');
+      dir.deleteSync(recursive: true);
+      await s.chat('irc:2');
+      await w.close();
+      await s.r.dispose();
+      expect(JournalReader(dir).conversation('irc:2'), hasLength(6));
+    });
+
+    test(
+      'bytes that are no lines of it lose those lines, not the rest',
+      () async {
+        final s = Studio();
+        final w = JournalWriter(s.r.journal, dir: dir);
+        await s.chat('irc:1');
+        await w.close();
+        await s.r.dispose();
+        File(
+          '${dir.path}/journal-2000-01-01.jsonl',
+        ).writeAsBytesSync([0, 1, 2, 0xff, 10, ...'{"a":1}\n'.codeUnits, 0xc3]);
+        expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+        expect(JournalReader(dir).entries(), hasLength(7));
+      },
+    );
+
+    test('a day it may not read is passed over, the others read', () async {
+      final s = Studio();
+      final w = JournalWriter(s.r.journal, dir: dir);
+      await s.chat('irc:1');
+      await w.close();
+      await s.r.dispose();
+      final locked = File('${dir.path}/journal-2000-01-01.jsonl')
+        ..writeAsStringSync('{}\n');
+      Process.runSync('chmod', ['000', locked.path]);
+      addTearDown(() => Process.runSync('chmod', ['600', locked.path]));
+      expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+      final out = File('${dir.path}/out.jsonl');
+      expect(await JournalReader(dir).export(out), 7);
+    });
+  });
 }

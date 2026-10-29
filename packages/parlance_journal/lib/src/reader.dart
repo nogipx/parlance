@@ -10,7 +10,7 @@ import 'tree.dart';
 /// Reads what a [JournalWriter] wrote in [dir], in the order it happened,
 /// the days asked for only: each question is a [Journal]'s, over the
 /// files, read again for each one. A line that is no entry (one cut short
-/// when the app stopped) is skipped.
+/// when the app stopped) is skipped, and a day it cannot read.
 final class JournalReader {
   JournalReader(this.dir);
 
@@ -27,7 +27,15 @@ final class JournalReader {
     for (final (day, f) in journalFiles(dir)) {
       if (from != null && day.compareTo(from) < 0) continue;
       if (to != null && day.compareTo(to) > 0) continue;
-      for (final line in _lines(f.readAsBytesSync())) {
+      final List<int> bytes;
+      try {
+        bytes = f.readAsBytesSync();
+      } on FileSystemException {
+        // A day it may not read now (gone since listed, locked) is passed
+        // over, as a line that is no entry is: the other days are read.
+        continue;
+      }
+      for (final line in _lines(bytes)) {
         if (line.isEmpty) continue;
         try {
           yield JournalEntry.fromJson(jsonDecode(line));
@@ -56,7 +64,13 @@ final class JournalReader {
     IOSink? out;
     try {
       for (final f in days) {
-        for (final line in _lines(await f.readAsBytes())) {
+        final List<int> bytes;
+        try {
+          bytes = await f.readAsBytes();
+        } on FileSystemException {
+          continue;
+        }
+        for (final line in _lines(bytes)) {
           if (line.trim().isEmpty) continue;
           (out ??= to.openWrite()).writeln(line);
           lines++;
