@@ -66,3 +66,14 @@ expect(breaksSince(releases, schemaOf(playerWords.words)), isEmpty);
 ```
 
 `test/fixtures/player.dart` shows every kind of word, bounds, defaults and a json_serializable class; `test/generated_test.dart` holds what its words do in a registry, `test/errors_test.dart` what the generator refuses.
+
+## Before a release: the frozen libraries
+
+`package:parlance/schema.dart` and `app.dart` are frozen: what they show only grows, and a words package's `.g.dart` made by an earlier release builds with the library now. Before a release, in this package:
+
+```sh
+fvm dart run tool/frozen.dart              # against the last v* tag
+fvm dart run tool/frozen.dart --since <ref>
+```
+
+It compares the two libraries' public surface (every name, every public member, with its signature) at the release's tag with the one now, and builds the fixtures' generated code of that tag with the library now; anything gone, changed or not building is printed, and it exits 1. Nothing is kept in the repository to compare with. The behaviour the libraries promise is held by `packages/parlance/test/contract/`, written with `app.dart` alone.
