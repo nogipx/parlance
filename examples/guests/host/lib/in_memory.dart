@@ -15,7 +15,7 @@ final List<RpcPeerEndpoint> _opened = [];
 /// Loads the guest [id] into [host] and starts it ([start], what its
 /// `main` does with the endpoint it is handed).
 Future<T> loadInMemory<T>(
-  Host host,
+  Shell host,
   String id,
   Future<T> Function(RpcPeerEndpoint endpoint) start,
 ) async {

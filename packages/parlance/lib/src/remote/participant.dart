@@ -46,7 +46,20 @@ part 'participant_part.dart';
 /// connection that does not come back (a wasm module's to its host, one in
 /// memory) is one whose factory gives the same transport and that does not
 /// reconnect (`shouldReconnect: (_) => false`).
-final class RemoteParticipant implements IRawParticipant {
+/// A participant across a connection, as a guest's `main` has it
+/// (`Guest.join`): a participant, and what the host refused of what it
+/// asked. Frozen (`app.dart`); only the library makes one.
+abstract interface class IGuest implements IParticipant {
+  /// What the host refused of what it asked, and words it was built
+  /// against otherwise than the host has them (`mismatch`).
+  Stream<ParticipantError> get errors;
+
+  /// Withdraws what it did, as `dispose` does, and closes its connection;
+  /// completes once it is closed.
+  Future<void> close();
+}
+
+final class RemoteParticipant implements IRawParticipant, IGuest {
   RemoteParticipant._(
     this.endpoint,
     this._client,
@@ -363,6 +376,7 @@ final class RemoteParticipant implements IRawParticipant {
 
   /// What the registry refused of what it asked: told before the [flush]
   /// that brought the refusal completes.
+  @override
   Stream<ParticipantError> get errors => _errors.stream;
 
   /// Its own states, as it wrote them: name, key, value.
@@ -1201,6 +1215,7 @@ final class RemoteParticipant implements IRawParticipant {
 
   /// Withdraws its words, guards and kinds, stops its mirror and closes its
   /// endpoint.
+  @override
   Future<void> close() async {
     if (_disposed) return;
     _retry?.cancel();

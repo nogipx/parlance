@@ -11,7 +11,7 @@ import 'package:guests_host/in_memory.dart';
 import 'package:notes_guest/notes_guest.dart';
 
 Future<void> main() async {
-  final host = Host();
+  final host = Shell();
   final notes = await loadInMemory(host, 'notes', startNotes);
   final (board, b) = await loadInMemory(host, 'board', startBoard);
   print('guests: notes as ${notes.who}, board as ${board.who}');

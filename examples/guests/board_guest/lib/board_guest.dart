@@ -40,10 +40,10 @@ final class Board {
 /// comes not as the board was built against (the notes guest updated
 /// apart from it), the participant tells it itself: an error `mismatch`
 /// with every break, to [onError], and in development the developer log.
-Future<(RemoteParticipant, Board)> startBoard(
+Future<(IGuest, Board)> startBoard(
   RpcPeerEndpoint endpoint, {
   void Function(ParticipantError error)? onError,
 }) async {
-  final p = await RemoteParticipant.over(endpoint, onError: onError);
+  final p = await Guest.over(endpoint, onError: onError);
   return (p, Board(AppClient(p), NotesClient(p)));
 }

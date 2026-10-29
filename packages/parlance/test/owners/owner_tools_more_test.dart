@@ -65,7 +65,7 @@ final class _Dial implements IOwner {
 
 void main() {
   test('a guard of its own command judges the params and who calls', () async {
-    final r = Registry();
+    final r = Host();
     addTearDown(r.dispose);
     final power = Stream<bool>.empty();
     await r
@@ -91,7 +91,7 @@ void main() {
   });
 
   test('what it heard moves its command\'s status, unasked', () async {
-    final r = Registry();
+    final r = Host();
     addTearDown(r.dispose);
     final power = StreamController<bool>();
     await r
@@ -116,7 +116,7 @@ void main() {
   });
 
   test('a word named at run time is defined as any other', () async {
-    final r = Registry();
+    final r = Host();
     addTearDown(r.dispose);
     final p = r.participant(
       const Principal('dial'),
@@ -128,7 +128,7 @@ void main() {
 
   test('now is the registry\'s clock once attached, the world\'s before', () {
     final then = DateTime.utc(2030, 1, 2);
-    final r = Registry(clock: Clock.fixed(then));
+    final r = Host(clock: Clock.fixed(then));
     addTearDown(r.dispose);
     final dial = _Dial(const Stream.empty());
     expect(dial.now, isNot(then));

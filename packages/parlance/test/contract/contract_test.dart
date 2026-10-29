@@ -3,7 +3,8 @@ import 'package:test/test.dart';
 
 /// The behaviour the frozen libraries promise (docs/план-api.md, Г): what
 /// an app may build on and no release changes. Written with `app.dart`
-/// alone, so what they need is what a developer is given.
+/// alone, so what they need is what a developer is given; what they
+/// watch of the registry to tell, through its tools (`Host.registry`).
 enum _State<T> implements IStateWord<T> {
   level<int>('deck.level', Plain(IntType(min: 0, max: 100)));
 
@@ -57,11 +58,11 @@ final class _Deck implements IOwner {
 }
 
 void main() {
-  late Registry r;
+  late Host r;
   late _Deck deck;
-  late LocalParticipant user;
+  late IParticipant user;
   setUp(() async {
-    r = Registry();
+    r = Host();
     deck = _Deck();
     await r
         .participant(
@@ -96,7 +97,7 @@ void main() {
     deck.level.set(5);
     await user.settle();
     var ticks = 0;
-    final sub = r.ticks.listen((_) => ticks++);
+    final sub = r.registry.ticks.listen((_) => ticks++);
     deck.level.set(5);
     await user.settle();
     await sub.cancel();
@@ -118,7 +119,7 @@ void main() {
 
   test('contract: what a handler writes follows from its call', () async {
     await user.command(_Command.set).call((to: 9), id: 'c9');
-    expect(r.explain('deck.level').change!.cause.parent, 'c9');
+    expect(r.registry.explain('deck.level').change!.cause.parent, 'c9');
   });
 
   test(

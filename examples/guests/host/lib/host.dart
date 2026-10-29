@@ -2,6 +2,8 @@
 /// session for each guest it loads, its words in its own vocabulary.
 library;
 
+import 'dart:async';
+
 import 'package:host_words/host_words.dart';
 import 'package:parlance/app.dart';
 import 'package:rpc_dart/rpc_dart.dart';
@@ -33,41 +35,39 @@ final class AppHost extends AppOwnerBase {
   void toast({required String text}) => toasts.add(text);
 }
 
-/// The app's registry and its words.
-final class Host {
-  Host() {
-    registry
-        .participant(
-          Who.app,
-          vocabularies: [appWords],
-          access: const WordAccess(call: Who.callers),
-        )
-        .attach({'shell': app});
+/// The app's host and its words.
+final class Shell {
+  Shell() {
+    unawaited(
+      host
+          .participant(
+            Who.app,
+            vocabularies: [appWords],
+            access: const WordAccess(call: Who.callers),
+          )
+          .attach({'shell': app}),
+    );
   }
 
-  final Registry registry = Registry();
+  final Host host = Host();
   final AppHost app = AppHost();
-  final Map<String, RemoteSession> _guests = {};
+  final Map<String, IGuestSession> _guests = {};
 
   /// Serves the guest [id] over [endpoint]: a participant of its own, its
   /// words named in the vocabulary of its id (a guest's words come at run
   /// time), its commands called by the guests and the user.
-  RemoteSession load(String id, RpcPeerEndpoint endpoint) {
-    final session = registry
-        .participant(
-          Who.widlet(id),
-          vocabularies: [WordSet.open(id)],
-          access: const WordAccess(call: Who.callers),
-        )
-        .serve(endpoint);
-    _guests[id] = session;
-    return session;
-  }
+  IGuestSession load(String id, RpcPeerEndpoint endpoint) =>
+      _guests[id] = host.serve(
+        endpoint,
+        Who.widlet(id),
+        vocabularies: [WordSet.open(id)],
+        access: const WordAccess(call: Who.callers),
+      );
 
   /// Unloads the guest [id]: its session ends, and its words go with it.
   void unload(String id) => _guests.remove(id)?.close();
 
-  /// Ends it all: the registry takes its participants and the guests'
+  /// Ends it all: the host takes its participants and the guests'
   /// sessions with it.
-  Future<void> dispose() => registry.dispose();
+  Future<void> dispose() => host.dispose();
 }

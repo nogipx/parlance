@@ -60,12 +60,12 @@ final class _Lamp implements IOwner {
 }
 
 void main() {
-  late Registry r;
-  late LocalParticipant p;
+  late Host r;
+  late IParticipant p;
   late _Device device;
   late _Lamp lamp;
   setUp(() {
-    r = Registry();
+    r = Host();
     p = r.participant(
       const Principal('lamp'),
       vocabularies: [WordSet.open('lamp')],
@@ -90,7 +90,7 @@ void main() {
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
     expect(p.read('lamp.level'), 3);
-    expect(r.hasKind('bulb'), isTrue);
+    expect(r.registry.hasKind('bulb'), isTrue);
   });
 
   test('it follows its model: on sync, and when the model tells it, once '

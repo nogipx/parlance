@@ -81,3 +81,13 @@
 
 26. Перевести примеры и Tephra на нового владельца и новые библиотеки.
 27. Объявить контракты замороженными: этот релиз — точка отсчёта для сверки.
+
+## Роли вместо классов (2026-10-29)
+
+Замораживается то, что нужно ролям (владелец, потребитель, `main` хоста и гостя, тесты), а не конкретные классы с их полным API.
+
+- `IParticipant` в `schema.dart` узкий: `who`, `child`, `attach`, `sync`, `settle`, `batch`, `dispose`, чтение и вызовы, типизированные слова через `serve`. Всё по имени и дескриптору — `IRawParticipant` в `participant.dart` (`p.raw`), без обещаний.
+- `OwnerTools`: типизированный `guard`, `now`, доступность перепроверяется сама после `follow`/`listen`/`hear`; `StateWordOf`/`FactWordOf` для слов с именами во время работы; `failCall` в `schema.dart`.
+- `app.dart`: `Host` (final class: `participant`, `serve` → `IGuestSession`, `alias`, `registerType`, `dispose`, `registry` для инструментов), `HostBounds`, `Guest.join`/`Guest.over` → `IGuest`. Конкретные `Registry`, `LocalParticipant`, `RemoteParticipant`, `RemoteSession` ушли из замороженной части.
+- Правило: расти может то, что создаёт только библиотека (final-классы, интерфейсы, которые не реализуют приложения); не растёт то, что реализует приложение (`IOwner`, `IWord`).
+- Типы `rpc_dart` в сигнатурах `Host.serve` и `Guest` приняты как часть контракта.

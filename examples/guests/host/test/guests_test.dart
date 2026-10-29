@@ -5,9 +5,10 @@ import 'package:guests_host/host.dart';
 import 'package:guests_host/in_memory.dart';
 import 'package:notes_guest/notes_guest.dart';
 import 'package:notes_words/notes_words.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/app.dart';
+import 'package:parlance/participant.dart' show IParticipantRaw;
+import 'package:parlance/registry.dart'
+    show CommandDescriptor, StateDescriptor;
 import 'package:test/test.dart';
 
 /// Two guests of one host: the notes guest gives its words, the board
@@ -15,11 +16,11 @@ import 'package:test/test.dart';
 /// words packages; what goes between them is the host's to see.
 
 void main() {
-  late Host host;
+  late Shell host;
   final mismatches = <String, String>{};
 
   setUp(() {
-    host = Host();
+    host = Shell();
     mismatches.clear();
   });
   tearDown(() async {
@@ -27,7 +28,7 @@ void main() {
     await closeInMemory();
   });
 
-  Future<(RemoteParticipant, Board)> board() => loadInMemory(
+  Future<(IGuest, Board)> board() => loadInMemory(
     host,
     'board',
     (e) => startBoard(
@@ -48,7 +49,7 @@ void main() {
     expect((await heard).text, 'buy milk');
     expect(host.app.toasts, ['pinned: buy milk']);
     expect(mismatches, isEmpty);
-    expect(host.registry.mismatches, isEmpty);
+    expect(host.host.registry.mismatches, isEmpty);
     await b.close();
   });
 
@@ -57,7 +58,7 @@ void main() {
     final (p, b) = await board();
     await b.pin('call ann');
     await p.settle();
-    final why = host.registry.explain('notes.all');
+    final why = host.host.registry.explain('notes.all');
     expect(why.change!.cause.by, Who.widlet('notes').child('book'));
     expect(why.trail.first.command, 'notes.add');
     expect(why.trail.first.cause.by, Who.widlet('board'));
@@ -70,8 +71,8 @@ void main() {
       // The notes guest as it was before: `notes.add` took a shorter text,
       // and its notes were texts alone.
       await loadInMemory(host, 'notes', (e) async {
-        final p = await RemoteParticipant.over(e);
-        p.defineCommand(
+        final p = await Guest.over(e);
+        p.raw.defineCommand(
           CommandDescriptor(
             'notes.add',
             params: const ObjectType({'text': Field(TextType(maxLength: 100))}),
@@ -79,10 +80,10 @@ void main() {
           ),
           (_) => null,
         );
-        p.defineState(
+        p.raw.defineState(
           StateDescriptor('notes.all', type: const ListType(TextType())),
         );
-        await p.flush();
+        await p.settle();
         return p;
       });
       final (p, b) = await board();
@@ -97,7 +98,7 @@ void main() {
       );
       expect(NotesClient(p).mismatches.keys, {'notes.add', 'notes.all'});
       // The host is told it too, as the board is.
-      for (final m in host.registry.mismatches) {
+      for (final m in host.host.registry.mismatches) {
         if (m.by != Who.widlet('board')) continue;
         for (final b in m.breaks) {
           expect(mismatches[m.word], contains('$b'));
@@ -117,7 +118,7 @@ void main() {
     host.unload('notes');
     await p.settle();
     expect(p.status('notes.add'), const WordMissing());
-    await notes.close();
+    notes.dispose();
     await b.close();
   });
 

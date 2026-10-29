@@ -12,22 +12,25 @@ library;
 import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
+import 'package:parlance/app.dart';
 import 'package:parlance/mcp.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/participant.dart' show IParticipantRaw;
+import 'package:parlance/registry.dart' show JournalEntry, JournalFact;
 
 import 'house/house.dart';
 import 'house/visit.dart';
 import 'house/words.dart';
 
 Future<void> main() async {
-  // --- The registry and its owner -------------------------------------------
+  // --- The host and its owner ----------------------------------------------
 
-  final registry = Registry(
+  final host = Host(
     overriders: Who.overriders,
     onError: (e, st) => print('error: $e'),
   );
+  // What tools see of it (the journal, why a state is as it is): its
+  // registry, which promises less than the host does.
+  final registry = host.registry;
   // Everything done, as it happens, from the start: a host writes it where
   // it lasts (package:parlance_journal), since what the registry itself
   // remembers is bounded.
@@ -39,7 +42,7 @@ Future<void> main() async {
   // vocabulary (the name its words are named in, said once, in House), who calls its commands when a command does
   // not say (the household), and that the doorbell says who rang (a fact
   // on a visitor's behalf). The owner's code never says what it may.
-  final houseSide = registry.participant(
+  final houseSide = host.participant(
     Who.house,
     vocabularies: [houseWords],
     access: const WordAccess(call: Who.household),
@@ -56,8 +59,8 @@ Future<void> main() async {
   // Ann and bob act through participants of their own, as every part does:
   // what each may call is what its principal may, and main hands out no
   // registry to act as anyone.
-  final ann = registry.participant(Who.ann);
-  final bob = registry.participant(Who.bob);
+  final ann = host.participant(Who.ann);
+  final bob = host.participant(Who.bob);
   final light = ann.state(HouseState.light);
 
   // --- 1. Typed calls, and who may make them --------------------------------
@@ -142,7 +145,7 @@ Future<void> main() async {
   section('A visit, as a scope');
   // A visit is made when guests come and goes when they leave: its words
   // are there only meanwhile, and leave nothing behind.
-  final visitSide = registry.participant(
+  final visitSide = host.participant(
     Who.visit,
     vocabularies: [visitWords],
     access: const WordAccess(call: Who.household),
@@ -171,7 +174,7 @@ Future<void> main() async {
   // The phone is a participant like the house, across a connection: the
   // house opens a session for it and says who it is; it reads what it
   // watches.
-  final phone = await Phone.join(registry, Who.phone('ann-phone'));
+  final phone = await Phone.join(host, Who.phone('ann-phone'));
   // It knows the house through the client made from House: getters and
   // streams for states, methods for commands, no word or record in sight.
   final IHouseClient home = HouseClient(phone.part);
@@ -196,7 +199,7 @@ Future<void> main() async {
 
   section('An agent over MCP');
   final tools = await parlanceTools(
-    registry.participant(Who.agent('demo')),
+    host.participant(Who.agent('demo')).raw,
     commandTools: true,
   );
   print('  its tools: ${[for (final t in tools) t.name].join(', ')}');
@@ -225,7 +228,7 @@ Future<void> main() async {
   ann.dispose();
   bob.dispose();
   houseSide.dispose();
-  await registry.dispose();
+  await host.dispose();
 }
 
 /// A phone's connection: a session the house opens for it, and the phone's
@@ -233,11 +236,11 @@ Future<void> main() async {
 final class Phone {
   Phone._(this.part, this._connection, this._session, this._host);
 
-  static Future<Phone> join(Registry registry, Principal principal) async {
+  static Future<Phone> join(Host house, Principal principal) async {
     final (c, s) = RpcChannelTransport.memoryPair();
     // The host decides who the connection is, when it accepts it.
     final host = RpcPeerEndpoint(transport: s);
-    final session = registry.participant(principal).serve(host);
+    final session = house.serve(host, principal);
     host.start();
     // In memory the connection does not come back once lost; over a socket
     // the factory would dial again, and the phone would join again.
@@ -245,13 +248,13 @@ final class Phone {
       transportFactory: (_) async => c,
       shouldReconnect: (_) => false,
     );
-    final part = await RemoteParticipant.join(connection);
+    final part = await Guest.join(connection);
     return Phone._(part, connection, session, host);
   }
 
-  final RemoteParticipant part;
+  final IGuest part;
   final RpcClientConnection _connection;
-  final RemoteSession _session;
+  final IGuestSession _session;
   final RpcPeerEndpoint _host;
 
   Future<void> close() async {

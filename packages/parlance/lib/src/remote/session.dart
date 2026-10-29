@@ -62,7 +62,22 @@ extension ServeParticipant on LocalParticipant {
 /// over the same connection. It ends by itself when the connection does
 /// (its transport ends), its words going; [close] ends it sooner, the
 /// connection still up.
-final class RemoteSession extends ParlanceContractPeer {
+/// A guest served (`Host.serve`): who it is, when it ended, and its end.
+/// Frozen (`app.dart`); only the library makes one.
+abstract interface class IGuestSession {
+  /// Who the guest speaks as.
+  Principal get who;
+
+  /// Completes when the session ended: closed, taken over by a new one, or
+  /// its connection gone. Its words went with it.
+  Future<void> get ended;
+
+  /// Ends the session: its words go, its calls are refused.
+  void close();
+}
+
+final class RemoteSession extends ParlanceContractPeer
+    implements IGuestSession {
   RemoteSession._(
     super.endpoint,
     LocalParticipant participant, {
@@ -929,10 +944,20 @@ final class RemoteSession extends ParlanceContractPeer {
     close();
   }
 
+  @override
+  Principal get who => principal;
+
+  final Completer<void> _ended = Completer();
+
+  @override
+  Future<void> get ended => _ended.future;
+
   /// Ends the session: its words go, its calls are refused.
+  @override
   void close() {
     if (_closed) return;
     _closed = true;
+    _ended.complete();
     if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
     unawaited(_catalogUse?.cancel());
     unawaited(_renames?.cancel());
