@@ -1417,5 +1417,6 @@ String _snake(String s) => s
 
 String _pascal(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
+/// [s] as a Dart string literal of one line.
 String _quote(String s) =>
-    "'${s.replaceAll(r'\', r'\\').replaceAll("'", r"\'").replaceAll(r'$', r'\$')}'";
+    "'${s.replaceAll(r'\', r'\\').replaceAll("'", r"\'").replaceAll(r'$', r'\$').replaceAll('\n', r'\n').replaceAll('\r', r'\r')}'";
