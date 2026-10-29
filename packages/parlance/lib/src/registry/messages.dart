@@ -570,9 +570,13 @@ final class CallRefused extends CallResult<Never> {
 }
 
 final class CallFailed extends CallResult<Never> {
-  const CallFailed(this.error);
+  const CallFailed(this.error, [this.stackTrace]);
 
   final Object error;
+
+  /// Where a handler in this process threw [error]: kept for the call's
+  /// span in the log, never sent across a connection.
+  final StackTrace? stackTrace;
 
   @override
   String toString() => 'failed($error)';

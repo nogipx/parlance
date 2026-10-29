@@ -145,7 +145,7 @@ void main() {
   );
 
   test('a refusal is told, and opens no span; a failure ends its span as an '
-      'error', () async {
+      'error, with where it was thrown', () async {
     final r = Registry(log: logs.scope('parlance'), onError: (e, _) {});
     r.defineCommand(
       CommandDescriptor('x.bad', callers: Callers.only(['user'])),
@@ -160,6 +160,7 @@ void main() {
     expect(refused.data, containsPair('code', 'notPermitted'));
     expect(refused.data, containsPair('by', viewer.selector));
     expect(spans().single.status, LogSpanStatus.error);
+    expect('${spans().single.stackTrace}', contains('log_test.dart'));
     await r.dispose();
   });
 

@@ -102,8 +102,12 @@ final class CallTraces {
     }
     if (late) span.addData({'late': true});
     switch (r) {
-      case CallFailed(:final error):
-        span.end(status: LogSpanStatus.error, error: error);
+      case CallFailed(:final error, :final stackTrace):
+        span.end(
+          status: LogSpanStatus.error,
+          error: error,
+          stackTrace: stackTrace,
+        );
       case _:
         span.end();
     }

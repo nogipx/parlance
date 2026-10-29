@@ -1062,17 +1062,22 @@ final class Registry implements ITypeContext {
       // The handler goes on: its end is recorded as late, and a retry with
       // the call's id answers it.
       unawaited(
-        work.then(answered, onError: (Object e) => CallFailed(e)).then((r) {
-          if (_calls[id] case final c?) {
-            c.result = Future.value(r);
-          }
-          _running.remove(id);
-          _trace.close(id, span, r, late: true, query: entry.query);
-          finish(r, late: true);
-        }),
+        work
+            .then(
+              answered,
+              onError: (Object e, StackTrace s) => CallFailed(e, s),
+            )
+            .then((r) {
+              if (_calls[id] case final c?) {
+                c.result = Future.value(r);
+              }
+              _running.remove(id);
+              _trace.close(id, span, r, late: true, query: entry.query);
+              finish(r, late: true);
+            }),
       );
-    } catch (e) {
-      result = CallFailed(e);
+    } catch (e, s) {
+      result = CallFailed(e, s);
     }
     if (result is! CallTimedOut) {
       _running.remove(id);
