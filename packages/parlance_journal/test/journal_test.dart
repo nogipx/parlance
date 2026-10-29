@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance_journal/parlance_journal.dart';
@@ -364,5 +365,68 @@ call chat.say by viewer/twitch.7 -> done
     expect(names, contains('notes.txt'));
     expect(names, isNot(contains('journal-2026-01-01.jsonl')));
     expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+  });
+  test('an entry after a line cut short is a line of its own', () async {
+    final today = File(
+      '${dir.path}/journal-${DateTime.now().toUtc().toIso8601String().substring(0, 10)}.jsonl',
+    )..writeAsStringSync('{"epo');
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await w.close();
+    await s.r.dispose();
+    expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+    expect(today.readAsLinesSync().first, '{"epo');
+  });
+
+  test('a character cut short loses its line, not its day', () async {
+    final s = Studio();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.chat('irc:1');
+    await w.close();
+    await s.r.dispose();
+    final day = JournalReader(dir).files.single;
+    day.writeAsBytesSync([...'{"x":"'.codeUnits, 0xD0], mode: FileMode.append);
+    expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+    final out = File('${dir.path}/out.jsonl');
+    expect(await JournalReader(dir).export(out), 8);
+  });
+
+  test('a day whose file would not open is written once it opens', () async {
+    var now = DateTime.utc(2026, 10, 27, 23);
+    final r = Registry(clock: Clock(() => now));
+    r
+        .participant(studio, vocabularies: [const WordSet.open('clip')])
+        .defineCommand(
+          CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
+          (_) {},
+        );
+    final errors = <Object>[];
+    final w = JournalWriter(
+      r.journal,
+      dir: dir,
+      onError: (e, _) => errors.add(e),
+    );
+    Future<void> cover(String id) async {
+      await r.participant(user).call('clip.cover', {}, id: id);
+      await pumpEventQueue();
+    }
+
+    await cover('a');
+    final blocked = Directory('${dir.path}/journal-2026-10-28.jsonl')
+      ..createSync();
+    now = DateTime.utc(2026, 10, 28, 1);
+    await cover('b');
+    expect(errors, isNotEmpty);
+    final failed = errors.length;
+    blocked.deleteSync();
+    await cover('c');
+    await w.close();
+    await r.dispose();
+    expect(errors, hasLength(failed), reason: 'it came back');
+    expect(
+      {for (final e in JournalReader(dir).days().entries) e.id},
+      {'a', 'c'},
+    );
   });
 }

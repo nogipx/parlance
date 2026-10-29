@@ -10,5 +10,6 @@ dependencies:
   parlance: any
 
 dev_dependencies:
+  clock: ^1.1.0
   rpc_dart: any
   test: ^1.25.0

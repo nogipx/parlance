@@ -54,12 +54,7 @@ final class JournalWriter {
   set on(bool value) {
     if (value == on || (value && _closed)) return;
     if (value) {
-      try {
-        dir.createSync(recursive: true);
-        _prune(_now());
-      } catch (err, st) {
-        _onError(err, st);
-      }
+      _prune(_now());
       _sub = _journal.listen(_add);
     } else {
       unawaited(_sub!.cancel());
@@ -81,14 +76,15 @@ final class JournalWriter {
   static void _ignore(Object _, StackTrace _) {}
 
   void _add(JournalEntry e) {
+    final day = dayOf(e.at);
+    var turned = false;
     try {
-      final day = dayOf(e.at);
       if (day != _day) {
-        _file?.closeSync();
-        _file = File(
-          '${dir.path}/${fileOfDay(day)}',
-        ).openSync(mode: FileMode.append);
-        if (_day != null) _prune(e.at);
+        turned = _day != null;
+        // Closed and forgotten first: a file that would not open is
+        // opened again with the next entry, not the closed one kept.
+        _closeFile();
+        _file = _open(File('${dir.path}/${fileOfDay(day)}'));
         _day = day;
       }
       final json = payloads ? e.toJson() : _bare(e.toJson());
@@ -96,18 +92,41 @@ final class JournalWriter {
     } catch (err, st) {
       _onError(err, st);
     }
+    if (turned) _prune(e.at);
+  }
+
+  /// [f] to append to, its last line ended if it was cut short (the app
+  /// stopped while writing it): the next entry is a line of its own.
+  RandomAccessFile _open(File f) {
+    dir.createSync(recursive: true);
+    final file = f.openSync(mode: FileMode.append);
+    try {
+      final length = file.lengthSync();
+      if (length > 0) {
+        file.setPositionSync(length - 1);
+        if (file.readByteSync() != 0x0A) file.writeByteSync(0x0A);
+      }
+    } catch (_) {
+      file.closeSync();
+      rethrow;
+    }
+    return file;
   }
 
   void _prune(DateTime now) {
     final oldest = dayOf(now.subtract(keep));
-    for (final (day, f) in journalFiles(dir)) {
-      if (day.compareTo(oldest) < 0) {
-        try {
-          f.deleteSync();
-        } catch (err, st) {
-          _onError(err, st);
+    try {
+      for (final (day, f) in journalFiles(dir)) {
+        if (day.compareTo(oldest) < 0) {
+          try {
+            f.deleteSync();
+          } catch (err, st) {
+            _onError(err, st);
+          }
         }
       }
+    } catch (err, st) {
+      _onError(err, st);
     }
   }
 

@@ -27,7 +27,7 @@ final class JournalReader {
     for (final (day, f) in journalFiles(dir)) {
       if (from != null && day.compareTo(from) < 0) continue;
       if (to != null && day.compareTo(to) > 0) continue;
-      for (final line in f.readAsLinesSync()) {
+      for (final line in _lines(f.readAsBytesSync())) {
         if (line.isEmpty) continue;
         try {
           yield JournalEntry.fromJson(jsonDecode(line));
@@ -56,7 +56,7 @@ final class JournalReader {
     IOSink? out;
     try {
       for (final f in days) {
-        for (final line in await f.readAsLines()) {
+        for (final line in _lines(await f.readAsBytes())) {
           if (line.trim().isEmpty) continue;
           (out ??= to.openWrite()).writeln(line);
           lines++;
@@ -115,3 +115,8 @@ final class JournalReader {
   List<JournalLink> links({DateTime? since, DateTime? until}) =>
       days(since: since, until: until).links();
 }
+
+/// The lines of a file, a character cut short when the app stopped (its
+/// last line) read as one not known rather than the day not read at all.
+List<String> _lines(List<int> bytes) =>
+    const LineSplitter().convert(utf8.decode(bytes, allowMalformed: true));
