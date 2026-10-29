@@ -101,6 +101,33 @@ void main() {
     expect(mirror.descriptorOf('deck.feed'), isNull);
   });
 
+  test('a command whose params, or a variant, are of a type it does not '
+      'know is no word to it', () {
+    final mirror = RegistryMirror()
+      ..takeCatalog({
+        'descriptors': [
+          {
+            'is': 'command',
+            'name': 'deck.at',
+            'params': {'type': 'date'},
+          },
+          {
+            'is': 'state',
+            'name': 'deck.shape',
+            'type': {
+              'type': 'oneOf',
+              'key': 'is',
+              'variants': {
+                'when': {'type': 'date'},
+              },
+            },
+          },
+        ],
+      });
+    expect(mirror.descriptorOf('deck.at'), isNull);
+    expect(mirror.descriptorOf('deck.shape'), isNull);
+  });
+
   test('a possible break is met only by the word its old name stands for '
       'now', () async {
     final host = TestHost();

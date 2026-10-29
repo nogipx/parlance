@@ -67,7 +67,7 @@ sealed class ValueType<T> {
         json['key'] as String,
         {
           for (final e in (json['variants'] as Map).entries)
-            e.key as String: ValueType.fromJson(e.value) as ObjectType,
+            e.key as String: ObjectType.fromJson(e.value),
         },
         descriptions: {
           for (final e in (json['descriptions'] as Map? ?? const {}).entries)
@@ -290,6 +290,14 @@ final class Field {
 /// ones (or null) get their default.
 final class ObjectType extends ValueType<Map<String, Object?>> {
   const ObjectType(this.fields);
+
+  /// [json] as an object type: params, a variant. Another type (one a
+  /// newer parlance has) is a [FormatException], as a word of it is.
+  factory ObjectType.fromJson(Object? json) =>
+      switch (ValueType.fromJson(json)) {
+        final ObjectType o => o,
+        final t => throw FormatException('not an object type: ${t.toJson()}'),
+      };
 
   final Map<String, Field> fields;
 
