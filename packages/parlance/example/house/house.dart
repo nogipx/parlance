@@ -35,7 +35,7 @@ final class Devices {
 /// them, keeps what it set and says its facts; this serves the commands
 /// on [devices], answers the query and sets its states. What a handler
 /// sets follows from its call: no cause is written.
-final class Home extends HouseOwner {
+final class Home extends HouseOwnerBase {
   Home(this.devices) {
     _rooms = trackKind(
       room,

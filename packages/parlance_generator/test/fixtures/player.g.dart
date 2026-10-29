@@ -210,8 +210,8 @@ enum PlayerFact<T> implements IFactWord<T> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class PlayerOwner implements IOwner {
-  PlayerOwner() {
+abstract class PlayerOwnerBase implements IOwner {
+  PlayerOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 

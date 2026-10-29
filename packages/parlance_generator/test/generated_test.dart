@@ -15,7 +15,7 @@ const anyone = Callers({'*': Access.allow});
 
 /// A player's owner: only its handlers, and what it sets; no cause, no
 /// handle, no copy of its states.
-final class Deck extends PlayerOwner {
+final class Deck extends PlayerOwnerBase {
   Deck() {
     volume = 50;
     repeat = Repeat.off;

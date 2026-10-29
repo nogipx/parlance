@@ -29,10 +29,10 @@ abstract class Player {
 }
 ```
 
-`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwner` and the client, `IPlayerClient` with `PlayerClient` over a view, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; the base keeps what it sets and writes it once attached, and what a handler does follows from its call:
+`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwnerBase` and the client, `IPlayerClient` with `PlayerClient` over a view, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; the base keeps what it sets and writes it once attached, and what a handler does follows from its call:
 
 ```dart
-final class Deck extends PlayerOwner {
+final class Deck extends PlayerOwnerBase {
   Deck() {
     volume = 50;
   }

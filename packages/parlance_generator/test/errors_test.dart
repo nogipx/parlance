@@ -91,7 +91,7 @@ $body
     'two members of the owner base of one name': (
       '@CommandWord(available: true) void go();\n'
           '@CommandWord() void whyNotGo();',
-      'whyNotGo is had twice by OrdersOwner',
+      'whyNotGo is had twice by OrdersOwnerBase',
     ),
     'a word named as what the owner base keeps it said': (
       '@StateWord() int get said;',

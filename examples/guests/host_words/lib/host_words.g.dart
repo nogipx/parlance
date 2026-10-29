@@ -46,8 +46,8 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class AppOwner implements IOwner {
-  AppOwner() {
+abstract class AppOwnerBase implements IOwner {
+  AppOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 
