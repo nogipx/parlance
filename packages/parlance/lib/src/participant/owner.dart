@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
+import '../registry/words.dart' show Fact;
+import 'serving.dart';
 import 'participant.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
@@ -53,7 +55,7 @@ abstract base class Owner implements IHandle {
     if (_participant != null) throw StateError('$runtimeType is attached');
     _participant = p;
     _group = group;
-    define(p);
+    (_made[this]?.define ?? define)(p);
     if (changes case final c?) listen(c, (_) => group._changed(this));
   }
 
@@ -64,11 +66,34 @@ abstract base class Owner implements IHandle {
   Stream<void>? get changes => null;
 
   /// Defines its words through [p]; keep what each returns with [keep].
-  void define(IParticipant p);
+  /// An owner base the generator made defines them itself ([made]), and
+  /// one that extends it writes none of this.
+  void define(IParticipant p) {}
 
-  /// Writes its states as they are now. `IParticipant.sync` calls every
-  /// owner's in one batch, so a change is seen whole.
+  /// Writes its states as they are now, from what it keeps elsewhere (a
+  /// model, a device). `IParticipant.sync` calls every owner's in one
+  /// batch, so a change is seen whole. An owner the generator's base keeps
+  /// the values of needs none: what it set is written for it.
   void sync() {}
+
+  /// What a base the generator made does for [owner] that the owner does
+  /// not write: [define] its words, and write before its [sync] what it
+  /// set before it was attached. Called by the base, in its constructor.
+  static void made(
+    Owner owner, {
+    required void Function(IParticipant p) define,
+    void Function()? write,
+  }) => _made[owner] = (define: define, write: write);
+
+  static final Expando<
+    ({void Function(IParticipant p) define, void Function()? write})
+  >
+  _made = Expando('made');
+
+  void _sync() {
+    _made[this]?.write?.call();
+    sync();
+  }
 
   /// Keeps [h] to withdraw when the owner goes, and gives it back.
   H keep<H extends IHandle>(H h) => _handles.keep(h);
@@ -78,6 +103,18 @@ abstract base class Owner implements IHandle {
   /// emit.
   void listen<T>(Stream<T> stream, void Function(T) onData) =>
       keep(_Listening(stream.listen(onData)));
+
+  /// Hears [facts] while it is attached (another's, through its client's
+  /// `<fact>Facts`): what [onData] writes, says and calls follows from the
+  /// fact it hears, as a handler's follows from its call.
+  void hear<T>(Stream<Fact<T>> facts, void Function(T payload) onData) =>
+      listen(
+        facts,
+        (f) => following(
+          (by) => f.cause.child(f.message.id, by: by, word: f.message.fact),
+          () => onData(f.payload),
+        ),
+      );
 
   /// Registers a kind of entities it keeps, [list] the ones there are now.
   TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {
@@ -197,7 +234,7 @@ final class OwnerGroup {
     participant.batch(() {
       for (final o in owners) {
         try {
-          participant.batch(o.sync);
+          participant.batch(o._sync);
         } catch (e, s) {
           error ??= e;
           stack ??= s;

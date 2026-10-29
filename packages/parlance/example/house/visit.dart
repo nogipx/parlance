@@ -7,27 +7,19 @@ import 'package:parlance/schema.dart';
 import 'words.dart';
 
 /// Keeps who is visiting: it hears the doorbell and sees guests out. It
-/// knows the house only by its words. Its own words and their writers
-/// come from its base, made from [Visit].
+/// knows the house only by its words. Its own words come from its base,
+/// made from [Visit]; what it sets in answer to the ring follows from it.
 final class GuestBook extends VisitOwner {
-  final List<String> _in = [];
+  GuestBook() {
+    guests = const [];
+  }
 
   @override
   void defineMore(IParticipant p) {
-    // It hears the house through the house's client: the fact with its
-    // message, so what it writes follows from the ring.
-    listen(HouseClient(p).rangFacts, (f) {
-      _in.add(f.payload.who);
-      guests.set([..._in], cause: Cause(p.who, parent: f.message.id));
-    });
+    hear(HouseClient(p).rangFacts, (rang) => guests = [...?guests, rang.who]);
   }
 
   @override
-  void leave(CommandCallOf<VisitLeave> call) {
-    _in.remove(call.params.who);
-    guests.set([..._in], cause: call.inReply);
-  }
-
-  @override
-  void sync() => guests.set([..._in]);
+  void leave({required String who}) =>
+      guests = [...?guests?.where((g) => g != who)];
 }

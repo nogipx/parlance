@@ -17,24 +17,21 @@ final class Pinboard extends BoardOwner {
   }
 
   @override
-  void sync() {}
-
-  @override
-  ({String id}) put(CommandCallOf<BoardPut> call) {
-    final id = call.params.id ?? 'n${up.length + 1}';
-    up[id] = call.params.note;
-    notes.set(call.params.note, key: id, cause: call.inReply);
-    return (id: id);
+  ({String id}) put({String? id, required Note note}) {
+    final at = id ?? 'n${up.length + 1}';
+    up[at] = note;
+    notes[at] = note;
+    return (id: at);
   }
 
   @override
-  void expire(CommandCallOf<BoardExpire> call) => expiries.add(call.params.ms);
+  void expire({required String id, required int ms}) => expiries.add(ms);
 
   @override
-  void count(CommandCallOf<BoardCount> call) {}
+  void count({required int? readers}) {}
 
   @override
-  void pin(CommandCallOf<BoardPin> call) {}
+  void pin({required List<String> ids}) {}
 }
 
 /// What a vocabulary says beyond `Player`'s: records of named fields as
@@ -146,9 +143,9 @@ void main() {
   test('a word named as its vocabulary, any value, a duration by its JSON '
       'name', () async {
     expect(BoardState.notes.name, 'note');
-    board.anything.set({'a': 1});
+    board.anything = {'a': 1};
     expect(asAnn.read('note.anything'), {'a': 1});
-    board.anything.set(null);
+    board.anything = null;
     expect(asAnn.read('note.anything'), isNull);
     expect(r.commandDescriptor('note.expire')!.params.toJson()['fields'], {
       'id': {

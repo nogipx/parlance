@@ -32,8 +32,9 @@ final class Devices {
 }
 
 /// The owner of the house's words: its base, made from [House], defines
-/// them, keeps their writers and says its facts; this serves the commands
-/// from [devices], answers the query and writes its states.
+/// them, keeps what it set and says its facts; this serves the commands
+/// on [devices], answers the query and sets its states. What a handler
+/// sets follows from its call: no cause is written.
 final class Home extends HouseOwner {
   Home(this.devices);
 
@@ -59,35 +60,27 @@ final class Home extends HouseOwner {
       p.addGuard('night-door', (call) {
         if (call.command.name != HouseCommand.lock.name) return null;
         final unlock = call.params['on'] == false;
-        final night = p.state(HouseState.mode).read() == Mode.night;
-        return unlock && night ? 'the door stays locked at night' : null;
+        return unlock && mode == Mode.night
+            ? 'the door stays locked at night'
+            : null;
       }),
     );
   }
 
   @override
-  void setLight(CommandCallOf<HouseSetLight> call) {
-    devices.lights[call.params.room] = call.params.on;
-    light.set(call.params.on, key: call.params.room, cause: call.inReply);
+  void setLight({required String room, required bool on}) {
+    devices.lights[room] = on;
+    light[room] = on;
   }
 
   @override
-  void setHeat(CommandCallOf<HouseSetHeat> call) {
-    devices.heat = call.params.target;
-    heat.set(devices.heat, cause: call.inReply);
-  }
+  void setHeat({required num target}) => heat = devices.heat = target;
 
   @override
-  void setMode(CommandCallOf<HouseSetMode> call) {
-    devices.mode = call.params.mode;
-    mode.set(devices.mode, cause: call.inReply);
-  }
+  void setMode({required Mode mode}) => this.mode = devices.mode = mode;
 
   @override
-  void lock(CommandCallOf<HouseLock> call) {
-    devices.locked = call.params.on;
-    locked.set(devices.locked, cause: call.inReply);
-  }
+  void lock({required bool on}) => locked = devices.locked = on;
 
   @override
   String? whyNotLock() => devices.mode == Mode.away && !devices.locked
@@ -97,26 +90,27 @@ final class Home extends HouseOwner {
   /// Which rooms are lit: it changes nothing, so anyone may ask, and ask
   /// again.
   @override
-  List<String> rooms(QueryAsk<HouseRooms> ask) => [
+  List<String> rooms({required bool lit}) => [
     for (final MapEntry(:key, :value) in devices.lights.entries)
-      if (value == ask.params.lit) key,
+      if (value == lit) key,
   ];
 
-  /// Writes what the devices say now, as one tick with its group.
+  /// Sets what the devices say now: the house's devices are its model, so
+  /// it is synced from them, as one tick with its group.
   @override
   void sync() {
     for (final gone in _rooms.sync()) {
-      light.remove(key: gone);
+      light.remove(gone);
     }
     for (final MapEntry(:key, :value) in devices.lights.entries) {
-      light.set(value, key: key);
+      light[key] = value;
     }
-    heat.set(devices.heat);
-    mode.set(devices.mode);
-    locked.set(devices.locked);
+    heat = devices.heat;
+    mode = devices.mode;
+    locked = devices.locked;
   }
 
   /// The doorbell: [by] rang it, and the fact says so; its base says it
   /// (`rang`), as it says what the motion sensor sees (`motion`).
-  void ring(Principal by, String who) => rang(who: who, cause: Cause(by));
+  void ring(Principal by, String who) => rang(who: who, by: by);
 }

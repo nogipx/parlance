@@ -25,14 +25,14 @@ abstract final class Who {
 
 /// The owner of the app's words.
 final class AppHost extends AppOwner {
-  bool darkNow = false;
+  AppHost() {
+    dark = false;
+  }
+
   final List<String> toasts = [];
 
   @override
-  void sync() => dark.set(darkNow);
-
-  @override
-  void toast(CommandCallOf<AppToast> call) => toasts.add(call.params.text);
+  void toast({required String text}) => toasts.add(text);
 }
 
 /// The app's registry and its words.

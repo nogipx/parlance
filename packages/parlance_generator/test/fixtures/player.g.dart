@@ -205,28 +205,81 @@ enum PlayerFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
-/// The owner base of [Player]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [Player]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class PlayerOwner extends Owner {
-  /// Writes player.volume.
-  late final StateWriterOf<int> volume;
+  PlayerOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  /// Writes player.repeat.
-  late final StateWriterOf<Repeat> repeat;
+  StateWriterOf<int>? _volume;
+  int? _volumeNow;
+  var _volumeSet = false;
 
-  /// Writes player.playing.
-  late final StateWriterOf<Track?> playing;
+  /// player.volume, as this owner last set it.
+  int? get volume => _volumeNow;
 
-  /// Writes player.speaker.level.
-  late final StateWriterOf<num> speakerLevel;
-  late final FactEmitterOf<PlayerClipped> _clipped;
-  late final FactEmitterOf<Track> _finished;
+  /// Sets player.volume.
+  set volume(int value) {
+    _volumeNow = value;
+    _volumeSet = true;
+    _volume?.set(value);
+  }
 
-  @override
-  void define(IParticipant p) {
-    volume = keep(
+  StateWriterOf<Repeat>? _repeat;
+  Repeat? _repeatNow;
+  var _repeatSet = false;
+
+  /// player.repeat, as this owner last set it.
+  Repeat? get repeat => _repeatNow;
+
+  /// Sets player.repeat.
+  set repeat(Repeat value) {
+    _repeatNow = value;
+    _repeatSet = true;
+    _repeat?.set(value);
+  }
+
+  StateWriterOf<Track?>? _playing;
+  Track? _playingNow;
+  var _playingSet = false;
+
+  /// player.playing, as this owner last set it.
+  Track? get playing => _playingNow;
+
+  /// Sets player.playing.
+  set playing(Track? value) {
+    _playingNow = value;
+    _playingSet = true;
+    _playing?.set(value);
+  }
+
+  /// player.speaker.level, by speaker: what this owner set of each,
+  /// read and written as a map is.
+  final Keyed<num> speakerLevel = Keyed<num>();
+
+  FactEmitterOf<PlayerClipped>? _clipped;
+  FactEmitterOf<Track>? _finished;
+
+  /// What it said while not attached, for a test to read:
+  /// each fact's name and payload, in order.
+  final List<(String, Object?)> said = [];
+
+  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+    if (e == null) {
+      said.add((fact, payload));
+    } else if (by == null) {
+      e.emit(payload);
+    } else {
+      e.emitFor(payload, by);
+    }
+  }
+
+  void _define(IParticipant p) {
+    _volume = keep(
       p
           .state(PlayerState.volume)
           .define(
@@ -236,64 +289,98 @@ abstract base class PlayerOwner extends Owner {
             },
           ),
     );
-    repeat = keep(p.state(PlayerState.repeat).define());
-    playing = keep(p.state(PlayerState.playing).define());
-    speakerLevel = keep(p.state(PlayerState.speakerLevel).define());
+    _repeat = keep(p.state(PlayerState.repeat).define());
+    _playing = keep(p.state(PlayerState.playing).define());
+    Keyed.attach(
+      speakerLevel,
+      keep(p.state(PlayerState.speakerLevel).define()),
+    );
     _clipped = keep(p.fact(PlayerFact.clipped).define());
     _finished = keep(p.fact(PlayerFact.finished).define());
-    keep(p.command(PlayerCommand.setVolume).define(setVolume));
+    keep(
+      p
+          .command(PlayerCommand.setVolume)
+          .define((c) => setVolume(volume: c.params.volume)),
+    );
     keep(
       p
           .command(PlayerCommand.play)
           .define(
-            play,
+            (c) => play(
+              track: c.params.track,
+              repeat: c.params.repeat,
+              on: c.params.on,
+            ),
             deadline: const Duration(microseconds: 5000000),
             available: whyNotPlay,
           ),
     );
-    keep(p.command(PlayerCommand.skip).define(skip));
+    keep(
+      p.command(PlayerCommand.skip).define((c) => skip(count: c.params.count)),
+    );
     keep(
       p
           .command(PlayerCommand.stop)
-          .define(stop, callers: const Callers({'listener': Access.allow})),
+          .define(
+            (c) => stop(),
+            callers: const Callers({'listener': Access.allow}),
+          ),
     );
     keep(
       p
           .query(PlayerQuery.search)
-          .define(search, askers: const Callers({'*': Access.allow})),
+          .define(
+            (a) => search(text: a.params.text, limit: a.params.limit),
+            askers: const Callers({'*': Access.allow}),
+          ),
     );
     defineMore(p);
   }
 
-  /// Says player.clipped; [cause] as a write's.
-  void clipped({required int volume, Cause? cause}) =>
-      _clipped.emit((volume: volume), cause: cause);
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    if (_volumeSet) _volume!.set(_volumeNow as int);
+    if (_repeatSet) _repeat!.set(_repeatNow as Repeat);
+    if (_playingSet) _playing!.set(_playingNow);
+    Keyed.writeAll(speakerLevel);
+  }
 
-  /// Says player.finished; [cause] as a write's.
-  void finished(Track track, {Cause? cause}) =>
-      _finished.emit(track, cause: cause);
+  /// Says player.clipped; on behalf of [by], when given.
+  void clipped({required int volume, Principal? by}) =>
+      _say('player.clipped', _clipped, (volume: volume), by);
+
+  /// Says player.finished; on behalf of [by], when given.
+  void finished(Track track, {Principal? by}) =>
+      _say('player.finished', _finished, track, by);
 
   /// What [Player] does not say: kinds, guards, words named at
   /// run time. After its words are defined.
   void defineMore(IParticipant p) {}
 
   /// Serves player.volume.set.
-  void setVolume(CommandCallOf<PlayerSetVolume> call);
+  void setVolume({required int volume});
 
   /// Serves player.play.
-  Future<void> play(CommandCallOf<PlayerPlay> call);
+  Future<void> play({
+    required Track track,
+    Repeat repeat = Repeat.off,
+    String? on,
+  });
 
   /// Why player.play cannot run now; null when it can.
   String? whyNotPlay();
 
   /// Serves player.skip.
-  int skip(CommandCallOf<PlayerSkip> call);
+  int skip({int count = 1});
 
   /// Serves player.stop.
-  void stop(CommandCallOf<()> call);
+  void stop();
 
   /// Answers player.search.
-  List<Track> search(QueryAsk<PlayerSearch> ask);
+  List<Track> search({required String text, int? limit});
 }
 
 /// The words of [Player] as a consumer uses them: what a part

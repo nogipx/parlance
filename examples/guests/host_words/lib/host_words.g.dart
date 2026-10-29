@@ -41,19 +41,42 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
   final Shape<R>? returns;
 }
 
-/// The owner base of [App]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [App]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class AppOwner extends Owner {
-  /// Writes app.dark.
-  late final StateWriterOf<bool> dark;
+  AppOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  @override
-  void define(IParticipant p) {
-    dark = keep(p.state(AppState.dark).define());
-    keep(p.command(AppCommand.toast).define(toast));
+  StateWriterOf<bool>? _dark;
+  bool? _darkNow;
+  var _darkSet = false;
+
+  /// app.dark, as this owner last set it.
+  bool? get dark => _darkNow;
+
+  /// Sets app.dark.
+  set dark(bool value) {
+    _darkNow = value;
+    _darkSet = true;
+    _dark?.set(value);
+  }
+
+  void _define(IParticipant p) {
+    _dark = keep(p.state(AppState.dark).define());
+    keep(p.command(AppCommand.toast).define((c) => toast(text: c.params.text)));
     defineMore(p);
+  }
+
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    if (_darkSet) _dark!.set(_darkNow as bool);
   }
 
   /// What [App] does not say: kinds, guards, words named at
@@ -61,7 +84,7 @@ abstract base class AppOwner extends Owner {
   void defineMore(IParticipant p) {}
 
   /// Serves app.toast.
-  void toast(CommandCallOf<AppToast> call);
+  void toast({required String text});
 }
 
 /// The words of [App] as a consumer uses them: what a part

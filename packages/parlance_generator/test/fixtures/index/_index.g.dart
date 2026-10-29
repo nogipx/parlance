@@ -19,18 +19,31 @@ enum DoorsState<T> implements IStateWord<T> {
   final String? key;
 }
 
-/// The owner base of [Doors]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [Doors]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class DoorsOwner extends Owner {
-  /// Writes door.room.
-  late final StateWriterOf<Room> room;
+  DoorsOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  @override
-  void define(IParticipant p) {
-    room = keep(p.state(DoorsState.room).define());
+  /// door.room, by door: what this owner set of each,
+  /// read and written as a map is.
+  final Keyed<Room> room = Keyed<Room>();
+
+  void _define(IParticipant p) {
+    Keyed.attach(room, keep(p.state(DoorsState.room).define()));
     defineMore(p);
+  }
+
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    Keyed.writeAll(room);
   }
 
   /// What [Doors] does not say: kinds, guards, words named at
@@ -136,15 +149,26 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
   final Shape<R>? returns;
 }
 
-/// The owner base of [Lights]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [Lights]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class LightsOwner extends Owner {
-  @override
-  void define(IParticipant p) {
-    keep(p.command(LightsCommand.on).define(on));
+  LightsOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
+
+  void _define(IParticipant p) {
+    keep(p.command(LightsCommand.on).define((c) => on(room: c.params.room)));
     defineMore(p);
+  }
+
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
   }
 
   /// What [Lights] does not say: kinds, guards, words named at
@@ -152,7 +176,7 @@ abstract base class LightsOwner extends Owner {
   void defineMore(IParticipant p) {}
 
   /// Serves light.on.
-  void on(CommandCallOf<LightsOn> call);
+  void on({required Room room});
 }
 
 /// The words of [Lights] as a consumer uses them: what a part

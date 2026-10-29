@@ -84,13 +84,22 @@ $body
       '@StateWord() int get sync;',
       'sync is a member of Owner',
     ),
+    'a fact with a param named by': (
+      '@FactWord() void spoke({required String by});',
+      "a fact's param is not named by",
+    ),
+    'two members of the owner base of one name': (
+      '@CommandWord(available: true) void go();\n'
+          '@CommandWord() void whyNotGo();',
+      'whyNotGo is had twice by OrdersOwner',
+    ),
+    'a word named as what the owner base keeps it said': (
+      '@StateWord() int get said;',
+      'said is a member of Owner',
+    ),
     'two members of the client of one name': (
       '@StateWord() int get total;\n@CommandWord() void totalChanges();',
       'totalChanges is had twice by OrdersClient',
-    ),
-    'a fact with a param named cause': (
-      '@FactWord() void said({required String cause});',
-      "a fact's param is not named cause",
     ),
   };
   for (final MapEntry(key: what, value: (body, says)) in cases.entries) {

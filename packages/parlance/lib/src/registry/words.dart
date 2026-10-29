@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../participant/serving.dart' show inReplyAs;
 import 'cause.dart';
 import 'descriptors.dart';
 import 'ids.dart';
@@ -286,6 +287,48 @@ final class StateWriterOf<T> implements IHandle, IStateWriter<T> {
   void dispose() => raw.dispose();
 }
 
+/// A keyed state as its owner keeps it (SPEC §23.4): what it set of each
+/// key, read and written by key, as a map is. A base the generator made
+/// holds one for each keyed state, and writes through it once attached.
+final class Keyed<T> {
+  final Map<String, T> _now = {};
+  StateWriterOf<T>? _writer;
+
+  /// What it set of [key], if it did.
+  T? operator [](String key) => _now[key];
+
+  /// Sets the value of [key].
+  void operator []=(String key, T value) {
+    _now[key] = value;
+    _writer?.set(value, key: key);
+  }
+
+  /// Removes the value of [key].
+  void remove(String key) {
+    _now.remove(key);
+    _writer?.remove(key: key);
+  }
+
+  /// What it set, by key.
+  Map<String, T> get all => Map.unmodifiable(_now);
+
+  /// The keys it set.
+  Iterable<String> get keys => _now.keys;
+
+  /// For the base the generator made: [k] writes through [writer] from
+  /// now on.
+  static void attach<T>(Keyed<T> k, StateWriterOf<T> writer) =>
+      k._writer = writer;
+
+  /// For the base the generator made: writes what [k] was set before it
+  /// was attached.
+  static void writeAll<T>(Keyed<T> k) {
+    for (final MapEntry(:key, :value) in k._now.entries) {
+      k._writer!.set(value, key: key);
+    }
+  }
+}
+
 final class _KeyWriter<T> implements IStateWriter<T> {
   _KeyWriter(this._writer, this._key);
   final StateWriterOf<T> _writer;
@@ -570,6 +613,12 @@ final class FactEmitterOf<T> implements IHandle, IFactEmitter<T> {
     id: id,
     cause: cause,
   );
+
+  /// Says it on behalf of [by], as far as the participant's rights let it
+  /// speak for another: following from the call or the fact being
+  /// answered where it is said, if one is.
+  bool emitFor(T payload, Principal by, {String? id}) =>
+      emit(payload, id: id, cause: inReplyAs(by) ?? Cause(by));
 
   @override
   void dispose() => raw.dispose();

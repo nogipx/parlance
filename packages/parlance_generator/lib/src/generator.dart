@@ -731,6 +731,8 @@ final class _Emitter {
   /// The names an owner base has of [Owner]'s own.
   static const _ownerMembers = {
     'define',
+    'made',
+    'said',
     'defineMore',
     'sync',
     'keep',
@@ -746,9 +748,11 @@ final class _Emitter {
     'noSuchMethod',
   };
 
-  /// `<Class>Owner` (SPEC §23.4): an owner base that defines every word,
-  /// keeps a writer of each state and an emitter of each fact, and asks a
-  /// handler of each command and query, for the owner to write.
+  /// `<Class>Owner` (SPEC §23.4): an owner base that defines every word
+  /// and keeps what the owner set of each state, writing it; says each
+  /// fact by a method of its params; and serves each command and query by
+  /// a handler of its params, for the owner to write. Nothing of it asks
+  /// the owner for a cause: what a handler does follows from its call.
   String _ownerBase(
     List<_State> states,
     List<_Callable> commands,
@@ -764,34 +768,105 @@ final class _Emitter {
         );
       }
     }
+    // Each name the base gives the owner, once.
+    final had = <String, _Word>{};
+    void member(String name, _Word w) {
+      if (had[name] case final other?) {
+        throw InvalidGenerationSourceError(
+          '$name is had twice by ${_c}Owner: name ${w.member} or '
+          '${other.member} otherwise, or @Vocabulary(owner: false)',
+          element: w.element,
+        );
+      }
+      had[name] = w;
+    }
+
     String opts(_Word w) => [
       ...w.options,
       if (w.available) 'available: whyNot${_pascal(w.member)}',
     ].join(', ');
+    String nullable(String t) => t.endsWith('?') ? t : '$t?';
+    String args(_Callable c, String of) => [
+      for (final p in (c.element as MethodElement).formalParameters)
+        '${p.displayName}: $of.params.${p.displayName}',
+    ].join(', ');
+
     final out = StringBuffer()
-      ..writeln('/// The owner base of [$_c]: it defines every word, keeps a')
-      ..writeln('/// writer of each state, says each fact by a method of its')
-      ..writeln('/// params, and serves each command and query by a handler to')
       ..writeln(
-        '/// write (`call.inReply`: the cause of what it does in reply).',
+        '/// The owner base of [$_c]: it defines every word, keeps what',
       )
-      ..writeln('abstract base class ${_c}Owner extends Owner {');
+      ..writeln('/// the owner set of each state and writes it, says each fact')
+      ..writeln('/// by a method of its params, and serves each command and')
+      ..writeln('/// query by a handler of its params. What a handler writes,')
+      ..writeln('/// says and calls follows from the call it serves.')
+      ..writeln('abstract base class ${_c}Owner extends Owner {')
+      ..writeln('  ${_c}Owner() {')
+      ..writeln('    Owner.made(this, define: _define, write: _write);')
+      ..writeln('  }')
+      ..writeln();
     for (final st in states) {
-      out
-        ..writeln('  /// Writes ${st.name}.')
-        ..writeln('  late final StateWriterOf<${st.type}> ${st.member};');
+      final m = st.member;
+      final t = st.type;
+      if (st.key case final kind?) {
+        member(m, st);
+        out
+          ..writeln('  /// ${st.name}, by $kind: what this owner set of each,')
+          ..writeln('  /// read and written as a map is.')
+          ..writeln('  final Keyed<$t> $m = Keyed<$t>();')
+          ..writeln();
+      } else {
+        member(m, st);
+        out
+          ..writeln('  StateWriterOf<$t>? _$m;')
+          ..writeln('  ${nullable(t)} _${m}Now;')
+          ..writeln('  var _${m}Set = false;')
+          ..writeln()
+          ..writeln('  /// ${st.name}, as this owner last set it.')
+          ..writeln('  ${nullable(t)} get $m => _${m}Now;')
+          ..writeln()
+          ..writeln('  /// Sets ${st.name}.')
+          ..writeln('  set $m($t value) {')
+          ..writeln('    _${m}Now = value;')
+          ..writeln('    _${m}Set = true;')
+          ..writeln('    _$m?.set(value);')
+          ..writeln('  }')
+          ..writeln();
+      }
     }
     for (final f in facts) {
-      out.writeln('  late final FactEmitterOf<${f.type}> _${f.member};');
+      member(f.member, f);
+      out.writeln('  FactEmitterOf<${f.type}>? _${f.member};');
+    }
+    if (facts.isNotEmpty) {
+      out
+        ..writeln()
+        ..writeln('  /// What it said while not attached, for a test to read:')
+        ..writeln('  /// each fact\'s name and payload, in order.')
+        ..writeln('  final List<(String, Object?)> said = [];')
+        ..writeln()
+        ..writeln(
+          '  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, '
+          'Principal? by) {',
+        )
+        ..writeln('    if (e == null) {')
+        ..writeln('      said.add((fact, payload));')
+        ..writeln('    } else if (by == null) {')
+        ..writeln('      e.emit(payload);')
+        ..writeln('    } else {')
+        ..writeln('      e.emitFor(payload, by);')
+        ..writeln('    }')
+        ..writeln('  }');
     }
     out
       ..writeln()
-      ..writeln('  @override')
-      ..writeln('  void define(IParticipant p) {');
+      ..writeln('  void _define(IParticipant p) {');
     for (final st in states) {
+      final define =
+          'keep(p.state(${_c}State.${st.member}).define(${opts(st)}))';
       out.writeln(
-        '    ${st.member} = keep(p.state(${_c}State.${st.member})'
-        '.define(${opts(st)}));',
+        st.key == null
+            ? '    _${st.member} = $define;'
+            : '    Keyed.attach(${st.member}, $define);',
       );
     }
     for (final f in facts) {
@@ -801,27 +876,48 @@ final class _Emitter {
       );
     }
     for (final c in commands) {
+      final serve = '(c) => ${c.member}(${args(c, 'c')})';
       out.writeln(
         '    keep(p.command(${_c}Command.${c.member})'
-        '.define(${[c.member, opts(c)].where((x) => x.isNotEmpty).join(', ')}));',
+        '.define(${[serve, opts(c)].where((x) => x.isNotEmpty).join(', ')}));',
       );
     }
     for (final q in queries) {
+      final serve = '(a) => ${q.member}(${args(q, 'a')})';
       out.writeln(
         '    keep(p.query(${_c}Query.${q.member})'
-        '.define(${[q.member, opts(q)].where((x) => x.isNotEmpty).join(', ')}));',
+        '.define(${[serve, opts(q)].where((x) => x.isNotEmpty).join(', ')}));',
       );
     }
     out
       ..writeln('    defineMore(p);')
       ..writeln('  }')
       ..writeln()
+      ..writeln('  /// What it set before it was attached, written once it is.')
+      ..writeln('  var _written = false;')
+      ..writeln('  void _write() {')
+      ..writeln('    if (_written) return;')
+      ..writeln('    _written = true;');
+    for (final st in states) {
+      final m = st.member;
+      if (st.key != null) {
+        out.writeln('    Keyed.writeAll($m);');
+      } else {
+        final t = st.type;
+        final now = t.endsWith('?') || t == 'dynamic'
+            ? '_${m}Now'
+            : '_${m}Now as $t';
+        out.writeln('    if (_${m}Set) _$m!.set($now);');
+      }
+    }
+    out
+      ..writeln('  }')
       ..writeln();
     for (final f in facts) {
       final ps = (f.element as MethodElement).formalParameters;
-      if (ps.any((p) => p.displayName == 'cause')) {
+      if (ps.any((p) => p.displayName == 'by')) {
         throw InvalidGenerationSourceError(
-          '${f.member}: a fact\'s param is not named cause, its owner base '
+          '${f.member}: a fact\'s param is not named by, its owner base '
           'says one',
           element: f.element,
         );
@@ -829,14 +925,14 @@ final class _Emitter {
       final positional = ps.length == 1 && ps.single.isPositional;
       final signature = positional
           ? '${_dart(ps.single.type)} ${ps.single.displayName}, '
-                '{Cause? cause}'
-          : '{${[for (final p in ps) _param(p), 'Cause? cause'].join(', ')}}';
+                '{Principal? by}'
+          : '{${[for (final p in ps) _param(p), 'Principal? by'].join(', ')}}';
       final payload = positional ? ps.single.displayName : _recordOf(ps);
       out
-        ..writeln('  /// Says ${f.name}; [cause] as a write\'s.')
+        ..writeln('  /// Says ${f.name}; on behalf of [by], when given.')
         ..writeln(
-          '  void ${f.member}($signature) =>'
-          ' _${f.member}.emit($payload, cause: cause);',
+          "  void ${f.member}($signature) =>"
+          " _say(${_quote(f.name)}, _${f.member}, $payload, by);",
         )
         ..writeln();
     }
@@ -845,13 +941,15 @@ final class _Emitter {
       ..writeln('  /// run time. After its words are defined.')
       ..writeln('  void defineMore(IParticipant p) {}');
     for (final c in commands) {
+      member(c.member, c);
+      final ps = (c.element as MethodElement).formalParameters;
+      final signature = ps.isEmpty ? '' : '{${ps.map(_param).join(', ')}}';
       out
         ..writeln()
         ..writeln('  /// Serves ${c.name}.')
-        ..writeln(
-          '  ${c.declared} ${c.member}(CommandCallOf<${c.params}> call);',
-        );
+        ..writeln('  ${c.declared} ${c.member}($signature);');
       if (c.available) {
+        member('whyNot${_pascal(c.member)}', c);
         out
           ..writeln()
           ..writeln('  /// Why ${c.name} cannot run now; null when it can.')
@@ -859,11 +957,15 @@ final class _Emitter {
       }
     }
     for (final q in queries) {
+      member(q.member, q);
+      final ps = (q.element as MethodElement).formalParameters;
+      final signature = ps.isEmpty ? '' : '{${ps.map(_param).join(', ')}}';
       out
         ..writeln()
         ..writeln('  /// Answers ${q.name}.')
-        ..writeln('  ${q.declared} ${q.member}(QueryAsk<${q.params}> ask);');
+        ..writeln('  ${q.declared} ${q.member}($signature);');
       if (q.available) {
+        member('whyNot${_pascal(q.member)}', q);
         out
           ..writeln()
           ..writeln(

@@ -60,33 +60,69 @@ enum NotesFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
-/// The owner base of [Notes]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [Notes]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class NotesOwner extends Owner {
-  /// Writes notes.all.
-  late final StateWriterOf<List<Note>> all;
-  late final FactEmitterOf<NotesAdded> _added;
+  NotesOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  @override
-  void define(IParticipant p) {
-    all = keep(p.state(NotesState.all).define());
+  StateWriterOf<List<Note>>? _all;
+  List<Note>? _allNow;
+  var _allSet = false;
+
+  /// notes.all, as this owner last set it.
+  List<Note>? get all => _allNow;
+
+  /// Sets notes.all.
+  set all(List<Note> value) {
+    _allNow = value;
+    _allSet = true;
+    _all?.set(value);
+  }
+
+  FactEmitterOf<NotesAdded>? _added;
+
+  /// What it said while not attached, for a test to read:
+  /// each fact's name and payload, in order.
+  final List<(String, Object?)> said = [];
+
+  void _say<T>(String fact, FactEmitterOf<T>? e, T payload) {
+    if (e == null) {
+      said.add((fact, payload));
+    } else {
+      e.emit(payload);
+    }
+  }
+
+  void _define(IParticipant p) {
+    _all = keep(p.state(NotesState.all).define());
     _added = keep(p.fact(NotesFact.added).define());
-    keep(p.command(NotesCommand.add).define(add));
+    keep(p.command(NotesCommand.add).define((c) => add(text: c.params.text)));
     defineMore(p);
   }
 
-  /// Says notes.added; [cause] as a write's.
-  void added({required String id, required String text, Cause? cause}) =>
-      _added.emit((id: id, text: text), cause: cause);
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    if (_allSet) _all!.set(_allNow as List<Note>);
+  }
+
+  /// Says notes.added.
+  void added({required String id, required String text}) =>
+      _say('notes.added', _added, (id: id, text: text));
 
   /// What [Notes] does not say: kinds, guards, words named at
   /// run time. After its words are defined.
   void defineMore(IParticipant p) {}
 
   /// Serves notes.add.
-  void add(CommandCallOf<NotesAdd> call);
+  void add({required String text});
 }
 
 /// The words of [Notes] as a consumer uses them: what a part

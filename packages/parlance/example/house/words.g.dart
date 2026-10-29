@@ -124,72 +124,153 @@ enum HouseFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
-/// The owner base of [House]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [House]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class HouseOwner extends Owner {
-  /// Writes house.light.on.
-  late final StateWriterOf<bool> light;
+  HouseOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  /// Writes house.heat.target.
-  late final StateWriterOf<num> heat;
+  /// house.light.on, by room: what this owner set of each,
+  /// read and written as a map is.
+  final Keyed<bool> light = Keyed<bool>();
 
-  /// Writes house.mode.
-  late final StateWriterOf<Mode> mode;
+  StateWriterOf<num>? _heat;
+  num? _heatNow;
+  var _heatSet = false;
 
-  /// Writes house.door.locked.
-  late final StateWriterOf<bool> locked;
-  late final FactEmitterOf<HouseRang> _rang;
-  late final FactEmitterOf<HouseMotion> _motion;
+  /// house.heat.target, as this owner last set it.
+  num? get heat => _heatNow;
 
-  @override
-  void define(IParticipant p) {
-    light = keep(p.state(HouseState.light).define());
-    heat = keep(p.state(HouseState.heat).define());
-    mode = keep(p.state(HouseState.mode).define());
-    locked = keep(p.state(HouseState.locked).define());
+  /// Sets house.heat.target.
+  set heat(num value) {
+    _heatNow = value;
+    _heatSet = true;
+    _heat?.set(value);
+  }
+
+  StateWriterOf<Mode>? _mode;
+  Mode? _modeNow;
+  var _modeSet = false;
+
+  /// house.mode, as this owner last set it.
+  Mode? get mode => _modeNow;
+
+  /// Sets house.mode.
+  set mode(Mode value) {
+    _modeNow = value;
+    _modeSet = true;
+    _mode?.set(value);
+  }
+
+  StateWriterOf<bool>? _locked;
+  bool? _lockedNow;
+  var _lockedSet = false;
+
+  /// house.door.locked, as this owner last set it.
+  bool? get locked => _lockedNow;
+
+  /// Sets house.door.locked.
+  set locked(bool value) {
+    _lockedNow = value;
+    _lockedSet = true;
+    _locked?.set(value);
+  }
+
+  FactEmitterOf<HouseRang>? _rang;
+  FactEmitterOf<HouseMotion>? _motion;
+
+  /// What it said while not attached, for a test to read:
+  /// each fact's name and payload, in order.
+  final List<(String, Object?)> said = [];
+
+  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+    if (e == null) {
+      said.add((fact, payload));
+    } else if (by == null) {
+      e.emit(payload);
+    } else {
+      e.emitFor(payload, by);
+    }
+  }
+
+  void _define(IParticipant p) {
+    Keyed.attach(light, keep(p.state(HouseState.light).define()));
+    _heat = keep(p.state(HouseState.heat).define());
+    _mode = keep(p.state(HouseState.mode).define());
+    _locked = keep(p.state(HouseState.locked).define());
     _rang = keep(p.fact(HouseFact.rang).define());
     _motion = keep(p.fact(HouseFact.motion).define());
     keep(
-      p.command(HouseCommand.setLight).define(setLight, callers: Who.anyone),
+      p
+          .command(HouseCommand.setLight)
+          .define(
+            (c) => setLight(room: c.params.room, on: c.params.on),
+            callers: Who.anyone,
+          ),
     );
-    keep(p.command(HouseCommand.setHeat).define(setHeat));
-    keep(p.command(HouseCommand.setMode).define(setMode));
-    keep(p.command(HouseCommand.lock).define(lock, available: whyNotLock));
-    keep(p.query(HouseQuery.rooms).define(rooms));
+    keep(
+      p
+          .command(HouseCommand.setHeat)
+          .define((c) => setHeat(target: c.params.target)),
+    );
+    keep(
+      p
+          .command(HouseCommand.setMode)
+          .define((c) => setMode(mode: c.params.mode)),
+    );
+    keep(
+      p
+          .command(HouseCommand.lock)
+          .define((c) => lock(on: c.params.on), available: whyNotLock),
+    );
+    keep(p.query(HouseQuery.rooms).define((a) => rooms(lit: a.params.lit)));
     defineMore(p);
   }
 
-  /// Says house.doorbell.rang; [cause] as a write's.
-  void rang({required String who, Cause? cause}) =>
-      _rang.emit((who: who), cause: cause);
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    Keyed.writeAll(light);
+    if (_heatSet) _heat!.set(_heatNow as num);
+    if (_modeSet) _mode!.set(_modeNow as Mode);
+    if (_lockedSet) _locked!.set(_lockedNow as bool);
+  }
 
-  /// Says house.motion.seen; [cause] as a write's.
-  void motion({required String room, Cause? cause}) =>
-      _motion.emit((room: room), cause: cause);
+  /// Says house.doorbell.rang; on behalf of [by], when given.
+  void rang({required String who, Principal? by}) =>
+      _say('house.doorbell.rang', _rang, (who: who), by);
+
+  /// Says house.motion.seen; on behalf of [by], when given.
+  void motion({required String room, Principal? by}) =>
+      _say('house.motion.seen', _motion, (room: room), by);
 
   /// What [House] does not say: kinds, guards, words named at
   /// run time. After its words are defined.
   void defineMore(IParticipant p) {}
 
   /// Serves house.light.set.
-  void setLight(CommandCallOf<HouseSetLight> call);
+  void setLight({required String room, required bool on});
 
   /// Serves house.heat.set.
-  void setHeat(CommandCallOf<HouseSetHeat> call);
+  void setHeat({required num target});
 
   /// Serves house.mode.set.
-  void setMode(CommandCallOf<HouseSetMode> call);
+  void setMode({required Mode mode});
 
   /// Serves house.door.lock.
-  void lock(CommandCallOf<HouseLock> call);
+  void lock({required bool on});
 
   /// Why house.door.lock cannot run now; null when it can.
   String? whyNotLock();
 
   /// Answers house.rooms.
-  List<String> rooms(QueryAsk<HouseRooms> ask);
+  List<String> rooms({required bool lit});
 }
 
 /// The words of [House] as a consumer uses them: what a part
@@ -464,19 +545,42 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
   final Shape<R>? returns;
 }
 
-/// The owner base of [Visit]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [Visit]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class VisitOwner extends Owner {
-  /// Writes visit.guests.
-  late final StateWriterOf<List<String>> guests;
+  VisitOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  @override
-  void define(IParticipant p) {
-    guests = keep(p.state(VisitState.guests).define());
-    keep(p.command(VisitCommand.leave).define(leave));
+  StateWriterOf<List<String>>? _guests;
+  List<String>? _guestsNow;
+  var _guestsSet = false;
+
+  /// visit.guests, as this owner last set it.
+  List<String>? get guests => _guestsNow;
+
+  /// Sets visit.guests.
+  set guests(List<String> value) {
+    _guestsNow = value;
+    _guestsSet = true;
+    _guests?.set(value);
+  }
+
+  void _define(IParticipant p) {
+    _guests = keep(p.state(VisitState.guests).define());
+    keep(p.command(VisitCommand.leave).define((c) => leave(who: c.params.who)));
     defineMore(p);
+  }
+
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    if (_guestsSet) _guests!.set(_guestsNow as List<String>);
   }
 
   /// What [Visit] does not say: kinds, guards, words named at
@@ -484,7 +588,7 @@ abstract base class VisitOwner extends Owner {
   void defineMore(IParticipant p) {}
 
   /// Serves visit.leave.
-  void leave(CommandCallOf<VisitLeave> call);
+  void leave({required String who});
 }
 
 /// The words of [Visit] as a consumer uses them: what a part

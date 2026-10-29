@@ -52,12 +52,15 @@ abstract class Player {
 
 ### 23.4 The owner base
 
-Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract base class` extending `Owner` (§19). An owner extends it (`final class Deck extends PlayerOwner`) and writes only its handlers and `sync()`; a handler it forgets does not compile.
+Unless `@Vocabulary(owner: false)`, it also makes `<Class>Owner`, an `abstract base class` extending `Owner` (§19). An owner extends it (`final class Deck extends PlayerOwner`) and writes only its handlers; a handler it forgets does not compile. Nothing of it is parlance's but what the class itself names: no handle, no call object, no cause.
 
-- Each state has a writer by the member's name (`volume.set(50)`), and each fact a method of its own params and a `cause` (`clipped(volume: 95, cause: call.inReply)`), defined in `define(p)`, kept with the owner. A fact's param named `cause` is refused.
-- Each command and query is served by an abstract method of the member's name, returning what the class declares, taking the call: `void setVolume(CommandCallOf<PlayerSetVolume> call)`, `List<Track> search(QueryAsk<PlayerSearch> ask)`. It takes the call, not bare params, for its cause: `call.inReply` is the cause of what the owner writes, says and calls in reply (`causeFor` the part that serves it), so the trail shows the call led to it; with no cause given, what it does in the handler follows from the call by itself (the participant serves it in a zone holding the call).
+- **A state is a field it sets.** `volume = 50` writes `player.volume`, and `volume` reads what the owner set last (null before). A keyed state is a `Keyed<T>`, read and written as a map is: `speakerLevel['left'] = 0.5`, `speakerLevel.remove('left')`, `speakerLevel['left']`, `speakerLevel.all`. The owner keeps no copy of its own: the base keeps what it set.
+- **Set before it is attached, written once it is.** What the owner sets in its constructor is held, and written as one tick when `main` attaches it. Across a connection the participant writes it again after a drop by itself. `sync()` is needed only by an owner whose states come from a model of its own (a device): it sets them there, and `changes` says when.
+- **A fact is a method of its own params**: `clipped(volume: 95)`; `rang(who: 'bob', by: visitor)` says it on behalf of another, as far as the participant's rights let it. A fact's param named `by` is refused.
+- **A command or a query is served by an abstract method of its own params**, as the class declares it: `void setVolume({required int volume})`, `List<Track> search({required String text, int? limit})`; what it returns is the answer, what it throws fails the call. What it sets, says and calls follows from the call it serves: the participant serves it in a zone holding the call, after an `await` too.
+- **Not attached, it is its own test double.** `Deck()..setVolume(volume: 95)` sets `volume` to 95 and keeps `said`, each fact said with its name and payload (`[('player.clipped', (volume: 95))]`), with no registry at all.
 - What the class says of a word, its define is given: `readers` (`@StateWord`, `@FactWord`), `callers`, `deadline`, `askers` (`@QueryWord`). With `available: true` it asks `String? whyNot<Member>()`, an abstract method too. Callers left unsaid are the participant's default (§22.2).
-- After the words, `define` calls `defineMore(p)`, empty by default, for what the class does not say: kinds, guards, words named at run time. A member named as one of `Owner`'s own (`sync`, `keep`, `define`...) is refused.
+- After the words it calls `defineMore(p)`, empty by default, for what the class does not say: kinds, guards, words named at run time, and `hear(client.xFacts, (payload) {...})` for another's facts, what it does there following from the fact heard. A member named as one of `Owner`'s own (`sync`, `keep`, `define`, `said`...), or two members of the base of one name, are refused.
 
 ### 23.5 The client
 

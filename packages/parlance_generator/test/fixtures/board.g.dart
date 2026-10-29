@@ -93,48 +93,100 @@ enum BoardFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
-/// The owner base of [Board]: it defines every word, keeps a
-/// writer of each state, says each fact by a method of its
-/// params, and serves each command and query by a handler to
-/// write (`call.inReply`: the cause of what it does in reply).
+/// The owner base of [Board]: it defines every word, keeps what
+/// the owner set of each state and writes it, says each fact
+/// by a method of its params, and serves each command and
+/// query by a handler of its params. What a handler writes,
+/// says and calls follows from the call it serves.
 abstract base class BoardOwner extends Owner {
-  /// Writes note.
-  late final StateWriterOf<Note> notes;
+  BoardOwner() {
+    Owner.made(this, define: _define, write: _write);
+  }
 
-  /// Writes note.anything.
-  late final StateWriterOf<Object?> anything;
-  late final FactEmitterOf<Note> _seen;
+  /// note, by note: what this owner set of each,
+  /// read and written as a map is.
+  final Keyed<Note> notes = Keyed<Note>();
 
-  @override
-  void define(IParticipant p) {
-    notes = keep(p.state(BoardState.notes).define());
-    anything = keep(p.state(BoardState.anything).define());
+  StateWriterOf<Object?>? _anything;
+  Object? _anythingNow;
+  var _anythingSet = false;
+
+  /// note.anything, as this owner last set it.
+  Object? get anything => _anythingNow;
+
+  /// Sets note.anything.
+  set anything(Object? value) {
+    _anythingNow = value;
+    _anythingSet = true;
+    _anything?.set(value);
+  }
+
+  FactEmitterOf<Note>? _seen;
+
+  /// What it said while not attached, for a test to read:
+  /// each fact's name and payload, in order.
+  final List<(String, Object?)> said = [];
+
+  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+    if (e == null) {
+      said.add((fact, payload));
+    } else if (by == null) {
+      e.emit(payload);
+    } else {
+      e.emitFor(payload, by);
+    }
+  }
+
+  void _define(IParticipant p) {
+    Keyed.attach(notes, keep(p.state(BoardState.notes).define()));
+    _anything = keep(p.state(BoardState.anything).define());
     _seen = keep(p.fact(BoardFact.seen).define(open: true));
-    keep(p.command(BoardCommand.put).define(put));
-    keep(p.command(BoardCommand.expire).define(expire));
-    keep(p.command(BoardCommand.pin).define(pin));
-    keep(p.command(BoardCommand.count).define(count));
+    keep(
+      p
+          .command(BoardCommand.put)
+          .define((c) => put(id: c.params.id, note: c.params.note)),
+    );
+    keep(
+      p
+          .command(BoardCommand.expire)
+          .define((c) => expire(id: c.params.id, ms: c.params.ms)),
+    );
+    keep(p.command(BoardCommand.pin).define((c) => pin(ids: c.params.ids)));
+    keep(
+      p
+          .command(BoardCommand.count)
+          .define((c) => count(readers: c.params.readers)),
+    );
     defineMore(p);
   }
 
-  /// Says note.seen; [cause] as a write's.
-  void seen(Note note, {Cause? cause}) => _seen.emit(note, cause: cause);
+  /// What it set before it was attached, written once it is.
+  var _written = false;
+  void _write() {
+    if (_written) return;
+    _written = true;
+    Keyed.writeAll(notes);
+    if (_anythingSet) _anything!.set(_anythingNow);
+  }
+
+  /// Says note.seen; on behalf of [by], when given.
+  void seen(Note note, {Principal? by}) => _say('note.seen', _seen, note, by);
 
   /// What [Board] does not say: kinds, guards, words named at
   /// run time. After its words are defined.
   void defineMore(IParticipant p) {}
 
   /// Serves note.put.
-  ({String id}) put(CommandCallOf<BoardPut> call);
+  ({String id}) put({String? id, required Note note});
 
   /// Serves note.expire.
-  void expire(CommandCallOf<BoardExpire> call);
+  void expire({required String id, required int ms});
 
   /// Serves note.pin.
-  void pin(CommandCallOf<BoardPin> call);
+  void pin({required List<String> ids});
 
   /// Serves note.count.
-  void count(CommandCallOf<BoardCount> call);
+  void count({required int? readers});
 }
 
 /// The words of [Board] as a consumer uses them: what a part

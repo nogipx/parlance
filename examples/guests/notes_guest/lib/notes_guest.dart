@@ -4,25 +4,23 @@
 library;
 
 import 'package:notes_words/notes_words.dart';
-import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 /// The owner of the notes' words: its base, made from [Notes], defines
-/// them; this keeps the notes and serves `notes.add`.
+/// them and keeps the notes it set; this serves `notes.add`.
 final class Notebook extends NotesOwner {
-  final List<Note> _notes = [];
+  Notebook() {
+    all = const [];
+  }
+
   var _next = 0;
 
   @override
-  void sync() => all.set(List.of(_notes));
-
-  @override
-  void add(CommandCallOf<NotesAdd> call) {
-    final note = (id: 'n${++_next}', text: call.params.text);
-    _notes.add(note);
-    all.set(List.of(_notes), cause: call.inReply);
-    added(id: note.id, text: note.text, cause: call.inReply);
+  void add({required String text}) {
+    final note = (id: 'n${++_next}', text: text);
+    all = [...?all, note];
+    added(id: note.id, text: note.text);
   }
 }
 

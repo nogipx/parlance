@@ -10,50 +10,50 @@ const me = Principal('player');
 const ann = Principal('listener', 'ann');
 const anyone = Callers({'*': Access.allow});
 
-/// A player's owner: only its handlers and what it has now.
+/// A player's owner: only its handlers, and what it sets; no cause, no
+/// handle, no copy of its states.
 final class Deck extends PlayerOwner {
+  Deck() {
+    volume = 50;
+    repeat = Repeat.off;
+    playing = null;
+  }
+
   final List<Track> library = [
     const Track(title: 'A'),
     const Track(title: 'B'),
   ];
-  Track? loaded;
-  int level = 50;
   int stopped = 0;
 
   @override
-  void sync() {
-    volume.set(level);
-    repeat.set(Repeat.off);
-    playing.set(loaded);
+  void setVolume({required int volume}) {
+    this.volume = volume;
+    if (volume > 90) clipped(volume: volume);
   }
 
   @override
-  void setVolume(CommandCallOf<PlayerSetVolume> call) {
-    level = call.params.volume;
-    volume.set(level, cause: call.inReply);
-    if (level > 90) {
-      clipped(volume: level, cause: call.inReply);
-    }
-  }
-
-  @override
-  Future<void> play(CommandCallOf<PlayerPlay> call) async {
-    playing.set(call.params.track, cause: call.inReply);
+  Future<void> play({
+    required Track track,
+    Repeat repeat = Repeat.off,
+    String? on,
+  }) async {
+    await Future<void>.delayed(Duration.zero);
+    playing = track;
   }
 
   @override
   String? whyNotPlay() => library.isEmpty ? 'nothing to play' : null;
 
   @override
-  int skip(CommandCallOf<PlayerSkip> call) => call.params.count;
+  int skip({int count = 1}) => count;
 
   @override
-  void stop(CommandCallOf<()> call) => stopped++;
+  void stop() => stopped++;
 
   @override
-  List<Track> search(QueryAsk<PlayerSearch> ask) => [
+  List<Track> search({required String text, int? limit}) => [
     for (final t in library)
-      if (t.title.contains(ask.params.text)) t,
+      if (t.title.contains(text)) t,
   ];
 }
 
@@ -289,6 +289,32 @@ void main() {
       expect((found as CallDone<List<Track>>).value.single.title, 'B');
     });
 
+    test('what a handler writes and says follows from the call, after an '
+        'await too', () async {
+      await asAnn.command(PlayerCommand.setVolume).call((volume: 95), id: 'v1');
+      expect(r.lastChange('player.volume')!.cause.parent, 'v1');
+      expect(
+        (await asAnn.recent('player.clipped', 9)).single.cause.parent,
+        'v1',
+      );
+      await asAnn.command(PlayerCommand.play).call((
+        track: const Track(title: 'A'),
+        repeat: Repeat.off,
+        on: null,
+      ), id: 'p1');
+      expect(r.lastChange('player.playing')!.cause.parent, 'p1');
+      expect(deck.playing?.title, 'A', reason: 'what it set, it reads');
+    });
+
+    test('keyed states, set and removed by key', () async {
+      deck.speakerLevel['left'] = 0.5;
+      deck.speakerLevel['right'] = 1;
+      deck.speakerLevel.remove('right');
+      expect(deck.speakerLevel['left'], 0.5);
+      expect(deck.speakerLevel.all, {'left': 0.5});
+      expect(asAnn.state(PlayerState.speakerLevel).readAll(), {'left': 0.5});
+    });
+
     test('says what the class says of who may call, and when', () async {
       final asGuest = await asBob.command(PlayerCommand.stop).call(());
       expect((asGuest as CallRefused).code, Refusal.notPermitted);
@@ -303,6 +329,13 @@ void main() {
       ));
       expect(play.whyNot, contains('nothing to play'));
     });
+  });
+
+  test('an owner not attached keeps what it set and said, for a test', () {
+    final deck = Deck()..setVolume(volume: 95);
+    expect(deck.volume, 95);
+    expect(deck.said, [('player.clipped', (volume: 95))]);
+    expect(deck.skip(count: 2), 2);
   });
 
   group('the client', () {
