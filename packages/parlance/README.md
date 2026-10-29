@@ -44,7 +44,7 @@ Around the words:
 | Piece | Library | What it is |
 | --- | --- | --- |
 | words | `schema.dart` | A vocabulary written once as an abstract class (`@Vocabulary`); the generator makes its typed words, the base of its owner and its client. What an owner and a part that uses the words see. |
-| a host | `app.dart` | What `main` does: a `Host` makes the participants of the app's parts and serves guests across connections; a `Guest` joins one. A small app is the same `Host` with `HostBounds.light`, keeping nothing past what is now. |
+| a host | `app.dart` | What `main` does: a `Host` makes the participants of the app's parts and serves them across connections; another process joins with `Host.join`. A small app is the same `Host` with `HostBounds.light`, keeping nothing past what is now. |
 | a test | `testing.dart` | `TestHost`: a `Host` for a test, stand-ins for the modules it leaves out, what happened read back. |
 | tools | `tools.dart` | The registry underneath, for tools: a journal, an inspector, a host of guests in another language. Not frozen. |
 | agents | the package `parlance_mcp` and its binary `parlance-mcp` | Curated MCP tools, so an AI agent speaks the vocabulary too. |

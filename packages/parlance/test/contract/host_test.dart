@@ -57,7 +57,7 @@ void main() {
         expect(session.who, const Principal('guest', 'echo'));
 
         final atGuest = RpcPeerEndpoint(transport: g)..start();
-        final guest = await Guest.over(atGuest);
+        final guest = await Host.over(atGuest);
         await guest.attach({'it': _Echo()});
 
         final user = host.participant(const Principal('user', 'ann'));

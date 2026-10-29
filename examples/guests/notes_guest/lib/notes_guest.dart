@@ -27,8 +27,8 @@ final class Notebook extends NotesOwnerBase {
 /// What the guest's `main` does: joins its host over [endpoint] as the
 /// participant the host serves it, and attaches its owner. Who it is and
 /// who may call its commands, the host says.
-Future<IGuest> startNotes(RpcPeerEndpoint endpoint) async {
-  final p = await Guest.over(endpoint);
+Future<IRemoteParticipant> startNotes(RpcPeerEndpoint endpoint) async {
+  final p = await Host.over(endpoint);
   await p.attach({'book': Notebook()});
   return p;
 }

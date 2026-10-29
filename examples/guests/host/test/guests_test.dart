@@ -27,7 +27,7 @@ void main() {
     await closeInMemory();
   });
 
-  Future<(IGuest, Board)> board() => loadInMemory(
+  Future<(IRemoteParticipant, Board)> board() => loadInMemory(
     host,
     'board',
     (e) => startBoard(
@@ -70,7 +70,7 @@ void main() {
       // The notes guest as it was before: `notes.add` took a shorter text,
       // and its notes were texts alone.
       await loadInMemory(host, 'notes', (e) async {
-        final p = await Guest.over(e);
+        final p = await Host.over(e);
         p.raw.defineCommand(
           CommandDescriptor(
             'notes.add',

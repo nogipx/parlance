@@ -211,13 +211,13 @@ final class Phone {
       transportFactory: (_) async => c,
       shouldReconnect: (_) => false,
     );
-    final part = await Guest.join(connection);
+    final part = await Host.join(connection);
     return Phone._(part, connection, session, host);
   }
 
-  final IGuest part;
+  final IRemoteParticipant part;
   final RpcClientConnection _connection;
-  final IGuestSession _session;
+  final IRemoteSession _session;
   final RpcPeerEndpoint _host;
 
   Future<void> close() async {

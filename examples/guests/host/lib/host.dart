@@ -51,12 +51,12 @@ final class Shell {
 
   final Host host = Host();
   final AppHost app = AppHost();
-  final Map<String, IGuestSession> _guests = {};
+  final Map<String, IRemoteSession> _guests = {};
 
   /// Serves the guest [id] over [endpoint]: a participant of its own, its
   /// words named in the vocabulary of its id (a guest's words come at run
   /// time), its commands called by the guests and the user.
-  IGuestSession load(String id, RpcPeerEndpoint endpoint) => _guests[id] = host
+  IRemoteSession load(String id, RpcPeerEndpoint endpoint) => _guests[id] = host
       .participant(
         Who.widlet(id),
         vocabularies: [WordSet.open(id)],

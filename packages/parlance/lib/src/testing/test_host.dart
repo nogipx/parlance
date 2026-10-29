@@ -55,9 +55,9 @@ final class TestHost {
   late final StreamSubscription<Tick> _ticks;
   late final StreamSubscription<CallRecord> _calls;
   final Map<String, LocalParticipant> _standIns = {};
-  final List<IGuestSession> _sessions = [];
+  final List<IRemoteSession> _sessions = [];
   final List<RpcPeerEndpoint> _hosts = [];
-  final List<IGuest> _remotes = [];
+  final List<IRemoteParticipant> _remotes = [];
   final List<RpcClientConnection> _connections = [];
 
   /// A participant for the module under test, as `main` would make it.
@@ -78,7 +78,7 @@ final class TestHost {
   /// joins. The connection carries frames as bytes, encoded and decoded as
   /// across a process boundary, so what passes here passes over a real
   /// wire: a value that is no JSON fails here as it would there.
-  Future<IGuest> join(
+  Future<IRemoteParticipant> join(
     Principal who, {
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
@@ -100,7 +100,7 @@ final class TestHost {
       shouldReconnect: (_) => false,
     );
     _connections.add(connection);
-    final p = await Guest.join(connection);
+    final p = await Host.join(connection);
     _remotes.add(p);
     return p;
   }

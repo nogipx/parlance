@@ -1,8 +1,8 @@
 /// The library underneath, for tools: an agent's session, a journal, an
-/// inspector, a host of guests in another language, the package's own
+/// inspector, a host of plugins in another language, the package's own
 /// tests. The registry and what it does by name and descriptor, the
 /// participants as the library has them (`raw`), the session and the
-/// guest across a connection, the view of a screen, and words named at
+/// participant across a connection, the view of a screen, and words named at
 /// run time.
 ///
 /// It is not frozen: it changes as the library does. An app's words,

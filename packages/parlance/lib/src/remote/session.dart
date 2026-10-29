@@ -62,10 +62,11 @@ extension ServeParticipant on LocalParticipant {
 /// over the same connection. It ends by itself when the connection does
 /// (its transport ends), its words going; [close] ends it sooner, the
 /// connection still up.
-/// A guest served (`Host.serve`): who it is, when it ended, and its end.
+/// A participant served across a connection (`participant.serve`): who
+/// it is, when it ended, and its end.
 /// Frozen (`app.dart`); only the library makes one.
-abstract interface class IGuestSession {
-  /// Who the guest speaks as.
+abstract interface class IRemoteSession {
+  /// Who the part across speaks as.
   Principal get who;
 
   /// Completes when the session ended: closed, taken over by a new one, or
@@ -77,7 +78,7 @@ abstract interface class IGuestSession {
 }
 
 final class RemoteSession extends ParlanceContractPeer
-    implements IGuestSession {
+    implements IRemoteSession {
   RemoteSession._(
     super.endpoint,
     LocalParticipant participant, {

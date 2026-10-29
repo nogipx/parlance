@@ -46,10 +46,10 @@ part 'participant_part.dart';
 /// connection that does not come back (a wasm module's to its host, one in
 /// memory) is one whose factory gives the same transport and that does not
 /// reconnect (`shouldReconnect: (_) => false`).
-/// A participant across a connection, as a guest's `main` has it
-/// (`Guest.join`): a participant, and what the host refused of what it
+/// A participant across a connection, as the `main` of another process has it
+/// (`Host.join`): a participant, and what the host refused of what it
 /// asked. Frozen (`app.dart`); only the library makes one.
-abstract interface class IGuest implements IParticipant {
+abstract interface class IRemoteParticipant implements IParticipant {
   /// What the host refused of what it asked, and words it was built
   /// against otherwise than the host has them (`mismatch`).
   Stream<ParticipantError> get errors;
@@ -59,7 +59,7 @@ abstract interface class IGuest implements IParticipant {
   Future<void> close();
 }
 
-final class RemoteParticipant implements IRawParticipant, IGuest {
+final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   RemoteParticipant._(
     this.endpoint,
     this._client,

@@ -1,7 +1,8 @@
-/// What an app's `main` uses, a host's or a guest's, besides what its
-/// words and owners do (`schema.dart`, exported here too): the [Host], the
-/// rights of its participants, the sessions it serves its guests in, a
-/// [Guest]'s join, and what they tell of errors.
+/// What an app's `main` uses, in the host's process or in another that
+/// joins it, besides what its words and owners do (`schema.dart`, exported
+/// here too): the [Host], the rights of its participants, the sessions it
+/// serves them in across a connection, the join from the other end
+/// ([Host.join]), and what they tell of errors.
 ///
 /// It is frozen as `schema.dart` is (SPEC §14, §22, docs/план-api.md):
 /// what it shows is never taken away, renamed or changed in meaning; it
@@ -13,9 +14,13 @@ library;
 export 'package:rpc_dart/logger.dart' show LogScope;
 
 export 'schema.dart';
-export 'src/host.dart' show Host, HostBounds, Guest, ServeAcross;
+export 'src/host.dart' show Host, HostBounds, ServeAcross;
 export 'src/participant/participant.dart'
     show ParticipantRights, WordAccess, NotPermitted;
 export 'src/remote/participant.dart'
-    show IGuest, ParticipantError, ProtocolMismatch, RegistryUnreachable;
-export 'src/remote/session.dart' show IGuestSession, SessionLimits;
+    show
+        IRemoteParticipant,
+        ParticipantError,
+        ProtocolMismatch,
+        RegistryUnreachable;
+export 'src/remote/session.dart' show IRemoteSession, SessionLimits;

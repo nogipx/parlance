@@ -88,7 +88,7 @@
 
 - `IParticipant` в `schema.dart` узкий: `who`, `child`, `attach`, `sync`, `settle`, `batch`, `dispose`, чтение и вызовы, типизированные слова через `serve`. Всё по имени и дескриптору — `IRawParticipant` в `participant.dart` (`p.raw`), без обещаний.
 - `OwnerTools`: типизированный `guard`, `now`, доступность перепроверяется сама после `follow`/`listen`/`hear`; `StateWordOf`/`FactWordOf` для слов с именами во время работы; `failCall` в `schema.dart`.
-- `app.dart`: `Host` (final class: `participant`, `serve` → `IGuestSession`, `alias`, `registerType`, `dispose`, `registry` для инструментов), `HostBounds`, `Guest.join`/`Guest.over` → `IGuest`. Конкретные `Registry`, `LocalParticipant`, `RemoteParticipant`, `RemoteSession` ушли из замороженной части.
+- `app.dart`: `Host` (final class: `participant`, `serve` → `IRemoteSession`, `alias`, `registerType`, `dispose`, `registry` для инструментов), `HostBounds`, `Host.join`/`Host.over` → `IRemoteParticipant`. Конкретные `Registry`, `LocalParticipant`, `RemoteParticipant`, `RemoteSession` ушли из замороженной части.
 - Правило: расти может то, что создаёт только библиотека (final-классы, интерфейсы, которые не реализуют приложения); не растёт то, что реализует приложение (`IOwner`, `IWord`).
 - Типы `rpc_dart` в сигнатурах `Host.serve` и `Guest` приняты как часть контракта.
 
@@ -98,6 +98,6 @@
 
 - У `IParticipant` нет ни чтения и вызовов по имени, ни типизированных слов: часть пользуется клиентом `<Class>Client(participant)`, владелец — своей базой. Сгенерированный код обращается к словам через одну дверь, `GeneratedWords.of(participant)` в `schema.dart`.
 - Ручной `Owner` — только для тестов пакета, не экспортируется. `StateWordOf`/`FactWordOf` ушли из `schema.dart` в инструменты.
-- `host.serve` убран: участник всегда `host.participant(...)`, затем `.attach({...})` здесь или `.serve(endpoint)` через соединение. `TestHost` построен на `Host`, его гости входят через `Guest.join`.
+- `host.serve` убран: участник всегда `host.participant(...)`, затем `.attach({...})` здесь или `.serve(endpoint)` через соединение. `TestHost` построен на `Host`, его гости входят через `Host.join`.
 - `OwnerTools.guardAll(id, (command, by) => why)` — правило владельца на все команды его участника, без сырого `addGuard`.
 - Библиотеки: `schema.dart` и `app.dart` (заморожены), `testing.dart`, и одна незамороженная `tools.dart` вместо `registry`, `participant`, `remote` и `view`.

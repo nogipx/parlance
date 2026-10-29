@@ -6,7 +6,7 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 
 The package `parlance_mcp` serves the registry to agents over MCP (a consumer of the words, not a part of their language) (JSON-RPC 2.0, one message a line: stdio, or a socket carrying it so).
 
-**An agent is a participant** (§22): the tools work on its `IParticipant`, `parlanceTools(p)`, made by `main` in the host's process (`host.participant(agent)`) or joined across a connection (`Guest.join`, where the host's session decides the principal). The tools are curated, not one per command:
+**An agent is a participant** (§22): the tools work on its `IParticipant`, `parlanceTools(p)`, made by `main` in the host's process (`host.participant(agent)`) or joined across a connection (`Host.join`, where the host's session decides the principal). The tools are curated, not one per command:
 
 | Tool | Does |
 |---|---|

@@ -111,33 +111,13 @@ final class Host {
   /// Ends every participant and session, the last made first, and the
   /// registry.
   Future<void> dispose() => registry.dispose();
-}
 
-/// A participant of a host served across a connection (SPEC §14, §22.4):
-/// the part at the other end, a guest ([Guest.join]), speaks as it, with
-/// what it was given, and nothing more.
-extension ServeAcross on IParticipant {
-  /// Serves this participant across [endpoint]: the guest there reads,
-  /// calls and owns words as it; what it asks past [limits] is refused.
-  /// The participant is the session's from then on, and goes with it. Only
-  /// a new participant of a host is served, and once ([StateError]).
-  IGuestSession serve(
-    RpcPeerEndpoint endpoint, {
-    SessionLimits limits = const SessionLimits(),
-    LogScope? log,
-  }) => switch (this) {
-    final LocalParticipant p => p.serve(endpoint, limits: limits, log: log),
-    _ => throw StateError('$who is no participant of a host to serve'),
-  };
-}
-
-/// How a guest's `main` joins its host (SPEC §22.4): the participant it
-/// gets is the same as one in the host's process ([IGuest]).
-abstract final class Guest {
-  /// Joins across [connection], rejoining after a drop; [onError] is told
-  /// what the host refused, as [IGuest.errors] is. [requires] names the
-  /// protocol's features it cannot work without.
-  static Future<IGuest> join(
+  /// Joins a host across [connection], from another process (SPEC §22.4):
+  /// the participant the host serves there, the same as one in the host's
+  /// process ([IRemoteParticipant]), rejoining after a drop. [onError] is
+  /// told what the host refused, as [IRemoteParticipant.errors] is;
+  /// [requires] names the protocol's features it cannot work without.
+  static Future<IRemoteParticipant> join(
     RpcClientConnection connection, {
     void Function(ParticipantError error)? onError,
     LogScope? log,
@@ -151,9 +131,10 @@ abstract final class Guest {
     interceptors: interceptors,
   );
 
-  /// Joins across [endpoint], one its runtime hands it (a worker, a wasm
-  /// guest): it does not reconnect, and the endpoint stays its runtime's.
-  static Future<IGuest> over(
+  /// Joins a host across [endpoint], one its runtime hands it (a worker, a
+  /// wasm module): it does not reconnect, and the endpoint stays its
+  /// runtime's.
+  static Future<IRemoteParticipant> over(
     RpcPeerEndpoint endpoint, {
     void Function(ParticipantError error)? onError,
     LogScope? log,
@@ -164,4 +145,22 @@ abstract final class Guest {
     log: log,
     requires: requires,
   );
+}
+
+/// A participant of a host served across a connection (SPEC §14, §22.4):
+/// the part at the other end, which joins ([Host.join]), speaks as it, with
+/// what it was given, and nothing more.
+extension ServeAcross on IParticipant {
+  /// Serves this participant across [endpoint]: the part there reads,
+  /// calls and owns words as it; what it asks past [limits] is refused.
+  /// The participant is the session's from then on, and goes with it. Only
+  /// a new participant of a host is served, and once ([StateError]).
+  IRemoteSession serve(
+    RpcPeerEndpoint endpoint, {
+    SessionLimits limits = const SessionLimits(),
+    LogScope? log,
+  }) => switch (this) {
+    final LocalParticipant p => p.serve(endpoint, limits: limits, log: log),
+    _ => throw StateError('$who is no participant of a host to serve'),
+  };
 }
