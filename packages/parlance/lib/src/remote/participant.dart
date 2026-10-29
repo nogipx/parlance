@@ -431,6 +431,9 @@ final class RemoteParticipant implements IParticipant {
 
   final List<Map<String, Object?>> _queue = [];
   Future<void>? _sending;
+
+  /// What the send under way carries.
+  List<Map<String, Object?>> _sent = const [];
   bool _scheduled = false;
 
   void _ask(Map<String, Object?> op) {
@@ -470,18 +473,40 @@ final class RemoteParticipant implements IParticipant {
     _away.add(op);
   }
 
-  /// Completes when the registry has answered all it asked so far.
+  /// Completes when the registry has answered all it asked so far: what
+  /// it asks after the call is not waited for, so a flush ends however
+  /// much is written meanwhile.
   Future<void> flush() async {
+    final asked = Set<Map<String, Object?>>.identity()
+      ..addAll(_queue)
+      ..addAll(_sent);
+    _flushing.add(asked);
+    try {
+      await _flushAsked(asked);
+    } finally {
+      _flushing.remove(asked);
+    }
+  }
+
+  /// What each flush under way waits for: an op the host's answer to one
+  /// of them adds is waited for as part of it.
+  final List<Set<Map<String, Object?>>> _flushing = [];
+
+  Future<void> _flushAsked(Set<Map<String, Object?>> asked) async {
     while (true) {
+      // Done once nothing it asked waits or goes: a send of what came
+      // after is not waited for.
+      if (!_queue.any(asked.contains) && !_sent.any(asked.contains)) return;
       if (_sending case final s?) {
         await s;
         continue;
       }
-      if (_queue.isEmpty || !_online) return;
+      if (!_online) return;
       final ops = [..._queue];
       _queue.clear();
       final done = Completer<void>();
       _sending = done.future;
+      _sent = ops;
       try {
         final results = await _client.apply(ops);
         for (var i = 0; i < ops.length && i < results.length; i++) {
@@ -490,6 +515,9 @@ final class RemoteParticipant implements IParticipant {
           } else if (_built.answered(ops[i], results[i]) case final op?) {
             // The schemas the host does not know by their fingerprints.
             _queue.add(op);
+            for (final asked in _flushing) {
+              if (asked.contains(ops[i])) asked.add(op);
+            }
           }
         }
       } on Object catch (e) {
@@ -521,6 +549,7 @@ final class RemoteParticipant implements IParticipant {
         }
       } finally {
         _sending = null;
+        _sent = const [];
         done.complete();
       }
     }
