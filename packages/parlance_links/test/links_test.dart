@@ -523,6 +523,39 @@ void main() {
     expect(errors, hasLength(2));
   });
 
+  test(
+    'a load made while another reads its states is the one that runs',
+    () async {
+      final b = Bench();
+      addTearDown(b.dispose);
+      Map<String, Object?> link(String id) => {
+        'id': id,
+        'only': {'state': 'st.level', '>': 0},
+        'when': [
+          {'fact': 'st.said'},
+          {
+            'button': {'label': id},
+          },
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'viewer': id},
+          },
+        ],
+      };
+      b.level.set(1);
+      final first = b.links.load([link('one')]);
+      final second = b.links.load([link('two')]);
+      await Future.wait([first, second]);
+      b.said.emit({});
+      await pump();
+      expect([for (final n in b.notes) n.params['viewer']], ['two']);
+      expect(b.errors, isEmpty);
+      expect([for (final x in b.links.buttons()) x['id']], ['two']);
+    },
+  );
+
   test('a link that cannot be taken is told; the others run', () async {
     final b = Bench();
     addTearDown(b.dispose);

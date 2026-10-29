@@ -87,6 +87,9 @@ final class Links {
   List<Object?> _shown = const [];
   bool _disposed = false;
 
+  /// How many loads were made: the last one alone starts its links.
+  int _loads = 0;
+
   String get buttonsState => '$vocabulary.links.buttons';
   String get pressCommand => '$vocabulary.links.press';
 
@@ -100,6 +103,7 @@ final class Links {
   /// that cannot be taken is told in [problems] and left out, the others
   /// run. Completes once the states they read are known.
   Future<void> load(List<Object?> json) async {
+    final load = ++_loads;
     _stop();
     final links = <Link>[];
     final problems = <LinkProblem>[];
@@ -126,7 +130,8 @@ final class Links {
     await Future.wait([
       for (final s in reads) participant.fetch(s).then((_) {}, onError: _err),
     ]);
-    if (_disposed) return;
+    // A load made while this one read its states is the one that runs.
+    if (_disposed || load != _loads) return;
     _defineButtons();
     if (reads.isNotEmpty) {
       _watching.add(
