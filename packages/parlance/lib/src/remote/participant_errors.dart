@@ -73,8 +73,8 @@ final class ParticipantError {
 
   /// The session's status: `permissionDenied`, `alreadyExists`,
   /// `invalidArgument`, `notFound`; `lost` when the answer did not come;
-  /// `unknownValue` when it read a value its code does not know (SPEC
-  /// §25.2).
+  /// `unreadable` when it read a value its code cannot read, built against
+  /// the word otherwise (SPEC §25.2).
   final String code;
   final String message;
 

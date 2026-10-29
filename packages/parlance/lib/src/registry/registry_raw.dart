@@ -353,13 +353,13 @@ extension RawRegistry on Registry {
   }
 
   /// The facts of [fact] as [shape] has their payloads (SPEC §18).
-  /// [facts] as [shape] has them (SPEC §18); one whose payload holds a
-  /// value [shape] does not know is not heard (SPEC §25.2).
+  /// [facts] as [shape] has them (SPEC §18); one whose payload [shape]
+  /// cannot read is not heard (SPEC §25.2).
   Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
       facts(fact: fact).expand((m) {
         try {
           return [(_payloadAs(m, shape), m)];
-        } on UnknownValue {
+        } on Object {
           return const [];
         }
       });

@@ -645,31 +645,30 @@ final class RemoteParticipant implements IParticipant {
       facts(fact).expand((m) {
         try {
           return [(decodeWith(shape, m.payload) as T, m)];
-        } on UnknownValue catch (e) {
+        } on Object catch (e) {
           _unknown(fact, e);
           return const [];
         }
       });
 
-  /// What it was told of values its code does not know, by word and value.
+  /// What it told of values its code could not read, by word and why.
   final Set<String> _unknownTold = {};
 
-  /// [word] holds a value this build does not know and has no fallback
-  /// for (SPEC §25.2): its typed read gave none, and that is told on
-  /// [errors], once a word and value.
-  void _unknown(String word, UnknownValue e) {
-    if (_unknownTold.length >= 1024 || !_unknownTold.add('$word ${e.value}')) {
+  /// [word] holds a value this build cannot read (SPEC §25.2): its typed
+  /// read gave none, and that is told on [errors], once a word and why.
+  void _unknown(String word, Object e) {
+    if (_unknownTold.length >= 1024 || !_unknownTold.add('$word $e')) {
       return;
     }
     final error = ParticipantError(
       {'op': 'read', 'word': word},
-      'unknownValue',
+      'unreadable',
       '$word: $e',
     );
     if (log.isEnabled(RpcLogLevel.warning)) {
       log.warning(
-        'a value this build does not know',
-        data: {'word': word, 'value': e.value},
+        'a value this build cannot read',
+        data: {'word': word, 'why': '$e'},
       );
     }
     _onError?.call(error);

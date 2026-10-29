@@ -142,8 +142,8 @@ final class MirrorView implements IRegistryView {
       facts(fact).expand((m) {
         try {
           return [(decodeWith(shape, m.payload) as T, m)];
-        } on UnknownValue {
-          // A value this build does not know (SPEC §25.2): not heard.
+        } on Object {
+          // A payload this build cannot read (SPEC §25.2): not heard.
           return const [];
         }
       });

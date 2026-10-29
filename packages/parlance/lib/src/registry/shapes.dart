@@ -727,25 +727,29 @@ final class UnionShape<T> extends Shape<T> {
 
 final Expando<(Shape<Object?>, Object?)> _decoded = Expando('decoded');
 
-/// The value [shape] makes of [json], null for none. JSON a registry or a
-/// mirror tells is frozen, so one decoded value serves every read of the
-/// same JSON; a write puts another JSON there.
-/// [decodeWith], but none for a value [shape] does not know and has no
-/// fallback for (SPEC §25.2), told to [unknown]: what a typed read gives
-/// code built before the value was added, rather than throw in it.
+/// [decodeWith], but none for a value [shape] cannot read, told to
+/// [unreadable] (SPEC §25.2): what a typed read gives code built against
+/// the word otherwise, rather than throw in it. The value passed the
+/// word's type as defined, so [shape] failing on it means the code holds
+/// the word otherwise: an enum value or a variant it does not know (an
+/// [UnknownValue]), a field it needs left out, a class's own decoder
+/// failing.
 T? decodeKnown<T>(
   Shape<T> shape,
   Object? json, [
-  void Function(UnknownValue e)? unknown,
+  void Function(Object error)? unreadable,
 ]) {
   try {
     return decodeWith(shape, json);
-  } on UnknownValue catch (e) {
-    unknown?.call(e);
+  } on Object catch (e) {
+    unreadable?.call(e);
     return null;
   }
 }
 
+/// The value [shape] makes of [json], null for none. JSON a registry or a
+/// mirror tells is frozen, so one decoded value serves every read of the
+/// same JSON; a write puts another JSON there.
 T? decodeWith<T>(Shape<T> shape, Object? json) {
   if (json == null) return null;
   if (json is! List && json is! Map) return shape.fromJson(json);

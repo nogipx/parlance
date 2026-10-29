@@ -70,6 +70,45 @@ final pets = UnionShape<Pet>(
   unknown: UnknownPet.new,
 );
 
+typedef Turn = ({int volume});
+
+/// The turn as code reads it: the volume needed.
+final builtTurn = S(
+  'deck.turn',
+  RecordShape<Turn>(
+    {'volume': const Part(Plain(IntType()))},
+    to: (t) => {'volume': t.volume},
+    from: (m) => (volume: m['volume']! as int),
+  ),
+);
+
+/// The turn as its owner writes it now: the volume may be left out.
+const nowTurn = S<Object?>(
+  'deck.turn',
+  Plain(ObjectType({'volume': Field(IntType(), optional: true)})),
+);
+
+/// A class read by its own fromJson, as json_serializable's are.
+final class Box {
+  const Box(this.n);
+  factory Box.fromJson(Map<String, Object?> m) => Box(m['n']! as int);
+  final int n;
+  Map<String, Object?> toJson() => {'n': n};
+}
+
+final builtBox = S(
+  'deck.box',
+  JsonShape<Box>(
+    Box.fromJson,
+    (b) => b.toJson(),
+    type: const ObjectType({'n': Field(IntType())}),
+  ),
+);
+const nowBox = S<Object?>(
+  'deck.box',
+  Plain(ObjectType({'n': Field(TextType())})),
+);
+
 const deck = Principal('deck');
 const guest = Principal('widlet', 'b');
 const possible = WordBreak(
@@ -93,9 +132,11 @@ void main() {
       expect(
         () => const EnumShape(Mode.values).fromJson('c'),
         throwsA(
-          isA<UnknownValue>()
-              .having((e) => e.value, 'value', 'c')
-              .having((e) => e.known, 'known', ['a', 'b']),
+          isA<UnknownValue>().having((e) => e.value, 'value', 'c').having(
+            (e) => e.known,
+            'known',
+            ['a', 'b'],
+          ),
         ),
       );
       expect(
@@ -202,8 +243,31 @@ void main() {
         expect(seen, [null]);
         await sub.cancel();
         if (across) {
-          expect(errors.single.code, 'unknownValue', reason: 'told once');
+          expect(errors.single.code, 'unreadable', reason: 'told once');
           expect(errors.single.message, contains('deck.mode'));
+        }
+      });
+
+      test('a value missing a field its code needs, or its class cannot '
+          'read, gives none too, told once a word', () async {
+        final errors = <ParticipantError>[];
+        final o = owner();
+        o.state(nowTurn).define().set(const <String, Object?>{});
+        o.state(nowBox).define().set(const {'n': 'x'});
+        final b = await asGuest();
+        if (b is RemoteParticipant) b.errors.listen(errors.add);
+        await b.fetch('deck.turn');
+        await b.fetch('deck.box');
+        await pumpEventQueue();
+        expect(b.readAs('deck.turn', builtTurn.shape), isNull);
+        expect(b.readAs('deck.box', builtBox.shape), isNull);
+        expect(b.readAs('deck.box', builtBox.shape), isNull);
+        if (across) {
+          expect(
+            [for (final e in errors) e.op['word']],
+            ['deck.turn', 'deck.box'],
+          );
+          expect({for (final e in errors) e.code}, {'unreadable'});
         }
       });
 
@@ -248,17 +312,18 @@ void main() {
     });
 
     test('deep in what is written: a field of an item of a list', () async {
-      ValueType<Object?> queue(EnumType mode) => ListType(
-        ObjectType({'mode': Field(mode)}),
-      );
+      ValueType<Object?> queue(EnumType mode) =>
+          ListType(ObjectType({'mode': Field(mode)}));
       host.participant(guest).builtAgainst([
         S('deck.queue', Plain(queue(const EnumType(['a', 'b'])))),
       ]);
       final q = owner().state(S<Object?>('deck.queue', Plain(queue(abc))));
       final w = q.define();
       await pumpEventQueue();
-      expect(host.registry.mismatches.single.breaks.single.path,
-          'type.item.fields.mode.type.values');
+      expect(
+        host.registry.mismatches.single.breaks.single.path,
+        'type.item.fields.mode.type.values',
+      );
       w.set([
         {'mode': 'a'},
       ]);
@@ -268,6 +333,21 @@ void main() {
         {'mode': 'a'},
         {'mode': 'c'},
       ]);
+      await pumpEventQueue();
+      expect(host.registry.mismatches.single.breaks.single.certain, isTrue);
+    });
+
+    test('a needed field left out, once a value lacks it', () async {
+      host.participant(guest).builtAgainst([builtTurn]);
+      final turn = owner().state(nowTurn).define();
+      await pumpEventQueue();
+      final only = host.registry.mismatches.single.breaks.single;
+      expect(only.path, 'type.fields.volume');
+      expect(only.certain, isFalse);
+      turn.set(const {'volume': 1});
+      await pumpEventQueue();
+      expect(host.registry.mismatches.single.breaks.single.certain, isFalse);
+      turn.set(const <String, Object?>{});
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks.single.certain, isTrue);
     });
@@ -293,8 +373,7 @@ void main() {
       final answer = await b.query(builtPick).ask(());
       expect(answer, isA<CallFailed>(), reason: 'its code cannot read it');
       final byWho = {
-        for (final m in host.registry.mismatches)
-          m.by: m.breaks.single.certain,
+        for (final m in host.registry.mismatches) m.by: m.breaks.single.certain,
       };
       expect(byWho, {guest: true, other: false});
       c.dispose();

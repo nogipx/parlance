@@ -59,13 +59,14 @@ final class BuiltAgainst {
   final Map<(Principal, String), List<WordBreak>> _mismatched = {};
   final StreamController<Mismatch> _mismatches = StreamController.broadcast();
 
-  /// The breaks of an enum value or a variant a principal's code does not
-  /// know that a value written, said or answered met (SPEC §25.2), by
-  /// path: certain from then on, where they were only possible.
+  /// The breaks a value written, said or answered met (SPEC §25.2): an
+  /// enum value or a variant a principal's code does not know, a field it
+  /// needs left out; by path, certain from then on, where they were only
+  /// possible.
   final Map<(Principal, String), Set<String>> _met = {};
 
   /// The mismatches that a value may meet, by the word's name now: those
-  /// with a break of a value the code reads that may never come.
+  /// with a break in what the code reads that a value may never meet.
   final Map<String, Set<(Principal, String)>> _open = {};
 
   /// Every word a principal's code was built against that is defined
@@ -197,10 +198,13 @@ final class BuiltAgainst {
     }
   }
 
-  /// A break of a value code reads that may never come.
+  /// A break in what code reads that a value may never meet: an enum
+  /// value or a variant it does not know, a field it needs that may be
+  /// left out.
   static bool _mayMeet(WordBreak b) =>
       !b.certain &&
-      b.kind == BreakKind.value &&
+      (b.kind == BreakKind.value ||
+          (b.kind == BreakKind.field && b.now == 'optional')) &&
       (b.path.startsWith('type.') || b.path.startsWith('returns.'));
 
   /// The values [t] wrote and said, each judged against the code of
@@ -230,8 +234,8 @@ final class BuiltAgainst {
   }
 
   /// Whether [value], at [root] of [key]'s word (its type, or its answer),
-  /// holds an enum value or a variant one of [key]'s breaks says its code
-  /// does not know: then that break is certain.
+  /// meets one of [key]'s breaks: an enum value or a variant its code does
+  /// not know, a field it needs left out. Then that break is certain.
   void _meet((Principal, String) key, String root, Object? Function() value) {
     final breaks = _mismatched[key];
     final live = _descriptorOf(key.$2);
@@ -244,7 +248,7 @@ final class BuiltAgainst {
       if (!_mayMeet(b) || met.contains(b.path)) continue;
       final path = b.path.split('.');
       if (path.first != root) continue;
-      final known = {...?(b.was as List?)};
+      final known = {if (b.was case final List<Object?> was) ...was};
       if (_meets(type, given, path, 1, known)) {
         (_met[key] ??= {}).add(b.path);
         found = true;
@@ -327,9 +331,9 @@ final class BuiltAgainst {
   Future<void> dispose() => _mismatches.close();
 }
 
-/// Whether [value], of [type], holds at [path] (from [i] on, a break's path
-/// into a schema entry) a value not among [known]: an enum value, or the
-/// tag of a variant.
+/// Whether [value], of [type], meets at [path] (from [i] on, a break's path
+/// into a schema entry) what the break says: a value not among [known]
+/// (an enum value, the tag of a variant), or a field left out.
 bool _meets(
   Object? type,
   Object? value,
@@ -359,7 +363,9 @@ bool _meets(
         known,
       );
     case 'fields':
-      if (value is! Map || i + 2 >= path.length) return false;
+      if (value is! Map || i + 1 >= path.length) return false;
+      // The field itself, one the code needs: met when it is not there.
+      if (i + 2 == path.length) return value[path[i + 1]] == null;
       final field = (type['fields'] as Map?)?[path[i + 1]];
       return _meets(
         field is Map ? field['type'] : null,
