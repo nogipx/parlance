@@ -12,11 +12,12 @@ import 'words.dart';
 final class GuestBook extends VisitOwner {
   GuestBook() {
     guests = const [];
-  }
-
-  @override
-  void defineMore(IParticipant p) {
-    hear(HouseClient(p).rangFacts, (rang) => guests = [...?guests, rang.who]);
+    whenAttached(
+      (p) => hear(
+        HouseClient(p).rangFacts,
+        (rang) => guests = [...?guests, rang.who],
+      ),
+    );
   }
 
   @override

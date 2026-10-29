@@ -65,32 +65,32 @@ enum NotesFact<T> implements IFactWord<T> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class NotesOwner extends Owner {
+abstract class NotesOwner implements IOwner {
   NotesOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
-  IStateWriterOf<List<Note>>? _all;
-  List<Note>? _allNow;
-  var _allSet = false;
+  IStateWriterOf<List<Note>>? _$all;
+  List<Note>? _$allNow;
+  var _$allSet = false;
 
   /// notes.all, as this owner last set it.
-  List<Note>? get all => _allNow;
+  List<Note>? get all => _$allNow;
 
   /// Sets notes.all.
   set all(List<Note> value) {
-    _allNow = value;
-    _allSet = true;
-    _all?.set(value);
+    _$allNow = value;
+    _$allSet = true;
+    _$all?.set(value);
   }
 
-  IFactEmitterOf<NotesAdded>? _added;
+  IFactEmitterOf<NotesAdded>? _$added;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -100,28 +100,24 @@ abstract base class NotesOwner extends Owner {
     }
   }
 
-  void _define(IParticipant p) {
-    _all = keep(p.state(NotesState.all).define());
-    _added = keep(p.fact(NotesFact.added).define());
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
+    _$all = keep(p.state(NotesState.all).define());
+    _$added = keep(p.fact(NotesFact.added).define());
     keep(p.command(NotesCommand.add).serve((x) => add(text: x.text)));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
-    if (_allSet) _all!.set(_allNow as List<Note>);
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
+    if (_$allSet) _$all!.set(_$allNow as List<Note>);
   }
 
   /// Says notes.added; on behalf of [by], when given.
   void added({required String id, required String text, Principal? by}) =>
-      _say('notes.added', _added, (id: id, text: text), by);
-
-  /// What [Notes] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
+      _$say('notes.added', _$added, (id: id, text: text), by);
 
   /// Serves notes.add.
   void add({required String text});

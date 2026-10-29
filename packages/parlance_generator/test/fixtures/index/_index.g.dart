@@ -24,31 +24,27 @@ enum DoorsState<T> implements IStateWord<T> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class DoorsOwner extends Owner {
+abstract class DoorsOwner implements IOwner {
   DoorsOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
   /// door.room, by door: what this owner set of each,
   /// read and written as a map is.
   final Keyed<Room> room = Keyed<Room>();
 
-  void _define(IParticipant p) {
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
     Keyed.attach(room, keep(p.state(DoorsState.room).define()));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
     Keyed.writeAll(room);
   }
-
-  /// What [Doors] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
 }
 
 /// The words of [Doors] as a consumer uses them: what a part
@@ -158,26 +154,22 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class LightsOwner extends Owner {
+abstract class LightsOwner implements IOwner {
   LightsOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
-  void _define(IParticipant p) {
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
     keep(p.command(LightsCommand.on).serve((x) => on(room: x.room)));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
   }
-
-  /// What [Lights] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
 
   /// Serves light.on.
   void on({required Room room});

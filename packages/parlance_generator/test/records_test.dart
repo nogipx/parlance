@@ -11,13 +11,12 @@ const ann = Principal('reader', 'ann');
 const anyone = Callers({'*': Access.allow});
 
 final class Pinboard extends BoardOwner {
-  final Map<String, Note> up = {};
-  final List<int> expiries = [];
-
-  @override
-  void defineMore(IParticipant p) {
+  Pinboard() {
     trackKind('note', () => [for (final id in up.keys) EntityRef(id)]);
   }
+
+  final Map<String, Note> up = {};
+  final List<int> expiries = [];
 
   @override
   ({String id}) put({String? id, required Note note}) {

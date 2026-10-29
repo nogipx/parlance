@@ -46,42 +46,38 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class AppOwner extends Owner {
+abstract class AppOwner implements IOwner {
   AppOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
-  IStateWriterOf<bool>? _dark;
-  bool? _darkNow;
-  var _darkSet = false;
+  IStateWriterOf<bool>? _$dark;
+  bool? _$darkNow;
+  var _$darkSet = false;
 
   /// app.dark, as this owner last set it.
-  bool? get dark => _darkNow;
+  bool? get dark => _$darkNow;
 
   /// Sets app.dark.
   set dark(bool value) {
-    _darkNow = value;
-    _darkSet = true;
-    _dark?.set(value);
+    _$darkNow = value;
+    _$darkSet = true;
+    _$dark?.set(value);
   }
 
-  void _define(IParticipant p) {
-    _dark = keep(p.state(AppState.dark).define());
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
+    _$dark = keep(p.state(AppState.dark).define());
     keep(p.command(AppCommand.toast).serve((x) => toast(text: x.text)));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
-    if (_darkSet) _dark!.set(_darkNow as bool);
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
+    if (_$darkSet) _$dark!.set(_$darkNow as bool);
   }
-
-  /// What [App] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
 
   /// Serves app.toast.
   void toast({required String text});

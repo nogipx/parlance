@@ -98,36 +98,36 @@ enum BoardFact<T> implements IFactWord<T> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class BoardOwner extends Owner {
+abstract class BoardOwner implements IOwner {
   BoardOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
   /// note, by note: what this owner set of each,
   /// read and written as a map is.
   final Keyed<Note> notes = Keyed<Note>();
 
-  IStateWriterOf<Object?>? _anything;
-  Object? _anythingNow;
-  var _anythingSet = false;
+  IStateWriterOf<Object?>? _$anything;
+  Object? _$anythingNow;
+  var _$anythingSet = false;
 
   /// note.anything, as this owner last set it.
-  Object? get anything => _anythingNow;
+  Object? get anything => _$anythingNow;
 
   /// Sets note.anything.
   set anything(Object? value) {
-    _anythingNow = value;
-    _anythingSet = true;
-    _anything?.set(value);
+    _$anythingNow = value;
+    _$anythingSet = true;
+    _$anything?.set(value);
   }
 
-  IFactEmitterOf<Note>? _seen;
+  IFactEmitterOf<Note>? _$seen;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -137,34 +137,30 @@ abstract base class BoardOwner extends Owner {
     }
   }
 
-  void _define(IParticipant p) {
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
     Keyed.attach(notes, keep(p.state(BoardState.notes).define()));
-    _anything = keep(p.state(BoardState.anything).define());
-    _seen = keep(p.fact(BoardFact.seen).define(open: true));
+    _$anything = keep(p.state(BoardState.anything).define());
+    _$seen = keep(p.fact(BoardFact.seen).define(open: true));
     keep(p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note)));
     keep(
       p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms)),
     );
     keep(p.command(BoardCommand.pin).serve((x) => pin(ids: x.ids)));
     keep(p.command(BoardCommand.count).serve((x) => count(readers: x.readers)));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
     Keyed.writeAll(notes);
-    if (_anythingSet) _anything!.set(_anythingNow);
+    if (_$anythingSet) _$anything!.set(_$anythingNow);
   }
 
   /// Says note.seen; on behalf of [by], when given.
-  void seen(Note note, {Principal? by}) => _say('note.seen', _seen, note, by);
-
-  /// What [Board] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
+  void seen(Note note, {Principal? by}) => _$say('note.seen', _$seen, note, by);
 
   /// Serves note.put.
   ({String id}) put({String? id, required Note note});

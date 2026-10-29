@@ -731,24 +731,10 @@ final class _Emitter {
     return parts.first + parts.skip(1).map(_pascal).join();
   }
 
-  /// The names an owner base has of [Owner]'s own.
+  /// The names an owner base has besides its words: what every Dart
+  /// object has, and what it said while not attached.
   static const _ownerMembers = {
-    'define',
-    'made',
     'said',
-    'caller',
-    'apart',
-    'together',
-    'hear',
-    'defineMore',
-    'sync',
-    'keep',
-    'listen',
-    'trackKind',
-    'participant',
-    'dispose',
-    'changes',
-    'attach',
     'hashCode',
     'runtimeType',
     'toString',
@@ -769,7 +755,7 @@ final class _Emitter {
     for (final w in [...states, ...commands, ...queries, ...facts]) {
       if (_ownerMembers.contains(w.member)) {
         throw InvalidGenerationSourceError(
-          '${w.member} is a member of Owner: name it otherwise, or '
+          '${w.member} is a name every owner base has: name it otherwise, or '
           '@Vocabulary(owner: false)',
           element: w.element,
         );
@@ -806,9 +792,9 @@ final class _Emitter {
       ..writeln('/// by a method of its params, and serves each command and')
       ..writeln('/// query by a handler of its params. What a handler writes,')
       ..writeln('/// says and calls follows from the call it serves.')
-      ..writeln('abstract base class ${_c}Owner extends Owner {')
+      ..writeln('abstract class ${_c}Owner implements IOwner {')
       ..writeln('  ${_c}Owner() {')
-      ..writeln('    Owner.made(this, define: _define, write: _write);')
+      ..writeln('    IOwner.made(this, define: _\$define, write: _\$write);')
       ..writeln('  }')
       ..writeln();
     for (final st in states) {
@@ -824,25 +810,25 @@ final class _Emitter {
       } else {
         member(m, st);
         out
-          ..writeln('  IStateWriterOf<$t>? _$m;')
-          ..writeln('  ${nullable(t)} _${m}Now;')
-          ..writeln('  var _${m}Set = false;')
+          ..writeln('  IStateWriterOf<$t>? _\$$m;')
+          ..writeln('  ${nullable(t)} _\$${m}Now;')
+          ..writeln('  var _\$${m}Set = false;')
           ..writeln()
           ..writeln('  /// ${st.name}, as this owner last set it.')
-          ..writeln('  ${nullable(t)} get $m => _${m}Now;')
+          ..writeln('  ${nullable(t)} get $m => _\$${m}Now;')
           ..writeln()
           ..writeln('  /// Sets ${st.name}.')
           ..writeln('  set $m($t value) {')
-          ..writeln('    _${m}Now = value;')
-          ..writeln('    _${m}Set = true;')
-          ..writeln('    _$m?.set(value);')
+          ..writeln('    _\$${m}Now = value;')
+          ..writeln('    _\$${m}Set = true;')
+          ..writeln('    _\$$m?.set(value);')
           ..writeln('  }')
           ..writeln();
       }
     }
     for (final f in facts) {
       member(f.member, f);
-      out.writeln('  IFactEmitterOf<${f.type}>? _${f.member};');
+      out.writeln('  IFactEmitterOf<${f.type}>? _\$${f.member};');
     }
     if (facts.isNotEmpty) {
       out
@@ -852,7 +838,7 @@ final class _Emitter {
         ..writeln('  final List<(String, Object?)> said = [];')
         ..writeln()
         ..writeln(
-          '  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, '
+          '  void _\$say<T>(String fact, IFactEmitterOf<T>? e, T payload, '
           'Principal? by) {',
         )
         ..writeln('    if (e == null) {')
@@ -866,19 +852,20 @@ final class _Emitter {
     }
     out
       ..writeln()
-      ..writeln('  void _define(IParticipant p) {');
+      ..writeln('  void _\$define(IParticipant p) {')
+      ..writeln('    final keep = OwnerTools(this).keep;');
     for (final st in states) {
       final define =
           'keep(p.state(${_c}State.${st.member}).define(${opts(st)}))';
       out.writeln(
         st.key == null
-            ? '    _${st.member} = $define;'
+            ? '    _\$${st.member} = $define;'
             : '    Keyed.attach(${st.member}, $define);',
       );
     }
     for (final f in facts) {
       out.writeln(
-        '    _${f.member} = keep(p.fact(${_c}Fact.${f.member})'
+        '    _\$${f.member} = keep(p.fact(${_c}Fact.${f.member})'
         '.define(${opts(f)}));',
       );
     }
@@ -900,14 +887,13 @@ final class _Emitter {
       );
     }
     out
-      ..writeln('    defineMore(p);')
       ..writeln('  }')
       ..writeln()
       ..writeln('  /// What it set before it was attached, written once it is.')
-      ..writeln('  var _written = false;')
-      ..writeln('  void _write() {')
-      ..writeln('    if (_written) return;')
-      ..writeln('    _written = true;');
+      ..writeln('  var _\$written = false;')
+      ..writeln('  void _\$write() {')
+      ..writeln('    if (_\$written) return;')
+      ..writeln('    _\$written = true;');
     for (final st in states) {
       final m = st.member;
       if (st.key != null) {
@@ -915,9 +901,9 @@ final class _Emitter {
       } else {
         final t = st.type;
         final now = t.endsWith('?') || t == 'dynamic'
-            ? '_${m}Now'
-            : '_${m}Now as $t';
-        out.writeln('    if (_${m}Set) _$m!.set($now);');
+            ? '_\$${m}Now'
+            : '_\$${m}Now as $t';
+        out.writeln('    if (_\$${m}Set) _\$$m!.set($now);');
       }
     }
     out
@@ -942,14 +928,10 @@ final class _Emitter {
         ..writeln('  /// Says ${f.name}; on behalf of [by], when given.')
         ..writeln(
           "  void ${f.member}($signature) =>"
-          " _say(${_quote(f.name)}, _${f.member}, $payload, by);",
+          " _\$say(${_quote(f.name)}, _\$${f.member}, $payload, by);",
         )
         ..writeln();
     }
-    out
-      ..writeln('  /// What [$_c] does not say: kinds, guards, words named at')
-      ..writeln('  /// run time. After its words are defined.')
-      ..writeln('  void defineMore(IParticipant p) {}');
     for (final c in commands) {
       member(c.member, c);
       final ps = (c.element as MethodElement).formalParameters;

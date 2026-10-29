@@ -210,65 +210,65 @@ enum PlayerFact<T> implements IFactWord<T> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class PlayerOwner extends Owner {
+abstract class PlayerOwner implements IOwner {
   PlayerOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
-  IStateWriterOf<int>? _volume;
-  int? _volumeNow;
-  var _volumeSet = false;
+  IStateWriterOf<int>? _$volume;
+  int? _$volumeNow;
+  var _$volumeSet = false;
 
   /// player.volume, as this owner last set it.
-  int? get volume => _volumeNow;
+  int? get volume => _$volumeNow;
 
   /// Sets player.volume.
   set volume(int value) {
-    _volumeNow = value;
-    _volumeSet = true;
-    _volume?.set(value);
+    _$volumeNow = value;
+    _$volumeSet = true;
+    _$volume?.set(value);
   }
 
-  IStateWriterOf<Repeat>? _repeat;
-  Repeat? _repeatNow;
-  var _repeatSet = false;
+  IStateWriterOf<Repeat>? _$repeat;
+  Repeat? _$repeatNow;
+  var _$repeatSet = false;
 
   /// player.repeat, as this owner last set it.
-  Repeat? get repeat => _repeatNow;
+  Repeat? get repeat => _$repeatNow;
 
   /// Sets player.repeat.
   set repeat(Repeat value) {
-    _repeatNow = value;
-    _repeatSet = true;
-    _repeat?.set(value);
+    _$repeatNow = value;
+    _$repeatSet = true;
+    _$repeat?.set(value);
   }
 
-  IStateWriterOf<Track?>? _playing;
-  Track? _playingNow;
-  var _playingSet = false;
+  IStateWriterOf<Track?>? _$playing;
+  Track? _$playingNow;
+  var _$playingSet = false;
 
   /// player.playing, as this owner last set it.
-  Track? get playing => _playingNow;
+  Track? get playing => _$playingNow;
 
   /// Sets player.playing.
   set playing(Track? value) {
-    _playingNow = value;
-    _playingSet = true;
-    _playing?.set(value);
+    _$playingNow = value;
+    _$playingSet = true;
+    _$playing?.set(value);
   }
 
   /// player.speaker.level, by speaker: what this owner set of each,
   /// read and written as a map is.
   final Keyed<num> speakerLevel = Keyed<num>();
 
-  IFactEmitterOf<PlayerClipped>? _clipped;
-  IFactEmitterOf<Track>? _finished;
+  IFactEmitterOf<PlayerClipped>? _$clipped;
+  IFactEmitterOf<Track>? _$finished;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -278,8 +278,9 @@ abstract base class PlayerOwner extends Owner {
     }
   }
 
-  void _define(IParticipant p) {
-    _volume = keep(
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
+    _$volume = keep(
       p
           .state(PlayerState.volume)
           .define(
@@ -289,14 +290,14 @@ abstract base class PlayerOwner extends Owner {
             },
           ),
     );
-    _repeat = keep(p.state(PlayerState.repeat).define());
-    _playing = keep(p.state(PlayerState.playing).define());
+    _$repeat = keep(p.state(PlayerState.repeat).define());
+    _$playing = keep(p.state(PlayerState.playing).define());
     Keyed.attach(
       speakerLevel,
       keep(p.state(PlayerState.speakerLevel).define()),
     );
-    _clipped = keep(p.fact(PlayerFact.clipped).define());
-    _finished = keep(p.fact(PlayerFact.finished).define());
+    _$clipped = keep(p.fact(PlayerFact.clipped).define());
+    _$finished = keep(p.fact(PlayerFact.finished).define());
     keep(
       p
           .command(PlayerCommand.setVolume)
@@ -328,31 +329,26 @@ abstract base class PlayerOwner extends Owner {
             askers: const Callers({'*': Access.allow}),
           ),
     );
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
-    if (_volumeSet) _volume!.set(_volumeNow as int);
-    if (_repeatSet) _repeat!.set(_repeatNow as Repeat);
-    if (_playingSet) _playing!.set(_playingNow);
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
+    if (_$volumeSet) _$volume!.set(_$volumeNow as int);
+    if (_$repeatSet) _$repeat!.set(_$repeatNow as Repeat);
+    if (_$playingSet) _$playing!.set(_$playingNow);
     Keyed.writeAll(speakerLevel);
   }
 
   /// Says player.clipped; on behalf of [by], when given.
   void clipped({required int volume, Principal? by}) =>
-      _say('player.clipped', _clipped, (volume: volume), by);
+      _$say('player.clipped', _$clipped, (volume: volume), by);
 
   /// Says player.finished; on behalf of [by], when given.
   void finished(Track track, {Principal? by}) =>
-      _say('player.finished', _finished, track, by);
-
-  /// What [Player] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
+      _$say('player.finished', _$finished, track, by);
 
   /// Serves player.volume.set.
   void setVolume({required int volume});

@@ -1162,7 +1162,7 @@ final class RemoteParticipant implements IParticipant {
   late final OwnerGroup _group = OwnerGroup(this);
 
   @override
-  Future<void> attach(Map<String, Owner> owners) {
+  Future<void> attach(Map<String, IOwner> owners) {
     _live();
     _group.attach(owners);
     return flush();

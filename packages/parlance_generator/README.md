@@ -29,20 +29,18 @@ abstract class Player {
 }
 ```
 
-`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwner` and the client, `IPlayerClient` with `PlayerClient` over a view, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers and what it has now:
+`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwner` and the client, `IPlayerClient` with `PlayerClient` over a view, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; the base keeps what it sets and writes it once attached, and what a handler does follows from its call:
 
 ```dart
 final class Deck extends PlayerOwner {
-  int level = 50;
+  Deck() {
+    volume = 50;
+  }
 
   @override
-  void sync() => volume.set(level);
-
-  @override
-  void setVolume(CommandCallOf<PlayerSetVolume> call) {
-    level = call.params.volume;
-    volume.set(level, cause: call.inReply);
-    if (level > 90) clipped(volume: level, cause: call.inReply);
+  void setVolume({required int volume}) {
+    this.volume = volume;
+    if (volume > 90) clipped(volume: volume);
   }
 }
 ```

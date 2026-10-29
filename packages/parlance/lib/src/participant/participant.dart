@@ -227,9 +227,10 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// Completes when the registry has their words and what they set:
   /// at once in the host's process, across a connection when the host
   /// answered (what it refused told to `errors` by then).
-  Future<void> attach(Map<String, Owner> owners);
+  Future<void> attach(Map<String, IOwner> owners);
 
-  /// Writes what every owner attached to it has now, as one tick.
+  /// Writes what every owner attached to it has now (what each
+  /// `follow`s), as one tick.
   void sync();
 
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`

@@ -80,9 +80,9 @@ $body
       '@CommandWord(name: "v2.cancel") void cancel();',
       'a version is the last word only',
     ),
-    'a word named as a member of Owner': (
-      '@StateWord() int get sync;',
-      'sync is a member of Owner',
+    'a word named as what every object has': (
+      '@StateWord() int get hashCode;',
+      'hashCode is a name every owner base has',
     ),
     'a fact with a param named by': (
       '@FactWord() void spoke({required String by});',
@@ -95,7 +95,7 @@ $body
     ),
     'a word named as what the owner base keeps it said': (
       '@StateWord() int get said;',
-      'said is a member of Owner',
+      'said is a name every owner base has',
     ),
     'two members of the client of one name': (
       '@StateWord() int get total;\n@CommandWord() void totalChanges();',

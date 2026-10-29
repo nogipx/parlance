@@ -36,36 +36,32 @@ final class Devices {
 /// on [devices], answers the query and sets its states. What a handler
 /// sets follows from its call: no cause is written.
 final class Home extends HouseOwner {
-  Home(this.devices);
-
-  final Devices devices;
-
-  /// When a device changed by hand, it is synced on its own: nobody has
-  /// to call `sync` on its participant.
-  @override
-  Stream<void> get changes => devices.changed;
-
-  late final TrackedKind _rooms;
-
-  /// What [House] does not say: the rooms it keeps, and a rule of its own.
-  @override
-  void defineMore(IParticipant p) {
+  Home(this.devices) {
     _rooms = trackKind(
       room,
       () => [for (final id in devices.lights.keys) EntityRef(id)],
     );
+    // What the devices say now: the house's devices are its model, so it
+    // follows them, as one tick with its group; when a device changed by
+    // hand too, so nobody has to call `sync` on its participant.
+    follow(_pull, on: devices.changed);
     // The door stays locked at night, unless a resident says so
     // (override). It judges the house's commands only.
-    keep(
-      p.addGuard('night-door', (call) {
-        if (call.command.name != HouseCommand.lock.name) return null;
-        final unlock = call.params['on'] == false;
-        return unlock && mode == Mode.night
-            ? 'the door stays locked at night'
-            : null;
-      }),
+    whenAttached(
+      (p) => keep(
+        p.addGuard('night-door', (call) {
+          if (call.command.name != HouseCommand.lock.name) return null;
+          final unlock = call.params['on'] == false;
+          return unlock && mode == Mode.night
+              ? 'the door stays locked at night'
+              : null;
+        }),
+      ),
     );
   }
+
+  final Devices devices;
+  late final TrackedKind _rooms;
 
   @override
   void setLight({required String room, required bool on}) {
@@ -95,10 +91,7 @@ final class Home extends HouseOwner {
       if (value == lit) key,
   ];
 
-  /// Sets what the devices say now: the house's devices are its model, so
-  /// it is synced from them, as one tick with its group.
-  @override
-  void sync() {
+  void _pull() {
     for (final gone in _rooms.sync()) {
       light.remove(gone);
     }

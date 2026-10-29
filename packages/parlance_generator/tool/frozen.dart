@@ -22,6 +22,17 @@ import 'package:analyzer/error/error.dart';
 
 const _frozen = ['schema.dart', 'app.dart'];
 
+/// What an app's code or its generated code implements: a member added
+/// to it breaks every class that does, so it is never added to.
+const _implemented = {
+  'IOwner',
+  'IWord',
+  'IStateWord',
+  'ICommandWord',
+  'IQueryWord',
+  'IFactWord',
+};
+
 Future<void> main(List<String> args) async {
   final repo = _git(['rev-parse', '--show-toplevel']).trim();
   final since = args.length == 2 && args.first == '--since'
@@ -43,6 +54,10 @@ Future<void> main(List<String> args) async {
     final gone = then.difference(now).toList()..sort();
     for (final line in gone) {
       broke.add('gone or changed: $line');
+    }
+    final added = now.difference(then).where(_ofImplemented).toList()..sort();
+    for (final line in added) {
+      broke.add('added to what an app implements: $line');
     }
     broke.addAll(await _oldGeneratedBuilds(repo, since));
   } finally {
@@ -74,11 +89,22 @@ Future<Set<String>> surface(String root) async {
       lines.add('$of $name: ${e.displayString()}');
       for (final m in _members(e)) {
         if (m.isPrivate) continue;
-        lines.add('$of $name.${m.displayName}: ${m.displayString()}');
+        final static = m is ExecutableElement && m.isStatic ? 'static ' : '';
+        lines.add('$of $name.$static${m.displayName}: ${m.displayString()}');
       }
     }
   }
   return lines;
+}
+
+/// Whether [line] is an instance member of what an app implements.
+bool _ofImplemented(String line) {
+  final at = line.indexOf(' ') + 1;
+  final dot = line.indexOf('.', at);
+  final colon = line.indexOf(':', at);
+  if (dot < 0 || dot > colon) return false;
+  return _implemented.contains(line.substring(at, dot)) &&
+      !line.startsWith('static ', dot + 1);
 }
 
 Iterable<Element> _members(Element e) => switch (e) {

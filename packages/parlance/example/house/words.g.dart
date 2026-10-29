@@ -129,65 +129,65 @@ enum HouseFact<T> implements IFactWord<T> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class HouseOwner extends Owner {
+abstract class HouseOwner implements IOwner {
   HouseOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
   /// house.light.on, by room: what this owner set of each,
   /// read and written as a map is.
   final Keyed<bool> light = Keyed<bool>();
 
-  IStateWriterOf<num>? _heat;
-  num? _heatNow;
-  var _heatSet = false;
+  IStateWriterOf<num>? _$heat;
+  num? _$heatNow;
+  var _$heatSet = false;
 
   /// house.heat.target, as this owner last set it.
-  num? get heat => _heatNow;
+  num? get heat => _$heatNow;
 
   /// Sets house.heat.target.
   set heat(num value) {
-    _heatNow = value;
-    _heatSet = true;
-    _heat?.set(value);
+    _$heatNow = value;
+    _$heatSet = true;
+    _$heat?.set(value);
   }
 
-  IStateWriterOf<Mode>? _mode;
-  Mode? _modeNow;
-  var _modeSet = false;
+  IStateWriterOf<Mode>? _$mode;
+  Mode? _$modeNow;
+  var _$modeSet = false;
 
   /// house.mode, as this owner last set it.
-  Mode? get mode => _modeNow;
+  Mode? get mode => _$modeNow;
 
   /// Sets house.mode.
   set mode(Mode value) {
-    _modeNow = value;
-    _modeSet = true;
-    _mode?.set(value);
+    _$modeNow = value;
+    _$modeSet = true;
+    _$mode?.set(value);
   }
 
-  IStateWriterOf<bool>? _locked;
-  bool? _lockedNow;
-  var _lockedSet = false;
+  IStateWriterOf<bool>? _$locked;
+  bool? _$lockedNow;
+  var _$lockedSet = false;
 
   /// house.door.locked, as this owner last set it.
-  bool? get locked => _lockedNow;
+  bool? get locked => _$lockedNow;
 
   /// Sets house.door.locked.
   set locked(bool value) {
-    _lockedNow = value;
-    _lockedSet = true;
-    _locked?.set(value);
+    _$lockedNow = value;
+    _$lockedSet = true;
+    _$locked?.set(value);
   }
 
-  IFactEmitterOf<HouseRang>? _rang;
-  IFactEmitterOf<HouseMotion>? _motion;
+  IFactEmitterOf<HouseRang>? _$rang;
+  IFactEmitterOf<HouseMotion>? _$motion;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -197,13 +197,14 @@ abstract base class HouseOwner extends Owner {
     }
   }
 
-  void _define(IParticipant p) {
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
     Keyed.attach(light, keep(p.state(HouseState.light).define()));
-    _heat = keep(p.state(HouseState.heat).define());
-    _mode = keep(p.state(HouseState.mode).define());
-    _locked = keep(p.state(HouseState.locked).define());
-    _rang = keep(p.fact(HouseFact.rang).define());
-    _motion = keep(p.fact(HouseFact.motion).define());
+    _$heat = keep(p.state(HouseState.heat).define());
+    _$mode = keep(p.state(HouseState.mode).define());
+    _$locked = keep(p.state(HouseState.locked).define());
+    _$rang = keep(p.fact(HouseFact.rang).define());
+    _$motion = keep(p.fact(HouseFact.motion).define());
     keep(
       p
           .command(HouseCommand.setLight)
@@ -222,31 +223,26 @@ abstract base class HouseOwner extends Owner {
           .serve((x) => lock(on: x.on), available: whyNotLock),
     );
     keep(p.query(HouseQuery.rooms).serve((x) => rooms(lit: x.lit)));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
     Keyed.writeAll(light);
-    if (_heatSet) _heat!.set(_heatNow as num);
-    if (_modeSet) _mode!.set(_modeNow as Mode);
-    if (_lockedSet) _locked!.set(_lockedNow as bool);
+    if (_$heatSet) _$heat!.set(_$heatNow as num);
+    if (_$modeSet) _$mode!.set(_$modeNow as Mode);
+    if (_$lockedSet) _$locked!.set(_$lockedNow as bool);
   }
 
   /// Says house.doorbell.rang; on behalf of [by], when given.
   void rang({required String who, Principal? by}) =>
-      _say('house.doorbell.rang', _rang, (who: who), by);
+      _$say('house.doorbell.rang', _$rang, (who: who), by);
 
   /// Says house.motion.seen; on behalf of [by], when given.
   void motion({required String room, Principal? by}) =>
-      _say('house.motion.seen', _motion, (room: room), by);
-
-  /// What [House] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
+      _$say('house.motion.seen', _$motion, (room: room), by);
 
   /// Serves house.light.set.
   void setLight({required String room, required bool on});
@@ -548,42 +544,38 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract base class VisitOwner extends Owner {
+abstract class VisitOwner implements IOwner {
   VisitOwner() {
-    Owner.made(this, define: _define, write: _write);
+    IOwner.made(this, define: _$define, write: _$write);
   }
 
-  IStateWriterOf<List<String>>? _guests;
-  List<String>? _guestsNow;
-  var _guestsSet = false;
+  IStateWriterOf<List<String>>? _$guests;
+  List<String>? _$guestsNow;
+  var _$guestsSet = false;
 
   /// visit.guests, as this owner last set it.
-  List<String>? get guests => _guestsNow;
+  List<String>? get guests => _$guestsNow;
 
   /// Sets visit.guests.
   set guests(List<String> value) {
-    _guestsNow = value;
-    _guestsSet = true;
-    _guests?.set(value);
+    _$guestsNow = value;
+    _$guestsSet = true;
+    _$guests?.set(value);
   }
 
-  void _define(IParticipant p) {
-    _guests = keep(p.state(VisitState.guests).define());
+  void _$define(IParticipant p) {
+    final keep = OwnerTools(this).keep;
+    _$guests = keep(p.state(VisitState.guests).define());
     keep(p.command(VisitCommand.leave).serve((x) => leave(who: x.who)));
-    defineMore(p);
   }
 
   /// What it set before it was attached, written once it is.
-  var _written = false;
-  void _write() {
-    if (_written) return;
-    _written = true;
-    if (_guestsSet) _guests!.set(_guestsNow as List<String>);
+  var _$written = false;
+  void _$write() {
+    if (_$written) return;
+    _$written = true;
+    if (_$guestsSet) _$guests!.set(_$guestsNow as List<String>);
   }
-
-  /// What [Visit] does not say: kinds, guards, words named at
-  /// run time. After its words are defined.
-  void defineMore(IParticipant p) {}
 
   /// Serves visit.leave.
   void leave({required String who});

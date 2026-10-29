@@ -36,12 +36,15 @@ const _to = RecordShape<({int to})>(
 Map<String, Object?> _toJson(({int to}) p) => {'to': p.to};
 ({int to}) _fromJson(Map<String, Object?> m) => (to: m['to']! as int);
 
-final class _Deck extends Owner {
+final class _Deck implements IOwner {
+  _Deck() {
+    IOwner.made(this, define: _define);
+  }
+
   late final IStateWriterOf<int> level;
   var served = 0;
 
-  @override
-  void define(IParticipant p) {
+  void _define(IParticipant p) {
     level = keep(p.state(_State.level).define());
     keep(
       p.command(_Command.set).serve((x) {

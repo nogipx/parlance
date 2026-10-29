@@ -37,74 +37,137 @@ final class Handles implements IHandle {
   }
 }
 
-/// An owner of words (SPEC §6, §19): code that defines its states,
-/// commands and facts in [define], keeps their handles, and writes what it
-/// has now in [sync]. `main` attaches it to a participant (SPEC §22.3:
-/// `p.attach({'sound': Mixer(...)})`) and it speaks as the part of its
-/// name; who that is, and what it may, `main` says when it makes the
-/// participant, never the owner.
-abstract base class Owner implements IHandle {
-  final Handles _handles = Handles();
-  IParticipant? _participant;
-  OwnerGroup? _group;
-
-  /// The participant it speaks through: the part `main` named it by.
-  IParticipant get participant =>
-      _participant ?? (throw StateError('$runtimeType is not attached'));
-
-  /// Attached by [group] to [p], its part: defines its words; once.
-  void _attach(IParticipant p, OwnerGroup group) {
-    if (_participant != null) throw StateError('$runtimeType is attached');
-    _participant = p;
-    _group = group;
-    (_made[this]?.define ?? define)(p);
-    if (changes case final c?) listen(c, (_) => group._changed(this));
-  }
-
-  /// Told whenever what its states say may have changed (its model, a
-  /// device): it is then synced, once for all told in one turn, and with
-  /// the rest of its participant's owners as one tick. Without it,
-  /// whoever changes the model calls `IParticipant.sync`.
-  Stream<void>? get changes => null;
-
-  /// Defines its words through [p]; keep what each returns with [keep].
-  /// An owner base the generator made defines them itself ([made]), and
-  /// one that extends it writes none of this.
-  void define(IParticipant p) {}
-
-  /// Writes its states as they are now, from what it keeps elsewhere (a
-  /// model, a device). `IParticipant.sync` calls every owner's in one
-  /// batch, so a change is seen whole. An owner the generator's base keeps
-  /// the values of needs none: what it set is written for it.
-  void sync() {}
-
-  /// What a base the generator made does for [owner] that the owner does
-  /// not write: [define] its words, and write before its [sync] what it
-  /// set before it was attached. Called by the base, in its constructor.
+/// An owner of words (SPEC §6, §19, §23.4): what `main` attaches to a
+/// participant (`p.attach({'sound': Mixer(...)})`), to speak as the part
+/// of its name; who that is, and what it may, `main` says when it makes
+/// the participant, never the owner.
+///
+/// It has no members: what an owner does with the library it does by
+/// [OwnerTools], extensions, so no name of an owner's own is the
+/// library's, in this version or one to come. A base the generator made
+/// implements it, and the owner extends that base.
+abstract interface class IOwner {
+  /// Called by an owner in its constructor (a base the generator made
+  /// does it): [define] defines its words once it is attached, keeping
+  /// each handle with [OwnerTools.keep]; [write], when given, writes what
+  /// it set before it was attached, first of each sync.
   static void made(
-    Owner owner, {
+    IOwner owner, {
     required void Function(IParticipant p) define,
     void Function()? write,
-  }) => _made[owner] = (define: define, write: write);
+  }) {
+    final c = _Core.of(owner);
+    c.define = define;
+    c.write = write;
+  }
+}
 
-  static final Expando<
-    ({void Function(IParticipant p) define, void Function()? write})
-  >
-  _made = Expando('made');
+/// What the library keeps of an owner, beside it: an owner holds none of
+/// it, so none of its names is the owner's.
+final class _Core {
+  _Core(this.type);
 
-  void _sync() {
-    _made[this]?.write?.call();
-    sync();
+  static final Expando<_Core> _all = Expando('owner');
+  static _Core of(IOwner o) => _all[o] ??= _Core(o.runtimeType);
+
+  final Type type;
+  final Handles handles = Handles();
+  IParticipant? participant;
+  OwnerGroup? group;
+  void Function(IParticipant p)? define;
+  void Function()? write;
+  final List<void Function()> follows = [];
+
+  /// What waits for it to be attached, in order; null once it is.
+  List<void Function(IParticipant p)>? _due = [];
+
+  /// Whether it was synced once, after it was attached.
+  bool synced = false;
+
+  void whenAttached(void Function(IParticipant p) f) {
+    if (participant case final p? when _due == null) {
+      f(p);
+    } else {
+      _due!.add(f);
+    }
   }
 
+  void attach(IParticipant p, OwnerGroup group) {
+    if (participant != null) throw StateError('$type is attached');
+    participant = p;
+    this.group = group;
+    define?.call(p);
+    final due = _due!;
+    _due = null;
+    for (final f in due) {
+      f(p);
+    }
+  }
+
+  /// [signal] tells it to be synced, once for all told in one turn.
+  void syncOn(Stream<void> signal) => whenAttached(
+    (_) =>
+        handles.keep(_Listening(signal.listen((_) => group?._changed(this)))),
+  );
+
+  void sync() {
+    write?.call();
+    for (final f in [...follows]) {
+      f();
+    }
+    synced = true;
+  }
+
+  void dispose() {
+    handles.dispose();
+    group?._left(this);
+    group = null;
+  }
+}
+
+/// What an owner does with the library (SPEC §19, §23.4): written in it as
+/// its own, `listen(...)`, `caller`; a name the owner has of its own is
+/// its own, and one these tools have is reached as `OwnerTools(this).x`.
+extension OwnerTools on IOwner {
+  /// The participant it speaks through: the part `main` named it by.
+  /// Throws while it is not attached: what needs it waits in
+  /// [whenAttached].
+  IParticipant get participant =>
+      _Core.of(this).participant ??
+      (throw StateError('$runtimeType is not attached'));
+
   /// Keeps [h] to withdraw when the owner goes, and gives it back.
-  H keep<H extends IHandle>(H h) => _handles.keep(h);
+  H keep<H extends IHandle>(H h) => _Core.of(this).handles.keep(h);
+
+  /// Runs [f] when the owner goes: what it holds of its own (a timer, a
+  /// device), let go.
+  void onDispose(void Function() f) => keep(_Done(f));
+
+  /// Runs [f] with its participant once it is attached, after its words
+  /// are defined; at once, when it is: what [OwnerTools] does not say
+  /// (a guard, words named at run time).
+  void whenAttached(void Function(IParticipant p) f) =>
+      _Core.of(this).whenAttached(f);
+
+  /// Writes its states from what it keeps elsewhere (a model, a device):
+  /// [pull] runs when it is attached, whenever its participant's `sync` is
+  /// called, and when [on] tells it something changed, once for all told
+  /// in one turn; with the participant's other owners, as one tick. What
+  /// it sets equal to what is kept changes nothing.
+  void follow(void Function() pull, {Stream<void>? on}) {
+    final c = _Core.of(this);
+    c.follows.add(pull);
+    if (on != null) c.syncOn(on);
+    if (c.synced) c.participant!.batch(pull);
+  }
 
   /// Listens to [stream] while it is attached: what its work reports on
-  /// its own (a switch flipped by hand, a message come in), for it to write or
-  /// emit.
-  void listen<T>(Stream<T> stream, void Function(T) onData) =>
-      keep(_Listening(stream.listen(onData)));
+  /// its own (a switch flipped by hand, a message come in), for it to
+  /// write or say.
+  void listen<T>(Stream<T> stream, void Function(T) onData) {
+    final c = _Core.of(this);
+    c.whenAttached((_) => c.handles.keep(_Listening(stream.listen(onData))));
+  }
 
   /// Hears [facts] while it is attached (another's, through its client's
   /// `<fact>Facts`): what [onData] writes, says and calls follows from the
@@ -129,40 +192,74 @@ abstract base class Owner implements IHandle {
   /// its own).
   R apart<R>(R Function() act) => serving_.apart(act);
 
-  /// Runs [writes] as one tick, as a handler's or `sync`'s are: seen
+  /// Runs [writes] as one tick, as a handler's or a sync's are: seen
   /// whole, or not at all when it throws. Not attached, it just runs them.
   void together(void Function() writes) {
-    final p = _participant;
+    final p = _Core.of(this).participant;
     p == null ? writes() : p.batch(writes);
   }
 
-  /// Registers a kind of entities it keeps, [list] the ones there are now.
+  /// Registers a kind of entities it keeps, [list] the ones there are
+  /// now; told to the registry once it is attached.
   TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {
-    final kind = TrackedKind._(participant, name, list);
-    keep(participant.registerKind(EntityKind(name, list: list)));
+    final kind = TrackedKind._(name, list);
+    final c = _Core.of(this);
+    c.whenAttached((p) {
+      kind._attach(p);
+      c.handles.keep(p.registerKind(EntityKind(name, list: list)));
+    });
     return kind;
   }
+}
+
+/// An owner written by hand, without a base the generator made (in tests
+/// and tools): it defines its words in [define] and writes what it has
+/// now in [sync]. Not in `schema.dart`: its members are its subclasses'
+/// names, so it is no frozen contract.
+abstract base class Owner implements IOwner, IHandle {
+  Owner() {
+    final c = _Core.of(this);
+    IOwner.made(
+      this,
+      define: (p) {
+        define(p);
+        if (changes case final s?) c.syncOn(s);
+      },
+    );
+    c.follows.add(sync);
+  }
+
+  /// Told whenever what its states say may have changed: it is then
+  /// synced, once for all told in one turn.
+  Stream<void>? get changes => null;
+
+  /// Defines its words through [p]; keep what each returns with `keep`.
+  void define(IParticipant p) {}
+
+  /// Writes its states as they are now. `IParticipant.sync` calls every
+  /// owner's in one batch, so a change is seen whole.
+  void sync() {}
 
   /// Withdraws its words, and leaves the participant it was attached to:
   /// its `sync` is not asked again. An owner that overrides it calls it.
   @override
-  void dispose() {
-    _handles.dispose();
-    _group?._left(this);
-    _group = null;
-  }
+  void dispose() => _Core.of(this).dispose();
 }
 
 /// A kind of entities an owner keeps: it tells the registry when the
 /// entities changed, and which ones went.
 final class TrackedKind {
-  TrackedKind._(this._participant, this.name, this._list)
-    : _known = _ids(_list());
+  TrackedKind._(this.name, this._list);
 
-  final IParticipant _participant;
+  IParticipant? _participant;
   final String name;
   final Iterable<EntityRef> Function() _list;
-  List<(String, String)> _known;
+  List<(String, String)> _known = const [];
+
+  void _attach(IParticipant p) {
+    _participant = p;
+    _known = _ids(_list());
+  }
 
   /// Each entity's id, and all it tells (its label, its meta).
   static List<(String, String)> _ids(Iterable<EntityRef> refs) => [
@@ -170,8 +267,9 @@ final class TrackedKind {
   ];
 
   /// Compares the entities with the ones seen last: when they differ (an
-  /// entity came, went, was renamed or tells otherwise), announces it. Answers the ids that
-  /// went, for the owner to remove their keyed states.
+  /// entity came, went, was renamed or tells otherwise), announces it.
+  /// Answers the ids that went, for the owner to remove their keyed
+  /// states.
   Set<String> sync() {
     final now = _ids(_list());
     if (_same(now, _known)) return const {};
@@ -181,7 +279,7 @@ final class TrackedKind {
         if (!ids.contains(id)) id,
     };
     _known = now;
-    _participant.entitiesChanged(name);
+    _participant?.entitiesChanged(name);
     return gone;
   }
 
@@ -202,59 +300,62 @@ final class OwnerGroup {
   OwnerGroup(this.participant);
 
   final IParticipant participant;
-  final Map<String, Owner> _owners = {};
-  final Set<Owner> _dirty = {};
+  final Map<String, IOwner> _owners = {};
+  final Map<IOwner, _Core> _cores = {};
+  final Set<_Core> _dirty = {};
   bool _disposed = false;
 
   /// The owners by the names of their parts.
-  Map<String, Owner> get owners => Map.unmodifiable(_owners);
+  Map<String, IOwner> get owners => Map.unmodifiable(_owners);
 
   /// Attaches each of [owners] to the part of its name
   /// (`participant.child(name)`), so its acts are told as its own, in
   /// order; then writes what they have now, as one tick. All or none: when
   /// one cannot define its words, those attached here are withdrawn and
   /// the error goes on.
-  void attach(Map<String, Owner> owners) {
+  void attach(Map<String, IOwner> owners) {
     if (_disposed) throw StateError('${participant.who} is gone');
     for (final name in owners.keys) {
       if (_owners.containsKey(name)) {
         throw StateError('${participant.who} has an owner named $name');
       }
     }
-    for (final o in owners.values) {
-      if (o._participant != null) {
-        throw StateError('${o.runtimeType} is attached');
-      }
+    final cores = [for (final o in owners.values) _Core.of(o)];
+    for (final c in cores) {
+      if (c.participant != null) throw StateError('${c.type} is attached');
     }
-    final attached = <Owner>[];
+    final attached = <IOwner>[];
     try {
+      var i = 0;
       for (final MapEntry(key: name, value: o) in owners.entries) {
+        final c = cores[i++];
         attached.add(o);
-        o._attach(participant.child(name), this);
+        c.attach(participant.child(name), this);
         _owners[name] = o;
+        _cores[o] = c;
       }
     } catch (_) {
       for (final o in attached.reversed) {
-        o.dispose();
+        _end(o);
       }
       rethrow;
     }
-    _sync(owners.values);
+    _sync(cores);
   }
 
   /// Writes what every owner has now, as one tick.
-  void sync() => _sync([..._owners.values]);
+  void sync() => _sync([..._cores.values]);
 
   /// Syncs [owners] as one tick, each on its own: one that throws writes
   /// nothing, the others write what they have, and its error goes on
   /// after.
-  void _sync(Iterable<Owner> owners) {
+  void _sync(Iterable<_Core> owners) {
     Object? error;
     StackTrace? stack;
     participant.batch(() {
       for (final o in owners) {
         try {
-          participant.batch(o._sync);
+          participant.batch(o.sync);
         } catch (e, s) {
           error ??= e;
           stack ??= s;
@@ -264,10 +365,19 @@ final class OwnerGroup {
     if (error case final e?) Error.throwWithStackTrace(e, stack!);
   }
 
-  /// [o] was disposed on its own: it is synced no more.
-  void _left(Owner o) {
-    _owners.removeWhere((_, x) => identical(x, o));
-    _dirty.remove(o);
+  /// Withdraws [o]: by its own `dispose`, an [Owner] written by hand
+  /// that may let go of more.
+  static void _end(IOwner o) =>
+      o is Owner ? o.dispose() : _Core.of(o).dispose();
+
+  /// [c] was disposed on its own: it is synced no more.
+  void _left(_Core c) {
+    _cores.removeWhere((o, x) {
+      if (!identical(x, c)) return false;
+      _owners.removeWhere((_, y) => identical(y, o));
+      return true;
+    });
+    _dirty.remove(c);
   }
 
   /// How many groups' syncs are due and have not run, in this isolate:
@@ -282,16 +392,16 @@ final class OwnerGroup {
     } while (_pending > 0);
   }
 
-  void _changed(Owner o) {
+  void _changed(_Core c) {
     final first = _dirty.isEmpty;
-    _dirty.add(o);
+    _dirty.add(c);
     if (!first) return;
     _pending++;
     Timer.run(() {
       _pending--;
       final due = [
-        for (final o in _owners.values)
-          if (_dirty.contains(o)) o,
+        for (final c in _cores.values)
+          if (_dirty.contains(c)) c,
       ];
       _dirty.clear();
       if (_disposed) return;
@@ -303,10 +413,11 @@ final class OwnerGroup {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final o in [..._owners.values].reversed) {
-      o.dispose();
+    for (final o in [..._cores.keys].reversed) {
+      _end(o);
     }
     _owners.clear();
+    _cores.clear();
   }
 }
 
@@ -323,6 +434,14 @@ final class CallFailure implements Exception {
 
   @override
   String toString() => why;
+}
+
+final class _Done implements IHandle {
+  _Done(this._f);
+  final void Function() _f;
+
+  @override
+  void dispose() => _f();
 }
 
 final class _Listening implements IHandle {
