@@ -135,8 +135,8 @@ abstract final class HouseChoices {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class HouseBase implements IOwner {
-  HouseBase() {
+abstract class HouseOwnerBase implements IOwner {
+  HouseOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 
@@ -552,8 +552,8 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class VisitBase implements IOwner {
-  VisitBase() {
+abstract class VisitOwnerBase implements IOwner {
+  VisitOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 

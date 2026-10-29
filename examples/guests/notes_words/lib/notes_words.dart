@@ -1,5 +1,5 @@
 /// The notes guest's words, published beside the guest: the notes guest
-/// owns them (`NotesBase`); another guest that uses them depends on this
+/// owns them (`NotesOwnerBase`); another guest that uses them depends on this
 /// package alone and takes `INotesClient`.
 library;
 

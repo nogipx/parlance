@@ -10,7 +10,7 @@ const me = Principal('board');
 const ann = Principal('reader', 'ann');
 const anyone = Callers({'*': Access.allow});
 
-final class Pinboard extends BoardBase {
+final class Pinboard extends BoardOwnerBase {
   Pinboard() {
     choices('note', () => [for (final id in up.keys) Choice(id)]);
   }

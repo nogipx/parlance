@@ -784,7 +784,7 @@ final class _Emitter {
     'noSuchMethod',
   };
 
-  /// `<Class>Base` (SPEC §23.4): an owner base that defines every word
+  /// `<Class>OwnerBase` (SPEC §23.4): an owner base that defines every word
   /// and keeps what the owner set of each state, writing it; says each
   /// fact by a method of its params; and serves each command and query by
   /// a handler of its params, for the owner to write. Nothing of it asks
@@ -809,7 +809,7 @@ final class _Emitter {
     void member(String name, _Word w) {
       if (had[name] case final other?) {
         throw InvalidGenerationSourceError(
-          '$name is had twice by ${_c}Base: name ${w.member} or '
+          '$name is had twice by ${_c}OwnerBase: name ${w.member} or '
           '${other.member} otherwise, or @Vocabulary(owner: false)',
           element: w.element,
         );
@@ -835,8 +835,8 @@ final class _Emitter {
       ..writeln('/// by a method of its params, and serves each command and')
       ..writeln('/// query by a handler of its params. What a handler writes,')
       ..writeln('/// says and calls follows from the call it serves.')
-      ..writeln('abstract class ${_c}Base implements IOwner {')
-      ..writeln('  ${_c}Base() {')
+      ..writeln('abstract class ${_c}OwnerBase implements IOwner {')
+      ..writeln('  ${_c}OwnerBase() {')
       ..writeln('    IOwner.made(this, define: _\$define, write: _\$write);')
       ..writeln('  }')
       ..writeln();

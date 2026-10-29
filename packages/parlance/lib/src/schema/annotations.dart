@@ -14,7 +14,7 @@ final class Vocabulary {
   /// The first words of every name: `orders` for `orders.cancel`.
   final String name;
 
-  /// Whether to make `<Class>Base` too (SPEC §23.4), an owner base with a
+  /// Whether to make `<Class>OwnerBase` too (SPEC §23.4), an owner base with a
   /// handler to write per command and query.
   final bool owner;
 

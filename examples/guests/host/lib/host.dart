@@ -24,7 +24,7 @@ abstract final class Who {
 }
 
 /// The owner of the app's words.
-final class AppHost extends AppBase {
+final class AppHost extends AppOwnerBase {
   AppHost() {
     dark = false;
   }

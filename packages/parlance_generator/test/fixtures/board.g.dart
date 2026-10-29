@@ -104,8 +104,8 @@ abstract final class BoardChoices {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class BoardBase implements IOwner {
-  BoardBase() {
+abstract class BoardOwnerBase implements IOwner {
+  BoardOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 

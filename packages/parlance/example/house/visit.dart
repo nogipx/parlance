@@ -9,7 +9,7 @@ import 'words.dart';
 /// Keeps who is visiting: it hears the doorbell and sees guests out. It
 /// knows the house only by its words. Its own words come from its base,
 /// made from [Visit]; what it sets in answer to the ring follows from it.
-final class GuestBook extends VisitBase {
+final class GuestBook extends VisitOwnerBase {
   GuestBook() {
     guests = const [];
     whenAttached(

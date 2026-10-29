@@ -30,8 +30,8 @@ abstract final class DoorsChoices {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class DoorsBase implements IOwner {
-  DoorsBase() {
+abstract class DoorsOwnerBase implements IOwner {
+  DoorsOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 
@@ -159,8 +159,8 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class LightsBase implements IOwner {
-  LightsBase() {
+abstract class LightsOwnerBase implements IOwner {
+  LightsOwnerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 
