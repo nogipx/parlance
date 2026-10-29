@@ -336,7 +336,6 @@ Map<String, Object?> _why(Explanation e) => {
           'call': call.command,
           'params': call.params,
           'by': call.cause.by.selector,
-          if (call.overridden.isNotEmpty) 'overrode': call.overridden,
           if (call.late) 'late': true,
         },
       if (e.trailCut) 'and earlier calls the registry no longer remembers',
@@ -346,11 +345,9 @@ Map<String, Object?> _why(Explanation e) => {
 McpResult _answer(CallResult<Object?> r, String id) => switch (r) {
   CallDone(:final value) =>
     value == null ? const McpResult('Done.') : McpResult.json(value),
-  CallRefused(:final code, :final reason, :final guard, :final overridable) =>
-    McpResult.error(
-      '${code.name}${guard == null ? '' : ' by $guard'}: $reason'
-      '${overridable ? ' (the user may override it)' : ''}',
-    ),
+  CallRefused(:final code, :final reason, :final guard) => McpResult.error(
+    '${code.name}${guard == null ? '' : ' by $guard'}: $reason',
+  ),
   CallFailed() => McpResult.error(r.whyNot!),
   CallTimedOut() => McpResult.error(
     'no answer within its deadline; it may still happen. See with read or '

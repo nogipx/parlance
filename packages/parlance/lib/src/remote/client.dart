@@ -182,14 +182,12 @@ final class ParlanceClient {
     String command,
     Map<String, Object?> params, {
     String? id,
-    bool override = false,
     String? parent,
     RpcContext? context,
   }) async => (await callAt(
     command,
     params,
     id: id,
-    override: override,
     parent: parent,
     context: context,
   )).result;
@@ -201,7 +199,6 @@ final class ParlanceClient {
     String command,
     Map<String, Object?> params, {
     String? id,
-    bool override = false,
     String? parent,
     Principal? as,
     RpcContext? context,
@@ -213,7 +210,6 @@ final class ParlanceClient {
           id: callId,
           command: command,
           params: params,
-          overriding: override,
           parent: parent,
           as: as?.toJson(),
         ),

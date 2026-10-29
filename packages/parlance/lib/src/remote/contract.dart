@@ -105,7 +105,6 @@ final class WireCallRequest implements IRpcSerializable {
     required this.id,
     required this.command,
     this.params = const {},
-    this.overriding = false,
     this.parent,
     this.as,
   });
@@ -114,7 +113,6 @@ final class WireCallRequest implements IRpcSerializable {
     id: m['id'] as String,
     command: m['command'] as String,
     params: _obj(m['params']),
-    overriding: m['override'] == true,
     parent: m['parent'] as String?,
     as: m['as'] == null ? null : _obj(m['as']),
   );
@@ -122,10 +120,6 @@ final class WireCallRequest implements IRpcSerializable {
   final String id;
   final String command;
   final Map<String, Object?> params;
-
-  /// Override overridable denials (SPEC §9); named so it does not hide the
-  /// `@override` annotation.
-  final bool overriding;
 
   /// What it follows from: a call the session serves, or a fact.
   final String? parent;
@@ -139,7 +133,6 @@ final class WireCallRequest implements IRpcSerializable {
     'id': id,
     'command': command,
     'params': params,
-    if (overriding) 'override': true,
     'parent': ?parent,
     'as': ?as,
   };

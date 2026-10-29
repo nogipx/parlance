@@ -24,18 +24,14 @@ import 'participant.dart';
 /// may call the commands said: the owners, the words and the parts that
 /// use them do not change.
 final class LocalRegistry {
-  LocalRegistry({
-    Set<String> overriders = const {},
-    Clock? clock,
-    ErrorSink? onError,
-  }) : _r = Registry(
-         retainTicks: 0,
-         recentPerFact: 0,
-         retainBytes: 0,
-         overriders: overriders,
-         clock: clock,
-         onError: onError,
-       ) {
+  LocalRegistry({Clock? clock, ErrorSink? onError})
+    : _r = Registry(
+        retainTicks: 0,
+        recentPerFact: 0,
+        retainBytes: 0,
+        clock: clock,
+        onError: onError,
+      ) {
     keepsNothing[_r] = true;
   }
 

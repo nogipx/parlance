@@ -476,12 +476,7 @@ sealed class CallResult<R> {
       // and not to retry, as it would be told if taken for a lost one.
       final refusal = Refusal.values.asNameMap()[code];
       if (refusal == null) return CallFailed('refused ($code): $reason');
-      return CallRefused(
-        refusal,
-        reason,
-        guard: m['guard'] as String?,
-        overridable: m['overridable'] == true,
-      );
+      return CallRefused(refusal, reason, guard: m['guard'] as String?);
     }
     if (m.containsKey('failed')) return CallFailed(m['failed'] as String);
     if (m['lost'] case final String id) {
@@ -506,13 +501,11 @@ sealed class CallResult<R> {
 
   Map<String, Object?> toJson() => switch (this) {
     CallDone(:final value) => {'done': true, 'value': value},
-    CallRefused(:final code, :final reason, :final guard, :final overridable) =>
-      {
-        'refused': code.name,
-        'reason': reason,
-        'guard': ?guard,
-        if (overridable) 'overridable': true,
-      },
+    CallRefused(:final code, :final reason, :final guard) => {
+      'refused': code.name,
+      'reason': reason,
+      'guard': ?guard,
+    },
     CallFailed(:final error) => {'failed': '$error'},
     CallTimedOut() => {'timedOut': true},
     CallLost(:final id, :final reason) => {'lost': id, 'reason': reason},
@@ -548,21 +541,13 @@ CallDone<Object?> keptDone(Kept answer) =>
 Kept? keptAnswerOf(CallResult<Object?> r) => r is _KeptDone ? r._kept : null;
 
 final class CallRefused extends CallResult<Never> {
-  const CallRefused(
-    this.code,
-    this.reason, {
-    this.guard,
-    this.overridable = false,
-  });
+  const CallRefused(this.code, this.reason, {this.guard});
 
   final Refusal code;
   final String reason;
 
   /// The guard that denied it, for [Refusal.denied].
   final String? guard;
-
-  /// A guard's denial that a principal allowed to override may override.
-  final bool overridable;
 
   @override
   String toString() =>
@@ -762,7 +747,6 @@ final class CallRecord {
     required Map<String, Object?> params,
     required this.cause,
     required this.result,
-    required this.overridden,
     required this.started,
     required this.finished,
     this.late = false,
@@ -774,7 +758,6 @@ final class CallRecord {
     required Kept params,
     required this.cause,
     required this.result,
-    required this.overridden,
     required this.started,
     required this.finished,
     this.late = false,
@@ -788,9 +771,6 @@ final class CallRecord {
   Map<String, Object?> get params => _params.json! as Map<String, Object?>;
   final Cause cause;
   final CallResult<Object?> result;
-
-  /// The guards that denied it and that the caller overrode.
-  final List<String> overridden;
 
   final DateTime started;
   final DateTime finished;
@@ -807,7 +787,6 @@ final class CallRecord {
       params: (m['params'] as Map? ?? const {}).cast<String, Object?>(),
       cause: Cause.fromJson(m['cause']),
       result: CallResult.fromJson(m['result']),
-      overridden: [for (final g in m['overridden'] as List? ?? const []) '$g'],
       started: _at(m['started']),
       finished: _at(m['finished']),
       late: m['late'] == true,
@@ -820,7 +799,6 @@ final class CallRecord {
     'params': params,
     'cause': cause.toJson(),
     'result': result.toJson(),
-    if (overridden.isNotEmpty) 'overridden': overridden,
     'started': started.toUtc().toIso8601String(),
     'finished': finished.toUtc().toIso8601String(),
     if (late) 'late': true,
@@ -1101,7 +1079,6 @@ CallRecord keptRecord({
   required Kept params,
   required Cause cause,
   required CallResult<Object?> result,
-  required List<String> overridden,
   required DateTime started,
   required DateTime finished,
   bool late = false,
@@ -1111,7 +1088,6 @@ CallRecord keptRecord({
   params: params,
   cause: cause,
   result: result,
-  overridden: overridden,
   started: started,
   finished: finished,
   late: late,

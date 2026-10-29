@@ -70,15 +70,7 @@ final class _Part implements IRawParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-    bool override = false,
-  }) => _root._call(
-    command,
-    params,
-    id: id,
-    cause: cause,
-    as: who,
-    override: override,
-  );
+  }) => _root._call(command, params, id: id, cause: cause, as: who);
 
   @override
   Future<CallResult<Object?>> callAs(
@@ -87,13 +79,11 @@ final class _Part implements IRawParticipant {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
-    bool override = false,
   }) => call(
     command,
     shape.toJson(params)! as Map<String, Object?>,
     id: id,
     cause: cause,
-    override: override,
   );
 
   @override
@@ -141,8 +131,8 @@ final class _Part implements IRawParticipant {
       _root._defineFact(d, who);
 
   @override
-  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) =>
-      _root._addGuard(id, check, overridable, who);
+  IHandle addGuard(String id, GuardCheck check) =>
+      _root._addGuard(id, check, who);
 
   @override
   IHandle registerKind(EntityKind kind) => _root._registerKind(kind, who);

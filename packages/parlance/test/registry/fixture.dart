@@ -9,8 +9,7 @@ const owner = Principal('host', 'studio');
 /// A small host: scenes and inputs, a program scene, a mute and keyed
 /// gains, all served by handlers that write what they are asked.
 base class Fixture {
-  Fixture({Registry? registry})
-    : r = registry ?? Registry(overriders: {'user'}, onError: _rethrow) {
+  Fixture({Registry? registry}) : r = registry ?? Registry(onError: _rethrow) {
     r.registerKind(
       EntityKind('scene', list: () => [for (final s in scenes) EntityRef(s)]),
     );

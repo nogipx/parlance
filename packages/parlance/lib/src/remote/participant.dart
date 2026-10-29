@@ -349,8 +349,7 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
           'value': value,
           ..._asOf(_states[state]?.as),
         },
-    for (final g in _guards.values)
-      {'op': 'guard', 'id': g.id, 'overridable': g.overridable, ..._asOf(g.as)},
+    for (final g in _guards.values) {'op': 'guard', 'id': g.id, ..._asOf(g.as)},
     if (_speaks.contains('built')) ..._built.standing(),
   ];
 
@@ -389,11 +388,8 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
   final Map<String, _Command> _commands = {};
 
   /// Its guards and its parts', by the id the host knows them by.
-  final Map<
-    String,
-    ({String id, GuardCheck check, bool overridable, Principal? as})
-  >
-  _guards = {};
+  final Map<String, ({String id, GuardCheck check, Principal? as})> _guards =
+      {};
   final Map<String, ({EntityKind kind, Principal? as})> _kinds = {};
 
   final Map<Principal, _Part> _parts = {};
@@ -768,8 +764,7 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-    bool override = false,
-  }) => _call(command, params, id: id, cause: cause, override: override);
+  }) => _call(command, params, id: id, cause: cause);
 
   /// Across a connection the params go as JSON.
   @override
@@ -779,13 +774,11 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
-    bool override = false,
   }) => call(
     command,
     shape.toJson(params)! as Map<String, Object?>,
     id: id,
     cause: cause,
-    override: override,
   );
 
   Future<CallResult<Object?>> _call(
@@ -794,7 +787,6 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
     String? id,
     Cause? cause,
     Principal? as,
-    bool override = false,
   }) async {
     _live();
     final c = _as(cause, as);
@@ -810,7 +802,6 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
       command,
       params,
       id: id,
-      override: override,
       parent: c?.parent,
       as: as,
     );
@@ -974,23 +965,17 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
   /// A guard on its own commands, asked by the host in its turn (§10); a
   /// call it is not asked about in time is denied there.
   @override
-  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) =>
-      _addGuard(id, check, overridable, null);
+  IHandle addGuard(String id, GuardCheck check) => _addGuard(id, check, null);
 
-  IHandle _addGuard(
-    String id,
-    GuardCheck check,
-    bool overridable,
-    Principal? as,
-  ) {
+  IHandle _addGuard(String id, GuardCheck check, Principal? as) {
     _live();
     // The host knows it by its speaker and its id, as it registers it.
     final full = '${(as ?? who).selector}#$id';
     // Taken, as in the host's process: added again, it would take the
     // place of its own guard here while the host keeps the first.
     if (_guards.containsKey(full)) throw StateError('guard $id exists');
-    _guards[full] = (id: id, check: check, overridable: overridable, as: as);
-    _ask({'op': 'guard', 'id': id, 'overridable': overridable, ..._asOf(as)});
+    _guards[full] = (id: id, check: check, as: as);
+    _ask({'op': 'guard', 'id': id, ..._asOf(as)});
     return Disposer(() {
       if (_guards.remove(full) == null) return;
       _ask({'op': 'unguard', 'id': id, ..._asOf(as)});

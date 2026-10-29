@@ -2,7 +2,7 @@
 
 Part of the contract the code and its tests follow; sections keep their numbers across these files (`SPEC §n` in the code), and SKILL.md maps them. Where code and contract disagree, the contract is fixed first.
 
-**What a host holds.** `main` makes the `Registry`, makes its participants (§22) and watches it; it does nothing on anyone's behalf through it. Exported are its making (its bounds, overriders, clock, log), `participant(...)`, and what only tells: the catalog and its changes, `describe`, `ticks` and `seq`, `calls`, `callStarts`, `running`, `callRecord`, `explain`, `lastChange`, `conversation`, `usesOf`, `usage`; and what is the host's alone to say: `alias` (§6.4), `registerType` (§2), `dispose`. Everything that acts, the sections below describe as the registry's (defining words with `by:`, calling and writing as any principal, guards, kinds, batches, reads, watches and facts by name, status by principal, the feed), is the package's own (`RawRegistry`, and the typed `registry.state(word)` and the rest, §18): participants, sessions and views are built on it, and a part reaches it only as one of them, so no code but the package's can act as someone it is not, or define a word outside its vocabularies. A test of the package imports it from `src/`.
+**What a host holds.** `main` makes the `Registry`, makes its participants (§22) and watches it; it does nothing on anyone's behalf through it. Exported are its making (its bounds, clock, log), `participant(...)`, and what only tells: the catalog and its changes, `describe`, `ticks` and `seq`, `calls`, `callStarts`, `running`, `callRecord`, `explain`, `lastChange`, `conversation`, `usesOf`, `usage`; and what is the host's alone to say: `alias` (§6.4), `registerType` (§2), `dispose`. Everything that acts, the sections below describe as the registry's (defining words with `by:`, calling and writing as any principal, guards, kinds, batches, reads, watches and facts by name, status by principal, the feed), is the package's own (`RawRegistry`, and the typed `registry.state(word)` and the rest, §18): participants, sessions and views are built on it, and a part reaches it only as one of them, so no code but the package's can act as someone it is not, or define a word outside its vocabularies. A test of the package imports it from `src/`.
 
 ## 1. Values and names
 
@@ -207,7 +207,7 @@ Removed: a state is written by its owner only (§6.2). "While this holds, keep t
 ## 9. Calls
 
 ```
-call(name, params, by: Principal, id?, override = false) → CallResult
+call(name, params, by: Principal, id?) → CallResult
 ```
 
 A call goes through these stages, in order; the first refusal ends it:
@@ -217,10 +217,10 @@ A call goes through these stages, in order; the first refusal ends it:
 3. **Params.** Checked and filled with defaults → `invalidParams`.
 4. **Policy.** `callers` for the principal → `notPermitted`.
 5. **Availability.** The owner's check → `unavailable`.
-6. **Guards.** Every guard (§10) is asked; the first denial → `denied` with the guard's id and reason. A denial marked overridable lets the call through when `override` is set and the principal's kind is one the host allows to override; the call record says it was overridden.
+6. **Guards.** Every guard (§10) is asked; the first denial → `denied` with the guard's id and reason.
 7. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id answers that end.
 
-`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. An end a peer of a newer protocol tells that this side does not know (a refusal code, a shape) is `failed`, saying what came: not done, and nothing to retry. A timed-out call's late end takes the place of its timeout among the call records kept. Every finished call is published as a **call record** (request, cause, stages passed, result, override, timings) on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
+`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, reason, guard?)`, `failed(error)`, `timedOut`, or `lost(id, reason)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. An end a peer of a newer protocol tells that this side does not know (a refusal code, a shape) is `failed`, saying what came: not done, and nothing to retry. A timed-out call's late end takes the place of its timeout among the call records kept. Every finished call is published as a **call record** (request, cause, stages passed, result, timings) on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
 
 ### 9.2 Logs and telemetry
 
@@ -243,12 +243,12 @@ The registry logs to a `LogScope` of rpc_dart's logger (`package:rpc_dart/logger
 ## 10. Guards
 
 ```
-addGuard(id, check, overridable = true) → handle
+addGuard(id, check) → handle
 ```
 
 - `check` is synchronous, reads committed state only, makes no calls, and returns nothing or a denial reason.
 - An id is one guard's in the registry; a participant's guard is registered as `<principal>#<id>` (§22), so participants never take one another's ids.
-- `addAskedGuard(id, ask, overridable, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies. Since it takes a while, the command's `available` is asked again after: one that cannot run by then is `unavailable`.
+- `addAskedGuard(id, ask, timeout)`: a guard another makes across a connection (a remote participant's, §22.4), asked in the same turn as the others and awaited; no answer within `timeout`, or a failure to ask, denies. Since it takes a while, the command's `available` is asked again after: one that cannot run by then is `unavailable`.
 - Guards are asked for every call that reached stage 6.
 - A guard that throws denies (`denied`, with its id), as one asked across a connection that cannot answer does: the rule it keeps holds. The error goes to the error sink.
 

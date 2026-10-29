@@ -56,7 +56,7 @@ void main() {
     expect((await f.r.call('x.go', {}, by: user)).ok, isTrue);
   });
 
-  test('a guard denies; an overrider overrides; others cannot', () async {
+  test('a guard denies, saying which', () async {
     f.r.addGuard('no-test', (c) {
       if (c.command.name == 'studio.show' && c.params['scene'] == 'test') {
         return 'not on air';
@@ -66,37 +66,9 @@ void main() {
     final r = await f.r.call('studio.show', {'scene': 'test'}, by: user);
     expect(r, refused(Refusal.denied));
     expect((r as CallRefused).guard, 'no-test');
-    expect(r.overridable, isTrue);
-
-    final records = <CallRecord>[];
-    f.r.calls.listen(records.add);
     expect(
-      (await f.r.call(
-        'studio.show',
-        {'scene': 'test'},
-        by: user,
-        override: true,
-      )).ok,
+      (await f.r.call('studio.show', {'scene': 'main'}, by: user)).ok,
       isTrue,
-    );
-    expect(
-      await f.r.call(
-        'studio.show',
-        {'scene': 'test'},
-        by: agent,
-        override: true,
-      ),
-      refused(Refusal.denied),
-    );
-    await pumpEventQueue();
-    expect(records.first.overridden, ['no-test']);
-  });
-
-  test('a guard that is not overridable stays', () async {
-    f.r.addGuard('hard', (_) => 'never', overridable: false);
-    expect(
-      await f.r.call('audio.mute', {'on': true}, by: user, override: true),
-      refused(Refusal.denied),
     );
   });
 

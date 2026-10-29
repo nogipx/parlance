@@ -462,16 +462,8 @@ extension RawRegistry on Registry {
     Map<String, Object?> params, {
     required Principal by,
     String? id,
-    bool override = false,
     Cause? cause,
-  }) => callKept(
-    command,
-    Kept.json(params),
-    by: by,
-    id: id,
-    override: override,
-    cause: cause,
-  );
+  }) => callKept(command, Kept.json(params), by: by, id: id, cause: cause);
 
   /// [call] with [params] as their shape has them (SPEC §18): a command
   /// that keeps its params by that shape takes them as they are.
@@ -480,7 +472,6 @@ extension RawRegistry on Registry {
     Kept params, {
     required Principal by,
     String? id,
-    bool override = false,
     Cause? cause,
   }) {
     final asked = command;
@@ -494,14 +485,7 @@ extension RawRegistry on Registry {
     if (!query) refuseInQuery('call $command');
     if (query) {
       // A query only answers: nothing to hold an id to, nothing to record.
-      return _run(
-        callId,
-        command,
-        params,
-        cause,
-        override: override,
-        record: false,
-      );
+      return _run(callId, command, params, cause, record: false);
     }
     final now = clock.now();
     _forget(_calls, (c) => c.at, now);
@@ -520,7 +504,7 @@ extension RawRegistry on Registry {
       }
       return seen.result;
     }
-    final result = _run(callId, command, params, cause, override: override);
+    final result = _run(callId, command, params, cause);
     // Only an id the caller gave can be given again: one made here is
     // nobody's to retry with.
     if (id != null) {
@@ -538,9 +522,9 @@ extension RawRegistry on Registry {
 
   /// Adds a guard (SPEC §10), asked for every call in the order guards
   /// were added.
-  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
+  IHandle addGuard(String id, GuardCheck check) {
     if (_guards.containsKey(id)) throw StateError('guard $id exists');
-    final g = _Guard(id, check, overridable);
+    final g = _Guard(id, check);
     _guards[id] = g;
     return Disposer(() {
       if (_guards[id] == g) _guards.remove(id);
@@ -553,12 +537,11 @@ extension RawRegistry on Registry {
   IHandle addAskedGuard(
     String id,
     Future<String?> Function(PendingCall call) ask, {
-    bool overridable = true,
     Duration timeout = const Duration(seconds: 2),
     bool Function(String command)? judges,
   }) {
     if (_guards.containsKey(id)) throw StateError('guard $id exists');
-    final g = _Guard.asked(id, ask, overridable, timeout, judges);
+    final g = _Guard.asked(id, ask, timeout, judges);
     _guards[id] = g;
     return Disposer(() {
       if (_guards[id] == g) _guards.remove(id);

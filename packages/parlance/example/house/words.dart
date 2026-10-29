@@ -19,9 +19,6 @@ abstract final class Who {
   /// The module that keeps a visit.
   static const visit = Principal('module', 'visit');
 
-  /// The kinds that may override an overridable guard.
-  static const overriders = {'resident'};
-
   /// Residents, their phones and agents, and the house itself.
   static const household = Callers({
     'resident': Access.allow,

@@ -24,8 +24,8 @@ void main() {
       'ann lights a room there is not: refused (invalidParams)',
       'for bob: house.heat.set notPermitted, house.light.set ready, '
           'garage.open missing',
-      'ann unlocks at night: refused (denied by house@devices#night-door, overridable)',
-      'ann unlocks at night, overriding: done',
+      'an agent unlocks at night: refused (denied by house@devices#night-door)',
+      'ann unlocks at night: done',
       'rooms lit, asked by bob: [kitchen]',
       'and dark: [hall, living, porch]',
       'the kitchen switch flipped by hand: from true to false',

@@ -31,7 +31,7 @@ fvm dart run example/main.dart
 What the tour shows:
 
 1. **Typed calls, and why a state is so.** `ann.command(HouseCommand.setLight).call((room: 'kitchen', on: true))`, on ann's participant: `main` hands out participants, never the registry. `explain` tells who wrote the light (`house@devices`, the owner's part), the message that set it going (its `origin`: `house.light.set` by ann) and the call it was answering. A guest is refused what its callers do not allow (the heating's callers come from the participant's default), and a room that does not exist is refused as `invalidParams`. A view's `status` says, before any call, what is there for the guest: `notPermitted`, `ready`, `missing`.
-2. **A guard.** The door stays locked at night (`denied`, overridable). A resident overrides it.
+2. **A guard.** At night only a resident unlocks the door: an agent is `denied`, by the house's guard, which says itself who passes.
 3. **A query.** `bob.query(HouseQuery.rooms).ask((lit: true))`: a question that changes nothing, asked rather than called; asking again is safe, and the registry keeps nothing of it.
 4. **By hand.** A switch flipped by hand, not through a command: the owner follows its devices (`follow(..., on: devices.changed)`), so it is synced on its own and nobody calls `sync()` on its participant.
 5. **A scope.** A visit is a participant with its owner, made when guests come: its words are `ready` meanwhile; it hears the doorbell and keeps who is in, writing with a cause that names only the ring it follows, and the registry gives the write its origin (`house.doorbell.rang` by bob); disposed when they leave, its words go, and a guest's view sees `visit.guests` missing.

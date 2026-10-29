@@ -496,7 +496,6 @@ final class RemoteSession extends ParlanceContractPeer
         request.params,
         by: by,
         id: '${principal.selector}#${request.id}',
-        override: request.overriding,
         cause: _cause(parent: request.parent, by: by),
       );
     } finally {
@@ -646,11 +645,7 @@ final class RemoteSession extends ParlanceContractPeer
       case 'unkind':
         _kinds.remove(m['name'])?.handle.dispose();
       case 'guard':
-        _guard(
-          m['id']! as String,
-          overridable: m['overridable'] != false,
-          part: part,
-        );
+        _guard(m['id']! as String, part: part);
       case 'unguard':
         _guards.remove(part.guardId('${m['id']}'))?.dispose();
       case 'built':
@@ -873,7 +868,7 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// A guard of the session's or a part's, on its commands only, asked in
   /// its turn: the participant judges the call. Known as `<speaker>/<id>`.
-  void _guard(String id, {required bool overridable, LocalParticipant? part}) {
+  void _guard(String id, {LocalParticipant? part}) {
     final p = part ?? _p;
     final full = p.guardId(id);
     if (limits.guards case final max?
@@ -893,7 +888,7 @@ final class RemoteSession extends ParlanceContractPeer
           }),
         );
         return r.json['why'] as String?;
-      }, overridable: overridable);
+      });
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }

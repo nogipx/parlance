@@ -56,13 +56,11 @@ final class Host {
     Clock? clock,
     LogScope? log,
     void Function(Object error, StackTrace stack)? onError,
-    Set<String> overriders = const {},
     HostBounds bounds = const HostBounds(),
   }) : registry = Registry(
          clock: clock,
          log: log,
          onError: onError,
-         overriders: overriders,
          dedupWindow: bounds.dedupWindow,
          dedupLimit: bounds.dedupLimit,
          retainTicks: bounds.retainTicks,

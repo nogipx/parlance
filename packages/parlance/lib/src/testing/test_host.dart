@@ -21,19 +21,10 @@ import '../remote/session.dart';
 /// stood in for by [stateOf], [commandOf], [factOf]; what it did is read
 /// back by [written], [said] and [calls] after [settle].
 final class TestHost {
-  factory TestHost({
-    Set<String> overriders = const {},
-    Clock? clock,
-    LogScope? log,
-  }) {
+  factory TestHost({Clock? clock, LogScope? log}) {
     final errors = <Object>[];
     return TestHost._(
-      Registry(
-        overriders: overriders,
-        clock: clock,
-        log: log,
-        onError: (e, _) => errors.add(e),
-      ),
+      Registry(clock: clock, log: log, onError: (e, _) => errors.add(e)),
       errors,
     );
   }

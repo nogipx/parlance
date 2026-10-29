@@ -173,15 +173,12 @@ abstract interface class IRawParticipant implements IParticipant {
 
   /// Calls [command] as [who]. A handler's nested call passes [cause]
   /// (`call.causeFor(who)`), so it follows from the call being served.
-  /// [override] passes a guard's overridable denial, when [who]'s kind is
-  /// one of the registry's overriders (SPEC §10).
   @override
   Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-    bool override = false,
   });
 
   /// [call] with [params] as [shape] has them (SPEC §18).
@@ -192,7 +189,6 @@ abstract interface class IRawParticipant implements IParticipant {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
-    bool override = false,
   });
 
   /// Defines a state of its own, with [who] its only writer; readers
@@ -231,7 +227,7 @@ abstract interface class IRawParticipant implements IParticipant {
   /// The registry knows it as `<who>#<id>`: refusals and call records
   /// name it so, and another participant's guard of the same [id] is
   /// another guard.
-  IHandle addGuard(String id, GuardCheck check, {bool overridable = true});
+  IHandle addGuard(String id, GuardCheck check);
 
   /// Registers a kind of entities it keeps (SPEC §3).
   IHandle registerKind(EntityKind kind);
@@ -405,10 +401,9 @@ final class ParticipantCommandOf<P, R> {
   );
 
   /// Calls it with [params] as the participant, under [id] when given (a
-  /// retry with the same id runs once). [override] passes a guard's
-  /// overridable denial, when its kind is one of the overriders (SPEC §10).
-  Future<CallResult<R>> call(P params, {String? id, bool override = false}) =>
-      callFrom(params, id: id, override: override);
+  /// retry with the same id runs once).
+  Future<CallResult<R>> call(P params, {String? id}) =>
+      callFrom(params, id: id);
 
   /// Calls as the core asks a port (SPEC §21.6): the answer of a done
   /// call, else [CallNotDone] with how it ended.
@@ -541,19 +536,14 @@ extension RawCommandOf<P, R> on ParticipantCommandOf<P, R> {
   }
 
   /// Calls it, following from [cause] when given.
-  Future<CallResult<R>> callFrom(
-    P params, {
-    String? id,
-    Cause? cause,
-    bool override = false,
-  }) async => word.answer(
-    await participant.raw.callAs(
-      word.name,
-      params,
-      word.params,
-      id: id,
-      cause: cause,
-      override: override,
-    ),
-  );
+  Future<CallResult<R>> callFrom(P params, {String? id, Cause? cause}) async =>
+      word.answer(
+        await participant.raw.callAs(
+          word.name,
+          params,
+          word.params,
+          id: id,
+          cause: cause,
+        ),
+      );
 }

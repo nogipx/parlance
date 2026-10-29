@@ -502,7 +502,6 @@ final class CommandOf<P, R> {
     P params, {
     required Principal by,
     String? id,
-    bool override = false,
     Cause? cause,
   }) async {
     final r = await registry.callKept(
@@ -510,7 +509,6 @@ final class CommandOf<P, R> {
       Kept(params, word.params),
       by: by,
       id: id,
-      override: override,
       cause: cause,
     );
     return word.answer(r);

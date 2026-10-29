@@ -272,13 +272,12 @@ extension OwnerTools on IOwner {
   /// Guards its command [word] (SPEC §10): [check] answers why a call of
   /// [params] on behalf of [by] may not run, or null; asked before the
   /// handler, once it is attached. [id] names it in refusals and records.
-  /// An overrider may pass it ([overridable]).
+  /// Who passes it is [check]'s to say: the rule is the owner's.
   void guard<P, R>(
     ICommandWord<P, R> word,
     String id,
-    String? Function(P params, Principal by) check, {
-    bool overridable = true,
-  }) {
+    String? Function(P params, Principal by) check,
+  ) {
     final c = _Core.of(this);
     c.whenAttached(
       (p) => c.handles.keep(
@@ -287,7 +286,6 @@ extension OwnerTools on IOwner {
           (call) => call.command.name == word.name
               ? check(word.params.fromJson(call.params), call.by)
               : null,
-          overridable: overridable,
         ),
       ),
     );

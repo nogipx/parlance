@@ -337,18 +337,10 @@ final class LocalParticipant implements IRawParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-    bool override = false,
   }) {
     _live();
     final c = _as(cause);
-    return _r.call(
-      command,
-      params,
-      by: who,
-      id: id,
-      cause: c,
-      override: override,
-    );
+    return _r.call(command, params, by: who, id: id, cause: c);
   }
 
   @override
@@ -358,7 +350,6 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
-    bool override = false,
   }) {
     _live();
     return _r.callKept(
@@ -367,7 +358,6 @@ final class LocalParticipant implements IRawParticipant {
       by: who,
       id: id,
       cause: _as(cause),
-      override: override,
     );
   }
 
@@ -494,14 +484,13 @@ final class LocalParticipant implements IRawParticipant {
       _children.values.any((c) => c._judges(command));
 
   @override
-  IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) {
+  IHandle addGuard(String id, GuardCheck check) {
     _live();
     return _keepDoing(
       _r
           .addGuard(
             guardId(id),
             (c) => _judges(c.command.name) ? check(c) : null,
-            overridable: overridable,
           )
           .dispose,
     );
@@ -512,19 +501,12 @@ final class LocalParticipant implements IRawParticipant {
   IHandle addAskedGuard(
     String id,
     Future<String?> Function(PendingCall call) ask, {
-    bool overridable = true,
     Duration timeout = const Duration(seconds: 2),
   }) {
     _live();
     return _keepDoing(
       _r
-          .addAskedGuard(
-            guardId(id),
-            ask,
-            overridable: overridable,
-            timeout: timeout,
-            judges: _judges,
-          )
+          .addAskedGuard(guardId(id), ask, timeout: timeout, judges: _judges)
           .dispose,
     );
   }

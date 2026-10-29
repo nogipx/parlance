@@ -23,10 +23,7 @@ import 'house/words.dart';
 Future<void> main() async {
   // --- The host and its owner ----------------------------------------------
 
-  final host = Host(
-    overriders: Who.overriders,
-    onError: (e, st) => print('error: $e'),
-  );
+  final host = Host(onError: (e, st) => print('error: $e'));
   // What tools see of it (the journal, why a state is as it is): its
   // registry, which promises less than the host does.
   final registry = host.registry;
@@ -101,18 +98,20 @@ Future<void> main() async {
     'garage.open ${asBob.status('garage.open')}',
   );
 
-  // --- 2. A guard of the house, and overriding it ---------------------------
+  // --- 2. A guard of the house -----------------------------------------------
 
   section('A guard');
   final setMode = ann.command(HouseCommand.setMode);
   final lock = ann.command(HouseCommand.lock);
   await setMode.call((mode: Mode.night));
-  show('ann unlocks at night', await lock.call((on: false)));
+  final agent = host.participant(Who.agent('night'));
   show(
-    'ann unlocks at night, overriding',
-    await lock.call((on: false), override: true),
+    'an agent unlocks at night',
+    await agent.command(HouseCommand.lock).call((on: false)),
   );
+  show('ann unlocks at night', await lock.call((on: false)));
   await lock.call((on: true));
+  agent.dispose();
   await setMode.call((mode: Mode.home));
 
   // --- 3. A query: a question that changes nothing -----------------------------
@@ -271,8 +270,7 @@ void section(String title) => print('\n$title');
 void show(String what, CallResult<Object?> r) => print(
   '  $what: ${switch (r) {
     CallDone() => 'done',
-    CallRefused(:final code, :final guard, :final overridable) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}'
-        '${overridable ? ', overridable' : ''}): ${r.whyNot}',
+    CallRefused(:final code, :final guard) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}): ${r.whyNot}',
     _ => r.whyNot,
   }}',
 );

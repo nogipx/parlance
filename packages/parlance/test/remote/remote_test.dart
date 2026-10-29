@@ -110,28 +110,17 @@ void main() {
         );
       });
 
-      test(
-        'a guard denial comes with its guard; the user may override',
-        () async {
-          f.r.addGuard(
-            'no-test',
-            (c) => c.params['scene'] == 'test' ? 'no' : null,
-          );
-          final r = await link.client.call('studio.show', {'scene': 'test'});
-          expect(
-            r,
-            isA<CallRefused>()
-                .having((x) => x.guard, 'guard', 'no-test')
-                .having((x) => x.overridable, 'overridable', isTrue),
-          );
-          expect(
-            (await link.client.call('studio.show', {
-              'scene': 'test',
-            }, override: true)).ok,
-            isTrue,
-          );
-        },
-      );
+      test('a guard denial comes with its guard', () async {
+        f.r.addGuard(
+          'no-test',
+          (c) => c.params['scene'] == 'test' ? 'no' : null,
+        );
+        final r = await link.client.call('studio.show', {'scene': 'test'});
+        expect(
+          r,
+          isA<CallRefused>().having((x) => x.guard, 'guard', 'no-test'),
+        );
+      });
 
       test(
         'a retry with the same id after a reconnect does not run twice',

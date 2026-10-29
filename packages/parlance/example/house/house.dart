@@ -47,13 +47,13 @@ final class Home extends HouseOwnerBase {
     // follows them, as one tick with its group; when a device changed by
     // hand too, so nobody has to call `sync` on its participant.
     follow(_pull, on: devices.changed);
-    // The door stays locked at night, unless a resident says so
-    // (override). It judges the lock's calls only.
+    // At night only a resident unlocks the door: not a phone, not an
+    // agent. The rule is the house's, and so is who passes it.
     guard(
       HouseCommand.lock,
       'night-door',
-      (lock, _) => !lock.on && mode == Mode.night
-          ? 'the door stays locked at night'
+      (lock, by) => !lock.on && mode == Mode.night && by.kind != 'resident'
+          ? 'at night only a resident unlocks the door'
           : null,
     );
   }

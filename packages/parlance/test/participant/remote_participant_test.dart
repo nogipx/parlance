@@ -129,7 +129,7 @@ void main() {
     return RemoteParticipant.join(link, log: log, interceptors: interceptors);
   }
 
-  setUp(() => r = Registry(overriders: {'user'}));
+  setUp(() => r = Registry());
   tearDown(() async {
     session?.close();
     await connection?.dispose();
@@ -301,7 +301,7 @@ void main() {
     final records = <LogRecord>[];
     logs.stream.listen(records.add);
     await r.dispose();
-    r = Registry(overriders: {'user'}, log: logs.scope('host'));
+    r = Registry(log: logs.scope('host'));
     final p = await join(log: logs.scope('kittens'));
     p.attach({'lamps': Lamps()});
     await p.flush();

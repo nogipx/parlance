@@ -47,12 +47,10 @@ final class Registry implements ITypeContext {
     this.usersPerWord = 64,
     this.dedupLimit = 10000,
     this.retainBytes = 4 << 20,
-    Set<String> overriders = const {},
     Clock? clock,
     ErrorSink? onError,
     LogScope? log,
   }) : clock = clock ?? clock_zone.clock,
-       overriders = Set.unmodifiable(overriders),
        log = log ?? LogScope.noop,
        _traced = log != null && !identical(log, LogScope.noop),
        _callLog = (log ?? LogScope.noop).child('calls'),
@@ -92,9 +90,6 @@ final class Registry implements ITypeContext {
   /// always kept, however big; a feed behind what is kept
   /// resumes from a snapshot. Values are weighed as their JSON, roughly.
   final int retainBytes;
-
-  /// The principal kinds that may override a guard's overridable denial.
-  final Set<String> overriders;
 
   /// This registry's run; seq counts within it.
   final String epoch;
@@ -891,11 +886,9 @@ final class Registry implements ITypeContext {
     String command,
     Kept rawParams,
     Cause cause, {
-    required bool override,
     bool record = true,
   }) async {
     final started = clock.now();
-    final overridden = <String>[];
     var params = rawParams;
 
     CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
@@ -926,7 +919,6 @@ final class Registry implements ITypeContext {
             params: params,
             cause: cause,
             result: r,
-            overridden: overridden,
             started: started,
             finished: clock.now(),
             late: late,
@@ -995,18 +987,7 @@ final class Registry implements ITypeContext {
         }
       }
       if (why == null) continue;
-      if (override && g.overridable && overriders.contains(cause.by.kind)) {
-        overridden.add(g.id);
-        continue;
-      }
-      return finish(
-        CallRefused(
-          Refusal.denied,
-          why,
-          guard: g.id,
-          overridable: g.overridable,
-        ),
-      );
+      return finish(CallRefused(Refusal.denied, why, guard: g.id));
     }
 
     // An asked guard may take a while: the command may be gone by now, or
