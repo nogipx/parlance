@@ -39,10 +39,19 @@ final class MirrorView implements IRegistryView {
     if (_client case final c?) unawaited(_tell(c, ops));
   }
 
-  /// Tells [ops], then the schemas the host does not know by fingerprint.
-  /// Diagnostics: what the host refuses is not the view's to tell.
+  /// Whether each client's host speaks what a view tells it was built
+  /// against (SPEC §14), asked once a client.
+  static final Expando<Future<bool>> _speaksBuilt = Expando();
+
+  /// Tells [ops], to a host that speaks it, then the schemas the host does
+  /// not know by fingerprint. Diagnostics: what the host refuses is not the
+  /// view's to tell.
   Future<void> _tell(ParlanceClient c, List<Map<String, Object?>> ops) async {
     try {
+      final speaks = await (_speaksBuilt[c] ??= c.describe().then(
+        (d) => (d['features'] as List? ?? const []).contains('built'),
+      ));
+      if (!speaks) return;
       final answers = await c.apply(ops);
       final more = [
         for (var i = 0; i < ops.length && i < answers.length; i++)

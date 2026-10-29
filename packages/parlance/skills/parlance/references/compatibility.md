@@ -68,7 +68,7 @@ What a part told it was built against, the registry also uses for one thing more
 
 ### 25.6 Below the words: the protocol
 
-Two ends of a connection must speak one protocol (`parlanceProtocol`, §14): a participant built against another is refused at join (`ProtocolMismatch`, saying both), before any word is judged. The protocol changes with parlance, not with a module's words; a module updated apart from its host must be built against a parlance of the host's protocol.
+The protocol under the words grows as they do (§14): its major never changes, what is added comes as a named feature the host lists, and a participant uses only what the host speaks. A guest built against a newer parlance than its host joins and does without what the host lacks; only a feature it requires (`requires:`), missing, refuses it (`ProtocolMismatch`, saying which), before any word is judged. A feature's name never changes its meaning, and goes only when nothing needs it. So a module updated apart from its host needs no parlance of the host's; what it needs of the host it says.
 
 ### 25.7 Where each check runs
 
@@ -81,14 +81,13 @@ Two ends of a connection must speak one protocol (`parlanceProtocol`, §14): a p
 | `WordMismatch` | run time, when asked | the part | the word as defined now |
 | `Mismatch` | run time, as told and as words change | the registry, for the host | every part's words as built |
 | params left out | each call of a part told otherwise | the registry | the part's words as built |
-| `ProtocolMismatch` | join | the participant | the host's protocol |
+| `ProtocolMismatch` | join, joining again | the participant | the host's major and features |
 
 ### 25.8 Not done yet
 
 - **A tool to compare against a release** (`--against <tag | directory | registry>`): today a test calls `breaksSince` with releases it fetches itself.
 - **Use beside mismatch**: a `Mismatch` does not say whether the part has used the word (§6.8 counts that); joined, a host could tell a break that bites from one that does not.
 - **An enum's fallback**: a value a reader does not know read as a value it names (Avro's enum default), so a value added to what code reads keeps its promise.
-- **A protocol range**: one protocol only, equal on both ends (§25.6); a host serving guests built against older parlance would need to speak more than one.
 
 ### 25.9 The same idea elsewhere
 

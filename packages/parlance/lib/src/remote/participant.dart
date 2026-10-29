@@ -32,30 +32,56 @@ final class RegistryUnreachable implements Exception {
   String toString() => 'the registry cannot be reached now: $reason';
 }
 
-/// Both ends must speak one protocol: a part built against another would be
-/// told nothing clear, only answers it does not understand. Throws
-/// [ProtocolMismatch] for a host's [version] other than this one's.
-void checkProtocol(Object? version) {
+/// What of the protocol the host speaks, as its `describe` told it (SPEC
+/// §14): its features. Both ends must share the major, and the host must
+/// speak each feature in [requires]; what else it speaks this end uses
+/// when it knows it, and a feature it does not know it passes over.
+/// Throws [ProtocolMismatch] otherwise.
+Set<String> checkProtocol(
+  Object? version, {
+  Object? features,
+  Set<String> requires = const {},
+}) {
   if (version != parlanceProtocol) {
     throw ProtocolMismatch(host: version, here: parlanceProtocol);
   }
+  final speaks = {for (final f in features as List? ?? const []) '$f'};
+  final missing = requires.difference(speaks);
+  if (missing.isNotEmpty) {
+    throw ProtocolMismatch(
+      host: version,
+      here: parlanceProtocol,
+      missing: missing,
+    );
+  }
+  return speaks;
 }
 
-/// The host speaks another version of the protocol than this participant
-/// (SPEC §14): one end was built against an older parlance. Joining is
-/// refused, rather than answers the other end does not understand.
+/// The host does not speak what this participant needs (SPEC §14): another
+/// major of the protocol, or a feature it requires. Joining is refused,
+/// rather than answers the other end does not understand.
 final class ProtocolMismatch implements Exception {
-  const ProtocolMismatch({required this.host, required this.here});
+  const ProtocolMismatch({
+    required this.host,
+    required this.here,
+    this.missing = const {},
+  });
 
-  /// The host's version, as its `describe` told it (null: one too old to
+  /// The host's major, as its `describe` told it (null: one too old to
   /// tell).
   final Object? host;
   final int here;
 
+  /// The features this participant requires and the host does not speak;
+  /// empty when the majors differ.
+  final Set<String> missing;
+
   @override
-  String toString() =>
-      'the host speaks parlance protocol $host, this participant $here: '
-      'build both against one parlance';
+  String toString() => missing.isEmpty
+      ? 'the host speaks parlance protocol $host, this participant $here: '
+            'build both against one parlance'
+      : 'the host does not speak ${missing.join(', ')}, which this '
+            'participant requires: a host built against a newer parlance does';
 }
 
 /// What a remote participant asked and the registry refused, told after:
@@ -129,12 +155,17 @@ final class RemoteParticipant implements IParticipant {
   /// vocabularies are the session's the host made. [interceptors] go on that
   /// endpoint before its first call (an OTel pair, say); on a peer endpoint
   /// they see the calls it makes and those it serves.
+  ///
+  /// [requires]: the features of the protocol it cannot do without (SPEC
+  /// §14); a host that does not speak one is refused
+  /// ([ProtocolMismatch]), on joining and on joining again.
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
     void Function(ParticipantError error)? onError,
     LogScope? log,
     int keepAway = 1000,
     Iterable<IRpcInterceptor> interceptors = const [],
+    Set<String> requires = const {},
   }) async {
     final endpoint = RpcPeerEndpoint(transport: connection.transport);
     interceptors.forEach(endpoint.addInterceptor);
@@ -151,7 +182,7 @@ final class RemoteParticipant implements IParticipant {
     }
     final RemoteParticipant p;
     try {
-      p = await _start(endpoint, onError, log, keepAway);
+      p = await _start(endpoint, onError, log, keepAway, requires);
     } on Object {
       await endpoint.close();
       rethrow;
@@ -170,8 +201,9 @@ final class RemoteParticipant implements IParticipant {
     void Function(ParticipantError error)? onError,
     LogScope? log,
     int keepAway = 1000,
+    Set<String> requires = const {},
   }) async {
-    final p = await _start(endpoint, onError, log, keepAway);
+    final p = await _start(endpoint, onError, log, keepAway, requires);
     p._ownsEndpoint = false;
     return p;
   }
@@ -181,10 +213,15 @@ final class RemoteParticipant implements IParticipant {
     void Function(ParticipantError error)? onError,
     LogScope? log,
     int keepAway,
+    Set<String> requires,
   ) async {
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
-    checkProtocol(d['protocol']);
+    final speaks = checkProtocol(
+      d['protocol'],
+      features: d['features'],
+      requires: requires,
+    );
     final p = RemoteParticipant._(
       endpoint,
       client,
@@ -196,6 +233,9 @@ final class RemoteParticipant implements IParticipant {
       log ?? LogScope.noop,
       keepAway,
     );
+    p
+      ..requires = requires
+      .._speaks = speaks;
     if (p.log.isEnabled(RpcLogLevel.info)) {
       p.log.info('joined', data: {'as': p.who.selector});
     }
@@ -263,6 +303,17 @@ final class RemoteParticipant implements IParticipant {
     _rejoining = true;
     try {
       final d = await _client.describe();
+      try {
+        _speaks = checkProtocol(
+          d['protocol'],
+          features: d['features'],
+          requires: requires,
+        );
+      } on ProtocolMismatch catch (e) {
+        // A host behind the one it joined: it stays away, and says why.
+        _fail(const {'op': 'rejoin'}, 'protocol', '$e');
+        return;
+      }
       final now = Principal.fromJson(d['principal']);
       if (now != who) {
         _fail(
@@ -342,7 +393,7 @@ final class RemoteParticipant implements IParticipant {
         },
     for (final g in _guards.values)
       {'op': 'guard', 'id': g.id, 'overridable': g.overridable, ..._asOf(g.as)},
-    ..._built.standing(),
+    if (_speaks.contains('built')) ..._built.standing(),
   ];
 
   /// The peer endpoint it made on its connection.
@@ -762,8 +813,16 @@ final class RemoteParticipant implements IParticipant {
   void builtAgainst(Iterable<IWord> words, {String? from}) =>
       _builtAgainst(schemasOf(words), from, null);
 
-  /// What it and its parts told the host they were built against.
+  /// What it and its parts told the host they were built against: kept
+  /// also for a host that does not speak it, to tell a new session that
+  /// does.
   final BuiltTold _built = BuiltTold();
+
+  /// The features of the protocol it cannot do without (SPEC §14).
+  late final Set<String> requires;
+
+  /// The features the host speaks, as it told them on joining.
+  Set<String> _speaks = const {};
 
   void _builtAgainst(
     Map<String, Object?> schemas,
@@ -771,7 +830,8 @@ final class RemoteParticipant implements IParticipant {
     Principal? as,
   ) {
     if (_disposed) return;
-    _built.tell(schemas, from: from, as: as).forEach(_ask);
+    final ops = _built.tell(schemas, from: from, as: as);
+    if (_speaks.contains('built')) ops.forEach(_ask);
   }
 
   // --- Its own words ------------------------------------------------------
@@ -1022,7 +1082,8 @@ final class RemoteParticipant implements IParticipant {
     for (final k in _kinds.keys) {
       _ask({'op': 'unkind', 'name': k});
     }
-    _built.forget().forEach(_ask);
+    final unbuilt = _built.forget();
+    if (_speaks.contains('built')) unbuilt.forEach(_ask);
     _disposed = true;
     _own.clear();
     _states.clear();

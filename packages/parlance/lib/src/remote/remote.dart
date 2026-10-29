@@ -26,14 +26,15 @@ extension ServeParticipant on LocalParticipant {
   /// from then on: [RemoteSession.close] withdraws it, its words with it.
   /// Only a new participant is served, and once: one served already, or
   /// one that defined, attached or guarded anything here, is refused
-  /// ([StateError]). Its access by default is told to the part across.
-
+  /// ([StateError]). Its access by default is told to the part across, and
+  /// what of the protocol it speaks ([RemoteSession.features]).
   RemoteSession serve(
     RpcPeerEndpoint endpoint, {
     String? session,
     int feedBacklog = 256,
     int maxSubscription = 4096,
     LogScope? log,
+    Set<String>? features,
   }) {
     takeForServing(this);
     final s = RemoteSession._(
@@ -43,6 +44,7 @@ extension ServeParticipant on LocalParticipant {
       feedBacklog: feedBacklog,
       maxSubscription: maxSubscription,
       log: log,
+      features: features,
     );
     endpoint.registerServiceContract(s);
     return s;
@@ -63,7 +65,9 @@ final class RemoteSession extends ParlanceContractPeer {
     this.feedBacklog = 256,
     this.maxSubscription = 4096,
     LogScope? log,
-  }) : session = session ?? newId(),
+    Set<String>? features,
+  }) : features = features ?? parlanceFeatures,
+       session = session ?? newId(),
        registry = registryOf(participant),
        principal = participant.who,
        _owner = ParlanceOwnerContractPeerCaller(endpoint),
@@ -95,6 +99,11 @@ final class RemoteSession extends ParlanceContractPeer {
   /// together: a peer naming more is refused (`resourceExhausted`), so a
   /// session holds no more for it than this.
   final int maxSubscription;
+
+  /// What of the protocol it tells the part across it speaks (SPEC §14):
+  /// every feature of this build unless given; fewer stand in, in a test,
+  /// for a host built against an older parlance.
+  final Set<String> features;
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
@@ -166,6 +175,7 @@ final class RemoteSession extends ParlanceContractPeer {
     return WireDescription({
       ...registry.describeFor(principal),
       'protocol': parlanceProtocol,
+      'features': [...features],
       'principal': principal.toJson(),
       'vocabularies': [..._p.vocabularies],
       // Who may read and call its words by default, as the host said: the

@@ -2,8 +2,21 @@ import 'package:rpc_dart/rpc_dart.dart';
 
 part 'contract.g.dart';
 
-/// The version of the remote protocol (SPEC §14).
-const parlanceProtocol = 15;
+/// The remote protocol's major (SPEC §14): what both ends must share to
+/// speak at all. It does not change: the protocol grows by
+/// [parlanceFeatures] instead.
+const parlanceProtocol = 1;
+
+/// What this end speaks beyond the protocol's first form (SPEC §14), by
+/// name. A host tells its own in `describe`; a participant uses one only
+/// when the host told it, and refuses to join only when one it requires is
+/// not there. A name keeps its meaning for good: a change is a new name
+/// beside it, and a name goes when nothing needs it.
+const parlanceFeatures = {
+  // What a part was built against, by fingerprint (SPEC §6.9, §25.4):
+  // the ops `built` and `unbuilt`.
+  'built',
+};
 
 Map<String, Object?> _obj(Object? v) =>
     (v as Map? ?? const {}).cast<String, Object?>();

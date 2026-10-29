@@ -619,6 +619,20 @@ void main() {
     expect(() => checkProtocol(null), throwsA(isA<ProtocolMismatch>()));
   });
 
+  test('of one major, the features a host speaks are what it uses, and one '
+      'it requires must be among them', () {
+    expect(checkProtocol(parlanceProtocol, features: ['built', 'later']), {
+      'built',
+      'later',
+    });
+    expect(
+      () => checkProtocol(parlanceProtocol, requires: {'built'}),
+      throwsA(
+        isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {'built'}),
+      ),
+    );
+  });
+
   test('a word it may not read holds back none of the words it watches '
       'after', () async {
     final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
