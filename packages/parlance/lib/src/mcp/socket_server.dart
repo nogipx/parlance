@@ -73,6 +73,13 @@ final class McpSocketServer {
     onSessions?.call(_sessions.length);
     log?.call('mcp: connected');
     unawaited(session.done.whenComplete(() => _close(socket)));
+    // What is written to an agent gone (the pipe broken) fails here, and
+    // ends its session: not the host, as an error no one heard would.
+    unawaited(
+      socket.done
+          .then<void>((_) {}, onError: (Object e) => log?.call('mcp: $e'))
+          .whenComplete(() => _close(socket)),
+    );
   }
 
   /// The tools are others now: every agent connected lists them again.

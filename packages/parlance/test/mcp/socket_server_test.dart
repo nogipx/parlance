@@ -96,4 +96,16 @@ void main() {
     await server.stop();
     expect(File(path).existsSync(), isFalse);
   });
+  test('an agent gone before it hears what it was told ends its session '
+      'alone, the host going on', () async {
+    final server = McpSocketServer(path: path, tools: () => [_tool('one')]);
+    await server.start();
+    final agent = await _Agent.connect(path);
+    expect(await agent.tools(), ['one']);
+    agent.socket.destroy();
+    server.toolsChanged();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(server.sessions, 0);
+    await server.stop();
+  });
 }
