@@ -505,7 +505,12 @@ final class _Active {
     }
     _running = false;
     if (!done.isCompleted) done.complete(why);
-    links.onRun?.call(LinkRun(link, data, why));
+    try {
+      links.onRun?.call(LinkRun(link, data, why));
+    } on Object catch (e, st) {
+      // The host's to hear: the runs waiting go on.
+      links._err(e, st);
+    }
     if (_queue.isNotEmpty && !_stopped) _queue.removeAt(0).$1();
   }
 

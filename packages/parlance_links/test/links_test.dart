@@ -490,6 +490,39 @@ void main() {
     );
   });
 
+  test("a host's onRun that throws is told; the runs waiting go on", () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    final errors = <Object>[];
+    final links = Links(
+      b.p,
+      vocabulary: 'plug',
+      onRun: (_) => throw StateError('onRun'),
+      onError: (e, _) => errors.add(e),
+    );
+    addTearDown(links.dispose);
+    await links.load([
+      {
+        'id': 'note',
+        'mode': 'queue',
+        'when': [
+          {'fact': 'st.said'},
+        ],
+        'do': [
+          {
+            'call': 'st.note',
+            'params': {'n': r'$trigger.n'},
+          },
+        ],
+      },
+    ]);
+    b.said.emit({'n': 1});
+    b.said.emit({'n': 2});
+    await pump();
+    expect([for (final n in b.notes) n.params['n']], [1, 2]);
+    expect(errors, hasLength(2));
+  });
+
   test('a link that cannot be taken is told; the others run', () async {
     final b = Bench();
     addTearDown(b.dispose);
