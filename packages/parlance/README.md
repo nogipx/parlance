@@ -2,21 +2,22 @@
 
 **A shared language for the parts of an app that should not know each other.**
 
-A screen, a sound module, a plugin, a phone on the network, an AI agent. Keeping such parts apart is nothing new: interfaces, dependency injection, an event bus. But each of those draws the line its own way, pair by pair, and leaves the rest to every team: who owns a value, who may change it, why it changed, how a part outside the process joins in.
+A screen, a heating module, a plugin, a phone on the network, an AI agent. Keeping such parts apart is nothing new: interfaces, dependency injection, an event bus. But each of those draws the line its own way, pair by pair, and leaves the rest to every team: who owns a value, who may change it, why it changed, how a part outside the process joins in.
 
 parlance draws the line once, as a language. The parts speak a common vocabulary; each knows the words, never who stands behind them, and ownership, rights and causes come with the language rather than with each pair. *Parlance* is the way of speaking used in a particular place; here, the place is your app.
 
 ## The words
 
-A vocabulary is made of **words**: a name and a type. There are three kinds, like parts of speech:
+A vocabulary is made of **words**: a name and a type. There are four kinds, like parts of speech:
 
 | Kind | Means | Example | You |
 | --- | --- | --- | --- |
-| **state** | what is so now | `audio.muted`, `scene.current` | read and watch it; only its owner writes it |
-| **command** | a request to do something | `audio.mute`, `scene.show` | call it; exactly one handler answers |
-| **fact** | what happened | `chat.message`, `stream.started` | hear it; nothing is kept after it is said |
+| **state** | what is so now | `house.heat.target`, `house.light` | read and watch it; only its owner writes it |
+| **command** | a request to do something | `house.light.set`, `house.door.lock` | call it; exactly one handler answers |
+| **query** | a question that changes nothing | `orders.page`, `catalog.search` | ask it, again if need be; nothing of it is kept |
+| **fact** | what happened | `house.doorbell.rang`, `house.motion` | hear it; nothing is kept after it is said |
 
-A command that only answers is a **query** (`orders.page`, `catalog.search`): a question by params that no state holds. It changes nothing, so it is safe to ask again, and the registry keeps nothing of it.
+A **query** is a command that only answers: a question by params that no state holds. It changes nothing, so it is safe to ask again, and the registry keeps nothing of it.
 
 | | command | query |
 | --- | --- | --- |
@@ -34,8 +35,8 @@ Every word has an **owner**, the part that defined it. Nobody changes someone el
 
 Around the words:
 
-- **Who speaks.** Every write and call is made by a principal (`user/local`, `plugin/hydra`, `viewer/twitch.123`), and every command says who may call it. A refusal says why: not permitted, unavailable now, denied by a guard.
-- **Why it is so.** Every change carries its cause: who acted and the call it answered. The same causes make the traces: with a log, every call is a span, the calls it led to its children, across the network too. `explain('audio.muted')` answers *"the mixer wrote it, answering `audio.mute` that a viewer called"*.
+- **Who speaks.** Every write and call is made by a principal (`resident/ann`, `module/visit`, `guest/bob`), and every command says who may call it. A refusal says why: not permitted, unavailable now, denied by a guard.
+- **Why it is so.** Every change carries its cause: who acted and the call it answered. The same causes make the traces: with a log, every call is a span, the calls it led to its children, across the network too. `explain('house.light')` answers *"the house's devices wrote it, answering `house.light.set` that ann called"*.
 - **Words are a public API.** Plugins, agents and the calls a host stores name them, so a renamed word keeps its old name as an alias and nothing that named it breaks.
 
 ## One way, small or large

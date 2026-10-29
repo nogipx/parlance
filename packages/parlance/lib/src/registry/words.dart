@@ -23,7 +23,7 @@ abstract interface class IWord {
 /// §23). It is the only way a participant gets one: `main` grants
 /// it (`participant(who, vocabularies:)`), so its name is written
 /// once, where the words are. The generator makes one per `@Vocabulary`
-/// class; one of hand-written enums is `WordSet('audio', [...])`.
+/// class; one of hand-written enums is `WordSet('house', [...])`.
 final class WordSet {
   const WordSet(this.name, this.words, {this.from}) : open = false;
 

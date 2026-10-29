@@ -1,12 +1,12 @@
 # parlance glossary
 
-Every term the package uses, what it means, and where its contract is (§n, as in the other references and `SPEC §n` in the code). The examples are a small studio's: `studio.program`, `audio.muted`, `studio.show`.
+Every term the package uses, what it means, and where its contract is (§n, as in the other references and `SPEC §n` in the code). The examples are a house's (`example/house`): `house.heat.target`, `house.light`, `house.light.set`.
 
 ## Values, names, types
 
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
-- **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `audio.gain.set`, `audio.voice.muted_talk`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
-- **Key** (§1): the entity id a keyed state's value belongs to (`mic` in `audio.muted[mic]`).
+- **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `house.light.set`, `house.door.left_open`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
+- **Key** (§1): the entity id a keyed state's value belongs to (`kitchen` in `house.light[kitchen]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
 - **Custom type** (§2): a host's own checker under a name; the package never reads it.
@@ -33,8 +33,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Who and why
 
-- **Principal** (§4): who acts, `kind[/id][@owner]` (`user/local`, `plugin/hydra`, `viewer/twitch.123`, `studio@screen`). Kinds are the host's; the package reserves `system` (the registry).
-- **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`plugin/hydra`), or `*`. The most specific one that matches wins.
+- **Principal** (§4): who acts, `kind[/id][@owner]` (`user/local`, `module/visit`, `guest/bob`, `house@devices`). Kinds are the host's; the package reserves `system` (the registry).
+- **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`module/visit`), or `*`. The most specific one that matches wins.
 - **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from), `conversation` (the conversation it is part of) and `origin` (what that conversation started with: the first message's `{word, by}`; `originOf(word)`). Passed explicitly (`call.causeFor(by)`), or, with none given in a handler a participant serves, taken from its call.
 - **Conversation** (§4): everything that followed from one message, however far; its id is that message's. `registry.conversation(id)` (bounded), a span's and a journal entry's `conversation`.
 
@@ -43,13 +43,13 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Word** (§6): a name in the registry with its type and rules: a state, a command or a fact. A host's words are its vocabulary, the API every client speaks. A state is written by its owner only; a command asks the owner.
 - **Descriptor** (§6): a word's description: `StateDescriptor`, `CommandDescriptor`, `FactDescriptor`.
 - **State** (§6.1): something that is so now; read, watched, written by one writer.
-- **Keyed state** (§6.1): one value per key (`audio.gain[mic]`); an unkeyed state holds one value.
+- **Keyed state** (§6.1): one value per key (`house.light[kitchen]`); an unkeyed state holds one value.
 - **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`RawStateWriter`, typed `StateWriterOf<T>`).
 - **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and to agents; none means everyone. Code in the registry's process reads everything. `mayRead`, and `unreadable` in `describeFor`.
 - **Command** (§6.2): something that can be asked: params, an optional answer (`returns`), exactly one handler.
 - **Handler** (§6.2): the code that runs a command; gets the call (`CommandCall`, typed `CommandCallOf<P>`).
 - **Callers** (§6.2): selectors with `allow`, `warn` or `deny`; who matches none is denied.
-- **`warn`** (§6.2): allowed, but an editor tells the author who can now call it (any viewer, say).
+- **`warn`** (§6.2): allowed, but an editor tells the author who can now call it (any guest, say).
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
 - **Availability** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyUnavailable(command)` asks without calling, so a button can be grey with the reason.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.
@@ -150,7 +150,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
 - **Participant rights** (§22.2): `define` (a further check on its words), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
-- **Part** (§4, §22.3): `principal.child(name)` (`studio@sound`), an owner of a principal, and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no parts.
+- **Part** (§4, §22.3): `principal.child(name)` (`house@heating`), an owner of a principal, and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no parts.
 - **Version** (§1): a word's breaking change beside the old one, the same name with `.v<N>` (N >= 2); the name alone is version 1. A version is a word of its own; `wordVersion(name)` parses one.
 - **Query** (§6.6, §18): a word that only answers, a kind of its own (`QueryDescriptor`, `is: query`; `IQueryWord`, asked with `.ask`): no dedup, no call record, nothing changed from its handler; safe to ask again.
 - **JsonShape** (§18): the shape of a class that serializes itself (json_serializable, freezed), with an optional `type` for checks and `describe`.

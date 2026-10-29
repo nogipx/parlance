@@ -21,14 +21,14 @@ final class Principal {
 
   final String kind;
 
-  /// One level, maybe from outside; empty for a kind of one (`studio`).
+  /// One level, maybe from outside; empty for a kind of one (`house`).
   final String id;
 
   /// The owner of it that acts ([child]); empty for the whole.
   final String owner;
 
   /// Its selector (SPEC §4): `kind[/id][@owner]` (`user/local`,
-  /// `studio@screen`, `plugin/hydra@ui`, `member/forum.123`).
+  /// `house@devices`, `module/visit@book`, `member/forum.123`).
   String get selector =>
       '$kind${id.isEmpty ? '' : '/$id'}${owner.isEmpty ? '' : '@$owner'}';
 
@@ -112,8 +112,8 @@ final class Principal {
     }
   }
 
-  /// Its owner named [name] (SPEC §4): `studio` → `studio@screen`,
-  /// `plugin/hydra` → `plugin/hydra@ui`. What names the whole names its
+  /// Its owner named [name] (SPEC §4): `house` → `house@devices`,
+  /// `module/visit` → `module/visit@book`. What names the whole names its
   /// owners too, unless something names the owner. An owner has none.
   Principal child(String name) {
     if (owner.isNotEmpty) {

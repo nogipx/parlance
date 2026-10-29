@@ -22,7 +22,7 @@ final RegExp _name = RegExp(r'^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$');
 
 /// Whether [name] is a valid registry name (SPEC §1): lower-case words
 /// split by `.`, each from a letter, joined within by `_` or `-`
-/// (`audio.voice.muted_talk`, `kitten-daycare.lights`); every other sign
+/// (`house.door.left_open`, `kitten-daycare.lights`); every other sign
 /// is reserved.
 bool isValidName(String name) => _name.hasMatch(name);
 

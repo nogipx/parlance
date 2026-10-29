@@ -40,7 +40,7 @@ final class Handles implements IHandle {
 }
 
 /// An owner of words (SPEC §6, §19, §23.4): what `main` attaches to a
-/// participant (`p.attach({'sound': Mixer(...)})`), to speak as the part
+/// participant (`p.attach({'devices': Home(...)})`), to speak as the part
 /// of its name; who that is, and what it may, `main` says when it makes
 /// the participant, never the owner.
 ///

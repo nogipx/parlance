@@ -16,7 +16,7 @@ import 'package:source_gen/source_gen.dart';
 /// What a name is (SPEC §1), as the generator tells it.
 const _nameRule =
     'lower-case words split by ., each from a letter, joined by _ or - '
-    '(audio.voice.muted_talk); a version, if any, last (.v2)';
+    '(house.door.left_open); a version, if any, last (.v2)';
 
 const _state = TypeChecker.typeNamed(StateWord, inPackage: 'parlance');
 const _command = TypeChecker.typeNamed(CommandWord, inPackage: 'parlance');
@@ -38,7 +38,7 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
   const VocabularyGenerator();
 
   /// Each vocabulary of the library: one library may say several (an index
-  /// of parts, `part 'scenes.dart'`), so what they share (a record's shape,
+  /// of parts, `part 'rooms.dart'`), so what they share (a record's shape,
   /// a class's `toJson`) is made once, in its one `.g.dart`.
   @override
   Future<String> generate(LibraryReader library, BuildStep buildStep) async {

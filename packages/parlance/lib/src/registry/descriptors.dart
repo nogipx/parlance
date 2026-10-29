@@ -53,10 +53,10 @@ enum Access {
   deny,
 }
 
-/// Who may call a command: selectors (`user`, `plugin/hydra`, `*` for
+/// Who may call a command: selectors (`user`, `module/visit`, `*` for
 /// anyone) to access; the most specific selector wins, an unmatched
 /// principal is denied. A selector names the parts of what it names too
-/// (`plugin/hydra` names `plugin/hydra@ui`), so the nearest one wins:
+/// (`module/visit` names `module/visit@book`), so the nearest one wins:
 /// the part's own, then its whole, then its kind.
 final class Callers {
   const Callers(this.rules);
@@ -75,7 +75,7 @@ final class Callers {
   final Map<String, Access> rules;
 
   /// Throws when a selector is not one (SPEC §4): `*` or
-  /// `kind[/id][@owner]` (`plugin`, `plugin/hydra`, `studio@screen`). One
+  /// `kind[/id][@owner]` (`module`, `module/visit`, `house@devices`). One
   /// that could name no one would match nobody, quietly.
   void check() {
     for (final s in rules.keys) {

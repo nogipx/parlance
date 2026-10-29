@@ -92,7 +92,7 @@ final class Journal {
 
   /// Every entry of the conversations that started with [word] (a
   /// command called, a fact said), of [by] when given, in order: all that
-  /// a chat line, a press, a ring led to.
+  /// a message, a press, a ring led to.
   List<JournalEntry> startedWith(String word, {Principal? by}) => [
     for (final e in entries)
       if (e.origin case Origin(

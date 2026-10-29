@@ -123,7 +123,7 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   void sync();
 
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
-  /// (`studio@screen`), in the same vocabularies with the same rights, so
+  /// (`house@devices`), in the same vocabularies with the same rights, so
   /// what each part does is told as that part's in causes, records and
   /// `explain`. A part has no parts (`StateError`).
   IParticipant child(String name);

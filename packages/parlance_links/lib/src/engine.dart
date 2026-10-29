@@ -6,7 +6,7 @@ import 'package:parlance/registry.dart';
 import 'model.dart';
 
 /// A trigger of the owner's that links name by a key of their own
-/// (`{chat: "!clip"}`): it stands for one of the triggers links know
+/// (`{sms: "!lights"}`): it stands for one of the triggers links know
 /// ([translate]), and [accept] picks what of what that fired a run gets.
 final class TriggerExtension {
   const TriggerExtension(this.name, {required this.translate, this.accept});
@@ -328,7 +328,7 @@ final class _Active {
 
   /// When each throttle key last let a run go, and for how long it holds
   /// the next back: one past its hold is forgotten, so a throttle per
-  /// viewer keeps only the viewers it holds back now.
+  /// sender keeps only the senders it holds back now.
   final Map<String, ({DateTime at, Duration every})> _throttled = {};
 
   /// The runs waiting their turn, each with what tells its end.
