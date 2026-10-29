@@ -164,29 +164,57 @@ Future<void> main() async {
 
   print('--- frequent small changes ---');
   {
-    // 10k checks as a keyed state; one toggled per write.
+    // 10k checks as a keyed state; one toggled per write: each write is a
+    // change, of what that check holds now.
     final r = Registry(onError: (e, _) => throw e);
     final w = r.state(RtState.check).define(by: host);
     final checks = makeTask(500, 1).sections.expand((s) => s.checks).toList();
+    final passed = [for (final c in checks) c.passed];
     r.batch(() {
       for (final c in checks) {
         w.set(c, key: c.id);
       }
     });
+    Check toggled(int i) {
+      final c = checks[i];
+      return (
+        id: c.id,
+        text: c.text,
+        passed: passed[i] = !passed[i],
+        note: null,
+        tags: c.tags,
+      );
+    }
+
     const n = 100000;
+    for (var i = 0; i < n ~/ 10; i++) {
+      w.set(toggled(i % checks.length), key: checks[i % checks.length].id);
+    }
     final sw = Stopwatch()..start();
     for (var i = 0; i < n; i++) {
-      final c = checks[i % checks.length];
+      final at = i % checks.length;
+      w.set(toggled(at), key: checks[at].id);
+    }
+    final changed = sw.elapsedMicroseconds;
+    // The same again: what a write that changes nothing costs.
+    sw
+      ..reset()
+      ..start();
+    for (var i = 0; i < n; i++) {
+      final at = i % checks.length;
+      final c = checks[at];
       w.set((
         id: c.id,
         text: c.text,
-        passed: i.isOdd,
+        passed: passed[at],
         note: null,
         tags: c.tags,
       ), key: c.id);
     }
     print(
-      'one check of ${checks.length}, keyed: ${us(sw.elapsedMicroseconds, n)} per write',
+      'one check of ${checks.length}, keyed: ${us(changed, n)} per write '
+      'that changes it, ${us(sw.elapsedMicroseconds, n)} per write of what '
+      'it holds',
     );
   }
 
