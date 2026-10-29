@@ -167,6 +167,14 @@ final class RemoteParticipant implements IParticipant {
     endpoint.registerServiceContract(_Served(endpoint, p));
     // It keeps of another's only what it watches: nothing to start with.
     unawaited(p._mirror.subscribe(states: const {}, facts: const {}));
+    // What its listeners ask for, past what a session carries for one:
+    // told, and everything carried rather than some of it missing.
+    p._mirror.onRefused = (e) => p._fail(
+      const {'op': 'subscribe'},
+      'resourceExhausted',
+      'its listeners ask for more than a session carries by name, so it '
+          'carries everything: $e',
+    );
     p._mirror.follow(client);
     p._changes = p._mirror.changes.listen((_) => p._checkAvailability());
     // It has joined when its view is live: the feed's first snapshot came.

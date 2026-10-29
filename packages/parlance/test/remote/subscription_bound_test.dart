@@ -1,0 +1,93 @@
+import 'package:parlance/participant.dart';
+import 'package:parlance/registry.dart';
+import 'package:parlance/remote.dart';
+import 'package:parlance/src/remote/client.dart' show ParlanceClient;
+import 'package:parlance/src/remote/mirror.dart' show RegistryMirror;
+import 'package:rpc_dart/rpc_dart.dart';
+import 'package:test/test.dart';
+
+/// What a session carries for a participant is bounded (SPEC §12, §14):
+/// asked past the bound, it carries everything rather than leave some of
+/// what was asked out, and the participant says so. And a call answered in
+/// a run of the registry its copy has left waits for nothing.
+void main() {
+  final opened = <RpcPeerEndpoint>[];
+  final registries = <Registry>[];
+  tearDown(() async {
+    for (final e in opened) {
+      await e.close();
+    }
+    opened.clear();
+    for (final r in registries) {
+      await r.dispose();
+    }
+    registries.clear();
+  });
+
+  /// A registry whose deck holds [states], each its number.
+  Registry deckOf(List<String> states) {
+    final r = Registry();
+    registries.add(r);
+    final deck = r.participant(
+      const Principal('deck'),
+      vocabularies: [WordSet.open('deck')],
+    );
+    for (final (i, s) in states.indexed) {
+      deck.defineState(StateDescriptor(s, type: const IntType())).set(i + 1);
+    }
+    return r;
+  }
+
+  /// The guest's end of a session of [r], served with [maxSubscription].
+  RpcPeerEndpoint serve(Registry r, {int maxSubscription = 4096}) {
+    final (g, h) = RpcChannelTransport.pair();
+    final host = RpcPeerEndpoint(transport: h);
+    r
+        .participant(const Principal('widlet', 'b'))
+        .serve(host, maxSubscription: maxSubscription);
+    host.start();
+    final own = RpcPeerEndpoint(transport: g)..start();
+    opened.addAll([host, own]);
+    return own;
+  }
+
+  test('asked past its bound, a session carries everything, and the '
+      'participant says so', () async {
+    final r = deckOf(['deck.s1', 'deck.s2', 'deck.s3']);
+    final p = await RemoteParticipant.over(serve(r, maxSubscription: 2));
+    final errors = <ParticipantError>[];
+    p.errors.listen(errors.add);
+    expect(await p.fetch('deck.s1'), {null: 1});
+    final s2 = p.watch('deck.s2').listen((_) {});
+    final s3 = p.watch('deck.s3').listen((_) {});
+    expect(await p.fetch('deck.s3'), {null: 3}, reason: 'none left out');
+    expect(p.read('deck.s2'), 2);
+    expect(errors.single.code, 'resourceExhausted');
+    expect(errors.single.op['op'], 'subscribe');
+    await s2.cancel();
+    await s3.cancel();
+    await p.close();
+  });
+
+  test(
+    'a call answered in a run its copy has left waits for nothing',
+    () async {
+      final r1 = deckOf(['deck.s1']);
+      final r2 = deckOf(['deck.s1']);
+      final mirror = RegistryMirror();
+      Future<void> synced() => mirror.changes.firstWhere((_) => mirror.synced);
+      mirror.follow(ParlanceClient(serve(r1)));
+      await synced();
+      mirror.follow(ParlanceClient(serve(r2)));
+      await mirror.changes.firstWhere(
+        (_) => mirror.synced && mirror.read('deck.s1') == 1,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final took = Stopwatch()..start();
+      expect(await mirror.reach(r1.epoch, r1.seq + 10), isFalse);
+      expect(took.elapsed, lessThan(const Duration(milliseconds: 500)));
+      expect(await mirror.reach(r2.epoch, r2.seq), isTrue);
+      await mirror.dispose();
+    },
+  );
+}

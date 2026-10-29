@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:rpc_dart/rpc_dart.dart' show RpcStatus, RpcStatusException;
+
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import 'client.dart';
@@ -9,6 +11,15 @@ import 'client.dart';
 final class RegistryMirror {
   String? _epoch;
   int _seq = 0;
+
+  /// The epochs it followed before the one it follows now, the last few:
+  /// what a call answered in one of them wrote it will never reach.
+  final List<String> _past = [];
+
+  /// Told when the session refused what it asked to carry, past its
+  /// bound: the copy then has it carry everything, so nothing asked for
+  /// goes missing (SPEC §12).
+  void Function(Object error)? onRefused;
 
   /// The session's subscription the copy follows, and what it asked for.
   int _subscription = 0;
@@ -84,10 +95,13 @@ final class RegistryMirror {
     Duration timeout = const Duration(seconds: 2),
   }) async {
     bool there() => _synced && _epoch == epoch && _seq >= seq;
+    // Of a run the registry left (it started again): never reached.
+    bool gone() => _past.contains(epoch);
     if (there()) return true;
+    if (gone()) return false;
     try {
-      await changes.firstWhere((_) => there()).timeout(timeout);
-      return true;
+      await changes.firstWhere((_) => there() || gone()).timeout(timeout);
+      return there();
     } on TimeoutException {
       return false;
     } on StateError {
@@ -111,10 +125,24 @@ final class RegistryMirror {
     Set<String>? facts,
     Duration timeout = const Duration(seconds: 2),
   }) async {
-    _wanted = (states: states, facts: facts);
     final client = _client;
-    if (client == null) return;
-    final n = await client.subscribe(states: states, facts: facts);
+    if (client == null) {
+      _wanted = (states: states, facts: facts);
+      return;
+    }
+    int n;
+    try {
+      n = await client.subscribe(states: states, facts: facts);
+      _wanted = (states: states, facts: facts);
+    } on RpcStatusException catch (e) {
+      if (e.statusCode != RpcStatus.resourceExhausted) rethrow;
+      // Past the session's bound: rather than the states it asked for
+      // and was not given never coming, everything comes, as to a
+      // session that never subscribed.
+      onRefused?.call(e);
+      _wanted = null;
+      n = await client.subscribe();
+    }
     if (_subscription >= n || _client != client) return;
     try {
       await changes
@@ -212,6 +240,10 @@ final class RegistryMirror {
         if (_epoch != null && json['epoch'] == _epoch) _synced = true;
       case RemoteSnapshot(:final snapshot, :final subscription):
         _subscription = subscription;
+        if (_epoch case final was? when was != snapshot.epoch) {
+          _past.add(was);
+          if (_past.length > 8) _past.removeAt(0);
+        }
         _epoch = snapshot.epoch;
         _seq = snapshot.seq;
         _states

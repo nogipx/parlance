@@ -529,7 +529,8 @@ void main() {
     await expectLater(p.describe(), throwsA(isA<RegistryUnreachable>()));
   });
 
-  test('a subscription naming more than the host takes is refused', () async {
+  test('a subscription naming more than the host takes is refused, and '
+      'the session carries everything instead', () async {
     final (c, srv) = RpcChannelTransport.memoryPair();
     final h = RpcPeerEndpoint(transport: srv);
     final s = r.participant(kittens).serve(h, maxSubscription: 3);
@@ -539,14 +540,21 @@ void main() {
       shouldReconnect: (_) => false,
     );
     final p = await RemoteParticipant.join(connection);
-    final errors = [
+    final told = <ParticipantError>[];
+    p.errors.listen(told.add);
+    final watching = [
       for (final name in ['a.x', 'a.y', 'a.z', 'a.w'])
         p.watch(name).listen((_) {}),
     ];
     await settle();
-    expect(s.states, isEmpty, reason: "refused: it carries what it did before");
-    for (final e in errors) {
-      await e.cancel();
+    expect(
+      s.states,
+      isNull,
+      reason: 'refused: everything rather than some of it left out',
+    );
+    expect(told.single.code, 'resourceExhausted');
+    for (final w in watching) {
+      await w.cancel();
     }
     await p.close();
     await connection.dispose();
