@@ -7,7 +7,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
 - **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `audio.gain.set`, `audio.voice.muted_talk`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
 - **Key** (§1): the entity id a keyed state's value belongs to (`mic` in `audio.muted[mic]`).
-- **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`.
+- **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
 - **Custom type** (§2): a host's own checker under a name; the package never reads it.
 - **Entity kind**, **entity** (§3): what keys and refs point at. The host registers a kind with a function listing its entities, each an `EntityRef(id, label, meta)`; it says `entitiesChanged` when the list changes.

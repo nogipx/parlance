@@ -69,6 +69,10 @@ final class BuiltAgainst {
   /// with a break in what the code reads that a value may never meet.
   final Map<String, Set<(Principal, String)>> _open = {};
 
+  /// The name each mismatch of [_open] is kept under: an old name may
+  /// stand for another word by now.
+  final Map<(Principal, String), String> _openAt = {};
+
   /// Every word a principal's code was built against that is defined
   /// otherwise now, saying where it breaks.
   List<Mismatch> get mismatches => [
@@ -189,13 +193,14 @@ final class BuiltAgainst {
 
   /// Whether [key]'s mismatch is one a value may meet, kept in [_open].
   void _openFor((Principal, String) key, List<WordBreak> breaks) {
-    final name = _aliases[key.$2] ?? key.$2;
-    if (breaks.any(_mayMeet)) {
-      (_open[name] ??= {}).add(key);
-    } else if (_open[name] case final keys?) {
-      keys.remove(key);
-      if (keys.isEmpty) _open.remove(name);
+    if (_openAt.remove(key) case final was?) {
+      final keys = _open[was]!..remove(key);
+      if (keys.isEmpty) _open.remove(was);
     }
+    if (!breaks.any(_mayMeet)) return;
+    final name = _aliases[key.$2] ?? key.$2;
+    (_open[name] ??= {}).add(key);
+    _openAt[key] = name;
   }
 
   /// A break in what code reads that a value may never meet: an enum

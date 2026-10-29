@@ -34,6 +34,7 @@ A type checks a value and fills defaults. Types are values themselves (they seri
 | `oneOf` | one of several objects, told apart by the text in field `key` | `key`, `variants` (objects by tag), `descriptions` |
 | `custom` | anything the host's checker accepts | `name` |
 | `any` | any value | |
+| (another) | a type of a newer parlance, read from the wire as `UnknownType`: told on as it came, a word of it not taken (§14) | its JSON |
 
 - `ref` is valid when the host registered the kind and the kind contains the id at the time of the check.
 - `object` rejects unknown fields, fills missing optional fields with their default (or leaves them out when there is none), and rejects missing required fields.

@@ -58,7 +58,8 @@ Map<String, Object?> jsonSchema(
       {'type': 'null'},
     ],
   },
-  CustomType() || AnyType() => const {},
+  // A type of a newer parlance is any value, as far as an agent is told.
+  CustomType() || AnyType() || UnknownType() => const {},
 };
 
 Map<String, Object?> _object(

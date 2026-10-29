@@ -63,7 +63,9 @@ final class Callers {
 
   factory Callers.fromJson(Object? json) => Callers({
     for (final e in (json as Map).entries)
-      e.key as String: Access.values.byName(e.value as String),
+      // An access of a newer parlance (SPEC §14) is denied: the least it
+      // may mean.
+      e.key as String: Access.values.asNameMap()[e.value] ?? Access.deny,
   });
 
   /// Every principal kind in [kinds] allowed.

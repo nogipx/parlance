@@ -260,6 +260,22 @@ final class Registry implements ITypeContext {
     }
   }
 
+  /// A word of a type this parlance does not know is not taken (SPEC
+  /// §14): what its values may be, the registry could not check.
+  void _checkKnown(Descriptor d) {
+    final types = switch (d) {
+      StateDescriptor(:final type) || FactDescriptor(:final type) => [type],
+      CallableDescriptor(:final params, :final returns) => [params, returns],
+    };
+    for (final t in types) {
+      if (unknownTypeIn(t) case final u?) {
+        throw ArgumentError(
+          '${d.name}: ${u.json['type']} is no type this parlance knows',
+        );
+      }
+    }
+  }
+
   final Map<String, String> _aliases = {};
 
   /// The old names of words, each with the name it stands for now.

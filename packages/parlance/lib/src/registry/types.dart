@@ -78,7 +78,8 @@ sealed class ValueType<T> {
       'nullable' => NullableType(ValueType.fromJson(json['of'])),
       'custom' => CustomType(json['name'] as String),
       'any' => const AnyType(),
-      final t => throw FormatException('unknown type $t'),
+      // A type of a newer parlance (SPEC §14): kept as it came.
+      _ => UnknownType(json.cast<String, Object?>()),
     };
   }
 
@@ -439,6 +440,39 @@ final class CustomType extends ValueType<Object?> {
   @override
   Map<String, Object?> toJson() => {'type': 'custom', 'name': name};
 }
+
+/// A type a newer parlance has and this one does not (SPEC §14), read
+/// from the wire as its JSON and told on as it came: a participant does
+/// not stop at a word of it, and the rule finds it another type than the
+/// code holds. A value of it is not checked here, the host that defined
+/// the word checks it; and a registry takes no word of it
+/// ([unknownTypeIn]), not knowing what its values may be.
+final class UnknownType extends ValueType<Object?> {
+  const UnknownType(this.json);
+
+  final Map<String, Object?> json;
+
+  @override
+  Object? check(Object? value, ITypeContext ctx, [String path = '']) => value;
+
+  @override
+  Map<String, Object?> toJson() => json;
+}
+
+/// The first [UnknownType] in [type], however deep; null when there is
+/// none.
+UnknownType? unknownTypeIn(ValueType<Object?>? type) => switch (type) {
+  null => null,
+  final UnknownType u => u,
+  ListType(:final item) => unknownTypeIn(item),
+  MapType(:final value) => unknownTypeIn(value),
+  NullableType(:final of) => unknownTypeIn(of),
+  ObjectType(:final fields) =>
+    fields.values.map((f) => unknownTypeIn(f.type)).nonNulls.firstOrNull,
+  OneOfType(:final variants) =>
+    variants.values.map(unknownTypeIn).nonNulls.firstOrNull,
+  _ => null,
+};
 
 final class AnyType extends ValueType<Object?> {
   const AnyType();

@@ -127,6 +127,7 @@ extension RawRegistry on Registry {
     Shape<Object?>? shape,
   }) {
     _checkFree(d.name);
+    _checkKnown(d);
     final kept = shape != null && shape.keptAsIs ? shape : null;
     final keep = kept ?? JsonValue(d.type);
     final local = LocalKeyedState<String?, Object?>(
@@ -149,6 +150,7 @@ extension RawRegistry on Registry {
     Shape<Object?>? returns,
   }) {
     _checkFree(d.name);
+    _checkKnown(d);
     final local = LocalCommand<CommandCall, Object?>();
     _commands[d.name] = _CommandEntry(
       d,
@@ -172,6 +174,7 @@ extension RawRegistry on Registry {
     Shape<Object?>? returns,
   }) {
     _checkFree(d.name);
+    _checkKnown(d);
     final local = LocalCommand<CommandCall, Object?>();
     _commands[d.name] = _CommandEntry(
       d,
@@ -196,6 +199,7 @@ extension RawRegistry on Registry {
     Shape<Object?>? shape,
   }) {
     _checkFree(d.name);
+    _checkKnown(d);
     final kept = shape != null && shape.keptAsIs ? shape : null;
     final keep = kept ?? JsonValue(d.type);
     final local = LocalFact<Object?>(hub: _hub, open: d.open);

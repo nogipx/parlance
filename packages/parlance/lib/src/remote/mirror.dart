@@ -162,12 +162,18 @@ final class RegistryMirror {
   final Map<String, Descriptor> _descriptors = {};
 
   /// The word named [name] as the catalog last told it; null when it told
-  /// none.
+  /// none, or a word of a kind a newer parlance has and this one does not
+  /// (SPEC §14).
   Descriptor? descriptorOf(String name) {
     final n = canonical(name);
     if (_descriptors[n] case final d?) return d;
     final json = _descriptorJson[n];
-    return json == null ? null : _descriptors[n] = Descriptor.fromJson(json);
+    if (json == null) return null;
+    try {
+      return _descriptors[n] = Descriptor.fromJson(json);
+    } on FormatException {
+      return null;
+    }
   }
 
   /// Takes [json], the catalog as the session's principal sees it
