@@ -86,7 +86,7 @@ Future<List<McpTool>> parlanceTools(
     _ => '',
   };
 
-  return [
+  final curated = [
     McpTool(
       name: 'describe',
       description:
@@ -272,8 +272,17 @@ Future<List<McpTool>> parlanceTools(
         }
       },
     ),
-    if (commandTools)
-      for (final c in commands) _commandTool(c, schema, callCommand),
+  ];
+  if (!commandTools) return curated;
+  // A tool's name is one of its own and as MCP clients take it: a command
+  // whose tool another has, or one too long, is called by call alone.
+  final taken = {for (final t in curated) t.name};
+  return [
+    ...curated,
+    for (final c in commands)
+      if (commandToolName(c['name'] as String) case final n
+          when n.length <= 64 && taken.add(n))
+        _commandTool(c, schema, callCommand),
   ];
 }
 

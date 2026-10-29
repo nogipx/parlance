@@ -132,6 +132,31 @@ void main() {
     expect(await now(), isNull);
   });
 
+  test('a command whose tool name is taken, or too long, is called by call '
+      'alone', () async {
+    final f = Fixture();
+    final ran = <String>[];
+    for (final name in ['recent.facts', 'a.b_c', 'a_b.c', 'x.${'y' * 70}']) {
+      f.r.defineCommand(
+        CommandDescriptor(name, callers: Callers.only(['agent'])),
+        (_) => ran.add(name),
+      );
+    }
+    final c = Client(f.r.participant(agent), commandTools: true);
+    addTearDown(c.close);
+    final tools = await c.tools();
+    expect(tools.toSet(), hasLength(tools.length), reason: 'each its own');
+    expect(tools.where((t) => t.startsWith('x_')), isEmpty);
+    expect(tools, contains('a_b_c'));
+    expect(
+      (await c.call('recent_facts', {'fact': 'no.such'})).text,
+      'no fact no.such',
+    );
+    await c.call('call', {'command': 'recent.facts'});
+    await c.call('a_b_c');
+    expect(ran, ['recent.facts', 'a.b_c']);
+  });
+
   test(
     'tools are asked once until they change; a slow call holds no other',
     () async {

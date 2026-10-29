@@ -16,7 +16,7 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 | `recent_facts` | the last facts of a name, from 1 to 100 of them, whatever count the agent gives |
 | `why` | a state's value, last change (when, on whose behalf, the conversation it was part of), the calls that led to it: `Registry.explain`, told without the wire's ids |
 
-With `commandTools`, each command the principal may call is a tool of its own as well. A host adds its own tools beside these.
+With `commandTools`, each command the principal may call is a tool of its own as well, named with `_` for `.`; one whose tool name is taken (by a curated tool or another command) or longer than 64 has none, and is called by `call`. A host adds its own tools beside these.
 
 They answer the same here and across a connection, and say so where they cannot:
 
