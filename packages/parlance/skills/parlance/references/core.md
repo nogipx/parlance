@@ -63,5 +63,5 @@ What a part does with states, commands and facts is five interfaces, named in th
 | `IFactEmitter<T>`: `emit` | `LocalFactEmitter` | `FactEmitterOf` |
 | `IFactListener<T>`: `stream` | `LocalFact` | `FactOf.listener` |
 
-- Through an interface, writes and calls carry no cause: a write starts a new chain on behalf of the writer, a call acts for the principal its `caller` was made for. A handler that must pass `call.causeFor(...)` uses the typed handle itself.
+- Through an interface, writes and calls carry no cause of their own: in a handler a participant serves they follow from its call; elsewhere a write starts a new chain on behalf of the writer, a call acts for the principal its `caller` was made for.
 - A call through `caller` answers the value of a done call; any other end fails with `CallNotDone`, which carries the `CallResult`.

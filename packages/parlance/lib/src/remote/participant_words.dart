@@ -103,6 +103,7 @@ final class _Fact implements IFactHandle {
   @override
   bool emit(Object? payload, {String? id, Cause? cause}) {
     final speaker = _by ?? _p.who;
+    cause ??= inReplyAs(speaker);
     final by = cause != null && !_p._ownAct(cause.by, speaker)
         ? cause.by
         : null;

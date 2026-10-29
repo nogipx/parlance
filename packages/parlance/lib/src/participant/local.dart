@@ -1,6 +1,7 @@
 import 'package:clock/clock.dart' show Clock;
 
 import '../registry/cause.dart';
+import 'serving.dart';
 import '../registry/compat.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
@@ -225,7 +226,8 @@ final class LocalParticipant implements IParticipant {
   /// follows from a call it serves (`call.causeFor(who)`). A part takes a
   /// cause of a whole it is part of as its own: what it does is its own.
   Cause _as(Cause? cause) {
-    if (cause == null) return Cause(who);
+    // In a handler, what it does follows from the call it serves.
+    if (cause == null) return inReplyAs(who) ?? Cause(who);
     if (cause.by == who) return cause;
     if (_wholeOf(cause.by)) {
       return cause.withBy(who);
@@ -415,7 +417,7 @@ final class LocalParticipant implements IParticipant {
     _mayDefine(d);
     final h = _r.defineCommand(
       d,
-      handler,
+      serving(handler),
       available: available,
       params: params,
       returns: returns,
@@ -438,7 +440,7 @@ final class LocalParticipant implements IParticipant {
     _mayDefine(d);
     final h = _r.defineQuery(
       d,
-      handler,
+      serving(handler),
       available: available,
       params: params,
       returns: returns,
@@ -635,6 +637,7 @@ final class _OwnFact implements IFactHandle {
         throw NotPermitted(why);
       }
     }
+    cause ??= inReplyAs(p.who);
     final own = cause == null || cause.by == p.who || p._wholeOf(cause.by);
     return _raw.emit(payload, id: id, cause: own ? p._as(cause) : cause);
   }

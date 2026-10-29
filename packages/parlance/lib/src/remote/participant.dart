@@ -7,6 +7,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 
 import '../participant/owner.dart';
 import '../participant/participant.dart';
+import '../participant/serving.dart';
 import '../registry/cause.dart';
 import '../registry/compat.dart';
 import '../registry/descriptors.dart';
@@ -421,7 +422,9 @@ final class RemoteParticipant implements IParticipant {
 
   Cause? _as(Cause? cause, [Principal? speaker]) {
     final s = speaker ?? who;
-    if (cause != null && !_ownAct(cause.by, s)) {
+    // In a handler, what it does follows from the call it serves.
+    if (cause == null) return inReplyAs(s);
+    if (!_ownAct(cause.by, s)) {
       throw NotPermitted('$s acts as itself, not as ${cause.by}');
     }
     return cause;
@@ -893,7 +896,7 @@ final class RemoteParticipant implements IParticipant {
   ) {
     _mayDefine(d);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
-    final c = _Command(d, handler, available, as);
+    final c = _Command(d, serving(handler), available, as);
     _commands[d.name] = c;
     return Disposer(() {
       if (_commands[d.name] != c) return;
