@@ -8,6 +8,7 @@ import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:dart_style/dart_style.dart';
+import 'package:parlance/registry.dart' show isValidName, checkWordName;
 import 'package:parlance/schema.dart';
 import 'package:pub_semver/pub_semver.dart' show Version;
 import 'package:source_gen/source_gen.dart';

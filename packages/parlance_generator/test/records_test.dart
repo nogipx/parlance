@@ -1,4 +1,7 @@
+import 'package:parlance/participant.dart';
+import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
+import 'package:parlance/view.dart';
 import 'package:test/test.dart';
 
 import 'fixtures/board.dart';

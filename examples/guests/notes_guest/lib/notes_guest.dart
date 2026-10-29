@@ -4,7 +4,7 @@
 library;
 
 import 'package:notes_words/notes_words.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/app.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 /// The owner of the notes' words: its base, made from [Notes], defines

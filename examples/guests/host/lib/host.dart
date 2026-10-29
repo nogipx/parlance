@@ -3,9 +3,7 @@
 library;
 
 import 'package:host_words/host_words.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/app.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 /// Who acts in the app.

@@ -8,7 +8,7 @@ import 'dart:async';
 
 import 'package:host_words/host_words.dart';
 import 'package:notes_words/notes_words.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/app.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 /// The board: what it does, through the words' interfaces only, so a test
