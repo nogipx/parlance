@@ -24,7 +24,7 @@ const _query = TypeChecker.typeNamed(QueryWord, inPackage: 'parlance');
 const _fact = TypeChecker.typeNamed(FactWord, inPackage: 'parlance');
 const _range = TypeChecker.typeNamed(Range, inPackage: 'parlance');
 const _length = TypeChecker.typeNamed(Length, inPackage: 'parlance');
-const _ref = TypeChecker.typeNamed(Ref, inPackage: 'parlance');
+const _ref = TypeChecker.typeNamed(ChoiceOf, inPackage: 'parlance');
 const _describe = TypeChecker.typeNamed(Describe, inPackage: 'parlance');
 const _fieldName = TypeChecker.typeNamed(FieldName, inPackage: 'parlance');
 const _default = TypeChecker.typeNamed(Default, inPackage: 'parlance');
@@ -806,7 +806,7 @@ final class _Emitter {
     'noSuchMethod',
   };
 
-  /// `<Class>OwnerBase` (SPEC §23.4): an owner base that defines every word
+  /// `<Class>Base` (SPEC §23.4): an owner base that defines every word
   /// and keeps what the owner set of each state, writing it; says each
   /// fact by a method of its params; and serves each command and query by
   /// a handler of its params, for the owner to write. Nothing of it asks
@@ -831,7 +831,7 @@ final class _Emitter {
     void member(String name, _Word w) {
       if (had[name] case final other?) {
         throw InvalidGenerationSourceError(
-          '$name is had twice by ${_c}OwnerBase: name ${w.member} or '
+          '$name is had twice by ${_c}Base: name ${w.member} or '
           '${other.member} otherwise, or @Vocabulary(owner: false)',
           element: w.element,
         );
@@ -857,8 +857,8 @@ final class _Emitter {
       ..writeln('/// by a method of its params, and serves each command and')
       ..writeln('/// query by a handler of its params. What a handler writes,')
       ..writeln('/// says and calls follows from the call it serves.')
-      ..writeln('abstract class ${_c}OwnerBase implements IOwner {')
-      ..writeln('  ${_c}OwnerBase() {')
+      ..writeln('abstract class ${_c}Base implements IOwner {')
+      ..writeln('  ${_c}Base() {')
       ..writeln('    IOwner.made(this, define: _\$define, write: _\$write);')
       ..writeln('  }')
       ..writeln();
@@ -1285,7 +1285,7 @@ final class _Emitter {
       if (ref != null) {
         final kind = ConstantReader(ref).read('kind');
         _named(kind.stringValue, on);
-        return 'Plain(RefType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
+        return 'Plain(ChoiceType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
       }
       return 'Plain(TextType(${max == null ? '' : 'maxLength: $max'}))';
     }
@@ -1311,7 +1311,7 @@ final class _Emitter {
     }
     if (t is RecordType) return _recordShape(t, on, where);
     if (t is InterfaceType && t.isDartCoreList) {
-      // `@Ref` on a list names its items' kind; its other bounds are
+      // `@ChoiceOf` on a list names its items' kind; its other bounds are
       // the list's.
       final item = _shape(
         t.typeArguments.single,

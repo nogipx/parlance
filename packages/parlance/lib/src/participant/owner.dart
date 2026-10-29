@@ -300,7 +300,7 @@ extension OwnerTools on IOwner {
 
   /// Tells whoever asks the registry (an agent, an editor, a plugin)
   /// which [kind] there are now, to choose from: [list] gives them, with
-  /// their labels. What a param of `@Ref(kind)` names is held to them.
+  /// their labels. What a param of `@ChoiceOf(kind)` names is held to them.
   /// They are listed again on their own: when it is attached, after it
   /// followed its model, heard something or answered a call; what went
   /// goes of its keyed states keyed by [kind] too.

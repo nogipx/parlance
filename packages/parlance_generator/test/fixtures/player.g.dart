@@ -104,7 +104,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
           EnumShape(Repeat.values, unknown: Repeat.off),
           defaultValue: 'off',
         ),
-        'on': Part(Plain(RefType('speaker')), optional: true),
+        'on': Part(Plain(ChoiceType('speaker')), optional: true),
       },
       to: _$PlayerPlayTo,
       from: _$PlayerPlayFrom,
@@ -216,8 +216,8 @@ abstract final class PlayerKind {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class PlayerOwnerBase implements IOwner {
-  PlayerOwnerBase() {
+abstract class PlayerBase implements IOwner {
+  PlayerBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 

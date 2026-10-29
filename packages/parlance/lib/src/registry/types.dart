@@ -50,7 +50,7 @@ sealed class ValueType<T> {
         for (final v in json['values'] as List) v as String,
       ], unknown: json['unknown'] as String?),
       'duration' => DurationType(max: n('max')?.toInt()),
-      'ref' => RefType(json['kind'] as String),
+      'ref' => ChoiceType(json['kind'] as String),
       'list' => ListType(
         ValueType.fromJson(json['item']),
         maxItems: n('maxItems')?.toInt(),
@@ -203,8 +203,8 @@ final class DurationType extends ValueType<int> {
 }
 
 /// The id of an entity of [kind], which must exist when checked.
-final class RefType extends ValueType<String> {
-  const RefType(this.kind);
+final class ChoiceType extends ValueType<String> {
+  const ChoiceType(this.kind);
 
   final String kind;
 

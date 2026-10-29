@@ -65,7 +65,7 @@ abstract class House {
 
   /// Anyone may light a room; a guest's call is shown in an editor.
   @CommandWord(name: 'light.set', callers: Who.anyone)
-  void setLight({@Ref('room') required String room, required bool on});
+  void setLight({@ChoiceOf('room') required String room, required bool on});
 
   @CommandWord(name: 'heat.set')
   void setHeat({@Range(min: 10, max: 28) required num target});

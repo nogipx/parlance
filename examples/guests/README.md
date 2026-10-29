@@ -4,9 +4,9 @@ How widlet guests (Dart, compiled to WASM) and their host share words: every gue
 
 | Package | What it is | Depends on |
 |---|---|---|
-| `host_words` | The app's words (`@Vocabulary('app')`): `app.dark`, `app.toast`. The host owns them (`AppOwnerBase`); a guest takes `IAppClient`. | parlance |
+| `host_words` | The app's words (`@Vocabulary('app')`): `app.dark`, `app.toast`. The host owns them (`AppBase`); a guest takes `IAppClient`. | parlance |
 | `notes_words` | The notes guest's words (`@Vocabulary('notes')`): `notes.all`, `notes.add`, `notes.added`, published beside the guest. | parlance |
-| `notes_guest` | Guest A: a `Notebook extends NotesOwnerBase`, joined over the endpoint its runtime hands it (`Guest.over`). | parlance, notes_words |
+| `notes_guest` | Guest A: a `Notebook extends NotesBase`, joined over the endpoint its runtime hands it (`Guest.over`). | parlance, notes_words |
 | `board_guest` | Guest B: a board that pins notes and toasts, through `IAppClient` and `INotesClient`; it says, as they come, the words not as it was built against. | parlance, host_words, notes_words |
 | `host` (`guests_host`) | One host (`Host`), the app's owner, a session per guest: its words in the vocabulary of its id, its commands called by guests and the user (the host says so, not the guest). | parlance, host_words; the guests only to run them here |
 

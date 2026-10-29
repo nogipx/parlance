@@ -26,7 +26,7 @@ Map<String, Object?> jsonSchema(
     'maximum': ?max,
     'description': 'milliseconds',
   },
-  RefType(:final kind) => {
+  ChoiceType(:final kind) => {
     'type': 'string',
     'description': 'a $kind',
     if (kinds[kind] case final e? when e.isNotEmpty)

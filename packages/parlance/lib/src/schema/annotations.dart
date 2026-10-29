@@ -19,7 +19,7 @@ final class Vocabulary {
   /// The first words of every name: `orders` for `orders.cancel`.
   final String name;
 
-  /// Whether to make `<Class>OwnerBase` too (SPEC §23.4), an owner base with a
+  /// Whether to make `<Class>Base` too (SPEC §23.4), an owner base with a
   /// handler to write per command and query.
   final bool owner;
 
@@ -28,7 +28,7 @@ final class Vocabulary {
   final bool client;
 
   /// The kinds of choices its words speak of (SPEC §3): what a keyed
-  /// state's keys are (`@StateWord(key: 'room')`) and what a `@Ref` names.
+  /// state's keys are (`@StateWord(key: 'room')`) and what a `@ChoiceOf` names.
   /// Each named there is one of these, or the generator says so; it makes
   /// `<Class>Kind`, a constant of each (`HouseKind.room`), for the owner
   /// that gives them (`choices(HouseKind.room, ...)`).
@@ -129,9 +129,12 @@ final class Length {
   final int max;
 }
 
-/// A text that names an entity of [kind] (SPEC §3).
-final class Ref {
-  const Ref(this.kind);
+/// A text that is one of the choices of [kind] (SPEC §3), as an owner
+/// gives them (`choices(kind, ...)`): a call naming none of them is
+/// refused before its handler, and an agent or an editor offers them. On
+/// a list, of its items.
+final class ChoiceOf {
+  const ChoiceOf(this.kind);
   final String kind;
 }
 

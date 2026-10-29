@@ -27,7 +27,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   setLight<HouseSetLight, void>(
     'house.light.set',
     RecordShape<HouseSetLight>(
-      {'room': Part(Plain(RefType('room'))), 'on': Part(Plain(BoolType()))},
+      {'room': Part(Plain(ChoiceType('room'))), 'on': Part(Plain(BoolType()))},
       to: _$HouseSetLightTo,
       from: _$HouseSetLightFrom,
       get: _$HouseSetLightAt,
@@ -135,8 +135,8 @@ abstract final class HouseKind {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class HouseOwnerBase implements IOwner {
-  HouseOwnerBase() {
+abstract class HouseBase implements IOwner {
+  HouseBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 
@@ -552,8 +552,8 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class VisitOwnerBase implements IOwner {
-  VisitOwnerBase() {
+abstract class VisitBase implements IOwner {
+  VisitBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 

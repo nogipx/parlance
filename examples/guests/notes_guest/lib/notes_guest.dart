@@ -9,7 +9,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 
 /// The owner of the notes' words: its base, made from [Notes], defines
 /// them and keeps the notes it set; this serves `notes.add`.
-final class Notebook extends NotesOwnerBase {
+final class Notebook extends NotesBase {
   Notebook() {
     all = const [];
   }

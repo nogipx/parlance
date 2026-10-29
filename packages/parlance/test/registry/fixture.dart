@@ -18,7 +18,7 @@ base class Fixture {
       EntityKind('input', list: () => [for (final i in inputs) EntityRef(i)]),
     );
     program = r.defineState(
-      StateDescriptor('studio.program', type: const RefType('scene')),
+      StateDescriptor('studio.program', type: const ChoiceType('scene')),
       by: owner,
     );
     muted = r.defineState(
@@ -36,7 +36,7 @@ base class Fixture {
     r.defineCommand(
       CommandDescriptor(
         'studio.show',
-        params: const ObjectType({'scene': Field(RefType('scene'))}),
+        params: const ObjectType({'scene': Field(ChoiceType('scene'))}),
         callers: const Callers({
           'user': Access.allow,
           'agent': Access.allow,
@@ -64,7 +64,7 @@ base class Fixture {
       CommandDescriptor(
         'audio.gain.set',
         params: const ObjectType({
-          'input': Field(RefType('input')),
+          'input': Field(ChoiceType('input')),
           'db': Field(NumType(min: -60, max: 12), defaultValue: 0),
         }),
         callers: Callers.only(['user', 'system']),

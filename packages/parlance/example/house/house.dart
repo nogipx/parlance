@@ -35,7 +35,7 @@ final class Devices {
 /// them, keeps what it set and says its facts; this serves the commands
 /// on [devices], answers the query and sets its states. What a handler
 /// sets follows from its call: no cause is written.
-final class Home extends HouseOwnerBase {
+final class Home extends HouseBase {
   Home(this.devices) {
     // The rooms there are, for an agent or an editor to choose from; one
     // that goes, goes of the lights too.

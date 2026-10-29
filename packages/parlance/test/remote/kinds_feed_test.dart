@@ -27,7 +27,7 @@ void main() {
     studio.defineCommand(
       CommandDescriptor(
         'studio.show',
-        params: const ObjectType({'scene': Field(RefType('scene'))}),
+        params: const ObjectType({'scene': Field(ChoiceType('scene'))}),
         callers: Callers.only(['agent']),
       ),
       (_) {},

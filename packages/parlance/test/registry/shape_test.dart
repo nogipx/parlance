@@ -81,7 +81,7 @@ Cue _cueFrom(Map<String, Object?> m) => (
 
 const cue = RecordShape<Cue>(
   {
-    'scene': Part(Plain(RefType('scene'))),
+    'scene': Part(Plain(ChoiceType('scene'))),
     'note': Part(Nullable(Plain(TextType()))),
     'fade': Part(Plain(IntType(max: 500)), defaultValue: 250),
     'label': Part(Plain(TextType()), optional: true),

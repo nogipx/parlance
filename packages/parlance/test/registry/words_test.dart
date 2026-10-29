@@ -11,7 +11,7 @@ typedef Tune = ({String input, num db, Level? level});
 
 const _tune = RecordShape<Tune>(
   {
-    'input': Part(Plain(RefType('input'))),
+    'input': Part(Plain(ChoiceType('input'))),
     'db': Part(Plain(NumType(min: -60, max: 12))),
     'level': Part(EnumShape(Level.values), optional: true),
   },

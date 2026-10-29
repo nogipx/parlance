@@ -94,7 +94,7 @@ enum _Lit<T> implements IStateWord<T> {
 }
 
 const _bulb = RecordShape<({String bulb})>(
-  {'bulb': Part(Plain(RefType('bulb')))},
+  {'bulb': Part(Plain(ChoiceType('bulb')))},
   to: _bulbJson,
   from: _fromBulb,
 );

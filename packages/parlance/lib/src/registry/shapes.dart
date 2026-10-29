@@ -64,7 +64,7 @@ final Expando<bool> _aloneOf = Expando('alone');
 
 /// Whether a value of [t] is checked asking nothing of the registry.
 bool _alone(ValueType<Object?> t) => switch (t) {
-  RefType() || CustomType() => false,
+  ChoiceType() || CustomType() => false,
   ListType(:final item) => _alone(item),
   MapType(:final value) => _alone(value),
   NullableType(:final of) => _alone(of),

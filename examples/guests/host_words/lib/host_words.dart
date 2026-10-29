@@ -1,5 +1,5 @@
 /// The host's words: what the app gives every guest. The host owns them
-/// (`AppOwnerBase`); a guest uses them through `IAppClient`, given
+/// (`AppBase`); a guest uses them through `IAppClient`, given
 /// `AppClient` over its participant.
 library;
 

@@ -43,7 +43,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
     'note.expire',
     RecordShape<BoardExpire>(
       {
-        'id': Part(Plain(RefType('note'))),
+        'id': Part(Plain(ChoiceType('note'))),
         'in': Part(Plain(DurationType(max: 60000))),
       },
       to: _$BoardExpireTo,
@@ -55,7 +55,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
   pin<BoardPin, void>(
     'note.pin',
     RecordShape<BoardPin>(
-      {'ids': Part(ListShape(Plain(RefType('note')), maxItems: 3))},
+      {'ids': Part(ListShape(Plain(ChoiceType('note')), maxItems: 3))},
       to: _$BoardPinTo,
       from: _$BoardPinFrom,
       get: _$BoardPinAt,
@@ -104,8 +104,8 @@ abstract final class BoardKind {
 /// by a method of its params, and serves each command and
 /// query by a handler of its params. What a handler writes,
 /// says and calls follows from the call it serves.
-abstract class BoardOwnerBase implements IOwner {
-  BoardOwnerBase() {
+abstract class BoardBase implements IOwner {
+  BoardBase() {
     IOwner.made(this, define: _$define, write: _$write);
   }
 

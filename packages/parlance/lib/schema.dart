@@ -57,7 +57,7 @@ export 'src/registry/types.dart'
         TextType,
         EnumType,
         DurationType,
-        RefType,
+        ChoiceType,
         ListType,
         ObjectType,
         Field,

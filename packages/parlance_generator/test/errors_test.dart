@@ -95,7 +95,7 @@ $body
     'two members of the owner base of one name': (
       '@CommandWord(available: true) void go();\n'
           '@CommandWord() void whyNotGo();',
-      'whyNotGo is had twice by OrdersOwnerBase',
+      'whyNotGo is had twice by OrdersBase',
     ),
     'a word named as what the owner base keeps it said': (
       '@StateWord() int get said;',
@@ -115,7 +115,7 @@ $body
 
   test('it refuses a kind its vocabulary does not say, saying how', () async {
     final logs = await errorsOf(
-      "@CommandWord() void go({@Ref('room') required String room});",
+      "@CommandWord() void go({@ChoiceOf('room') required String room});",
     );
     expect(
       logs.join('\n'),
