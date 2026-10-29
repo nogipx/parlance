@@ -550,14 +550,15 @@ final class LocalParticipant implements IParticipant {
   void batch(void Function() writes) => _r.batch(writes);
 
   @override
-  Future<void> settle() async {}
+  Future<void> settle() => Future<void>.delayed(Duration.zero);
 
   late final OwnerGroup _group = OwnerGroup(this);
 
   @override
-  void attach(Map<String, Owner> owners) {
+  Future<void> attach(Map<String, Owner> owners) {
     _live();
     _group.attach(owners);
+    return Future.value();
   }
 
   @override

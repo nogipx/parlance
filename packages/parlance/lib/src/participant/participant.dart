@@ -213,16 +213,21 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// Runs [writes], its writes and facts committed as one tick.
   void batch(void Function() writes);
 
-  /// Completes when the registry has done all it asked so far, and what it
-  /// sees of the catalog, so [status] too, is as of then: in this process
-  /// at once, across a connection after the host answered.
+  /// Completes when the registry has done all it asked so far, what it
+  /// sees of the catalog (so [status] too) and of the states is as of
+  /// then, and its listeners were told: what a test waits for after it
+  /// acted, in place of a delay. In this process after a turn of the event
+  /// loop, across a connection once its copy reached the host.
   Future<void> settle();
 
   /// Attaches [owners] (SPEC §22.3), each to the part of its name
   /// (`child(name)`), so causes, records and `explain` tell which owner did
   /// what; then writes what they have now, as one tick. The names are
   /// `main`'s; two owners of one name are refused. They go with it.
-  void attach(Map<String, Owner> owners);
+  /// Completes when the registry has their words and what they set:
+  /// at once in the host's process, across a connection when the host
+  /// answered (what it refused told to `errors` by then).
+  Future<void> attach(Map<String, Owner> owners);
 
   /// Writes what every owner attached to it has now, as one tick.
   void sync();

@@ -1162,9 +1162,10 @@ final class RemoteParticipant implements IParticipant {
   late final OwnerGroup _group = OwnerGroup(this);
 
   @override
-  void attach(Map<String, Owner> owners) {
+  Future<void> attach(Map<String, Owner> owners) {
     _live();
     _group.attach(owners);
+    return flush();
   }
 
   @override
@@ -1184,6 +1185,11 @@ final class RemoteParticipant implements IParticipant {
       // The catalog it had stays; the host's defect is told.
       _fail(const {'op': 'describe'}, 'malformed', e.message);
     }
+    // The states as the host had them then, and its listeners told.
+    if (d case {'epoch': final String epoch, 'seq': final int seq}) {
+      await _mirror.reach(epoch, seq);
+    }
+    await Future<void>.delayed(Duration.zero);
   }
 
   @override

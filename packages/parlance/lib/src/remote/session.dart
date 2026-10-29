@@ -196,6 +196,13 @@ final class RemoteSession extends ParlanceContractPeer {
     RpcContext? context,
   }) async {
     _open();
+    // A copy that settles waits to reach the seq told here: its feeds are
+    // told the ticks they were not sent went by, as after a call.
+    final seq = registry.seq;
+    if (seq > _owed) _owed = seq;
+    for (final f in [..._feeds]) {
+      if (f.listened) f.catchUp(seq);
+    }
     // What this session may call: so its clients offer only that.
     return WireDescription({
       ...registry.describeFor(principal),

@@ -13,7 +13,6 @@ import 'package:test/test.dart';
 /// Two guests of one host: the notes guest gives its words, the board
 /// guest uses the app's and the notes', typed, knowing neither but by their
 /// words packages; what goes between them is the host's to see.
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
 void main() {
   late Host host;
@@ -44,8 +43,7 @@ void main() {
     final (p, b) = await board();
     final heard = b.notes.added.first;
     await b.pin('buy milk');
-    await p.flush();
-    await settle();
+    await p.settle();
     expect(b.shown.single.text, 'buy milk');
     expect((await heard).text, 'buy milk');
     expect(host.app.toasts, ['pinned: buy milk']);
@@ -58,8 +56,7 @@ void main() {
     await loadInMemory(host, 'notes', startNotes);
     final (p, b) = await board();
     await b.pin('call ann');
-    await p.flush();
-    await settle();
+    await p.settle();
     final why = host.registry.explain('notes.all');
     expect(why.change!.cause.by, Who.widlet('notes').child('book'));
     expect(why.trail.first.command, 'notes.add');
@@ -90,7 +87,6 @@ void main() {
       });
       final (p, b) = await board();
       await p.settle();
-      await settle();
       expect(
         mismatches['notes.add'],
         contains('params.fields.text.type.maxLength: was 200, is 100'),
@@ -119,7 +115,7 @@ void main() {
     await p.settle();
     expect(NotesClient(p).status(NotesCommand.add), const WordReady());
     host.unload('notes');
-    await settle();
+    await p.settle();
     expect(p.status('notes.add'), const WordMissing());
     await notes.close();
     await b.close();

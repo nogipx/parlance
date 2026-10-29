@@ -29,7 +29,6 @@ final class Notebook extends NotesOwner {
 /// who may call its commands, the host says.
 Future<RemoteParticipant> startNotes(RpcPeerEndpoint endpoint) async {
   final p = await RemoteParticipant.over(endpoint);
-  p.attach({'book': Notebook()});
-  await p.flush();
+  await p.attach({'book': Notebook()});
   return p;
 }

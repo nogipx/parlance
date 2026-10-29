@@ -167,7 +167,10 @@ final class _Part implements IParticipant {
   late final OwnerGroup _group = OwnerGroup(this);
 
   @override
-  void attach(Map<String, Owner> owners) => _group.attach(owners);
+  Future<void> attach(Map<String, Owner> owners) {
+    _group.attach(owners);
+    return _root.flush();
+  }
 
   @override
   void sync() => _group.sync();
