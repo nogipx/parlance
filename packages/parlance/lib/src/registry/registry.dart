@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:developer' as developer;
 
 import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
@@ -12,6 +11,7 @@ export 'package:rpc_dart/logger.dart'
     show LogScope, LogSpanHandle, LogSpanStatus, RpcLogLevel;
 export '../core/core.dart'
     show
+        Disposer,
         ICommandCaller,
         IFactEmitter,
         IFactListener,
@@ -19,14 +19,17 @@ export '../core/core.dart'
         IStateReader,
         IStateWriter;
 
+import 'built_against.dart';
 import 'cause.dart';
-import 'compat.dart';
 import 'descriptors.dart';
 import 'ids.dart';
+import 'journaling.dart';
 import 'json.dart';
 import 'messages.dart';
 import 'shapes.dart';
+import 'tracing.dart';
 import 'types.dart';
+import 'uses.dart';
 
 /// Serves a command: answers its result (checked against `returns`), or
 /// throws.
@@ -130,11 +133,9 @@ final class CommandCall {
   /// and its trace. Without a log it is `LogScope.noop`'s, ended and
   /// keeping nothing; an event whose message or data costs something is
   /// built behind `span.isEnabled(level)`, false then.
-  LogSpanHandle get span => _span ?? _noSpan;
+  LogSpanHandle get span => _span ?? noSpan;
   final LogSpanHandle? _span;
 }
-
-final LogSpanHandle _noSpan = LogScope.noop.startSpan('');
 
 /// The params of [call] as [shape] has them: the value itself when the
 /// command keeps them by [shape], else their JSON decoded. The package's
@@ -322,18 +323,6 @@ final class RawFactEmitter implements IFactHandle {
   }
 }
 
-final class _Disposer implements IHandle {
-  _Disposer(this._f);
-  void Function()? _f;
-
-  @override
-  void dispose() {
-    final f = _f;
-    _f = null;
-    f?.call();
-  }
-}
-
 final class _StateEntry {
   _StateEntry(this.descriptor, this.local, this.shape) : writer = local.claim();
   final StateDescriptor descriptor;
@@ -401,28 +390,6 @@ final class _FactEntry {
 
   /// Its payloads, tagged with their id and cause.
   final LocalFact<Object?> local;
-}
-
-final class _Use {
-  _Use(this.by, this._clock);
-  final Principal by;
-  final Clock _clock;
-  int calls = 0;
-  int reads = 0;
-  int listening = 0;
-  DateTime? last;
-
-  void seen() => last = _clock.now();
-  void called() => calls++;
-  void read() => reads++;
-
-  WordUse snapshot() => WordUse(
-    by: by,
-    calls: calls,
-    reads: reads,
-    listening: listening,
-    last: last!,
-  );
 }
 
 final class _Guard {
@@ -553,19 +520,17 @@ final class Registry implements ITypeContext {
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('defined', data: {'word': descriptor.name});
         }
-        _judgeAgain(descriptor.name);
+        _builtAgainst.wordChanged(descriptor.name);
       case DescriptorRemoved(:final descriptor):
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('removed', data: {'word': descriptor.name});
         }
-        _judgeAgain(descriptor.name);
+        _builtAgainst.wordChanged(descriptor.name);
       case AliasChanged(:final alias):
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('alias changed', data: {'alias': alias});
         }
-        for (final by in [...?_builtBy[alias]]) {
-          _judge(by, alias);
-        }
+        _builtAgainst.aliasChanged(alias);
       case KindChanged(:final kind):
         if (_catalogLog.isDebug) {
           _catalogLog.debug('kind changed', data: {'kind': kind});
@@ -638,7 +603,7 @@ final class Registry implements ITypeContext {
     checkName(name, 'type');
     if (_customTypes.containsKey(name)) throw StateError('type $name exists');
     _customTypes[name] = check;
-    return _Disposer(() => _customTypes.remove(name));
+    return Disposer(() => _customTypes.remove(name));
   }
 
   @override
@@ -695,9 +660,9 @@ final class Registry implements ITypeContext {
       if (e.value == old) _aliases[e.key] = target;
     }
     _announce(AliasChanged(old));
-    return _Disposer(() {
+    return Disposer(() {
       if (_aliases.remove(old) == null) return;
-      _forgetUses(old);
+      _uses.forget(old);
       _announce(AliasChanged(old));
     });
   }
@@ -739,18 +704,7 @@ final class Registry implements ITypeContext {
     } else {
       return;
     }
-    _forgetUses(name);
-  }
-
-  /// What was counted of [name], a name that is no longer a word nor an
-  /// old name of one (SPEC §6.8): there is nothing left to remove that a
-  /// count would warn of. Who listens to it now stays, so a word defined
-  /// again under it (a plugin reloaded) goes on counting them.
-  void _forgetUses(String name) {
-    final users = _uses[name];
-    if (users == null) return;
-    users.removeWhere((_, u) => u.listening == 0);
-    if (users.isEmpty) _uses.remove(name);
+    _uses.forget(name);
   }
 
   // --- Ticks -----------------------------------------------------------------
@@ -826,16 +780,7 @@ final class Registry implements ITypeContext {
   /// Logs [t]: in brief at debug, and each write and fact made in reply to
   /// a call as an event of the call's span.
   void _logTick(Tick t) {
-    // A fact said in a call's span, or following a message that had one,
-    // is in that trace: what answers it links there.
-    if (_traced) {
-      for (final f in t.facts) {
-        final p = f.cause.parent;
-        if (_spans[p]?.traceparent ?? _traces[p] case final tp?) {
-          _rememberTrace(f.id, tp);
-        }
-      }
-    }
+    _trace.said(t);
     String what(StateChange c) =>
         c.key == null ? c.state : '${c.state}[${c.key}]';
     if (_tickLog.isDebug) {
@@ -848,54 +793,7 @@ final class Registry implements ITypeContext {
         },
       );
     }
-    if (_spans.isEmpty || !_callLog.isDebug) return;
-    for (final c in t.changes) {
-      _spans[c.cause.parent]?.event(
-        c.removed ? 'removed' : 'wrote',
-        level: RpcLogLevel.debug,
-        data: {
-          'state': c.state,
-          'key': ?c.key,
-          'by': c.cause.by.selector,
-          'seq': c.seq,
-        },
-      );
-    }
-    for (final f in t.facts) {
-      _spans[f.cause.parent]?.event(
-        'said',
-        level: RpcLogLevel.debug,
-        data: {'fact': f.fact, 'by': f.cause.by.selector, 'seq': f.seq},
-      );
-    }
-  }
-
-  /// Journals [t]'s facts, and its writes in a conversation, in the order
-  /// they were made.
-  void _journalTick(Tick t) {
-    final writes = [
-      for (final c in t.changes)
-        if (c.cause.parent != null) c,
-    ];
-    var w = 0, f = 0;
-    while (w < writes.length || f < t.facts.length) {
-      if (f >= t.facts.length ||
-          (w < writes.length && writes[w].seq < t.facts[f].seq)) {
-        final c = writes[w++];
-        _write(
-          (n, trace) => JournalWrite(c, epoch: epoch, n: n, trace: trace),
-          c.id,
-          c.cause,
-        );
-      } else {
-        final m = t.facts[f++];
-        _write(
-          (n, trace) => JournalFact(m, epoch: epoch, n: n, trace: trace),
-          m.id,
-          m.cause,
-        );
-      }
-    }
+    _trace.events(t);
   }
 
   /// Turns what the hub committed into the registry's tick: names, ids,
@@ -941,7 +839,7 @@ final class Registry implements ITypeContext {
       facts: List.unmodifiable(committed),
     );
     _logTick(tick);
-    if (_journaling) _journalTick(tick);
+    _journal.tick(tick);
     int weigh(Object of, Object? v) => v == null ? 8 : _shapeOf[of]!.weigh(v);
     var weight = 0;
     final factWeights = <int>[];
@@ -1126,211 +1024,70 @@ final class Registry implements ITypeContext {
 
   // --- Use -------------------------------------------------------------------
 
-  final Map<String, Map<Principal, _Use>> _uses = {};
-
-  /// The record of [by]'s use of [name], a word there is or an old name of
-  /// one; null for any other name, so a peer's made-up names keep nothing.
-  _Use? _used(String name, Principal by) {
-    final word = canonical(name);
-    if (_states[word] == null &&
-        _commands[word] == null &&
-        _facts[word] == null) {
-      return null;
-    }
-    final users = _uses.putIfAbsent(name, () => {});
-    final who = users.containsKey(by) || users.length < usersPerWord
-        ? by
-        : Principal(by.kind);
-    return (users[who] ??= _Use(who, clock))..seen();
-  }
+  late final WordUses _uses = WordUses(
+    isWord: (name) {
+      final word = canonical(name);
+      return _states[word] != null ||
+          _commands[word] != null ||
+          _facts[word] != null;
+    },
+    perWord: usersPerWord,
+    clock: clock,
+  );
 
   /// Who used [name] (a word, or an old name of one), as it was named:
   /// calls and asks, reads and listeners from outside the build (SPEC
   /// §6.8). What the app's own modules read and watch in this process is
   /// not counted: the compiler knows it. Kept while [name] is a word or an
   /// old name of one; who listens now, beyond.
-  List<WordUse> usesOf(String name) => [
-    for (final u in (_uses[name] ?? const {}).values) u.snapshot(),
-  ];
+  List<WordUse> usesOf(String name) => _uses.of(name);
 
   /// Every name used, and by whom (SPEC §6.8).
-  Map<String, List<WordUse>> get usage => {
-    for (final name in _uses.keys) name: usesOf(name),
-  };
+  Map<String, List<WordUse>> get usage => _uses.all;
 
   // --- Built against --------------------------------------------------------
 
   /// How many words one principal is told built against at most: past
   /// them a peer's made-up names keep nothing.
-  static const builtPerPrincipal = 1024;
+  static const builtPerPrincipal = BuiltAgainst.perPrincipal;
 
   /// How many schemas it knows by fingerprint at most, the least recently
   /// told going first (SPEC §25.4).
-  static const knownSchemas = 4096;
+  static const knownSchemas = BuiltAgainst.knownSchemas;
 
-  /// The schemas told it, by fingerprint: a part tells a fingerprint
-  /// first, and its schema only when it is not known here.
-  final LinkedHashMap<String, Object?> _known = LinkedHashMap();
-
-  void _know(Object? schema) {
-    final print = fingerprintOf(schema);
-    _known.remove(print);
-    _known[print] = schema;
-    if (_known.length > knownSchemas) _known.remove(_known.keys.first);
-  }
-
-  /// The words each principal's code was built against, by name as it
-  /// names them, each as a schema entry (SPEC §6.9).
-  final Map<Principal, Map<String, _Built>> _built = {};
-
-  /// Who was built against each name.
-  final Map<String, Set<Principal>> _builtBy = {};
-
-  /// Each word a principal was built against that breaks it now, and
-  /// where, in the order found.
-  final Map<(Principal, String), List<WordBreak>> _mismatched = {};
-  final StreamController<Mismatch> _mismatches = StreamController.broadcast();
+  late final BuiltAgainst _builtAgainst = BuiltAgainst(
+    descriptorOf: (word) => descriptorOf(word),
+    aliases: _aliases,
+    catalogLog: _catalogLog,
+    callLog: _callLog,
+    traced: _traced,
+  );
 
   /// Every word a principal's code was built against that is defined
   /// otherwise now, saying where it breaks (SPEC §6.9). What it is told,
   /// it is told as the code is made (a client); the registry judges it
   /// whenever such a word comes, goes or is defined again. Diagnostics
   /// only: nothing waits on it, nothing is refused by it.
-  List<Mismatch> get mismatches => [
-    for (final MapEntry(key: (by, word), value: breaks) in _mismatched.entries)
-      Mismatch(by, word, breaks, from: _built[by]?[word]?.from),
-  ];
+  List<Mismatch> get mismatches => _builtAgainst.mismatches;
 
   /// A [Mismatch] whenever one is found, breaks otherwise, or ends: then
   /// its breaks are empty (the word keeps its promises again, it is gone,
   /// or none built against it is there any more).
-  Stream<Mismatch> get mismatchChanges => _mismatches.stream;
-
-  /// [name] came, went or was defined again: whoever was built against it,
-  /// or an old name of it, judged again.
-  void _judgeAgain(String name) {
-    final names = [
-      name,
-      for (final MapEntry(:key, :value) in _aliases.entries)
-        if (value == name) key,
-    ];
-    for (final n in names) {
-      for (final by in [...?_builtBy[n]]) {
-        _judge(by, n);
-      }
-    }
-  }
-
-  /// Whether [word] as it is now breaks what [by] was built against.
-  void _judge(Principal by, String word) {
-    final built = _built[by]?[word];
-    final live = built == null ? null : descriptorOf(word);
-    final breaks = live == null
-        ? const <WordBreak>[]
-        : entryBreaks(built!.schema, schemaOfDescriptor(live));
-    final key = (by, word);
-    final was = _mismatched[key];
-    if (breaks.isEmpty) {
-      if (was == null) return;
-      _mismatched.remove(key);
-    } else {
-      if (was != null && sameBreaks(was, breaks)) return;
-      _mismatched[key] = breaks;
-      _warnMismatch(by, word, breaks, built!.from);
-    }
-    if (!_mismatches.isClosed) {
-      _mismatches.add(Mismatch(by, word, breaks, from: built?.from));
-    }
-  }
-
-  /// [params] of a call by [by], with what [by] was built against giving
-  /// and [command] no longer takes left out (SPEC §25.5), as Avro's reader
-  /// skips a field it does not know: code built before a param went goes
-  /// on calling. Only for one whose words are told otherwise (a
-  /// [Mismatch] of [command]), and only params of the call itself; what it
-  /// gave is not heard, and the mismatch still says so.
-  Kept _adapted(
-    String command,
-    _CommandEntry entry,
-    Kept params,
-    Principal by,
-  ) {
-    final mine = _built[by];
-    if (mine == null) return params;
-    final name = mine.containsKey(command)
-        ? command
-        : _aliases.entries
-              .where((a) => a.value == command && mine.containsKey(a.key))
-              .firstOrNull
-              ?.key;
-    if (name == null || !_mismatched.containsKey((by, name))) return params;
-    final built = mine[name]!.schema;
-    final gave = ((built as Map?)?['params'] as Map?)?['fields'] as Map?;
-    final json = params.json;
-    if (gave == null || json is! Map) return params;
-    final takes = entry.descriptor.params.fields;
-    final gone = [
-      for (final k in json.keys)
-        if (!takes.containsKey(k) && gave.containsKey(k)) k,
-    ];
-    if (gone.isEmpty) return params;
-    if (_callLog.isEnabled(RpcLogLevel.info)) {
-      _callLog.info(
-        'params left out',
-        data: {'command': command, 'by': by.selector, 'params': gone},
-      );
-    }
-    return Kept.json({
-      for (final MapEntry(:key, :value) in json.entries)
-        if (!gone.contains(key)) key: value,
-    });
-  }
-
-  /// Logs a mismatch found as a warning in `catalog`; with no log, while
-  /// asserts run (in development), in the developer log.
-  void _warnMismatch(
-    Principal by,
-    String word,
-    List<WordBreak> breaks,
-    String? from,
-  ) {
-    if (_catalogLog.isEnabled(RpcLogLevel.warning)) {
-      _catalogLog.warning(
-        'built against otherwise',
-        data: {
-          'by': by.selector,
-          'word': word,
-          'from': ?from,
-          'breaks': [for (final b in breaks) '$b'],
-        },
-      );
-      return;
-    }
-    if (_traced) return;
-    assert(() {
-      developer.log(
-        '${by.selector} was built against $word'
-        '${from == null ? '' : ' of $from'} otherwise: ${breaks.join('; ')}',
-        name: 'parlance',
-        level: 900,
-      );
-      return true;
-    }());
-  }
+  Stream<Mismatch> get mismatchChanges => _builtAgainst.changes;
 
   // --- Calls -----------------------------------------------------------------
 
   final LinkedHashMap<String, _Seen> _calls = LinkedHashMap();
+  late final CallTraces _trace = CallTraces(
+    _callLog,
+    on: _traced,
+    keep: retainTicks,
+  );
   final Map<String, _Guard> _guards = {};
   final StreamController<CallRecord> _records = StreamController.broadcast();
   final StreamController<CallStarted> _starts = StreamController.broadcast();
 
-  /// Synchronous: an entry is with its listeners as it happens, in order,
-  /// so a writer keeps all of it, however the registry goes after.
-  final StreamController<JournalEntry> _journal = StreamController.broadcast(
-    sync: true,
-  );
-  int _journaled = 0;
+  late final Journaling _journal = Journaling(epoch: epoch, traces: _trace);
 
   /// What happened, at the level of use (SPEC §9.3): every call as it
   /// begins and as it ends, refused ones too, every fact said, and every
@@ -1338,29 +1095,6 @@ final class Registry implements ITypeContext {
   /// host that must not lose it writes it where it lasts. Nothing of it is
   /// made while no one listens.
   Stream<JournalEntry> get journal => _journal.stream;
-
-  bool get _journaling => _journal.hasListener;
-
-  void _write(
-    JournalEntry Function(int n, String? trace) entry,
-    String id,
-    Cause cause,
-  ) {
-    if (_journal.isClosed) return;
-    _journal.add(entry(++_journaled, _traceOf(id, cause)));
-  }
-
-  /// The trace a message is in: its own span's, running or ended, else
-  /// the one of what it follows from.
-  String? _traceOf(String id, Cause cause) {
-    if (!_traced) return null;
-    final parent = cause.parent;
-    return _spans[id]?.traceparent ??
-        _traces[id] ??
-        (parent == null
-            ? null
-            : _spans[parent]?.traceparent ?? _traces[parent]);
-  }
 
   final Map<String, CallStarted> _running = {};
 
@@ -1394,13 +1128,7 @@ final class Registry implements ITypeContext {
     }
     _recentCalls[record.id] = record;
     _recentCallBytes += _callWeight(record);
-    if (_journaling) {
-      _write(
-        (n, trace) => JournalEnd(record, epoch: epoch, n: n, trace: trace),
-        record.id,
-        record.cause,
-      );
-    }
+    _journal.ended(record);
     while (_recentCalls.length > retainTicks ||
         (_recentCalls.length > 1 && _recentCallBytes > retainBytes)) {
       final first = _recentCalls.keys.first;
@@ -1513,7 +1241,7 @@ final class Registry implements ITypeContext {
     try {
       params = _admitParams(
         entry.params,
-        _adapted(command, entry, rawParams, cause.by),
+        _builtAgainst.adapted(command, entry.descriptor, rawParams, cause.by),
       );
     } on TypeMismatch catch (e) {
       return finish(CallRefused(Refusal.invalidParams, '$e'));
@@ -1596,7 +1324,7 @@ final class Registry implements ITypeContext {
     }
 
     final expired = Completer<void>();
-    final span = _open(id, command, params, cause, query: entry.query);
+    final span = _trace.open(id, command, params, cause, query: entry.query);
     final returns = entry.returns;
     final served = CommandCall._kept(
       id,
@@ -1617,13 +1345,7 @@ final class Registry implements ITypeContext {
       );
       _running[id] = s;
       if (!_starts.isClosed) _starts.add(s);
-      if (_journaling) {
-        _write(
-          (n, trace) => JournalStart(s, epoch: epoch, n: n, trace: trace),
-          id,
-          cause,
-        );
-      }
+      _journal.started(s);
     }
     final work = Future.sync(
       () => entry.query
@@ -1645,7 +1367,7 @@ final class Registry implements ITypeContext {
             c.result = Future.value(r);
           }
           _running.remove(id);
-          _close(id, span, r, late: true, query: entry.query);
+          _trace.close(id, span, r, late: true, query: entry.query);
           finish(r, late: true);
         }),
       );
@@ -1654,82 +1376,9 @@ final class Registry implements ITypeContext {
     }
     if (result is! CallTimedOut) {
       _running.remove(id);
-      _close(id, span, result, query: entry.query);
+      _trace.close(id, span, result, query: entry.query);
     }
     return finish(result);
-  }
-
-  /// The spans of the calls whose handlers run now, by call id.
-  final Map<String, LogSpanHandle> _spans = {};
-
-  /// Opens the span of a call its handler begins to serve: a child of the
-  /// span of the call it follows from, if that one still runs, else the
-  /// first of a trace named by what it follows from, or by itself.
-  LogSpanHandle _open(
-    String id,
-    String command,
-    Kept params,
-    Cause cause, {
-    required bool query,
-  }) {
-    if (!_traced) return _noSpan;
-    final log = _callLog;
-    final span = switch (_spans[cause.parent]) {
-      final parent? => parent.startSpan(command),
-      // What it follows from is over (a fact said, a call that ended): it
-      // starts a trace of its own, linked to that one.
-      null => log.startSpan(command, links: [?_traces[cause.parent]]),
-    };
-    // A span with no id is one the log keeps none of (spans off, nothing
-    // reading it): nothing more is made for it.
-    if (span.spanId.isEmpty) return span;
-    span.addData({
-      'call': id,
-      'parent': ?cause.parent,
-      // The conversation it is part of: what a trace, one request, does
-      // not tell, a message come in and what it led to minutes after.
-      'conversation': cause.conversationOf(id),
-      'by': cause.by.selector,
-      'origin': cause.originOf(command).word,
-      'originBy': cause.originOf(command).by.selector,
-      if (query) 'query': true,
-      if (log.isDebug) 'params': params.json!,
-    });
-    _spans[id] = span;
-    return span;
-  }
-
-  /// The trace of each message a span may follow from once its own span is
-  /// over: facts said in a call's span, calls that ended. As many as ticks
-  /// are retained.
-  final LinkedHashMap<String, String> _traces = LinkedHashMap();
-
-  void _rememberTrace(String message, String traceparent) {
-    _traces[message] = traceparent;
-    if (_traces.length > retainTicks) _traces.remove(_traces.keys.first);
-  }
-
-  void _close(
-    String id,
-    LogSpanHandle span,
-    CallResult<Object?> r, {
-    bool late = false,
-    bool query = false,
-  }) {
-    if (!_traced) return;
-    _spans.remove(id);
-    // A query leads to nothing that could follow from it: its trace would
-    // only push out the ones a later call may link.
-    if (!query) {
-      if (span.traceparent case final tp?) _rememberTrace(id, tp);
-    }
-    if (late) span.addData({'late': true});
-    switch (r) {
-      case CallFailed(:final error):
-        span.end(status: LogSpanStatus.error, error: error);
-      case _:
-        span.end();
-    }
   }
 
   // --- Lifetime --------------------------------------------------------------
@@ -1741,7 +1390,7 @@ final class Registry implements ITypeContext {
       _availability.close(),
       _hub.dispose(),
       _catalog.close(),
-      _mismatches.close(),
+      _builtAgainst.dispose(),
       _records.close(),
       _starts.close(),
       _journal.close(),
@@ -1854,7 +1503,7 @@ extension RawRegistry on Registry {
     }
     _kinds[kind.name] = kind;
     _announce(KindChanged(kind.name));
-    return _Disposer(() {
+    return Disposer(() {
       if (_kinds[kind.name] == kind) {
         _kinds.remove(kind.name);
         _announce(KindChanged(kind.name));
@@ -1908,7 +1557,7 @@ extension RawRegistry on Registry {
       returns: returns,
     );
     _announce(DescriptorAdded(d));
-    return _Disposer(() => _undefine(d.name));
+    return Disposer(() => _undefine(d.name));
   }
 
   /// Defines a query answered by [handler] (SPEC §6.6); dispose the handle
@@ -1931,7 +1580,7 @@ extension RawRegistry on Registry {
       returns: returns,
     );
     _announce(DescriptorAdded(d));
-    return _Disposer(() => _undefine(d.name));
+    return Disposer(() => _undefine(d.name));
   }
 
   /// Defines a fact; the returned emitter belongs to the definer.
@@ -2174,7 +1823,7 @@ extension RawRegistry on Registry {
   /// [by] read [word] once, from outside the build: a session's read of a
   /// fact's recent ones or a state's why, an agent's read (SPEC §6.8).
   /// Calls and asks are counted by the registry itself.
-  void usedBy(String word, Principal by) => _used(word, by)?.read();
+  void usedBy(String word, Principal by) => _uses.read(word, by);
 
   /// [by]'s code was built against [schemas], each word's schema entry by
   /// name (SPEC §6.9): judged now, and whenever one is defined again,
@@ -2184,57 +1833,16 @@ extension RawRegistry on Registry {
     Principal by,
     Map<String, Object?> schemas, {
     String? from,
-  }) {
-    final mine = _built.putIfAbsent(by, () => {});
-    final told = <String>[];
-    for (final MapEntry(key: word, value: schema) in schemas.entries) {
-      final had = mine[word];
-      if (had == null && mine.length >= Registry.builtPerPrincipal) continue;
-      _know(schema);
-      if (had != null &&
-          had.from == from &&
-          fingerprintOf(had.schema) == fingerprintOf(schema)) {
-        had.holders++;
-      } else {
-        mine[word] = _Built(schema, (had?.holders ?? 0) + 1, from);
-      }
-      (_builtBy[word] ??= {}).add(by);
-      told.add(word);
-      _judge(by, word);
-    }
-    if (mine.isEmpty) _built.remove(by);
-    return _Disposer(() {
-      for (final word in told) {
-        final b = _built[by]?[word];
-        if (b == null || --b.holders > 0) continue;
-        _built[by]!.remove(word);
-        if (_built[by]!.isEmpty) _built.remove(by);
-        if (_builtBy[word] case final who?) {
-          who.remove(by);
-          if (who.isEmpty) _builtBy.remove(word);
-        }
-        _judge(by, word);
-      }
-    });
-  }
+  }) => _builtAgainst.tell(by, schemas, from: from);
 
   /// The schema told it under [print], a fingerprint (SPEC §25.4); null
   /// when it knows none.
-  Object? knownSchema(String print) {
-    final schema = _known.remove(print);
-    if (schema == null) return null;
-    return _known[print] = schema;
-  }
+  Object? knownSchema(String print) => _builtAgainst.knownSchema(print);
 
   /// [by] listens to [word] until the handle is disposed: a session's
   /// subscription (SPEC §6.8). Null while there is no word of that name:
   /// ask again when one comes (`catalogChanges`).
-  IHandle? listenedBy(String word, Principal by) {
-    final use = _used(word, by);
-    if (use == null) return null;
-    use.listening++;
-    return _Disposer(() => use.listening--);
-  }
+  IHandle? listenedBy(String word, Principal by) => _uses.listening(word, by);
 
   /// Calls [command] on behalf of [by] (SPEC §9). A repeated [id] within
   /// the dedup window answers the first call's result without running it
@@ -2268,7 +1876,7 @@ extension RawRegistry on Registry {
   }) {
     final asked = command;
     command = canonical(command);
-    if (_commands.containsKey(command)) _used(asked, by)?.called();
+    if (_commands.containsKey(command)) _uses.called(asked, by);
     final callId = id ?? newId();
     cause = _inConversation(cause ?? Cause(by));
     _converse(callId, command, cause);
@@ -2325,7 +1933,7 @@ extension RawRegistry on Registry {
     if (_guards.containsKey(id)) throw StateError('guard $id exists');
     final g = _Guard(id, check, overridable);
     _guards[id] = g;
-    return _Disposer(() {
+    return Disposer(() {
       if (_guards[id] == g) _guards.remove(id);
     });
   }
@@ -2342,22 +1950,10 @@ extension RawRegistry on Registry {
     if (_guards.containsKey(id)) throw StateError('guard $id exists');
     final g = _Guard.asked(id, ask, overridable, timeout);
     _guards[id] = g;
-    return _Disposer(() {
+    return Disposer(() {
       if (_guards[id] == g) _guards.remove(id);
     });
   }
-}
-
-/// A word's schema entry a principal was built against, and how many of
-/// its handles hold it.
-final class _Built {
-  _Built(this.schema, this.holders, this.from);
-  final Object? schema;
-  int holders;
-
-  /// The words package it came from, as code says it (`notes_words
-  /// 1.2.0`).
-  final String? from;
 }
 
 /// A call id seen within the dedup window, and the call it was given for.

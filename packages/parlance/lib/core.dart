@@ -5,4 +5,4 @@
 /// The contract: skills/parlance/references/core.md (§21).
 library;
 
-export 'src/core/core.dart';
+export 'src/core/core.dart' hide Disposer;

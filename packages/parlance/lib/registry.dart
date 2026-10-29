@@ -28,7 +28,8 @@ export 'src/registry/messages.dart'
         keptAnswerOf,
         keptStarted,
         keptRecord;
-export 'src/registry/registry.dart' hide RawRegistry, paramsAs, answersAs;
+export 'src/registry/registry.dart'
+    hide Disposer, RawRegistry, paramsAs, answersAs;
 export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';
 export 'src/registry/words.dart'

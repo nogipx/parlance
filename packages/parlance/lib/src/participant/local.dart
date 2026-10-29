@@ -180,8 +180,8 @@ final class LocalParticipant implements IParticipant {
 
   /// A handle doing [withdraw], kept until it is disposed.
   IHandle _keepDoing(void Function() withdraw) {
-    late final _Disposer d;
-    d = _Disposer(() {
+    late final Disposer d;
+    d = Disposer(() {
       _handles.remove(d);
       withdraw();
     });
@@ -623,17 +623,5 @@ final class _OwnFact implements IFactHandle {
   void dispose() {
     _p._handles.remove(this);
     _raw.dispose();
-  }
-}
-
-final class _Disposer implements IHandle {
-  _Disposer(this._f);
-  void Function()? _f;
-
-  @override
-  void dispose() {
-    final f = _f;
-    _f = null;
-    f?.call();
   }
 }

@@ -51,8 +51,10 @@ abstract interface class IFactListener<T> {
   Stream<T> get stream;
 }
 
-final class _Release implements IHandle {
-  _Release(this._f);
+/// A handle that runs [_f] once, when first disposed: the package's own,
+/// not exported.
+final class Disposer implements IHandle {
+  Disposer(this._f);
   void Function()? _f;
 
   @override
@@ -640,7 +642,7 @@ final class LocalCommand<P, R> implements ICommandCaller<P, R> {
   IHandle serve(FutureOr<R> Function(P params) handler) {
     if (_handler != null) throw StateError('the command is served');
     _handler = handler;
-    return _Release(() {
+    return Disposer(() {
       if (identical(_handler, handler)) _handler = null;
     });
   }

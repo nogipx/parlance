@@ -881,7 +881,7 @@ final class RemoteParticipant implements IParticipant {
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
     final c = _Command(d, handler, available, as);
     _commands[d.name] = c;
-    return _Disposer(() {
+    return Disposer(() {
       if (_commands[d.name] != c) return;
       _commands.remove(d.name);
       _ask({'op': 'undefine', 'name': d.name});
@@ -933,7 +933,7 @@ final class RemoteParticipant implements IParticipant {
     final full = '${(as ?? who).selector}#$id';
     _guards[full] = (id: id, check: check, overridable: overridable, as: as);
     _ask({'op': 'guard', 'id': id, 'overridable': overridable, ..._asOf(as)});
-    return _Disposer(() {
+    return Disposer(() {
       if (_guards.remove(full) == null) return;
       _ask({'op': 'unguard', 'id': id, ..._asOf(as)});
     });
@@ -946,7 +946,7 @@ final class RemoteParticipant implements IParticipant {
     _live();
     _kinds[kind.name] = (kind: kind, as: as);
     _ask(_kindOp(kind, as));
-    return _Disposer(() {
+    return Disposer(() {
       if (_kinds.remove(kind.name) == null) return;
       _ask({'op': 'unkind', 'name': kind.name, ..._asOf(as)});
     });
@@ -1501,16 +1501,4 @@ final class _Served extends ParlanceOwnerContractPeer {
   @override
   Future<WireJson> onJudge(WireJson request, {RpcContext? context}) async =>
       _p._judge(request.json);
-}
-
-final class _Disposer implements IHandle {
-  _Disposer(this._f);
-  void Function()? _f;
-
-  @override
-  void dispose() {
-    final f = _f;
-    _f = null;
-    f?.call();
-  }
 }
