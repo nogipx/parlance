@@ -59,8 +59,9 @@ extension ServeParticipant on LocalParticipant {
 /// ([ServeParticipant.serve], SPEC §14, §22.4): the registry as the
 /// participant may see and use it; and, in its [vocabularies] and as far as
 /// [rights] let it, an owner of words of its own, whose commands it serves
-/// over the same connection. [close] it when the connection ends, so its
-/// words go.
+/// over the same connection. It ends by itself when the connection does
+/// (its transport ends), its words going; [close] ends it sooner, the
+/// connection still up.
 final class RemoteSession extends ParlanceContractPeer {
   RemoteSession._(
     super.endpoint,
@@ -87,6 +88,22 @@ final class RemoteSession extends ParlanceContractPeer {
         if (_askedStates != null || _askedFacts != null) _carry(_subscription);
       }
     });
+    // The connection lost, its transport ends (rpc_dart closes it then):
+    // the session ends with it, nothing closing it by hand.
+    _gone = endpoint.transport.incomingMessages.listen(
+      (_) {},
+      onDone: _connectionGone,
+      onError: (Object _) => _connectionGone(),
+      cancelOnError: true,
+    );
+  }
+
+  StreamSubscription<Object?>? _gone;
+
+  void _connectionGone() {
+    if (_closed) return;
+    if (log.isEnabled(RpcLogLevel.info)) log.info('connection gone');
+    close();
   }
 
   /// Where the session logs: when it opens and ends, what it was denied;
@@ -919,6 +936,7 @@ final class RemoteSession extends ParlanceContractPeer {
     if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
     unawaited(_catalogUse?.cancel());
     unawaited(_renames?.cancel());
+    unawaited(_gone?.cancel());
     for (final h in [
       ..._commands.values,
       ..._facts.values,
