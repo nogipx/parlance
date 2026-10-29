@@ -20,6 +20,9 @@ List<Object?> _list(Object? v) => switch (v) {
 String _str(Object? v, String what) =>
     v is String && v.isNotEmpty ? v : _bad('$what: expected text');
 
+/// Text, or nothing.
+String? _maybeStr(Object? v, String what) => v == null ? null : _str(v, what);
+
 final _namePattern = RegExp(r'^[a-z][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)*$');
 
 /// A word's name: dotted, lower-case.
@@ -158,7 +161,7 @@ sealed class Condition {
     if (ops.length != 1) _bad('$what: one of is, not, in, <, <=, >, >=');
     return StateIs(
       _name(m['state'], '$what.state'),
-      m['key'] as String?,
+      _maybeStr(m['key'], '$what.key'),
       ValueTest.parse({ops.single: m[ops.single]}, what),
     );
   }
@@ -254,7 +257,7 @@ sealed class Trigger {
       }
       return StateTrigger(
         _name(m['state'], '$what.state'),
-        key: m['key'] as String?,
+        key: _maybeStr(m['key'], '$what.key'),
         becomes: m.containsKey('becomes')
             ? ValueTest.parse(m['becomes'], '$what.becomes')
             : null,
@@ -463,12 +466,16 @@ final class Link {
     if (triggers.isEmpty) _bad('$what.when: at least one trigger');
     return Link(
       id: id,
-      name: m['name'] as String? ?? id,
+      name: _maybeStr(m['name'], '$what.name') ?? id,
       enabled: m['enabled'] != false,
       triggers: triggers,
       only: m['only'] == null ? null : Condition.parse(m['only'], '$what.only'),
       mode: mode,
-      queueLimit: m['queueLimit'] as int? ?? 10,
+      queueLimit: switch (m['queueLimit']) {
+        null => 10,
+        final int n when n > 0 => n,
+        final x => _bad('$what.queueLimit: a count from 1, not $x'),
+      },
       steps: [
         for (final (i, s) in _list(m['do']).indexed)
           Step.parse(s, '$what.do.$i'),

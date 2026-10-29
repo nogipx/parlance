@@ -568,6 +568,19 @@ void main() {
         ],
       },
       {
+        'id': 'many',
+        'queueLimit': '10',
+        'when': [
+          {'fact': 'st.said'},
+        ],
+      },
+      {
+        'id': 'keyed',
+        'when': [
+          {'state': 'st.level', 'key': 5, 'becomes': 1},
+        ],
+      },
+      {
         'id': 'good',
         'when': [
           {'fact': 'st.said'},
@@ -577,7 +590,12 @@ void main() {
         ],
       },
     ]);
-    expect(b.links.problems.map((x) => x.link), ['bad', 'odd']);
+    expect(b.links.problems.map((x) => x.link), [
+      'bad',
+      'odd',
+      'many',
+      'keyed',
+    ]);
     b.said.emit({});
     await pump();
     expect(b.notes, hasLength(1));
