@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:parlance/participant.dart';
+import 'package:parlance/remote.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/view.dart';
+import 'package:parlance/src/remote/client.dart';
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
+import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
@@ -39,6 +43,17 @@ enum _Text<T> implements IStateWord<T> {
   @override
   String get name => 'audio.muted';
 
+  @override
+  String? get key => null;
+}
+
+/// A word the host has none of: built against, and no mismatch.
+final class _Notes implements IStateWord<String> {
+  const _Notes();
+  @override
+  String get name => 'studio.notes';
+  @override
+  Shape<String> get shape => const Plain(TextType());
   @override
   String? get key => null;
 }
@@ -119,6 +134,26 @@ void main() {
         expect(f.r.mismatches, _otherwise);
       },
     );
+
+    test('a telling that failed is told again, all of it', () async {
+      final (c, s) = RpcChannelTransport.memoryPair();
+      final host = RpcPeerEndpoint(transport: s)..start();
+      final own = RpcPeerEndpoint(transport: c)..start();
+      addTearDown(() async {
+        await own.close();
+        await host.close();
+      });
+      final late = MirrorView(RegistryMirror(), ParlanceClient(own));
+      // Nothing serves the host yet: asking what it speaks fails.
+      late.builtAgainst(_Text.values);
+      await settle();
+      expect(f.r.mismatches, isEmpty);
+      final session = f.r.participant(user).serve(host);
+      addTearDown(session.close);
+      late.builtAgainst(const [_Notes()]);
+      await settle();
+      expect(f.r.mismatches, _otherwise);
+    });
 
     test(
       'keeps what its listeners ask for, all of them, until none does',

@@ -37,8 +37,13 @@ final class MirrorView implements IRegistryView {
   void builtAgainst(Iterable<IWord> words, {String? from}) {
     final ops = _built.tell(schemasOf(words), from: from);
     if (ops.isEmpty) return;
-    if (_client case final c?) unawaited(_tell(c, ops));
+    if (_client case final c?) {
+      unawaited(_tell(c, _lost ? _built.standing() : ops));
+    }
   }
+
+  /// Whether a telling failed: what it told is told again, all of it.
+  bool _lost = false;
 
   /// Whether each client's host speaks what a view tells it was built
   /// against (SPEC §14), asked once a client.
@@ -48,11 +53,12 @@ final class MirrorView implements IRegistryView {
   /// not know by fingerprint. Diagnostics: what the host refuses is not the
   /// view's to tell.
   Future<void> _tell(ParlanceClient c, List<Map<String, Object?>> ops) async {
+    final asked = _speaksBuilt[c] ??= c.describe().then(
+      (d) => (d['features'] as List? ?? const []).contains('built'),
+    );
     try {
-      final speaks = await (_speaksBuilt[c] ??= c.describe().then(
-        (d) => (d['features'] as List? ?? const []).contains('built'),
-      ));
-      if (!speaks) return;
+      _lost = false;
+      if (!await asked) return;
       final answers = await c.apply(ops);
       final more = [
         for (var i = 0; i < ops.length && i < answers.length; i++)
@@ -60,7 +66,9 @@ final class MirrorView implements IRegistryView {
       ];
       if (more.isNotEmpty) await c.apply(more);
     } on Object {
-      return;
+      // Asked again next time, rather than never on this client.
+      if (identical(_speaksBuilt[c], asked)) _speaksBuilt[c] = null;
+      _lost = true;
     }
   }
 
