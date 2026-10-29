@@ -25,7 +25,7 @@ Future<void> main() async {
   );
   await knob.turnTo(70);
   await knob.turnTo(95);
-  await settle();
+  await ann.settle();
 
   // Rights: a guest is not among the command's callers, and can see so
   // before it calls.

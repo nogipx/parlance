@@ -131,7 +131,7 @@ Future<void> main() async {
   // because it said where its changes come from.
   final before = light.read(key: 'kitchen');
   devices.flip('kitchen');
-  await settle();
+  await ann.settle();
   print(
     '  the kitchen switch flipped by hand: '
     'from $before to ${light.read(key: 'kitchen')}',
@@ -148,12 +148,12 @@ Future<void> main() async {
     access: const WordAccess(call: Who.household),
   );
   visitSide.attach({'book': GuestBook()});
-  await settle();
+  await ann.settle();
   print(
     '  during the visit: visit.guests ${asBob.status(VisitState.guests.name)}',
   );
   house.ring(Who.bob, 'bob');
-  await settle();
+  await ann.settle();
   final guests = ann.state(VisitState.guests);
   print('  guests: ${guests.read()}');
   // The guest book wrote it, answering the ring: nobody passed where it
@@ -276,4 +276,3 @@ void show(String what, CallResult<Object?> r) => print(
 );
 
 /// Lets remote and the owner's own changes work through what was just done.
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));

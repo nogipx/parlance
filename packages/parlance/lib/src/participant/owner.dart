@@ -270,11 +270,25 @@ final class OwnerGroup {
     _dirty.remove(o);
   }
 
+  /// How many groups' syncs are due and have not run, in this isolate:
+  /// what a participant's `settle` waits for.
+  static int _pending = 0;
+
+  /// Completes once no owner's sync is due: those told of a change in the
+  /// turns before have written.
+  static Future<void> idle() async {
+    do {
+      await Future<void>.delayed(Duration.zero);
+    } while (_pending > 0);
+  }
+
   void _changed(Owner o) {
     final first = _dirty.isEmpty;
     _dirty.add(o);
     if (!first) return;
+    _pending++;
     Timer.run(() {
+      _pending--;
       final due = [
         for (final o in _owners.values)
           if (_dirty.contains(o)) o,

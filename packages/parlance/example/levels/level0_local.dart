@@ -24,7 +24,7 @@ Future<void> main() async {
   );
   await knob.turnTo(70);
   await knob.turnTo(95);
-  await settle();
+  await ann.settle();
 
   // The rules hold here too: the player's words are the player's, and a
   // value out of range is refused.
@@ -43,7 +43,7 @@ Future<void> main() async {
       .state(PlayerState.volume)
       .watch()
       .listen((v) => print('  a late part sees: $v'));
-  await settle();
+  await ann.settle();
   await late.cancel();
   player.dispose();
   await r.dispose();

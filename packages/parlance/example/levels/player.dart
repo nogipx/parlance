@@ -117,11 +117,11 @@ final class Player extends Owner {
     _level = keep(p.state(PlayerState.volume).define());
     final clipped = keep(p.fact(PlayerFact.clipped).define());
     keep(
+      // What it writes and says here follows from the call it serves.
       p.command(PlayerCommand.setVolume).define((c) {
-        final cause = c.causeFor(p.who);
         _volume = c.params.volume;
-        _level.set(_volume, cause: cause);
-        if (_volume > loud) clipped.emit((volume: _volume), cause: cause);
+        _level.set(_volume);
+        if (_volume > loud) clipped.emit((volume: _volume));
       }),
     );
   }
@@ -146,5 +146,6 @@ LocalParticipant startPlayer(Registry r) => r.participant(
   access: const WordAccess(call: Who.turners),
 )..attach({'deck': Player()});
 
-/// Lets ticks and remote work through what was just done.
-Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 30));
+/// Lets the streams of the core tell what was just done: a turn of the
+/// event loop. Through a participant, `settle()` is its own.
+Future<void> turn() => Future<void>.delayed(Duration.zero);

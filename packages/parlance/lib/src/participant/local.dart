@@ -565,7 +565,7 @@ final class LocalParticipant implements IParticipant {
   void batch(void Function() writes) => _r.batch(writes);
 
   @override
-  Future<void> settle() => Future<void>.delayed(Duration.zero);
+  Future<void> settle() => OwnerGroup.idle();
 
   late final OwnerGroup _group = OwnerGroup(this);
 

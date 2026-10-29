@@ -45,7 +45,7 @@ Future<void> main() async {
   // A call answers once the phone's copy has what it wrote.
   await knob.turnTo(30);
   await knob.turnTo(96);
-  await settle();
+  await phone.settle();
   print('  the host sees: ${player.state(PlayerState.volume).read()}');
 
   await watching.cancel();

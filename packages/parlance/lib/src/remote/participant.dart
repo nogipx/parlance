@@ -1177,6 +1177,7 @@ final class RemoteParticipant implements IParticipant {
   @override
   Future<void> settle() async {
     _live();
+    await OwnerGroup.idle();
     await flush();
     final d = await _asked(_client.describe);
     try {

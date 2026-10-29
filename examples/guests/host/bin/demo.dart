@@ -17,18 +17,15 @@ Future<void> main() async {
   print('guests: notes as ${notes.who}, board as ${board.who}');
 
   await b.pin('buy milk');
-  await board.flush();
-  await Future<void>.delayed(const Duration(milliseconds: 20));
+  await board.settle();
   print('the board shows: ${[for (final n in b.shown) n.text]}');
   print('the app toasted: ${host.app.toasts}');
 
   host.unload('notes');
-  await Future<void>.delayed(const Duration(milliseconds: 20));
+  await board.settle();
   print('notes unloaded: notes.add is ${board.status('notes.add')}');
 
   await b.close();
-  await board.close();
-  await notes.close();
   await host.dispose();
   await closeInMemory();
 }

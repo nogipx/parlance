@@ -37,10 +37,10 @@ Future<void> main() async {
   final knob = Knob(volume: volume, setVolume: setVolume, clipped: clipped);
   await knob.turnTo(70);
   await knob.turnTo(95);
-  await settle();
+  await turn();
 
   // A part that comes later still sees the value now, then the changes.
   final late = volume.watch().listen((v) => print('  a late part sees: $v'));
-  await settle();
+  await turn();
   await late.cancel();
 }
