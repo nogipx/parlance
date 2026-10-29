@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart' show sha256;
+
 /// Who acts: a kind the host declared, an id within it, and the owner of
 /// it that acts, if one does (SPEC §4).
 final class Principal {
@@ -44,30 +46,23 @@ final class Principal {
   /// by the rule Kubernetes and Helm name things by: a text that is one
   /// already stays as it is; else every run of other signs becomes `_` and
   /// a hash of the whole text is added after a `.` (`ann@mail.com` →
-  /// `ann_mail.com.<hash>`), so two texts never become one id.
+  /// `ann_mail.com.<hash>`), so two texts never become one id. The hash is
+  /// 64 bits of SHA-256, so no one finds a text that makes another's id;
+  /// and a text that ends as one made so (`.` and 16 hex digits) is made
+  /// one too, so no one is given another's id by taking it as a name.
   static String levelOf(String text) {
-    if (_level.hasMatch(text)) return text;
+    if (_level.hasMatch(text) && !_made.hasMatch(text)) return text;
     var slug = text.replaceAll(_outside, '_');
     if (slug.isEmpty || !RegExp('^[A-Za-z0-9]').hasMatch(slug)) {
       slug = 'x$slug';
     }
     if (slug.length > 64) slug = slug.substring(0, 64);
-    return '$slug.${_fnv1a(text)}';
+    final hash = sha256.convert(utf8.encode(text)).toString();
+    return '$slug.${hash.substring(0, 16)}';
   }
 
-  /// FNV-1a, 32 bits, of [text]'s UTF-8, as 8 hex digits.
-  static String _fnv1a(String text) {
-    var h = 0x811c9dc5;
-    for (final b in utf8.encode(text)) {
-      h ^= b;
-      // h * 0x01000193 by shifts and adds: exact in JavaScript too, where
-      // a product past 2^53 would not be.
-      h =
-          (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) &
-          0xffffffff;
-    }
-    return h.toRadixString(16).padLeft(8, '0');
-  }
+  /// How an id [levelOf] made ends.
+  static final RegExp _made = RegExp(r'\.[0-9a-f]{16}$');
 
   /// The principal [selector] names: `kind[/id][@owner]`.
   factory Principal.parse(String selector) {
