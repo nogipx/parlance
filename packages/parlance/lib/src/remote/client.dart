@@ -43,6 +43,14 @@ final class RemoteKind extends RemoteFeed {
   final Map<String, Object?>? json;
 }
 
+/// An item of the feed this client cannot read ([kind], what it said it
+/// was): a host's defect, not one of a newer protocol, which is skipped.
+final class RemoteMalformed extends RemoteFeed {
+  const RemoteMalformed(this.kind, this.error);
+  final String kind;
+  final Object error;
+}
+
 final class RemoteSnapshot extends RemoteFeed {
   const RemoteSnapshot(this.snapshot, {this.subscription = 0});
   final Snapshot snapshot;
@@ -119,28 +127,34 @@ final class ParlanceClient {
             ),
             context: context,
           )
-          .map(
-            (i) => switch (i.kind) {
-              'catalog' => RemoteCatalog(i.json),
-              'kind' => RemoteKind(
-                i.json['name']! as String,
-                (i.json['kind'] as Map?)?.cast<String, Object?>(),
-              ),
-              'snapshot' => RemoteSnapshot(
-                Snapshot.fromJson(i.json),
-                subscription: i.json['subscription'] as int? ?? 0,
-              ),
-              'values' => RemoteValues.fromJson(i.json),
-              'unavailable' => RemoteUnavailable(
-                (i.json['unavailable']! as Map).cast(),
-              ),
-              'tick' => RemoteTick(Tick.fromJson(i.json)),
-              // An item of a newer protocol this client does not know.
-              _ => null,
-            },
-          )
+          .map((i) {
+            try {
+              return _item(i);
+            } on Object catch (e) {
+              return RemoteMalformed(i.kind, e);
+            }
+          })
           .where((i) => i != null)
           .cast();
+
+  static RemoteFeed? _item(WireFeedItem i) => switch (i.kind) {
+    'catalog' => RemoteCatalog(i.json),
+    'kind' => RemoteKind(
+      i.json['name']! as String,
+      (i.json['kind'] as Map?)?.cast<String, Object?>(),
+    ),
+    'snapshot' => RemoteSnapshot(
+      Snapshot.fromJson(i.json),
+      subscription: i.json['subscription'] as int? ?? 0,
+    ),
+    'values' => RemoteValues.fromJson(i.json),
+    'unavailable' => RemoteUnavailable(
+      Map<String, String>.from(i.json['unavailable']! as Map),
+    ),
+    'tick' => RemoteTick(Tick.fromJson(i.json)),
+    // An item of a newer protocol this client does not know.
+    _ => null,
+  };
 
   /// Makes the session's feeds carry only [states] and [facts] (null: all
   /// of them, as before the first subscription). A feed open now gets the

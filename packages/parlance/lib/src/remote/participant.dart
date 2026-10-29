@@ -175,6 +175,15 @@ final class RemoteParticipant implements IParticipant {
       'its listeners ask for more than a session carries by name, so it '
           'carries everything: $e',
     );
+    // What the host's feed brought and is no item: followed again, told.
+    p._mirror.onMalformed = (e, {required gaveUp}) => p._fail(
+      const {'op': 'feed'},
+      'malformed',
+      gaveUp
+          ? 'the host keeps sending what cannot be read, so it stopped '
+                'following the feed until it joins again: $e'
+          : 'the host sent what cannot be read; following again from now: $e',
+    );
     p._mirror.follow(client);
     p._changes = p._mirror.changes.listen((_) => p._checkAvailability());
     // It has joined when its view is live: the feed's first snapshot came.
@@ -1096,7 +1105,13 @@ final class RemoteParticipant implements IParticipant {
   Future<void> settle() async {
     _live();
     await flush();
-    _mirror.takeCatalog(await _client.describe());
+    final d = await _asked(_client.describe);
+    try {
+      _mirror.takeCatalog(d);
+    } on FormatException catch (e) {
+      // The catalog it had stays; the host's defect is told.
+      _fail(const {'op': 'describe'}, 'malformed', e.message);
+    }
   }
 
   @override

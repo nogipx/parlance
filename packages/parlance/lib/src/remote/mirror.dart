@@ -169,6 +169,12 @@ final class RegistryMirror {
             .then((_) {}, onError: (Object _) {}),
       );
     }
+    _malformed.clear();
+    _feed(client);
+  }
+
+  /// Follows [client]'s feed, after what the copy has.
+  void _feed(ParlanceClient client) {
     unawaited(_sub?.cancel());
     _sub = client
         .feed(epoch: _epoch, since: _epoch == null ? null : _seq)
@@ -205,24 +211,41 @@ final class RegistryMirror {
   }
 
   /// Takes [json], the catalog as the session's principal sees it
-  /// (`describe` answers it too), as the one it has now.
+  /// (`describe` answers it too), as the one it has now. One it cannot
+  /// read is a [FormatException], and the copy keeps the one it had.
   void takeCatalog(Map<String, Object?> json) {
+    final Map<String, Object?> descriptors;
+    final Map<String, String> words;
+    final Set<String> closed;
+    final Map<String, String> unavailable;
+    try {
+      final all = [
+        for (final d in json['descriptors'] as List? ?? const [])
+          (d as Map).cast<String, Object?>(),
+      ];
+      descriptors = {for (final d in all) d['name']! as String: d};
+      words = {for (final d in all) d['name']! as String: d['is']! as String};
+      closed = {
+        for (final u in json['unreadable'] as List? ?? const []) u as String,
+        for (final e in (json['access'] as Map? ?? const {}).entries)
+          if (e.value == Access.deny.name) e.key as String,
+      };
+      unavailable = Map<String, String>.from(
+        json['unavailable'] as Map? ?? const {},
+      );
+      for (final k in json['kinds'] as List? ?? const []) {
+        (k as Map)['name']! as String;
+      }
+      if (json['aliases'] case final a?) Map<String, String>.from(a as Map);
+    } on Object catch (e) {
+      throw FormatException('a catalog this side cannot read: $e');
+    }
     _catalog = json;
-    _descriptorJson = {
-      for (final d in json['descriptors'] as List? ?? const [])
-        (d as Map)['name'] as String: d,
-    };
+    _descriptorJson = descriptors;
     _descriptors.clear();
-    _words = {
-      for (final d in json['descriptors'] as List? ?? const [])
-        (d as Map)['name'] as String: d['is'] as String,
-    };
-    _closed = {
-      ...?(json['unreadable'] as List?)?.cast<String>(),
-      for (final e in (json['access'] as Map? ?? const {}).entries)
-        if (e.value == Access.deny.name) e.key as String,
-    };
-    _unavailable = (json['unavailable'] as Map? ?? const {}).cast();
+    _words = words;
+    _closed = closed;
+    _unavailable = unavailable;
     // The values of a state that left the catalog go with it, though no
     // tick removed them.
     _states.removeWhere((name, _) => _words[name] != 'state');
@@ -230,8 +253,49 @@ final class RegistryMirror {
     _statusChanges.add(null);
   }
 
+  /// Told when the feed brought what this side cannot read (a host's
+  /// defect): the copy follows again from a snapshot, [gaveUp] when that
+  /// came more than [malformedLimit] times within a minute and it stopped
+  /// following.
+  void Function(Object error, {required bool gaveUp})? onMalformed;
+
+  /// How many times within a minute the copy follows again over what it
+  /// could not read before it stops: a host that sends it every time is
+  /// not asked for ever.
+  static const malformedLimit = 3;
+  final List<DateTime> _malformed = [];
+
+  void _unreadable(Object error) {
+    final now = DateTime.now();
+    _malformed
+      ..removeWhere((t) => now.difference(t) > const Duration(minutes: 1))
+      ..add(now);
+    final gaveUp = _malformed.length > malformedLimit;
+    onMalformed?.call(error, gaveUp: gaveUp);
+    if (gaveUp) {
+      unawaited(_sub?.cancel());
+      _sub = null;
+      _lost();
+      return;
+    }
+    _epoch = null;
+    if (_client case final c?) _feed(c);
+  }
+
   void _apply(RemoteFeed item) {
+    try {
+      _take(item);
+    } on Object catch (e) {
+      _unreadable(e);
+    }
+  }
+
+  void _take(RemoteFeed item) {
     switch (item) {
+      case RemoteMalformed(:final kind, :final error):
+        return _unreadable(
+          FormatException('a $kind item this side cannot read: $error'),
+        );
       case RemoteCatalog(:final json):
         takeCatalog(json);
         // A feed resumed in the same epoch carries on from the copy's seq:

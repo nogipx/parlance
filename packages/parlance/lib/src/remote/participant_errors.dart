@@ -74,7 +74,9 @@ final class ParticipantError {
   /// The session's status: `permissionDenied`, `alreadyExists`,
   /// `invalidArgument`, `notFound`; `lost` when the answer did not come;
   /// `unreadable` when it read a value its code cannot read, built against
-  /// the word otherwise (SPEC §25.2).
+  /// the word otherwise (SPEC §25.2); `malformed` when the host's feed
+  /// brought what is no item of the protocol (`{op: feed}`), a host's
+  /// defect: it follows again from a snapshot, or says it stopped.
   final String code;
   final String message;
 
