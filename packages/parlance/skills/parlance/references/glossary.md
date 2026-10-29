@@ -104,7 +104,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Owners (§19)
 
-- **`Keyed<T>`**: a keyed state as a generated owner base keeps it: `light['kitchen'] = true`, `light.remove(key)`, `light[key]`, `light.all`.
+- **`Keyed<T>`**: a keyed state as a generated owner base keeps it: `light.set('kitchen', true)`, `light.remove(key)`, `light.of(key)`, `light.all`.
 - **Owner**: who defines words and does their work. `define(r)` defines them through typed words and `keep`s each handle; `sync()` writes the states as its devices or ports have them now; `dispose()` withdraws them, the last kept first.
 - **Attaching owners**: `p.attach({name: owner})`, each to the part of its name; the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
 - **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.

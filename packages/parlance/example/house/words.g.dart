@@ -141,7 +141,7 @@ abstract class HouseOwnerBase implements IOwner {
   }
 
   /// house.light.on, by room: what this owner set of each,
-  /// read and written as a map is.
+  /// read by `of`, written by `set` and `remove`.
   final Keyed<bool> light = Keyed<bool>();
 
   IStateWriterOf<num>? _$heat;

@@ -63,7 +63,7 @@ final class Home extends HouseOwnerBase {
   @override
   void setLight({required String room, required bool on}) {
     devices.lights[room] = on;
-    light[room] = on;
+    light.set(room, on);
   }
 
   @override
@@ -90,7 +90,7 @@ final class Home extends HouseOwnerBase {
 
   void _pull() {
     for (final MapEntry(:key, :value) in devices.lights.entries) {
-      light[key] = value;
+      light.set(key, value);
     }
     heat = devices.heat;
     mode = devices.mode;

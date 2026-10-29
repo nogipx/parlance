@@ -110,7 +110,7 @@ abstract class BoardOwnerBase implements IOwner {
   }
 
   /// note, by note: what this owner set of each,
-  /// read and written as a map is.
+  /// read by `of`, written by `set` and `remove`.
   final Keyed<Note> notes = Keyed<Note>();
 
   IStateWriterOf<Object?>? _$anything;

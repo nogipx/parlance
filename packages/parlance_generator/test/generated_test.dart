@@ -324,10 +324,10 @@ void main() {
     });
 
     test('keyed states, set and removed by key', () async {
-      deck.speakerLevel['left'] = 0.5;
-      deck.speakerLevel['right'] = 1;
+      deck.speakerLevel.set('left', 0.5);
+      deck.speakerLevel.set('right', 1);
       deck.speakerLevel.remove('right');
-      expect(deck.speakerLevel['left'], 0.5);
+      expect(deck.speakerLevel.of('left'), 0.5);
       expect(deck.speakerLevel.all, {'left': 0.5});
       expect(asAnn.raw.state(PlayerState.speakerLevel).readAll(), {
         'left': 0.5,

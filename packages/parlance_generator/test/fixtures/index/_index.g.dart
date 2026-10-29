@@ -36,7 +36,7 @@ abstract class DoorsOwnerBase implements IOwner {
   }
 
   /// door.room, by door: what this owner set of each,
-  /// read and written as a map is.
+  /// read by `of`, written by `set` and `remove`.
   final Keyed<Room> room = Keyed<Room>();
 
   void _$define(IParticipant participant) {

@@ -347,17 +347,17 @@ final class StateWriterOf<T>
 }
 
 /// A keyed state as its owner keeps it (SPEC §23.4): what it set of each
-/// key, read and written by key, as a map is. A base the generator made
+/// key, read by `of`, written by `set` and `remove`. A base the generator made
 /// holds one for each keyed state, and writes through it once attached.
 final class Keyed<T> {
   final Map<String, T> _now = {};
   IStateWriterOf<T>? _writer;
 
   /// What it set of [key], if it did.
-  T? operator [](String key) => _now[key];
+  T? of(String key) => _now[key];
 
   /// Sets the value of [key].
-  void operator []=(String key, T value) {
+  void set(String key, T value) {
     _now[key] = value;
     _writer?.set(value, key: key);
   }

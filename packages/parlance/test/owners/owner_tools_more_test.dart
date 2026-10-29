@@ -149,7 +149,7 @@ final class _Lamps implements IOwner {
     if (listed) choices('bulb', () => [for (final b in bulbs) Choice(b)]);
     follow(() {
       for (final b in bulbs) {
-        lit[b] = true;
+        lit.set(b, true);
       }
     });
   }

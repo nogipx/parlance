@@ -264,7 +264,7 @@ abstract class PlayerOwnerBase implements IOwner {
   }
 
   /// player.speaker.level, by speaker: what this owner set of each,
-  /// read and written as a map is.
+  /// read by `of`, written by `set` and `remove`.
   final Keyed<num> speakerLevel = Keyed<num>();
 
   IFactEmitterOf<PlayerClipped>? _$clipped;

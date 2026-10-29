@@ -19,7 +19,7 @@ final class Pinboard extends BoardOwnerBase {
   ({String id}) put({String? id, required Note note}) {
     final at = id ?? 'n${up.length + 1}';
     up[at] = note;
-    notes[at] = note;
+    notes.set(at, note);
     return (id: at);
   }
 

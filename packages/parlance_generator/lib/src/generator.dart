@@ -864,7 +864,7 @@ final class _Emitter {
         member(m, st);
         out
           ..writeln('  /// ${st.name}, by $kind: what this owner set of each,')
-          ..writeln('  /// read and written as a map is.')
+          ..writeln('  /// read by `of`, written by `set` and `remove`.')
           ..writeln('  final Keyed<$t> $m = Keyed<$t>();')
           ..writeln();
       } else {
