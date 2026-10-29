@@ -275,7 +275,7 @@ extension RawRegistry on Registry {
     if (v == null) return null;
     return identical(e.shape, shape)
         ? v as T
-        : decodeWith(shape, e.jsonOf(key, v));
+        : decodeKnown(shape, e.jsonOf(key, v));
   }
 
   /// Whether [state] (of [key]) has a committed value.
@@ -311,7 +311,7 @@ extension RawRegistry on Registry {
 
   T? _valueAs<T>(StateChange c, Shape<T> shape) {
     final kept = keptValueOf(c, shape, _other);
-    return identical(kept, _other) ? decodeWith(shape, c.value) : kept as T?;
+    return identical(kept, _other) ? decodeKnown(shape, c.value) : kept as T?;
   }
 
   T _payloadAs<T>(FactMessage m, Shape<T> shape) {
@@ -353,8 +353,16 @@ extension RawRegistry on Registry {
   }
 
   /// The facts of [fact] as [shape] has their payloads (SPEC §18).
+  /// [facts] as [shape] has them (SPEC §18); one whose payload holds a
+  /// value [shape] does not know is not heard (SPEC §25.2).
   Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
-      facts(fact: fact).map((m) => (_payloadAs(m, shape), m));
+      facts(fact: fact).expand((m) {
+        try {
+          return [(_payloadAs(m, shape), m)];
+        } on UnknownValue {
+          return const [];
+        }
+      });
 
   /// Facts as they are committed, of [fact] only when given.
   Stream<FactMessage> facts({String? fact}) {

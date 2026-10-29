@@ -15,7 +15,7 @@ void main() {
             .readAsStringSync(),
   };
 
-  Future<List<String>> errorsOf(String body) async {
+  Future<List<String>> errorsOf(String body, [String top = '']) async {
     final logs = <String>[];
     await testBuilder(
       parlanceBuilder(BuilderOptions.empty),
@@ -26,6 +26,8 @@ void main() {
 import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
 part 'words.g.dart';
+
+$top
 
 @Vocabulary('orders')
 abstract class Orders {
@@ -97,4 +99,12 @@ $body
       expect(logs.join('\n'), contains(says));
     });
   }
+
+  test('it refuses an enum with two fallbacks', () async {
+    final logs = await errorsOf(
+      '@StateWord() Mode get mode;',
+      'enum Mode { @Fallback() a, @Fallback() b }',
+    );
+    expect(logs.join('\n'), contains('one value at most is its @Fallback'));
+  });
 }

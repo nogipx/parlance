@@ -106,7 +106,7 @@ abstract interface class IFactWord<T> implements IWord {
 /// A state's value from its JSON, wherever it was read (a registry, a
 /// mirror).
 extension StateValues<T> on IStateWord<T> {
-  T? decode(Object? json) => decodeWith(shape, json);
+  T? decode(Object? json) => decodeKnown(shape, json);
 }
 
 /// A done call's value decoded by [shape] (`failed` when it does not

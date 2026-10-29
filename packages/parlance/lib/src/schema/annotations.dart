@@ -149,3 +149,11 @@ final class Millis {
   const Millis({this.max});
   final int? max;
 }
+
+/// The value of an enum a value added after the code was built reads as
+/// (SPEC §25.2), as Avro's reader takes its enum's default: code built
+/// before the value came goes on reading (`enum Mode { on, off,
+/// @Fallback() other }`). One value of an enum at most.
+final class Fallback {
+  const Fallback();
+}

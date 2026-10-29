@@ -523,7 +523,7 @@ final class RemoteParticipant implements IParticipant {
   /// Across a connection a value is JSON: decoded, once a value.
   @override
   T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
-      decodeWith(shape, read(state, key: key));
+      decodeKnown(shape, read(state, key: key), (e) => _unknown(state, e));
 
   @override
   Map<String?, Object?> readAll(String state) => _own.containsKey(state)
@@ -629,8 +629,10 @@ final class RemoteParticipant implements IParticipant {
   }
 
   @override
-  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) =>
-      watch(state, key: key).map((v) => decodeWith(shape, v));
+  Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) => watch(
+    state,
+    key: key,
+  ).map((v) => decodeKnown(shape, v, (e) => _unknown(state, e)));
 
   @override
   Stream<void> changes(Set<String> states) => _view.changes(states);
@@ -640,7 +642,39 @@ final class RemoteParticipant implements IParticipant {
 
   @override
   Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
-      _view.factsAs(fact, shape);
+      facts(fact).expand((m) {
+        try {
+          return [(decodeWith(shape, m.payload) as T, m)];
+        } on UnknownValue catch (e) {
+          _unknown(fact, e);
+          return const [];
+        }
+      });
+
+  /// What it was told of values its code does not know, by word and value.
+  final Set<String> _unknownTold = {};
+
+  /// [word] holds a value this build does not know and has no fallback
+  /// for (SPEC §25.2): its typed read gave none, and that is told on
+  /// [errors], once a word and value.
+  void _unknown(String word, UnknownValue e) {
+    if (_unknownTold.length >= 1024 || !_unknownTold.add('$word ${e.value}')) {
+      return;
+    }
+    final error = ParticipantError(
+      {'op': 'read', 'word': word},
+      'unknownValue',
+      '$word: $e',
+    );
+    if (log.isEnabled(RpcLogLevel.warning)) {
+      log.warning(
+        'a value this build does not know',
+        data: {'word': word, 'value': e.value},
+      );
+    }
+    _onError?.call(error);
+    if (!_errors.isClosed) _errors.add(error);
+  }
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) =>

@@ -190,20 +190,50 @@ final class JsonShape<T> extends Shape<T> {
   int weigh(T value) => jsonWeight(toJson(value));
 }
 
-/// One of a Dart enum's [values], kept as its name.
+/// A value code reads that its shape does not know and has no fallback
+/// for (SPEC §25.2): an enum value or a variant added after the code was
+/// built. A typed read gives none rather than throw it.
+final class UnknownValue implements Exception {
+  const UnknownValue(this.value, this.known);
+
+  final String value;
+
+  /// What the code knows there.
+  final List<String> known;
+
+  @override
+  String toString() =>
+      '$value is not one of ${known.join(', ')}, the values this code knows';
+}
+
+/// One of a Dart enum's [values], kept as its name. A name it does not
+/// know reads as [unknown] (SPEC §25.2); with none, it is an
+/// [UnknownValue].
 final class EnumShape<E extends Enum> extends Shape<E> {
-  const EnumShape(this.values);
+  const EnumShape(this.values, {this.unknown});
 
   final List<E> values;
 
+  /// What a value added after the code was built reads as: one of
+  /// [values], kept for it (`other`).
+  final E? unknown;
+
   @override
-  EnumType get type => EnumType([for (final v in values) v.name]);
+  EnumType get type =>
+      EnumType([for (final v in values) v.name], unknown: unknown?.name);
 
   @override
   Object? toJson(E value) => value.name;
 
   @override
-  E fromJson(Object? json) => values.byName(json! as String);
+  E fromJson(Object? json) {
+    final name = json! as String;
+    for (final v in values) {
+      if (v.name == name) return v;
+    }
+    return unknown ??
+        (throw UnknownValue(name, [for (final v in values) v.name]));
+  }
 
   /// One of [values] by its type: nothing to check.
   @override
@@ -616,13 +646,16 @@ final class RecordShape<T> extends Shape<T> {
 
 /// One of several objects as the Dart type [T] (a sealed class, usually),
 /// told apart by the text in field [key]: each variant is a [RecordShape]
-/// of one subtype, named by its tag. [tagOf] names a value's variant.
+/// of one subtype, named by its tag. [tagOf] names a value's variant. A
+/// variant it does not know reads as [unknown] makes it (SPEC §25.2); with
+/// none, it is an [UnknownValue].
 final class UnionShape<T> extends Shape<T> {
   const UnionShape(
     this.key,
     this.variants, {
     required this.tagOf,
     this.descriptions = const {},
+    this.unknown,
   });
 
   final String key;
@@ -632,10 +665,17 @@ final class UnionShape<T> extends Shape<T> {
   /// What each variant is for, by its tag (a tool's schema says it).
   final Map<String, String> descriptions;
 
+  /// What a variant added after the code was built reads as, from its
+  /// JSON, tag and all (a subtype kept for it, holding the JSON).
+  final T Function(Map<String, Object?> json)? unknown;
+
   @override
-  OneOfType get type => OneOfType(key, {
-    for (final MapEntry(key: tag, value: v) in variants.entries) tag: v.type,
-  }, descriptions: descriptions);
+  OneOfType get type => OneOfType(
+    key,
+    {for (final MapEntry(key: tag, value: v) in variants.entries) tag: v.type},
+    descriptions: descriptions,
+    unknown: unknown != null,
+  );
 
   @override
   Map<String, Object?> toJson(T value) {
@@ -647,7 +687,13 @@ final class UnionShape<T> extends Shape<T> {
   @override
   T fromJson(Object? json) {
     final m = json! as Map<Object?, Object?>;
-    final v = variants[m[key]] ?? (throw FormatException('$key: ${m[key]}'));
+    final v = variants[m[key]];
+    if (v == null) {
+      if (unknown case final made?) {
+        return made({for (final e in m.entries) '${e.key}': e.value});
+      }
+      throw UnknownValue('${m[key]}', [...variants.keys]);
+    }
     return v.fromJson({
       for (final e in m.entries)
         if (e.key != key) e.key: e.value,
@@ -684,6 +730,22 @@ final Expando<(Shape<Object?>, Object?)> _decoded = Expando('decoded');
 /// The value [shape] makes of [json], null for none. JSON a registry or a
 /// mirror tells is frozen, so one decoded value serves every read of the
 /// same JSON; a write puts another JSON there.
+/// [decodeWith], but none for a value [shape] does not know and has no
+/// fallback for (SPEC §25.2), told to [unknown]: what a typed read gives
+/// code built before the value was added, rather than throw in it.
+T? decodeKnown<T>(
+  Shape<T> shape,
+  Object? json, [
+  void Function(UnknownValue e)? unknown,
+]) {
+  try {
+    return decodeWith(shape, json);
+  } on UnknownValue catch (e) {
+    unknown?.call(e);
+    return null;
+  }
+}
+
 T? decodeWith<T>(Shape<T> shape, Object? json) {
   if (json == null) return null;
   if (json is! List && json is! Map) return shape.fromJson(json);

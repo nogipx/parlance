@@ -321,6 +321,9 @@ final class _Judge {
       case 'text':
         _bound(at, 'maxLength', r['maxLength'], w['maxLength']);
       case 'enum':
+        // Code that reads it takes a value it does not know for its
+        // fallback; the registry, reading what code gives, refuses one.
+        if (builtReads && r['unknown'] != null) return;
         final known = {...?(r['values'] as List?)};
         if ((w['values'] as List? ?? const []).any((v) => !known.contains(v))) {
           _add(
@@ -353,7 +356,8 @@ final class _Judge {
         }
         final rv = _map(r['variants']);
         final wv = _map(w['variants']);
-        if (wv.keys.any((v) => !rv.containsKey(v))) {
+        if (wv.keys.any((v) => !rv.containsKey(v)) &&
+            !(builtReads && r['unknown'] == true)) {
           _add(
             '$at.variants',
             BreakKind.value,

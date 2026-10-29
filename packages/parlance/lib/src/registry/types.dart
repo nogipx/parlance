@@ -46,7 +46,9 @@ sealed class ValueType<T> {
       'int' => IntType(min: n('min')?.toInt(), max: n('max')?.toInt()),
       'num' => NumType(min: n('min'), max: n('max')),
       'text' => TextType(maxLength: n('maxLength')?.toInt()),
-      'enum' => EnumType([for (final v in json['values'] as List) v as String]),
+      'enum' => EnumType([
+        for (final v in json['values'] as List) v as String,
+      ], unknown: json['unknown'] as String?),
       'duration' => DurationType(max: n('max')?.toInt()),
       'ref' => RefType(json['kind'] as String),
       'list' => ListType(
@@ -71,6 +73,7 @@ sealed class ValueType<T> {
           for (final e in (json['descriptions'] as Map? ?? const {}).entries)
             e.key as String: e.value as String,
         },
+        unknown: json['unknown'] == true,
       ),
       'nullable' => NullableType(ValueType.fromJson(json['of'])),
       'custom' => CustomType(json['name'] as String),
@@ -156,9 +159,15 @@ final class TextType extends ValueType<String> {
 }
 
 final class EnumType extends ValueType<String> {
-  const EnumType(this.values);
+  const EnumType(this.values, {this.unknown});
 
   final List<String> values;
+
+  /// What code reading it takes a value it does not know for, one of
+  /// [values] (SPEC §25.2), as Avro's reader takes its enum's default:
+  /// code built before a value was added goes on reading. Null when it
+  /// has none. Writes are checked against [values] all the same.
+  final String? unknown;
 
   @override
   Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
@@ -167,7 +176,11 @@ final class EnumType extends ValueType<String> {
       : ValueType._fail(path, 'expected one of ${values.join(', ')}');
 
   @override
-  Map<String, Object?> toJson() => {'type': 'enum', 'values': values};
+  Map<String, Object?> toJson() => {
+    'type': 'enum',
+    'values': values,
+    'unknown': ?unknown,
+  };
 }
 
 /// A duration as whole milliseconds.
@@ -349,13 +362,23 @@ final class MapType extends ValueType<Map<String, Object?>> {
 /// One of several objects, told apart by the text in field [key]: its value
 /// names the variant, whose fields the rest must pass.
 final class OneOfType extends ValueType<Map<String, Object?>> {
-  const OneOfType(this.key, this.variants, {this.descriptions = const {}});
+  const OneOfType(
+    this.key,
+    this.variants, {
+    this.descriptions = const {},
+    this.unknown = false,
+  });
 
   final String key;
   final Map<String, ObjectType> variants;
 
   /// What each variant is for, by its tag, for people and agents.
   final Map<String, String> descriptions;
+
+  /// Whether code reading it takes a variant it does not know for one of
+  /// its own (SPEC §25.2), so a variant added breaks none of it. Writes
+  /// are checked against [variants] all the same.
+  final bool unknown;
 
   @override
   Object? check(Object? value, ITypeContext ctx, [String path = '']) {
@@ -379,6 +402,7 @@ final class OneOfType extends ValueType<Map<String, Object?>> {
     'key': key,
     'variants': {for (final e in variants.entries) e.key: e.value.toJson()},
     if (descriptions.isNotEmpty) 'descriptions': descriptions,
+    if (unknown) 'unknown': true,
   };
 }
 

@@ -3,7 +3,14 @@ import 'package:parlance/schema.dart';
 
 part 'player.g.dart';
 
-enum Repeat { off, one, all }
+/// An unknown way to repeat, one added after this was built, reads as
+/// [off].
+enum Repeat {
+  @Fallback()
+  off,
+  one,
+  all,
+}
 
 /// A track, as json_serializable makes one: all the way down to JSON, as
 /// parlance takes it.

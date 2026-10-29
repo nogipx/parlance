@@ -15,7 +15,8 @@
         "off",
         "one",
         "all"
-      ]
+      ],
+      "unknown": "off"
     }
   },
   "player.playing": {
@@ -132,7 +133,8 @@
               "off",
               "one",
               "all"
-            ]
+            ],
+            "unknown": "off"
           },
           "optional": true,
           "default": "off"

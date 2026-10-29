@@ -73,7 +73,7 @@ final class MirrorView implements IRegistryView {
   /// Across a connection a value is JSON: decoded, once a value.
   @override
   T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
-      decodeWith(shape, read(state, key: key));
+      decodeKnown(shape, read(state, key: key));
 
   @override
   Map<String?, Object?> readAll(String state) => mirror.readAll(state);
@@ -139,7 +139,14 @@ final class MirrorView implements IRegistryView {
 
   @override
   Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
-      facts(fact).map((m) => (decodeWith(shape, m.payload) as T, m));
+      facts(fact).expand((m) {
+        try {
+          return [(decodeWith(shape, m.payload) as T, m)];
+        } on UnknownValue {
+          // A value this build does not know (SPEC §25.2): not heard.
+          return const [];
+        }
+      });
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) async =>

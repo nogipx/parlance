@@ -470,6 +470,7 @@ final class Registry implements ITypeContext {
     );
     _logTick(tick);
     _journal.tick(tick);
+    _builtAgainst.ticked(tick);
     int weigh(Object of, Object? v) => v == null ? 8 : _shapeOf[of]!.weigh(v);
     var weight = 0;
     final factWeights = <int>[];
@@ -827,6 +828,7 @@ final class Registry implements ITypeContext {
     var params = rawParams;
 
     CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
+      if (r is CallDone<Object?>) _builtAgainst.answered(command, cause.by, r);
       if (r case CallRefused(:final code, :final reason, :final guard)) {
         if (_callLog.isEnabled(RpcLogLevel.info)) {
           _callLog.info(

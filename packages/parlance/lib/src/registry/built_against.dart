@@ -59,6 +59,15 @@ final class BuiltAgainst {
   final Map<(Principal, String), List<WordBreak>> _mismatched = {};
   final StreamController<Mismatch> _mismatches = StreamController.broadcast();
 
+  /// The breaks of an enum value or a variant a principal's code does not
+  /// know that a value written, said or answered met (SPEC §25.2), by
+  /// path: certain from then on, where they were only possible.
+  final Map<(Principal, String), Set<String>> _met = {};
+
+  /// The mismatches that a value may meet, by the word's name now: those
+  /// with a break of a value the code reads that may never come.
+  final Map<String, Set<(Principal, String)>> _open = {};
+
   /// Every word a principal's code was built against that is defined
   /// otherwise now, saying where it breaks.
   List<Mismatch> get mismatches => [
@@ -148,12 +157,23 @@ final class BuiltAgainst {
   void _judge(Principal by, String word) {
     final built = _built[by]?[word];
     final live = built == null ? null : _descriptorOf(word);
+    final key = (by, word);
+    final met = _met[key] ?? const {};
     final breaks = live == null
         ? const <WordBreak>[]
-        : entryBreaks(built!.schema, schemaOfDescriptor(live));
-    final key = (by, word);
+        : [
+            for (final b in entryBreaks(
+              built!.schema,
+              schemaOfDescriptor(live),
+            ))
+              b.certain || !met.contains(b.path)
+                  ? b
+                  : WordBreak(b.path, b.kind, b.was, b.now),
+          ];
+    _openFor(key, breaks);
     final was = _mismatched[key];
     if (breaks.isEmpty) {
+      _met.remove(key);
       if (was == null) return;
       _mismatched.remove(key);
     } else {
@@ -164,6 +184,73 @@ final class BuiltAgainst {
     if (!_mismatches.isClosed) {
       _mismatches.add(Mismatch(by, word, breaks, from: built?.from));
     }
+  }
+
+  /// Whether [key]'s mismatch is one a value may meet, kept in [_open].
+  void _openFor((Principal, String) key, List<WordBreak> breaks) {
+    final name = _aliases[key.$2] ?? key.$2;
+    if (breaks.any(_mayMeet)) {
+      (_open[name] ??= {}).add(key);
+    } else if (_open[name] case final keys?) {
+      keys.remove(key);
+      if (keys.isEmpty) _open.remove(name);
+    }
+  }
+
+  /// A break of a value code reads that may never come.
+  static bool _mayMeet(WordBreak b) =>
+      !b.certain &&
+      b.kind == BreakKind.value &&
+      (b.path.startsWith('type.') || b.path.startsWith('returns.'));
+
+  /// The values [t] wrote and said, each judged against the code of
+  /// whoever was built against its word otherwise.
+  void ticked(Tick t) {
+    if (_open.isEmpty) return;
+    for (final c in t.changes) {
+      if (c.removed) continue;
+      for (final key in [...?_open[c.state]]) {
+        _meet(key, 'type', () => c.value);
+      }
+    }
+    for (final f in t.facts) {
+      for (final key in [...?_open[f.fact]]) {
+        _meet(key, 'type', () => f.payload);
+      }
+    }
+  }
+
+  /// [by]'s call of [command] was answered [done]: judged against what
+  /// [by]'s code reads of the answer.
+  void answered(String command, Principal by, CallDone<Object?> done) {
+    if (_open.isEmpty) return;
+    for (final key in [...?_open[command]]) {
+      if (key.$1 == by) _meet(key, 'returns', () => done.value);
+    }
+  }
+
+  /// Whether [value], at [root] of [key]'s word (its type, or its answer),
+  /// holds an enum value or a variant one of [key]'s breaks says its code
+  /// does not know: then that break is certain.
+  void _meet((Principal, String) key, String root, Object? Function() value) {
+    final breaks = _mismatched[key];
+    final live = _descriptorOf(key.$2);
+    if (breaks == null || live == null) return;
+    final type = schemaOfDescriptor(live)[root];
+    final met = _met[key] ?? const {};
+    late final given = value();
+    var found = false;
+    for (final b in breaks) {
+      if (!_mayMeet(b) || met.contains(b.path)) continue;
+      final path = b.path.split('.');
+      if (path.first != root) continue;
+      final known = {...?(b.was as List?)};
+      if (_meets(type, given, path, 1, known)) {
+        (_met[key] ??= {}).add(b.path);
+        found = true;
+      }
+    }
+    if (found) _judge(key.$1, key.$2);
   }
 
   /// [params] of a call of [command] (as [takes] it) by [by], with what
@@ -238,6 +325,57 @@ final class BuiltAgainst {
   }
 
   Future<void> dispose() => _mismatches.close();
+}
+
+/// Whether [value], of [type], holds at [path] (from [i] on, a break's path
+/// into a schema entry) a value not among [known]: an enum value, or the
+/// tag of a variant.
+bool _meets(
+  Object? type,
+  Object? value,
+  List<String> path,
+  int i,
+  Set<Object?> known,
+) {
+  if (value == null || type is! Map) return false;
+  if (type['type'] == 'nullable') {
+    final next = i < path.length && path[i] == 'of' ? i + 1 : i;
+    return _meets(type['of'], value, path, next, known);
+  }
+  if (i >= path.length) return false;
+  switch (path[i]) {
+    case 'values':
+      return value is String && !known.contains(value);
+    case 'variants':
+      if (value is! Map) return false;
+      final tag = value[type['key']];
+      if (i + 1 == path.length) return tag != null && !known.contains(tag);
+      if (tag != path[i + 1]) return false;
+      return _meets(
+        (type['variants'] as Map?)?[tag],
+        value,
+        path,
+        i + 2,
+        known,
+      );
+    case 'fields':
+      if (value is! Map || i + 2 >= path.length) return false;
+      final field = (type['fields'] as Map?)?[path[i + 1]];
+      return _meets(
+        field is Map ? field['type'] : null,
+        value[path[i + 1]],
+        path,
+        i + 3,
+        known,
+      );
+    case 'item':
+      return value is List &&
+          value.any((v) => _meets(type['item'], v, path, i + 1, known));
+    case 'value':
+      return value is Map &&
+          value.values.any((v) => _meets(type['value'], v, path, i + 1, known));
+  }
+  return false;
 }
 
 /// A word's schema entry a principal was built against, and how many of

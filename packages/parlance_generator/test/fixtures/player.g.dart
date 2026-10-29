@@ -34,7 +34,10 @@ Map<String, dynamic> _$ArtistToJson(Artist instance) => <String, dynamic>{
 /// The states of [Player].
 enum PlayerState<T> implements IStateWord<T> {
   volume<int>('player.volume', Plain(IntType(min: 0, max: 100))),
-  repeat<Repeat>('player.repeat', EnumShape(Repeat.values)),
+  repeat<Repeat>(
+    'player.repeat',
+    EnumShape(Repeat.values, unknown: Repeat.off),
+  ),
   playing<Track?>(
     'player.playing',
     Nullable<Track>(
@@ -97,7 +100,10 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
             }),
           ),
         ),
-        'repeat': Part(EnumShape(Repeat.values), defaultValue: 'off'),
+        'repeat': Part(
+          EnumShape(Repeat.values, unknown: Repeat.off),
+          defaultValue: 'off',
+        ),
         'on': Part(Plain(RefType('speaker')), optional: true),
       },
       to: _$PlayerPlayTo,

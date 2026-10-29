@@ -27,6 +27,7 @@ const _describe = TypeChecker.typeNamed(Describe, inPackage: 'parlance');
 const _fieldName = TypeChecker.typeNamed(FieldName, inPackage: 'parlance');
 const _default = TypeChecker.typeNamed(Default, inPackage: 'parlance');
 const _millis = TypeChecker.typeNamed(Millis, inPackage: 'parlance');
+const _fallback = TypeChecker.typeNamed(Fallback, inPackage: 'parlance');
 
 /// Makes the typed words (SPEC §18, §23) of a class marked `@Vocabulary`:
 /// an enum per kind of word it has, a record and its shape per params or
@@ -1065,8 +1066,24 @@ final class _Emitter {
       }
       return 'Plain(TextType(${max == null ? '' : 'maxLength: $max'}))';
     }
-    if (t is InterfaceType && t.element is EnumElement) {
-      return 'EnumShape(${t.element.displayName}.values)';
+    if (t case InterfaceType(element: final EnumElement e)) {
+      final name = e.displayName;
+      // What a value added after the code was built reads as (SPEC §25.2).
+      final fallbacks = [
+        for (final c in e.constants)
+          if (_fallback.hasAnnotationOf(c)) c.displayName,
+      ];
+      if (fallbacks.length > 1) {
+        throw InvalidGenerationSourceError(
+          '$name: one value at most is its @Fallback, not '
+          '${fallbacks.join(', ')}',
+          element: e,
+        );
+      }
+      final unknown = fallbacks.isEmpty
+          ? ''
+          : ', unknown: $name.${fallbacks.single}';
+      return 'EnumShape($name.values$unknown)';
     }
     if (t is RecordType) return _recordShape(t, on, where);
     if (t is InterfaceType && t.isDartCoreList) {

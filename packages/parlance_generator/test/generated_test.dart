@@ -207,6 +207,12 @@ void main() {
     expect(r.mismatches.map((m) => (m.by, m.word)), [(ann, 'player.volume')]);
   });
 
+  test('an enum value marked @Fallback is what one added later reads as', () {
+    final shape = PlayerState.repeat.shape;
+    expect(shape.fromJson('shuffle'), Repeat.off);
+    expect(shape.fromJson('all'), Repeat.all);
+  });
+
   test('every word is listed once, in its vocabulary', () {
     expect(playerWords.words.map((w) => w.name), [
       'player.volume',
