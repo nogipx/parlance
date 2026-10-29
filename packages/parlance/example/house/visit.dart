@@ -12,11 +12,9 @@ import 'words.dart';
 final class GuestBook extends VisitOwnerBase {
   GuestBook() {
     guests = const [];
-    whenAttached(
-      (p) => hear(
-        HouseClient(p).rangFacts,
-        (rang) => guests = [...?guests, rang.who],
-      ),
+    hear(
+      HouseClient.of(this).rangFacts,
+      (rang) => guests = [...?guests, rang.who],
     );
   }
 

@@ -77,6 +77,13 @@ final class DoorsClient implements IDoorsClient {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  DoorsClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
@@ -91,7 +98,7 @@ final class DoorsClient implements IDoorsClient {
 
   @override
   Stream<Room?> roomChanges(String door) =>
-      _$words.state(DoorsState.room).watch(key: door);
+      _$words.later(() => _$words.state(DoorsState.room).watch(key: door));
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -197,6 +204,13 @@ abstract interface class ILightsClient {
 final class LightsClient implements ILightsClient {
   LightsClient(IParticipant participant)
     : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
+  }
+
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  LightsClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 

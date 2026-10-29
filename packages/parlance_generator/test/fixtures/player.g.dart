@@ -439,27 +439,35 @@ final class PlayerClient implements IPlayerClient {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  PlayerClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(playerWords.words, from: playerWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
   int? get volume => _$words.state(PlayerState.volume).read();
 
   @override
-  Stream<int?> get volumeChanges => _$words.state(PlayerState.volume).watch();
+  Stream<int?> get volumeChanges =>
+      _$words.later(() => _$words.state(PlayerState.volume).watch());
 
   @override
   Repeat? get repeat => _$words.state(PlayerState.repeat).read();
 
   @override
   Stream<Repeat?> get repeatChanges =>
-      _$words.state(PlayerState.repeat).watch();
+      _$words.later(() => _$words.state(PlayerState.repeat).watch());
 
   @override
   Track? get playing => _$words.state(PlayerState.playing).read();
 
   @override
   Stream<Track?> get playingChanges =>
-      _$words.state(PlayerState.playing).watch();
+      _$words.later(() => _$words.state(PlayerState.playing).watch());
 
   @override
   num? speakerLevelOf(String speaker) =>
@@ -473,8 +481,9 @@ final class PlayerClient implements IPlayerClient {
   };
 
   @override
-  Stream<num?> speakerLevelChanges(String speaker) =>
-      _$words.state(PlayerState.speakerLevel).watch(key: speaker);
+  Stream<num?> speakerLevelChanges(String speaker) => _$words.later(
+    () => _$words.state(PlayerState.speakerLevel).watch(key: speaker),
+  );
 
   @override
   Future<void> setVolume({required int volume}) async {
@@ -525,12 +534,14 @@ final class PlayerClient implements IPlayerClient {
   }
 
   @override
-  Stream<({int volume})> get clipped =>
-      _$words.fact(PlayerFact.clipped).stream.map((f) => f.payload);
+  Stream<({int volume})> get clipped => _$words.later(
+    () => _$words.fact(PlayerFact.clipped).stream.map((f) => f.payload),
+  );
 
   @override
-  Stream<Track> get finished =>
-      _$words.fact(PlayerFact.finished).stream.map((f) => f.payload);
+  Stream<Track> get finished => _$words.later(
+    () => _$words.fact(PlayerFact.finished).stream.map((f) => f.payload),
+  );
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -548,12 +559,12 @@ final class PlayerClient implements IPlayerClient {
   /// player.clipped, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<PlayerClipped>> get clippedFacts =>
-      _$words.fact(PlayerFact.clipped).stream;
+      _$words.later(() => _$words.fact(PlayerFact.clipped).stream);
 
   /// player.finished, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<Track>> get finishedFacts =>
-      _$words.fact(PlayerFact.finished).stream;
+      _$words.later(() => _$words.fact(PlayerFact.finished).stream);
 }
 
 /// The vocabulary of [Player]: its name and every word, for

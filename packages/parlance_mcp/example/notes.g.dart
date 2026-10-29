@@ -115,13 +115,21 @@ final class NotesClient implements INotesClient {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  NotesClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(notesWords.words, from: notesWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
   int? get count => _$words.state(NotesState.count).read();
 
   @override
-  Stream<int?> get countChanges => _$words.state(NotesState.count).watch();
+  Stream<int?> get countChanges =>
+      _$words.later(() => _$words.state(NotesState.count).watch());
 
   @override
   Future<void> add({required String text}) async {

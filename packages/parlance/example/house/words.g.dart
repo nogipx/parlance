@@ -335,6 +335,13 @@ final class HouseClient implements IHouseClient {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  HouseClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(houseWords.words, from: houseWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
@@ -349,25 +356,28 @@ final class HouseClient implements IHouseClient {
 
   @override
   Stream<bool?> lightChanges(String room) =>
-      _$words.state(HouseState.light).watch(key: room);
+      _$words.later(() => _$words.state(HouseState.light).watch(key: room));
 
   @override
   num? get heat => _$words.state(HouseState.heat).read();
 
   @override
-  Stream<num?> get heatChanges => _$words.state(HouseState.heat).watch();
+  Stream<num?> get heatChanges =>
+      _$words.later(() => _$words.state(HouseState.heat).watch());
 
   @override
   Mode? get mode => _$words.state(HouseState.mode).read();
 
   @override
-  Stream<Mode?> get modeChanges => _$words.state(HouseState.mode).watch();
+  Stream<Mode?> get modeChanges =>
+      _$words.later(() => _$words.state(HouseState.mode).watch());
 
   @override
   bool? get locked => _$words.state(HouseState.locked).read();
 
   @override
-  Stream<bool?> get lockedChanges => _$words.state(HouseState.locked).watch();
+  Stream<bool?> get lockedChanges =>
+      _$words.later(() => _$words.state(HouseState.locked).watch());
 
   @override
   Future<void> setLight({required String room, required bool on}) async {
@@ -410,12 +420,14 @@ final class HouseClient implements IHouseClient {
   }
 
   @override
-  Stream<({String who})> get rang =>
-      _$words.fact(HouseFact.rang).stream.map((f) => f.payload);
+  Stream<({String who})> get rang => _$words.later(
+    () => _$words.fact(HouseFact.rang).stream.map((f) => f.payload),
+  );
 
   @override
-  Stream<({String room})> get motion =>
-      _$words.fact(HouseFact.motion).stream.map((f) => f.payload);
+  Stream<({String room})> get motion => _$words.later(
+    () => _$words.fact(HouseFact.motion).stream.map((f) => f.payload),
+  );
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -432,12 +444,13 @@ final class HouseClient implements IHouseClient {
 
   /// house.doorbell.rang, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
-  Stream<Fact<HouseRang>> get rangFacts => _$words.fact(HouseFact.rang).stream;
+  Stream<Fact<HouseRang>> get rangFacts =>
+      _$words.later(() => _$words.fact(HouseFact.rang).stream);
 
   /// house.motion.seen, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<HouseMotion>> get motionFacts =>
-      _$words.fact(HouseFact.motion).stream;
+      _$words.later(() => _$words.fact(HouseFact.motion).stream);
 }
 
 /// The vocabulary of [House]: its name and every word, for
@@ -620,6 +633,13 @@ final class VisitClient implements IVisitClient {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  VisitClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(visitWords.words, from: visitWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
@@ -627,7 +647,7 @@ final class VisitClient implements IVisitClient {
 
   @override
   Stream<List<String>?> get guestsChanges =>
-      _$words.state(VisitState.guests).watch();
+      _$words.later(() => _$words.state(VisitState.guests).watch());
 
   @override
   Future<void> leave({required String who}) async {

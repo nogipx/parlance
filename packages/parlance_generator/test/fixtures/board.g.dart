@@ -224,6 +224,13 @@ final class BoardClient implements IBoardClient {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  BoardClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(boardWords.words, from: boardWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
@@ -238,14 +245,14 @@ final class BoardClient implements IBoardClient {
 
   @override
   Stream<Note?> notesChanges(String note) =>
-      _$words.state(BoardState.notes).watch(key: note);
+      _$words.later(() => _$words.state(BoardState.notes).watch(key: note));
 
   @override
   Object? get anything => _$words.state(BoardState.anything).read();
 
   @override
   Stream<Object?> get anythingChanges =>
-      _$words.state(BoardState.anything).watch();
+      _$words.later(() => _$words.state(BoardState.anything).watch());
 
   @override
   Future<({String id})> put({String? id, required Note note}) async {
@@ -281,8 +288,9 @@ final class BoardClient implements IBoardClient {
   }
 
   @override
-  Stream<Note> get seen =>
-      _$words.fact(BoardFact.seen).stream.map((f) => f.payload);
+  Stream<Note> get seen => _$words.later(
+    () => _$words.fact(BoardFact.seen).stream.map((f) => f.payload),
+  );
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -299,7 +307,8 @@ final class BoardClient implements IBoardClient {
 
   /// note.seen, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
-  Stream<Fact<Note>> get seenFacts => _$words.fact(BoardFact.seen).stream;
+  Stream<Fact<Note>> get seenFacts =>
+      _$words.later(() => _$words.fact(BoardFact.seen).stream);
 }
 
 /// The vocabulary of [Board]: its name and every word, for

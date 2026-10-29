@@ -274,30 +274,80 @@ extension IParticipantRaw on IParticipant {
 /// and hears. It is the generator's contract, frozen with `schema.dart`,
 /// and not a way to write by hand: a part uses a client, an owner its
 /// base.
-extension type GeneratedWords._(IRawParticipant _p) {
+final class GeneratedWords {
+  GeneratedWords._(this._resolve, this._owner);
+
   /// The words through [participant].
-  static GeneratedWords of(IParticipant participant) =>
-      GeneratedWords._(participant.raw);
+  static GeneratedWords of(IParticipant participant) {
+    final raw = participant.raw;
+    return GeneratedWords._(() => raw, null);
+  }
 
-  ParticipantStateOf<T> state<T>(IStateWord<T> word) => _p.state(word);
+  /// The words through the participant [owner] is attached to, found when
+  /// they are used: an owner's client, made in its constructor. Used
+  /// before it is attached, a read or a call throws a [StateError]; a
+  /// stream waits until it is listened to ([later]).
+  static GeneratedWords ofOwner(IOwner owner) =>
+      GeneratedWords._(() => OwnerTools(owner).participant.raw, owner);
+
+  final IRawParticipant Function() _resolve;
+  final IOwner? _owner;
+
+  ParticipantStateOf<T> state<T>(IStateWord<T> word) => _resolve().state(word);
   ParticipantCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
-      _p.command(word);
-  ParticipantFactOf<T> fact<T>(IFactWord<T> word) => _p.fact(word);
-  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) => _p.query(word);
+      _resolve().command(word);
+  ParticipantFactOf<T> fact<T>(IFactWord<T> word) => _resolve().fact(word);
+  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
+      _resolve().query(word);
 
-  /// Tells the registry the code was built against [words] (SPEC §6.9).
-  void builtAgainst(Iterable<IWord> words, {String? from}) =>
-      _p.builtAgainst(words, from: from);
+  /// [make]'s stream, made when it is listened to: an owner's client hands
+  /// out its streams before the owner is attached, and its tools listen
+  /// to them once it is.
+  Stream<T> later<T>(Stream<T> Function() make) =>
+      _owner == null ? make() : _Later(make);
+
+  /// Tells the registry the code was built against [words] (SPEC §6.9):
+  /// an owner's client once the owner is attached.
+  void builtAgainst(Iterable<IWord> words, {String? from}) {
+    if (_owner case final o?) {
+      OwnerTools(o).whenAttached((p) => p.raw.builtAgainst(words, from: from));
+    } else {
+      _resolve().builtAgainst(words, from: from);
+    }
+  }
 
   /// Whether [word] is there now, as this code was built against it.
-  WordStatus status(IWord word) => wordStatus(_p, word);
+  WordStatus status(IWord word) => wordStatus(_resolve(), word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(_p, word);
+  Stream<WordStatus> statusChanges(IWord word) =>
+      later(() => wordStatusChanges(_resolve(), word));
 
   /// Each of [words] there but not as this code was built against.
   Map<String, List<WordBreak>> mismatches(Iterable<IWord> words) =>
-      wordMismatches(_p, words);
+      wordMismatches(_resolve(), words);
+}
+
+/// A stream made anew for each listener, when it listens.
+final class _Later<T> extends Stream<T> {
+  _Later(this._make);
+  final Stream<T> Function() _make;
+
+  @override
+  bool get isBroadcast => true;
+
+  @override
+  StreamSubscription<T> listen(
+    void Function(T event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => _make().listen(
+    onData,
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
 }
 
 /// A participant through typed words (SPEC §18): the word fixes the types.

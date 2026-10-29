@@ -551,7 +551,12 @@ final class _Emitter {
   ) {
     final members = <String, Element>{};
     void member(String name, _Word w) {
-      if (const {'status', 'statusChanges', 'mismatches'}.contains(name) ||
+      if (const {
+            'of',
+            'status',
+            'statusChanges',
+            'mismatches',
+          }.contains(name) ||
           members.containsKey(name)) {
         throw InvalidGenerationSourceError(
           '$name is had twice by ${_c}Client: name ${w.member} otherwise, or '
@@ -608,7 +613,7 @@ final class _Emitter {
           ..add((
             docs: ['${st.name} now, then whenever it changes.'],
             signature: 'Stream<$bare?> get ${st.member}Changes',
-            body: '=> _\$words.state($word).watch();',
+            body: '=> _\$words.later(() => _\$words.state($word).watch());',
           ));
       } else {
         final key = _keyParam(st.key!);
@@ -631,7 +636,8 @@ final class _Emitter {
           ..add((
             docs: ['${st.name} of [$key] now, then on every change.'],
             signature: 'Stream<$bare?> ${st.member}Changes(String $key)',
-            body: '=> _\$words.state($word).watch(key: $key);',
+            body:
+                '=> _\$words.later(() => _\$words.state($word).watch(key: $key));',
           ));
       }
     }
@@ -666,7 +672,7 @@ final class _Emitter {
         docs: ['${f.name}, as it is said from now on: what it says.'],
         signature: 'Stream<$payload> get ${f.member}',
         body:
-            '=> _\$words.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload);',
+            '=> _\$words.later(() => _\$words.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload));',
       ));
       own.add((
         docs: [
@@ -674,7 +680,8 @@ final class _Emitter {
           'the message (its id, its cause) to follow it from.',
         ],
         signature: 'Stream<Fact<${f.type}>> get ${f.member}Facts',
-        body: '=> _\$words.fact(${_c}Fact.${f.member}).stream;',
+        body:
+            '=> _\$words.later(() => _\$words.fact(${_c}Fact.${f.member}).stream);',
       ));
     }
 
@@ -700,6 +707,18 @@ final class _Emitter {
       ..writeln('final class ${_c}Client implements I${_c}Client {')
       ..writeln('  ${_c}Client(IParticipant participant)')
       ..writeln('    : _\$words = GeneratedWords.of(participant) {')
+      ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
+      ..writeln('  }')
+      ..writeln()
+      ..writeln(
+        '  /// The words through the participant [owner] is attached to,',
+      )
+      ..writeln(
+        '  /// for an owner that uses them: made in its constructor, its',
+      )
+      ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
+      ..writeln('  ${_c}Client.of(IOwner owner)')
+      ..writeln('    : _\$words = GeneratedWords.ofOwner(owner) {')
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')
       ..writeln()

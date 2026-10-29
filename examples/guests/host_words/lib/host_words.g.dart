@@ -110,13 +110,21 @@ final class AppClient implements IAppClient {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  AppClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(appWords.words, from: appWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
   bool? get dark => _$words.state(AppState.dark).read();
 
   @override
-  Stream<bool?> get darkChanges => _$words.state(AppState.dark).watch();
+  Stream<bool?> get darkChanges =>
+      _$words.later(() => _$words.state(AppState.dark).watch());
 
   @override
   Future<void> toast({required String text}) async {

@@ -153,13 +153,21 @@ final class NotesClient implements INotesClient {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  NotesClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+    _$words.builtAgainst(notesWords.words, from: notesWords.from);
+  }
+
   final GeneratedWords _$words;
 
   @override
   List<Note>? get all => _$words.state(NotesState.all).read();
 
   @override
-  Stream<List<Note>?> get allChanges => _$words.state(NotesState.all).watch();
+  Stream<List<Note>?> get allChanges =>
+      _$words.later(() => _$words.state(NotesState.all).watch());
 
   @override
   Future<void> add({required String text}) async {
@@ -169,8 +177,9 @@ final class NotesClient implements INotesClient {
   }
 
   @override
-  Stream<({String id, String text})> get added =>
-      _$words.fact(NotesFact.added).stream.map((f) => f.payload);
+  Stream<({String id, String text})> get added => _$words.later(
+    () => _$words.fact(NotesFact.added).stream.map((f) => f.payload),
+  );
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -188,7 +197,7 @@ final class NotesClient implements INotesClient {
   /// notes.added, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<NotesAdded>> get addedFacts =>
-      _$words.fact(NotesFact.added).stream;
+      _$words.later(() => _$words.fact(NotesFact.added).stream);
 }
 
 /// The vocabulary of [Notes]: its name and every word, for
