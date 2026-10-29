@@ -311,9 +311,14 @@ final class _Active {
   final List<StreamSubscription<Object?>> _subs = [];
   final Set<Timer> _timers = {};
   final Map<String, DateTime> _throttled = {};
-  final List<void Function()> _queue = [];
+
+  /// The runs waiting their turn, each with what tells its end.
+  final List<(void Function(), Completer<String?>)> _queue = [];
   bool _running = false;
   bool _stopped = false;
+
+  /// Completes when the link stops: a run waiting in a step ends then.
+  final Completer<void> _halt = Completer();
 
   IParticipant get _p => links.participant;
 
@@ -469,7 +474,7 @@ final class _Active {
     final done = Completer<String?>();
     void go() => unawaited(_run(data, id, conversation, done));
     if (_running) {
-      _queue.add(go);
+      _queue.add((go, done));
     } else {
       go();
     }
@@ -493,7 +498,7 @@ final class _Active {
     _running = false;
     if (!done.isCompleted) done.complete(why);
     links.onRun?.call(LinkRun(link, data, why));
-    if (_queue.isNotEmpty && !_stopped) _queue.removeAt(0)();
+    if (_queue.isNotEmpty && !_stopped) _queue.removeAt(0).$1();
   }
 
   Future<String?> _steps(
@@ -509,7 +514,15 @@ final class _Active {
       if (_stopped) return 'stopped';
       switch (s) {
         case WaitStep(:final duration):
-          await Future<void>.delayed(duration);
+          // Stopping ends the wait: a run is not held for its whole
+          // length by a link that is gone.
+          final waited = Completer<void>();
+          final timer = Timer(duration, waited.complete);
+          _timers.add(timer);
+          await Future.any([waited.future, _halt.future]);
+          timer.cancel();
+          _timers.remove(timer);
+          if (_stopped) return 'stopped';
         case CallStep(:final command, :final params, :final orContinue):
           final r = await _p.call(
             command,
@@ -549,11 +562,17 @@ final class _Active {
 
   void stop() {
     _stopped = true;
+    if (!_halt.isCompleted) _halt.complete();
     for (final s in _subs) {
       unawaited(s.cancel());
     }
-    for (final t in _timers) {
+    for (final t in [..._timers]) {
       t.cancel();
+    }
+    // What waited its turn is told it will not run: a press waiting on it
+    // (a command's call) ends, rather than hold the call to its deadline.
+    for (final (_, done) in _queue) {
+      if (!done.isCompleted) done.complete('stopped');
     }
     _queue.clear();
   }

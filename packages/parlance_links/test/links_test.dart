@@ -421,6 +421,35 @@ void main() {
     },
   );
 
+  test('a link that stops ends its runs: one waiting in a step, and those '
+      'waiting their turn', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    await b.links.load([
+      {
+        'id': 'slow',
+        'mode': 'queue',
+        'when': [
+          {
+            'button': {'label': 'Slow'},
+          },
+        ],
+        'do': [
+          {'wait': '1h'},
+        ],
+      },
+    ]);
+    await pump();
+    final first = b.links.press('slow');
+    final second = b.links.press('slow');
+    await pump();
+    await b.links.dispose();
+    expect(
+      await Future.wait([first, second]).timeout(const Duration(seconds: 1)),
+      ['stopped', 'stopped'],
+    );
+  });
+
   test('a link that cannot be taken is told; the others run', () async {
     final b = Bench();
     addTearDown(b.dispose);
