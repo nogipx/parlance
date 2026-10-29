@@ -361,6 +361,10 @@ final class Registry implements ITypeContext {
   int _retainedBytes = 0;
   final Map<String, _RecentFacts> _recent = {};
 
+  /// The facts [_recent] keeps, by id: what a message follows from is
+  /// found at once, however many facts are kept.
+  final Map<String, FactMessage> _recentById = {};
+
   /// Every commit, in seq order, delivered asynchronously.
   Stream<Tick> get ticks => _ticks.stream;
 
@@ -516,9 +520,12 @@ final class Registry implements ITypeContext {
     for (final (i, f) in committed.indexed) {
       final q = _recent.putIfAbsent(f.fact, _RecentFacts.new);
       q.add(f, factWeights[i]);
+      _recentById[f.id] = f;
       while (q.length > recentPerFact ||
           (q.length > 1 && q.bytes > retainBytes)) {
-        q.removeFirst();
+        final gone = q.removeFirst();
+        // An id said again past the dedup window may name a newer one.
+        if (identical(_recentById[gone.id], gone)) _recentById.remove(gone.id);
       }
     }
     if (!_ticks.isClosed) _ticks.add(tick);

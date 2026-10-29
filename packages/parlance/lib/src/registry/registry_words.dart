@@ -238,9 +238,10 @@ final class _RecentFacts {
     bytes += weight;
   }
 
-  void removeFirst() {
-    _q.removeFirst();
+  /// Drops the oldest, and answers it.
+  FactMessage removeFirst() {
     bytes -= _weights.removeFirst();
+    return _q.removeFirst();
   }
 
   List<FactMessage> toList() => _q.toList();

@@ -26,6 +26,22 @@ void main() {
   tearDown(() => f.r.dispose());
 
   group('facts', () {
+    test('a fact kept is found by its id; one no longer kept is not', () async {
+      final r = Registry(recentPerFact: 2);
+      addTearDown(r.dispose);
+      final said = r.defineFact(
+        FactDescriptor('deck.said', type: const IntType()),
+        by: const Principal('deck'),
+      );
+      for (final (i, id) in ['s1', 's2', 's3'].indexed) {
+        said.emit(i, id: id);
+      }
+      await pumpEventQueue();
+      expect(r.recentFact('s1'), isNull, reason: 'past recentPerFact');
+      expect(r.recentFact('s3')?.payload, 2);
+      expect(r.recentFact('s2')?.payload, 1);
+    });
+
     test('a repeated id is dropped', () async {
       final seen = <FactMessage>[];
       f.r.facts(fact: 'platform.raid').listen(seen.add);
