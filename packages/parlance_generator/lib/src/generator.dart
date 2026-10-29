@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/scope.dart';
 import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
@@ -476,20 +477,31 @@ final class _Emitter {
     final v = o.variable;
     if (v == null || !v.isConst) return literal;
     return switch (v.enclosingElement) {
-      final InterfaceElement e when _sees(e) =>
-        '${e.displayName}.${v.displayName}',
-      LibraryElement() when _sees(v) => v.displayName,
+      final InterfaceElement e => switch (_nameOf(e)) {
+        final r? => '$r.${v.displayName}',
+        null => literal,
+      },
+      LibraryElement() => _nameOf(v) ?? literal,
       _ => literal,
     };
   }
 
-  /// Whether the generated part names [e] by its name alone: it is the
-  /// library's, or imported with no prefix.
-  bool _sees(Element e) =>
-      switch (cls.library.firstFragment.scope.lookup(e.displayName).getter) {
-        final GetterElement g => g.variable == e,
-        final found => found == e,
-      };
+  /// [e]'s name as the generated part says it: alone when the library has
+  /// it or imports it with no prefix, after the prefix it is imported by
+  /// otherwise (`who.crew`); null when the part does not see it.
+  String? _nameOf(Element e) {
+    final name = e.displayName;
+    bool found(Scope scope) => switch (scope.lookup(name).getter) {
+      final GetterElement g => g.variable == e,
+      final x => x == e,
+    };
+    final library = cls.library.firstFragment;
+    if (found(library.scope)) return name;
+    for (final p in library.prefixes) {
+      if (found(p.scope)) return '${p.displayName}.$name';
+    }
+    return null;
+  }
 
   /// [o], a `Callers`, as code: by the constant that names it, if any.
   String _callers(DartObject o) => _code(o, _callersLiteral(o));
@@ -1089,10 +1101,11 @@ final class _Emitter {
           element: e,
         );
       }
+      final named = _nameOf(e) ?? name;
       final unknown = fallbacks.isEmpty
           ? ''
-          : ', unknown: $name.${fallbacks.single}';
-      return 'EnumShape($name.values$unknown)';
+          : ', unknown: $named.${fallbacks.single}';
+      return 'EnumShape($named.values$unknown)';
     }
     if (t is RecordType) return _recordShape(t, on, where);
     if (t is InterfaceType && t.isDartCoreList) {
@@ -1124,13 +1137,14 @@ final class _Emitter {
     }
     if (t is InterfaceType && _jsonClass(t.element)) {
       final name = t.element.displayName;
+      final named = _nameOf(t.element) ?? name;
       final helper = '_\$$_c${name}ToJson';
       if (_jsonHelpers.add(helper)) {
         _helpers
           ..writeln()
-          ..writeln('Map<String, Object?> $helper($name v) => v.toJson();');
+          ..writeln('Map<String, Object?> $helper($named v) => v.toJson();');
       }
-      return 'JsonShape<$name>($name.fromJson, $helper, '
+      return 'JsonShape<$named>($named.fromJson, $helper, '
           'type: ${_valueType(t, {})})';
     }
     throw InvalidGenerationSourceError(
@@ -1411,10 +1425,12 @@ enum ${_c}Fact<T> implements IFactWord<T> {
     String args(List<DartType> ts) =>
         ts.isEmpty ? '' : '<${ts.map(_dart).join(', ')}>';
     if (t.alias case final a?) {
-      return '${a.element.displayName}${args(a.typeArguments)}$q';
+      return '${_nameOf(a.element) ?? a.element.displayName}'
+          '${args(a.typeArguments)}$q';
     }
-    if (t is InterfaceType && t.typeArguments.isNotEmpty) {
-      return '${t.element.displayName}${args(t.typeArguments)}$q';
+    if (t is InterfaceType) {
+      return '${_nameOf(t.element) ?? t.element.displayName}'
+          '${args(t.typeArguments)}$q';
     }
     return t.getDisplayString();
   }

@@ -54,7 +54,7 @@ two \$lines, \\ and\r\nthree''')
     expect(() => parseString(content: made!), returnsNormally);
     expect(made, contains(r"'one \'line\'\ntwo \$lines, \\ and\r\nthree'"));
   });
-  test('a constant imported with a prefix is named as the part can', () async {
+  test('what is imported with a prefix is named with it', () async {
     String? made;
     await testBuilder(
       parlanceBuilder(BuilderOptions.empty),
@@ -62,10 +62,12 @@ two \$lines, \\ and\r\nthree''')
         ...parlance,
         'a|lib/who.dart': '''
 import 'package:parlance/registry.dart';
+import 'package:parlance/schema.dart';
 const crew = Callers({'crew': Access.allow});
 abstract final class Who {
   static const staff = Callers({'staff': Access.allow});
 }
+enum Mode { open, @Fallback() other }
 ''',
         'a|lib/words.dart': '''
 import 'package:parlance/schema.dart';
@@ -78,6 +80,8 @@ abstract class Orders {
   void cancel();
   @CommandWord(callers: who.Who.staff)
   void close();
+  @StateWord()
+  who.Mode get mode;
 }
 ''',
       },
@@ -92,7 +96,12 @@ abstract class Orders {
         ),
       },
     );
-    expect(made, contains("Callers({'crew': Access.allow})"));
-    expect(made, contains("Callers({'staff': Access.allow})"));
+    expect(made, contains('callers: who.crew'));
+    expect(made, contains('callers: who.Who.staff'));
+    expect(
+      made,
+      contains('EnumShape(who.Mode.values, unknown: who.Mode.other)'),
+    );
+    expect(made, contains('who.Mode? get mode'));
   });
 }
