@@ -7,6 +7,7 @@ import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
+import '../registry/json.dart' show jsonWeight;
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/types.dart';
@@ -33,6 +34,7 @@ extension ServeParticipant on LocalParticipant {
     String? session,
     int feedBacklog = 256,
     int maxSubscription = 4096,
+    SessionLimits limits = const SessionLimits(),
     LogScope? log,
     Set<String>? features,
   }) {
@@ -44,6 +46,7 @@ extension ServeParticipant on LocalParticipant {
       session: session,
       feedBacklog: feedBacklog,
       maxSubscription: maxSubscription,
+      limits: limits,
       log: log,
       features: features,
     );
@@ -65,6 +68,7 @@ final class RemoteSession extends ParlanceContractPeer {
     String? session,
     this.feedBacklog = 256,
     this.maxSubscription = 4096,
+    this.limits = const SessionLimits(),
     LogScope? log,
     Set<String>? features,
   }) : features = features ?? parlanceFeatures,
@@ -105,6 +109,21 @@ final class RemoteSession extends ParlanceContractPeer {
   /// together: a peer naming more is refused (`resourceExhausted`), so a
   /// session holds no more for it than this.
   final int maxSubscription;
+
+  /// How much the part across may hold here (SPEC §14): what it asks past
+  /// them is refused, the rest it holds staying.
+  final SessionLimits limits;
+
+  /// The bytes of each value it holds, by state and key, and their sum.
+  final Map<String, Map<String?, int>> _bytes = {};
+  int _bytesHeld = 0;
+
+  /// Its calls the registry has not answered yet.
+  int _calling = 0;
+
+  /// What it asks past [limits], refused.
+  static Never _exhausted(String why) =>
+      throw RpcStatusException(RpcStatus.resourceExhausted, why);
 
   /// What of the protocol it tells the part across it speaks (SPEC §14):
   /// every feature of this build unless given; fewer stand in, in a test,
@@ -420,14 +439,31 @@ final class RemoteSession extends ParlanceContractPeer {
     // get this one's answer.
     // A part of the session calls as itself (SPEC §22.3).
     final by = _part(request.as).who;
-    final result = await registry.call(
-      request.command,
-      request.params,
-      by: by,
-      id: '${principal.selector}#${request.id}',
-      override: request.overriding,
-      cause: _cause(parent: request.parent, by: by),
-    );
+    if (limits.calls case final max? when _calling >= max) {
+      // Nothing ran: it may call again once one of its calls is answered.
+      return WireCallReply(
+        CallRefused(
+          Refusal.unavailable,
+          'the session has $max calls not answered yet, as many as it may',
+        ).toJson(),
+        epoch: registry.epoch,
+        seq: registry.seq,
+      );
+    }
+    _calling++;
+    final CallResult<Object?> result;
+    try {
+      result = await registry.call(
+        request.command,
+        request.params,
+        by: by,
+        id: '${principal.selector}#${request.id}',
+        override: request.overriding,
+        cause: _cause(parent: request.parent, by: by),
+      );
+    } finally {
+      _calling--;
+    }
     final seq = registry.seq;
     if (seq > _owed) _owed = seq;
     for (final f in [..._feeds]) {
@@ -634,6 +670,10 @@ final class RemoteSession extends ParlanceContractPeer {
 
   void _define(Descriptor d, [LocalParticipant? part]) {
     final p = part ?? _p;
+    final words = _states.length + _facts.length + _commands.length;
+    if (limits.words case final max? when words >= max) {
+      _exhausted('the session defines $max words, as many as it may');
+    }
     try {
       _permitted(() {
         switch (d) {
@@ -670,6 +710,9 @@ final class RemoteSession extends ParlanceContractPeer {
       );
     }
     _unavailable.remove(name);
+    for (final b in (_bytes.remove(name) ?? const {}).values) {
+      _bytesHeld -= b;
+    }
     h.dispose();
   }
 
@@ -689,10 +732,26 @@ final class RemoteSession extends ParlanceContractPeer {
       _deny('$state is not the session\'s own');
     }
     final cause = _cause(parent: parent, by: (part ?? _p).who);
+    final had = _bytes[state]?[key] ?? 0;
+    final weight = remove ? 0 : jsonWeight(value) + (key?.length ?? 0);
+    if (limits.stateBytes case final max?
+        when weight > had && _bytesHeld - had + weight > max) {
+      _exhausted(
+        'the session holds at most $max bytes of values: $state'
+        '${key == null ? '' : '[$key]'} would make it '
+        '${_bytesHeld - had + weight}',
+      );
+    }
     try {
       remove
           ? w.remove(key: key, cause: cause)
           : w.set(value, key: key, cause: cause);
+      _bytesHeld += weight - had;
+      if (remove) {
+        _bytes[state]?.remove(key);
+      } else {
+        (_bytes[state] ??= {})[key] = weight;
+      }
     } on TypeMismatch catch (e) {
       throw RpcStatusException(RpcStatus.invalidArgument, '$e');
     } on ArgumentError catch (e) {
@@ -747,6 +806,18 @@ final class RemoteSession extends ParlanceContractPeer {
   }
 
   void _kind(String name, List<Object?> entities, [LocalParticipant? part]) {
+    if (limits.entities case final max?) {
+      final others = [
+        for (final MapEntry(:key, :value) in _kinds.entries)
+          if (key != name) value.entities.length,
+      ].fold(0, (a, b) => a + b);
+      if (others + entities.length > max) {
+        _exhausted(
+          'the session has at most $max entities in its kinds: $name would '
+          'make it ${others + entities.length}',
+        );
+      }
+    }
     final list = [
       for (final e in entities.cast<Map<Object?, Object?>>())
         EntityRef(e['id']! as String, e['label'] as String?, _obj(e['meta'])),
@@ -772,6 +843,11 @@ final class RemoteSession extends ParlanceContractPeer {
   void _guard(String id, {required bool overridable, LocalParticipant? part}) {
     final p = part ?? _p;
     final full = p.guardId(id);
+    if (limits.guards case final max?
+        when _guards.length >= max && !_guards.containsKey(full)) {
+      // Each guard is asked of every call there is: a few, not many.
+      _exhausted('the session has $max guards, as many as it may');
+    }
     try {
       _guards[full] = p.addAskedGuard(id, (c) async {
         final r = await _owner.judge(
@@ -867,4 +943,47 @@ final class _Failed implements Exception {
 
   @override
   String toString() => why;
+}
+
+/// How much a session lets the part across it hold of the host's (SPEC
+/// §14): it may be code of another's, or code with a defect, and the host
+/// is the one that keeps what it asks. Each bound is on by default, wide
+/// for a part that works and narrow for one that runs away; null takes
+/// it off ([none], for a part as trusted as the host's own code).
+final class SessionLimits {
+  const SessionLimits({
+    this.stateBytes = 1 << 20,
+    this.words = 256,
+    this.guards = 16,
+    this.entities = 1000,
+    this.calls = 16,
+  });
+
+  /// No bounds.
+  static const none = SessionLimits(
+    stateBytes: null,
+    words: null,
+    guards: null,
+    entities: null,
+    calls: null,
+  );
+
+  /// About how many bytes the values it writes take together, as JSON,
+  /// every key of every state of its: a keyed state it never empties
+  /// stops here.
+  final int? stateBytes;
+
+  /// How many words it defines: states, facts, commands and queries.
+  final int? words;
+
+  /// How many guards it adds: each is asked of every call there is.
+  final int? guards;
+
+  /// How many entities its kinds have together: they go in the catalog
+  /// every session gets.
+  final int? entities;
+
+  /// How many of its calls wait for an answer at once; one past them is
+  /// refused (`unavailable`) and runs nowhere.
+  final int? calls;
 }
