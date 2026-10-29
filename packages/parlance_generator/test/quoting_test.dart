@@ -104,4 +104,105 @@ abstract class Orders {
     );
     expect(made, contains('who.Mode? get mode'));
   });
+  group('source that is odd', () {
+    /// What the builder logged of [words], the library's source.
+    Future<String> logsOf(String words) async {
+      final logs = <String>[];
+      await testBuilder(
+        parlanceBuilder(BuilderOptions.empty),
+        {...parlance, 'a|lib/words.dart': words},
+        rootPackage: 'a',
+        generateFor: {'a|lib/words.dart'},
+        onLog: (r) => logs.add(r.message),
+      );
+      return logs.join('\n');
+    }
+
+    test('a default that is no JSON number is refused, saying so', () async {
+      final logs = await logsOf('''
+import 'package:parlance/schema.dart';
+part 'words.g.dart';
+
+@Vocabulary('orders')
+abstract class Orders {
+  @CommandWord()
+  void zoom({num ratio = double.infinity});
+}
+''');
+      expect(logs, contains('ratio: a default is a finite number'));
+    });
+
+    test(
+      'two JSON classes of one name, by two prefixes, are each its own',
+      () async {
+        String? made;
+        const json = '''
+class Point {
+  Point(this.x);
+  factory Point.fromJson(Map<String, Object?> m) => Point(m['x'] as int);
+  final int x;
+  Map<String, Object?> toJson() => {'x': x};
+}
+''';
+        await testBuilder(
+          parlanceBuilder(BuilderOptions.empty),
+          {
+            ...parlance,
+            'a|lib/a.dart': json,
+            'a|lib/b.dart': json,
+            'a|lib/words.dart': '''
+import 'package:parlance/schema.dart';
+import 'a.dart' as a;
+import 'b.dart' as b;
+part 'words.g.dart';
+
+@Vocabulary('orders')
+abstract class Orders {
+  @StateWord()
+  a.Point get from;
+  @StateWord()
+  b.Point get to;
+}
+''',
+          },
+          rootPackage: 'a',
+          generateFor: {'a|lib/words.dart'},
+          outputs: {
+            'a|lib/words.parlance.g.part': decodedMatches(
+              predicate<String>((s) {
+                made = s;
+                return true;
+              }),
+            ),
+          },
+        );
+        expect(() => parseString(content: made!), returnsNormally);
+        final helpers = {
+          for (final m in RegExp(
+            r'Map<String, Object\?> (\S+)\((\S+) v\)',
+          ).allMatches(made!))
+            m[1]: m[2],
+        };
+        expect(helpers.values, unorderedEquals(['a.Point', 'b.Point']));
+        final flat = made!.replaceAll(RegExp(r'\s+'), ' ');
+        for (final MapEntry(key: helper, value: type) in helpers.entries) {
+          expect(flat, contains('$type.fromJson, $helper,'));
+        }
+      },
+    );
+
+    test('a type that does not resolve is refused, saying where', () async {
+      final logs = await logsOf('''
+import 'package:parlance/schema.dart';
+part 'words.g.dart';
+
+@Vocabulary('orders')
+abstract class Orders {
+  @StateWord()
+  Nowhere get place;
+}
+''');
+      expect(logs, contains('place: its type does not resolve here'));
+    });
+  });
 }

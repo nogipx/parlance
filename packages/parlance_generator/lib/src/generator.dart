@@ -458,7 +458,16 @@ final class _Emitter {
     if (t != null && t.isDartCoreString) return _quote(o.toStringValue()!);
     if (t != null && t.isDartCoreBool) return '${o.toBoolValue()}';
     if (t != null && t.isDartCoreInt) return '${o.toIntValue()}';
-    if (t != null && t.isDartCoreDouble) return '${o.toDoubleValue()}';
+    if (t != null && t.isDartCoreDouble) {
+      final d = o.toDoubleValue()!;
+      if (!d.isFinite) {
+        throw InvalidGenerationSourceError(
+          'meta holds JSON: a number in it is finite, not $d',
+          element: at,
+        );
+      }
+      return '$d';
+    }
     if (o.toListValue() case final l?) {
       return '[${[for (final e in l) _constant(e, at)].join(', ')}]';
     }
@@ -988,7 +997,15 @@ final class _Emitter {
     }
     if (v.toBoolValue() case final b?) return '$b';
     if (v.toIntValue() case final i?) return '$i';
-    if (v.toDoubleValue() case final d?) return '$d';
+    if (v.toDoubleValue() case final d?) {
+      if (!d.isFinite) {
+        throw InvalidGenerationSourceError(
+          '${p.displayName}: a default is a finite number, not $d',
+          element: p,
+        );
+      }
+      return '$d';
+    }
     if (v.toStringValue() case final s?) return _quote(s);
     if (v.isNull) return 'null';
     if (v.toListValue() != null || v.toMapValue() != null) {
@@ -1026,6 +1043,13 @@ final class _Emitter {
     bool bounded = true,
     List<DartObject>? notes,
   }) {
+    if (t is InvalidType) {
+      throw InvalidGenerationSourceError(
+        '$where: its type does not resolve here: an import missing, or a '
+        'name misspelt',
+        element: on,
+      );
+    }
     // Any value, null too.
     if (t is DynamicType || (t is InterfaceType && t.isDartCoreObject)) {
       return 'Plain(AnyType())';
@@ -1138,7 +1162,9 @@ final class _Emitter {
     if (t is InterfaceType && _jsonClass(t.element)) {
       final name = t.element.displayName;
       final named = _nameOf(t.element) ?? name;
-      final helper = '_\$$_c${name}ToJson';
+      // By the name as said here: two classes of one name, by two
+      // prefixes, have each its own.
+      final helper = '_\$$_c${named.replaceAll('.', r'$')}ToJson';
       if (_jsonHelpers.add(helper)) {
         _helpers
           ..writeln()
