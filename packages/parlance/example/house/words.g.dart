@@ -8,7 +8,7 @@ part of 'words.dart';
 
 /// The states of [House].
 enum HouseState<T> implements IStateWord<T> {
-  light<bool>('house.light.on', Plain(BoolType()), key: room),
+  light<bool>('house.light.on', Plain(BoolType()), key: 'room'),
   heat<num>('house.heat.target', Plain(NumType(min: 10, max: 28))),
   mode<Mode>('house.mode', EnumShape(Mode.values)),
   locked<bool>('house.door.locked', Plain(BoolType()));
@@ -27,7 +27,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   setLight<HouseSetLight, void>(
     'house.light.set',
     RecordShape<HouseSetLight>(
-      {'room': Part(Plain(RefType(room))), 'on': Part(Plain(BoolType()))},
+      {'room': Part(Plain(RefType('room'))), 'on': Part(Plain(BoolType()))},
       to: _$HouseSetLightTo,
       from: _$HouseSetLightFrom,
       get: _$HouseSetLightAt,
@@ -122,6 +122,12 @@ enum HouseFact<T> implements IFactWord<T> {
   final String name;
   @override
   final Shape<T> shape;
+}
+
+/// The kinds of choices [House] speaks of: what an owner gives by
+/// `choices(HouseKind.room, ...)`.
+abstract final class HouseKind {
+  static const String room = 'room';
 }
 
 /// The owner base of [House]: it defines every word, keeps what

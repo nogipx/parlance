@@ -42,16 +42,14 @@ abstract final class Who {
   });
 }
 
-/// The entity kind of rooms.
-const room = 'room';
-
 enum Mode { home, away, night }
 
-/// The house's words, in its one vocabulary.
-@Vocabulary('house')
+/// The house's words, in its one vocabulary; its rooms are what it
+/// speaks of, keys and refs, for an agent or an editor to choose from.
+@Vocabulary('house', kinds: ['room'])
 abstract class House {
   /// Whether a room's light is on, by room.
-  @StateWord(name: 'light.on', key: room)
+  @StateWord(name: 'light.on', key: 'room')
   bool get light;
 
   /// The heating's target, °C.
@@ -67,7 +65,7 @@ abstract class House {
 
   /// Anyone may light a room; a guest's call is shown in an editor.
   @CommandWord(name: 'light.set', callers: Who.anyone)
-  void setLight({@Ref(room) required String room, required bool on});
+  void setLight({@Ref('room') required String room, required bool on});
 
   @CommandWord(name: 'heat.set')
   void setHeat({@Range(min: 10, max: 28) required num target});

@@ -93,6 +93,12 @@ enum BoardFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
+/// The kinds of choices [Board] speaks of: what an owner gives by
+/// `choices(BoardKind.note, ...)`.
+abstract final class BoardKind {
+  static const String note = 'note';
+}
+
 /// The owner base of [Board]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
 /// by a method of its params, and serves each command and

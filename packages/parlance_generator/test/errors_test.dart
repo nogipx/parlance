@@ -15,7 +15,11 @@ void main() {
             .readAsStringSync(),
   };
 
-  Future<List<String>> errorsOf(String body, [String top = '']) async {
+  Future<List<String>> errorsOf(
+    String body, [
+    String top = '',
+    String vocabulary = "@Vocabulary('orders')",
+  ]) async {
     final logs = <String>[];
     await testBuilder(
       parlanceBuilder(BuilderOptions.empty),
@@ -29,7 +33,7 @@ part 'words.g.dart';
 
 $top
 
-@Vocabulary('orders')
+$vocabulary
 abstract class Orders {
 $body
 }
@@ -108,6 +112,34 @@ $body
       expect(logs.join('\n'), contains(says));
     });
   }
+
+  test('it refuses a kind its vocabulary does not say, saying how', () async {
+    final logs = await errorsOf(
+      "@CommandWord() void go({@Ref('room') required String room});",
+    );
+    expect(
+      logs.join('\n'),
+      contains(
+        "room names the kind room, which Orders does not say: "
+        "@Vocabulary('orders', kinds: ['room'])",
+      ),
+    );
+  });
+
+  test('it refuses a kind said twice, or no name', () async {
+    final twice = await errorsOf(
+      '@StateWord() int get total;',
+      '',
+      "@Vocabulary('orders', kinds: ['room', 'room'])",
+    );
+    expect(twice.join('\n'), contains('kind room is said twice'));
+    final bad = await errorsOf(
+      '@StateWord() int get total;',
+      '',
+      "@Vocabulary('orders', kinds: ['a.b'])",
+    );
+    expect(bad.join('\n'), contains('kind "a.b" is no name'));
+  });
 
   test('it refuses an enum with two fallbacks', () async {
     final logs = await errorsOf(

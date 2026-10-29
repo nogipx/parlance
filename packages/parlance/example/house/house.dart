@@ -39,7 +39,10 @@ final class Home extends HouseOwnerBase {
   Home(this.devices) {
     // The rooms there are, for an agent or an editor to choose from; one
     // that goes, goes of the lights too.
-    choices(room, () => [for (final id in devices.lights.keys) Choice(id)]);
+    choices(
+      HouseKind.room,
+      () => [for (final id in devices.lights.keys) Choice(id)],
+    );
     // What the devices say now: the house's devices are its model, so it
     // follows them, as one tick with its group; when a device changed by
     // hand too, so nobody has to call `sync` on its participant.

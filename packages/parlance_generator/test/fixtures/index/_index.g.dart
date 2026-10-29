@@ -19,6 +19,12 @@ enum DoorsState<T> implements IStateWord<T> {
   final String? key;
 }
 
+/// The kinds of choices [Doors] speaks of: what an owner gives by
+/// `choices(DoorsKind.door, ...)`.
+abstract final class DoorsKind {
+  static const String door = 'door';
+}
+
 /// The owner base of [Doors]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
 /// by a method of its params, and serves each command and

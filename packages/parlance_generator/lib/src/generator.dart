@@ -80,6 +80,11 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
       vocabulary,
       owner: annotation.peek('owner')?.boolValue ?? true,
       client: annotation.peek('client')?.boolValue ?? true,
+      kinds: [
+        for (final k
+            in annotation.peek('kinds')?.listValue ?? const <DartObject>[])
+          k.toStringValue()!,
+      ],
       recordFields: await _recordFields(element, buildStep.resolver),
       shared: shared,
       from: await _from(buildStep),
@@ -228,6 +233,7 @@ final class _Emitter {
     this.vocabulary, {
     required this.owner,
     required this.client,
+    required this.kinds,
     required this.recordFields,
     required this.shared,
     required this.from,
@@ -248,6 +254,15 @@ final class _Emitter {
   final String vocabulary;
   final bool owner;
   final bool client;
+
+  /// The kinds of choices it speaks of (`@Vocabulary(kinds:)`), and where
+  /// its words first name each.
+  final List<String> kinds;
+  final Map<String, Element> _kindsNamed = {};
+
+  /// [kind], named by [on] as a key or a ref: one of [kinds].
+  void _named(String kind, Element on) =>
+      _kindsNamed.putIfAbsent(kind, () => on);
 
   String get _c => cls.name!;
 
@@ -361,6 +376,11 @@ final class _Emitter {
       out.write(_callablesEnum('${_c}Query', 'IQueryWord', queries));
     }
     if (facts.isNotEmpty) out.write(_factsEnum(facts));
+    for (final s in states) {
+      if (s.key case final k?) _named(k, s.element);
+    }
+    _checkKinds();
+    if (kinds.isNotEmpty) out.write(_kindsOf());
     if (owner) out.write(_ownerBase(states, commands, queries, facts));
     if (client) out.write(_clientOf(states, commands, queries, facts));
     out
@@ -729,6 +749,51 @@ final class _Emitter {
   String _keyParam(String kind) {
     final parts = kind.split(RegExp('[._-]'));
     return parts.first + parts.skip(1).map(_pascal).join();
+  }
+
+  /// Every kind its words name is one it says, each said once and a name.
+  void _checkKinds() {
+    final said = <String>{};
+    for (final k in kinds) {
+      if (!isValidName(k) || k.contains('.')) {
+        throw InvalidGenerationSourceError(
+          '@Vocabulary: kind "$k" is no name: one word, $_nameRule',
+          element: cls,
+        );
+      }
+      if (!said.add(k)) {
+        throw InvalidGenerationSourceError(
+          '@Vocabulary: kind $k is said twice',
+          element: cls,
+        );
+      }
+    }
+    for (final MapEntry(key: k, value: on) in _kindsNamed.entries) {
+      if (said.contains(k)) continue;
+      throw InvalidGenerationSourceError(
+        '${on.displayName} names the kind $k, which $_c does not say: '
+        "@Vocabulary('$vocabulary', kinds: [${[...kinds, k].map((x) => "'$x'").join(', ')}])",
+        element: on,
+      );
+    }
+  }
+
+  /// `<Class>Kind`: a constant of each kind it says, for the owner that
+  /// gives its choices.
+  String _kindsOf() {
+    final out = StringBuffer()
+      ..writeln(
+        '/// The kinds of choices [$_c] speaks of: what an owner gives by',
+      )
+      ..writeln('/// `choices(${_c}Kind.${_keyParam(kinds.first)}, ...)`.')
+      ..writeln('abstract final class ${_c}Kind {');
+    for (final k in kinds) {
+      out.writeln('  static const String ${_keyParam(k)} = ${_quote(k)};');
+    }
+    out
+      ..writeln('}')
+      ..writeln();
+    return out.toString();
   }
 
   /// The names an owner base has besides its words: what every Dart
@@ -1219,6 +1284,7 @@ final class _Emitter {
     if (t.isDartCoreString) {
       if (ref != null) {
         final kind = ConstantReader(ref).read('kind');
+        _named(kind.stringValue, on);
         return 'Plain(RefType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
       }
       return 'Plain(TextType(${max == null ? '' : 'maxLength: $max'}))';

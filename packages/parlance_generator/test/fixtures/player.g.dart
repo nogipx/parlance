@@ -205,6 +205,12 @@ enum PlayerFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
+/// The kinds of choices [Player] speaks of: what an owner gives by
+/// `choices(PlayerKind.speaker, ...)`.
+abstract final class PlayerKind {
+  static const String speaker = 'speaker';
+}
+
 /// The owner base of [Player]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
 /// by a method of its params, and serves each command and
