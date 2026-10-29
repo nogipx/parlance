@@ -14,7 +14,8 @@ dependencies:
   # real host loads their WASM and hands each its endpoint.
   board_guest: any
   notes_guest: any
+  # What the demo asks of the notes guest's words.
+  notes_words: any
 
 dev_dependencies:
-  notes_words: any
   test: ^1.25.0

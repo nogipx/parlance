@@ -58,7 +58,7 @@ void main() {
             await Future<void>.delayed(Duration.zero);
             after.set(2);
             said.emit(3);
-            await p.call('deck.inner', {});
+            await p.raw.call('deck.inner', {});
           },
         );
         await settled(p);

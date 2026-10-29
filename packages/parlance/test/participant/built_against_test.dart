@@ -119,7 +119,7 @@ void main() {
       test('a word defined otherwise than a part was built against is told, '
           'saying where', () async {
         final b = await asGuest();
-        b.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values);
         await settled(b);
         expect(host.registry.mismatches, isEmpty, reason: 'nothing there yet');
         owner().state(Now.volume).define();
@@ -134,7 +134,7 @@ void main() {
           'tells it', () async {
         owner().state(Now.volume).define();
         final b = await asGuest();
-        b.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values);
         await settled(b);
         expect(host.registry.mismatches, [
           const Mismatch(guest, 'deck.volume', higher),
@@ -145,7 +145,7 @@ void main() {
         final o = owner();
         final now = o.state(Now.volume).define();
         final b = await asGuest();
-        b.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values);
         await settled(b);
         now.dispose();
         o.state(Built.volume).define();
@@ -157,7 +157,7 @@ void main() {
       test('told again, it is told once', () async {
         owner().state(Now.volume).define();
         final b = await asGuest();
-        b
+        b.raw
           ..builtAgainst(Built.values)
           ..builtAgainst(Built.values)
           ..builtAgainst([Built.volume]);
@@ -168,7 +168,7 @@ void main() {
       test('a part that goes takes what it was built against', () async {
         owner().state(Now.volume).define();
         final b = await asGuest();
-        b.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values);
         await settled(b);
         if (b is RemoteParticipant) {
           await b.close();
@@ -183,7 +183,7 @@ void main() {
       test('a part of it is told as itself', () async {
         owner().state(Now.volume).define();
         final b = await asGuest();
-        b.child('screen').builtAgainst(Built.values);
+        b.child('screen').raw.builtAgainst(Built.values);
         await settled(b);
         expect(host.registry.mismatches, [
           Mismatch(guest.child('screen'), 'deck.volume', higher),
@@ -205,11 +205,11 @@ void main() {
     final a = await joined(guest);
     final b = await joined(const Principal('widlet', 'c'));
     host.registry.mismatchChanges.listen((m) => seen.add(m.toJson()));
-    a.builtAgainst(Built.values, from: 'deck_words 1.2.0');
+    a.raw.builtAgainst(Built.values, from: 'deck_words 1.2.0');
     await (a as RemoteParticipant).flush();
     final print = fingerprintOf(schemaOf([Built.volume])['deck.volume']);
     expect(host.registry.knownSchema(print), isNotNull);
-    b.builtAgainst(Built.values, from: 'deck_words 1.2.0');
+    b.raw.builtAgainst(Built.values, from: 'deck_words 1.2.0');
     await (b as RemoteParticipant).flush();
     await pumpEventQueue();
     expect(host.registry.mismatches, [

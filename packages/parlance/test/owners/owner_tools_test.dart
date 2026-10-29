@@ -32,7 +32,10 @@ final class _Device {
 
 final class _Lamp implements IOwner {
   _Lamp(this.device) {
-    IOwner.made(this, define: (p) => _level = p.state(_State.level).define());
+    IOwner.made(
+      this,
+      define: (p) => _level = GeneratedWords.of(p).state(_State.level).define(),
+    );
     follow(() {
       pulls++;
       _level.set(device.level);
@@ -85,7 +88,7 @@ void main() {
     expect(lamp.order, ['attached']);
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
-    expect(p.read('lamp.level'), 3);
+    expect(GeneratedWords.of(p).state(_State.level).read(), 3);
     expect(r.registry.hasKind('bulb'), isTrue);
   });
 
@@ -100,7 +103,7 @@ void main() {
       ..turn(6);
     await p.settle();
     expect(lamp.pulls, 3);
-    expect(p.read('lamp.level'), 6);
+    expect(GeneratedWords.of(p).state(_State.level).read(), 6);
   });
 
   test('a follow said once attached runs at once', () async {

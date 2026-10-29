@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart' show Clock;
 
 import '../registry/cause.dart';
+import '../registry/compat.dart' show WordBreak;
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
@@ -95,7 +96,7 @@ final class WordAccess {
 /// it. Frozen (`schema.dart`): what it shows is never taken away; only the
 /// library makes one, so it may grow. Not to be implemented: a test gives
 /// a stand-in of a client (`I<Class>Client`), not of this.
-abstract interface class IParticipant implements IRegistryView, IHandle {
+abstract interface class IParticipant implements IHandle {
   /// Who it speaks as.
   Principal get who;
 
@@ -140,7 +141,7 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
 /// name and descriptor, beside its typed words. Every participant the
 /// library makes is one ([IParticipantRaw.raw]). Not frozen: it changes
 /// as the library does.
-abstract interface class IRawParticipant implements IParticipant {
+abstract interface class IRawParticipant implements IParticipant, IRegistryView {
   /// The catalog as it sees it (SPEC §22): the words, what it may call and
   /// read, what cannot run now; what an agent or an editor shows of it.
   Future<Map<String, Object?>> describe();
@@ -263,8 +264,42 @@ extension IParticipantRaw on IParticipant {
   IRawParticipant get raw => this as IRawParticipant;
 }
 
+/// The one door generated code reaches the words by (SPEC §23): the owner
+/// base defines and serves through it, the client reads, watches, calls
+/// and hears. It is the generator's contract, frozen with `schema.dart`,
+/// and not a way to write by hand: a part uses a client, an owner its
+/// base.
+extension type GeneratedWords._(IRawParticipant _p) {
+  /// The words through [participant].
+  static GeneratedWords of(IParticipant participant) =>
+      GeneratedWords._(participant.raw);
+
+  ParticipantStateOf<T> state<T>(IStateWord<T> word) => _p.state(word);
+  ParticipantCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
+      _p.command(word);
+  ParticipantFactOf<T> fact<T>(IFactWord<T> word) => _p.fact(word);
+  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
+      _p.query(word);
+
+  /// Tells the registry the code was built against [words] (SPEC §6.9).
+  void builtAgainst(Iterable<IWord> words, {String? from}) =>
+      _p.builtAgainst(words, from: from);
+
+  /// Whether [word] is there now, as this code was built against it.
+  WordStatus status(IWord word) => wordStatus(_p, word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(_p, word);
+
+  /// Each of [words] there but not as this code was built against.
+  Map<String, List<WordBreak>> mismatches(Iterable<IWord> words) =>
+      wordMismatches(_p, words);
+}
+
 /// A participant through typed words (SPEC §18): the word fixes the types.
-extension TypedParticipant on IParticipant {
+/// The library's and its tools'; generated code reaches it through
+/// [GeneratedWords].
+extension TypedParticipant on IRawParticipant {
   ParticipantStateOf<T> state<T>(IStateWord<T> word) =>
       ParticipantStateOf._(this, word);
   ParticipantCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
@@ -279,7 +314,7 @@ extension TypedParticipant on IParticipant {
 final class ParticipantQueryOf<P, R> {
   ParticipantQueryOf._(this.participant, this.word);
 
-  final IParticipant participant;
+  final IRawParticipant participant;
   final IQueryWord<P, R> word;
 
   /// Defines it as the participant's own, answered by [handler] of its
@@ -312,7 +347,7 @@ final class ParticipantQueryOf<P, R> {
 final class ParticipantStateOf<T> {
   ParticipantStateOf._(this.participant, this.word);
 
-  final IParticipant participant;
+  final IRawParticipant participant;
   final IStateWord<T> word;
 
   /// Defines it as the participant's own.
@@ -378,7 +413,7 @@ final class _ParticipantReader<T> implements IStateReader<T> {
 final class ParticipantCommandOf<P, R> {
   ParticipantCommandOf._(this.participant, this.word);
 
-  final IParticipant participant;
+  final IRawParticipant participant;
   final ICommandWord<P, R> word;
 
   /// Defines it as the participant's own (SPEC §6.2), served by [handler]
@@ -430,7 +465,7 @@ final class _ParticipantCaller<P, R> implements ICommandCaller<P, R> {
 final class ParticipantFactOf<T> {
   ParticipantFactOf._(this.participant, this.word);
 
-  final IParticipant participant;
+  final IRawParticipant participant;
   final IFactWord<T> word;
 
   /// Defines it as the participant's own.

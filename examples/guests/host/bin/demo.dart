@@ -9,6 +9,7 @@ import 'package:board_guest/board_guest.dart';
 import 'package:guests_host/host.dart';
 import 'package:guests_host/in_memory.dart';
 import 'package:notes_guest/notes_guest.dart';
+import 'package:notes_words/notes_words.dart';
 
 Future<void> main() async {
   final host = Shell();
@@ -23,7 +24,10 @@ Future<void> main() async {
 
   host.unload('notes');
   await board.settle();
-  print('notes unloaded: notes.add is ${board.status('notes.add')}');
+  print(
+    'notes unloaded: notes.add is '
+    '${NotesClient(board).status(NotesCommand.add)}',
+  );
 
   await b.close();
   await host.dispose();

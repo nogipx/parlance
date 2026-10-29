@@ -23,7 +23,7 @@ void main() {
       'bob, a guest, sets the heating: refused (notPermitted)',
       'ann lights a room there is not: refused (invalidParams)',
       'for bob: house.heat.set notPermitted, house.light.set ready, '
-          'garage.open missing',
+          'visit.guests missing',
       'an agent unlocks at night: refused (denied by house@devices#night-door)',
       'ann unlocks at night: done',
       'rooms lit, asked by bob: [kitchen]',
@@ -36,8 +36,7 @@ void main() {
       'after the visit: visit.guests missing',
       'the phone sets the heating: done',
       'the phone sees: 22 °C, mode home',
-      'the phone sets 40 °C: target: above 28',
-      'rings it can see: [bob]',
+      'the phone sets 40 °C: refused (invalidParams): target: above 28',
       'fact house.doorbell.rang by guest/bob, '
           'started by house.doorbell.rang by guest/bob\n'
           '  write visit.guests by module/visit@book, '

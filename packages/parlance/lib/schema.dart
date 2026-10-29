@@ -15,7 +15,7 @@ library;
 export 'src/core/core.dart' show IHandle;
 export 'src/participant/owner.dart'
     show IOwner, OwnerTools, Choice, failCall, CallFailure;
-export 'src/participant/participant.dart' show IParticipant, TypedParticipant;
+export 'src/participant/participant.dart' show IParticipant, GeneratedWords;
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/ids.dart' show newId;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
@@ -84,10 +84,3 @@ export 'src/registry/words.dart'
         CallNotDone;
 export 'src/schema/annotations.dart';
 export 'src/schema/schema.dart';
-export 'src/view/view.dart'
-    show
-        IRegistryView,
-        TypedView,
-        wordStatus,
-        wordStatusChanges,
-        wordMismatches;

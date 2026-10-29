@@ -100,7 +100,8 @@ abstract class NotesOwnerBase implements IOwner {
     }
   }
 
-  void _$define(IParticipant p) {
+  void _$define(IParticipant participant) {
+    final p = GeneratedWords.of(participant);
     _$all = p.state(NotesState.all).define();
     _$added = p.fact(NotesFact.added).define();
     p.command(NotesCommand.add).serve((x) => add(text: x.text));
@@ -127,7 +128,7 @@ abstract class NotesOwnerBase implements IOwner {
 
 /// The words of [Notes] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [NotesClient] is them over a view.
+/// place. [NotesClient] is them over a participant.
 abstract interface class INotesClient {
   /// notes.all now.
   List<Note>? get all;
@@ -142,50 +143,52 @@ abstract interface class INotesClient {
   Stream<({String id, String text})> get added;
 }
 
-/// The words of [Notes] through a view: its participant, a
-/// `LocalView`, a `MirrorView`. Made, it tells the registry
-/// the code was built against them, for it to say where one
-/// is defined otherwise (SPEC §6.9).
+/// The words of [Notes] through a participant, here or across
+/// a connection. Made, it tells the registry the code was
+/// built against them, for it to say where one is defined
+/// otherwise (SPEC §6.9).
 final class NotesClient implements INotesClient {
-  NotesClient(this.view) {
-    view.builtAgainst(notesWords.words, from: notesWords.from);
+  NotesClient(IParticipant participant)
+    : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
-  final IRegistryView view;
+  final GeneratedWords _$words;
 
   @override
-  List<Note>? get all => view.state(NotesState.all).read();
+  List<Note>? get all => _$words.state(NotesState.all).read();
 
   @override
-  Stream<List<Note>?> get allChanges => view.state(NotesState.all).watch();
+  Stream<List<Note>?> get allChanges => _$words.state(NotesState.all).watch();
 
   @override
   Future<void> add({required String text}) async {
-    final r = await view.command(NotesCommand.add).call((text: text));
+    final r = await _$words.command(NotesCommand.add).call((text: text));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Stream<({String id, String text})> get added =>
-      view.fact(NotesFact.added).stream.map((f) => f.payload);
+      _$words.fact(NotesFact.added).stream.map((f) => f.payload);
 
-  /// Whether [word] is there for the view now, as this code was built
+  /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
-  WordStatus status(IWord word) => wordStatus(view, word);
+  WordStatus status(IWord word) => _$words.status(word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+  Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
   /// Each word of [Notes] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
   Map<String, List<WordBreak>> get mismatches =>
-      wordMismatches(view, notesWords.words);
+      _$words.mismatches(notesWords.words);
 
   /// notes.added, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
-  Stream<Fact<NotesAdded>> get addedFacts => view.fact(NotesFact.added).stream;
+  Stream<Fact<NotesAdded>> get addedFacts =>
+      _$words.fact(NotesFact.added).stream;
 }
 
 /// The vocabulary of [Notes]: its name and every word, for

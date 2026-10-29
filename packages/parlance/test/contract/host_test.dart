@@ -25,7 +25,7 @@ final class _Echo implements IOwner {
   _Echo() {
     IOwner.made(
       this,
-      define: (p) => p
+      define: (p) => GeneratedWords.of(p)
           .command(_Command.ping)
           .serve(
             (_) => 'pong to ${caller!.kind}',
@@ -61,7 +61,7 @@ void main() {
 
         final user = host.participant(const Principal('user', 'ann'));
         await user.settle();
-        final r = await user.command(_Command.ping).call(());
+        final r = await GeneratedWords.of(user).command(_Command.ping).call(());
         expect((r as CallDone<String>).value, 'pong to user');
 
         var ended = false;
@@ -69,7 +69,10 @@ void main() {
         await atGuest.close();
         await session.ended.timeout(const Duration(seconds: 2));
         expect(ended, isTrue);
-        expect(user.status('echo.ping'), isA<WordMissing>());
+        expect(
+          GeneratedWords.of(user).status(_Command.ping),
+          isA<WordMissing>(),
+        );
         guest.dispose();
         await atHost.close();
       },

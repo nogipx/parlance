@@ -284,7 +284,8 @@ abstract class PlayerOwnerBase implements IOwner {
     }
   }
 
-  void _$define(IParticipant p) {
+  void _$define(IParticipant participant) {
+    final p = GeneratedWords.of(participant);
     _$volume = p
         .state(PlayerState.volume)
         .define(
@@ -373,7 +374,7 @@ abstract class PlayerOwnerBase implements IOwner {
 
 /// The words of [Player] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [PlayerClient] is them over a view.
+/// place. [PlayerClient] is them over a participant.
 abstract interface class IPlayerClient {
   /// player.volume now.
   int? get volume;
@@ -428,53 +429,56 @@ abstract interface class IPlayerClient {
   Stream<Track> get finished;
 }
 
-/// The words of [Player] through a view: its participant, a
-/// `LocalView`, a `MirrorView`. Made, it tells the registry
-/// the code was built against them, for it to say where one
-/// is defined otherwise (SPEC §6.9).
+/// The words of [Player] through a participant, here or across
+/// a connection. Made, it tells the registry the code was
+/// built against them, for it to say where one is defined
+/// otherwise (SPEC §6.9).
 final class PlayerClient implements IPlayerClient {
-  PlayerClient(this.view) {
-    view.builtAgainst(playerWords.words, from: playerWords.from);
+  PlayerClient(IParticipant participant)
+    : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
-  final IRegistryView view;
+  final GeneratedWords _$words;
 
   @override
-  int? get volume => view.state(PlayerState.volume).read();
+  int? get volume => _$words.state(PlayerState.volume).read();
 
   @override
-  Stream<int?> get volumeChanges => view.state(PlayerState.volume).watch();
+  Stream<int?> get volumeChanges => _$words.state(PlayerState.volume).watch();
 
   @override
-  Repeat? get repeat => view.state(PlayerState.repeat).read();
+  Repeat? get repeat => _$words.state(PlayerState.repeat).read();
 
   @override
-  Stream<Repeat?> get repeatChanges => view.state(PlayerState.repeat).watch();
+  Stream<Repeat?> get repeatChanges =>
+      _$words.state(PlayerState.repeat).watch();
 
   @override
-  Track? get playing => view.state(PlayerState.playing).read();
+  Track? get playing => _$words.state(PlayerState.playing).read();
 
   @override
-  Stream<Track?> get playingChanges => view.state(PlayerState.playing).watch();
+  Stream<Track?> get playingChanges =>
+      _$words.state(PlayerState.playing).watch();
 
   @override
   num? speakerLevelOf(String speaker) =>
-      view.state(PlayerState.speakerLevel).read(key: speaker);
+      _$words.state(PlayerState.speakerLevel).read(key: speaker);
 
   @override
   Map<String, num> get speakerLevelAll => {
     for (final MapEntry(:key, :value)
-        in view.state(PlayerState.speakerLevel).readAll().entries)
+        in _$words.state(PlayerState.speakerLevel).readAll().entries)
       ?key: value,
   };
 
   @override
   Stream<num?> speakerLevelChanges(String speaker) =>
-      view.state(PlayerState.speakerLevel).watch(key: speaker);
+      _$words.state(PlayerState.speakerLevel).watch(key: speaker);
 
   @override
   Future<void> setVolume({required int volume}) async {
-    final r = await view.command(PlayerCommand.setVolume).call((
+    final r = await _$words.command(PlayerCommand.setVolume).call((
       volume: volume,
     ));
     if (r case CallDone(:final value)) return value;
@@ -487,7 +491,7 @@ final class PlayerClient implements IPlayerClient {
     Repeat repeat = Repeat.off,
     String? on,
   }) async {
-    final r = await view.command(PlayerCommand.play).call((
+    final r = await _$words.command(PlayerCommand.play).call((
       track: track,
       repeat: repeat,
       on: on,
@@ -498,21 +502,21 @@ final class PlayerClient implements IPlayerClient {
 
   @override
   Future<int> skip({int count = 1}) async {
-    final r = await view.command(PlayerCommand.skip).call((count: count));
+    final r = await _$words.command(PlayerCommand.skip).call((count: count));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Future<void> stop() async {
-    final r = await view.command(PlayerCommand.stop).call(());
+    final r = await _$words.command(PlayerCommand.stop).call(());
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Future<List<Track>> search({required String text, int? limit}) async {
-    final r = await view.query(PlayerQuery.search).ask((
+    final r = await _$words.query(PlayerQuery.search).ask((
       text: text,
       limit: limit,
     ));
@@ -522,34 +526,34 @@ final class PlayerClient implements IPlayerClient {
 
   @override
   Stream<({int volume})> get clipped =>
-      view.fact(PlayerFact.clipped).stream.map((f) => f.payload);
+      _$words.fact(PlayerFact.clipped).stream.map((f) => f.payload);
 
   @override
   Stream<Track> get finished =>
-      view.fact(PlayerFact.finished).stream.map((f) => f.payload);
+      _$words.fact(PlayerFact.finished).stream.map((f) => f.payload);
 
-  /// Whether [word] is there for the view now, as this code was built
+  /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
-  WordStatus status(IWord word) => wordStatus(view, word);
+  WordStatus status(IWord word) => _$words.status(word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+  Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
   /// Each word of [Player] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
   Map<String, List<WordBreak>> get mismatches =>
-      wordMismatches(view, playerWords.words);
+      _$words.mismatches(playerWords.words);
 
   /// player.clipped, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<PlayerClipped>> get clippedFacts =>
-      view.fact(PlayerFact.clipped).stream;
+      _$words.fact(PlayerFact.clipped).stream;
 
   /// player.finished, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<Track>> get finishedFacts =>
-      view.fact(PlayerFact.finished).stream;
+      _$words.fact(PlayerFact.finished).stream;
 }
 
 /// The vocabulary of [Player]: its name and every word, for

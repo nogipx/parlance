@@ -6,7 +6,8 @@ import 'package:guests_host/in_memory.dart';
 import 'package:notes_guest/notes_guest.dart';
 import 'package:notes_words/notes_words.dart';
 import 'package:parlance/app.dart';
-import 'package:parlance/participant.dart' show IParticipantRaw;
+import 'package:parlance/participant.dart'
+    show IParticipantRaw, TypedParticipant;
 import 'package:parlance/registry.dart' show CommandDescriptor, StateDescriptor;
 import 'package:test/test.dart';
 
@@ -110,13 +111,13 @@ void main() {
   test('a guest that goes takes its words; one that comes again brings '
       'them, in any order', () async {
     final (p, b) = await board();
-    expect(p.status('notes.add'), const WordMissing());
+    expect(NotesClient(p).status(NotesCommand.add), const WordMissing());
     final notes = await loadInMemory(host, 'notes', startNotes);
     await p.settle();
     expect(NotesClient(p).status(NotesCommand.add), const WordReady());
     host.unload('notes');
     await p.settle();
-    expect(p.status('notes.add'), const WordMissing());
+    expect(NotesClient(p).status(NotesCommand.add), const WordMissing());
     notes.dispose();
     await b.close();
   });
@@ -133,7 +134,7 @@ void main() {
   test('a guest defines in its own vocabulary only', () async {
     final (p, b) = await board();
     expect(
-      () => p.state(NotesState.all).define(),
+      () => p.raw.state(NotesState.all).define(),
       throwsA(isA<NotPermitted>()),
     );
     await b.close();

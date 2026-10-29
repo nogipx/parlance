@@ -51,7 +51,7 @@ void main() {
           reason: 'a name is one word, of whatever kind',
         );
         await settled(p);
-        expect(p.read('deck.lamp'), true);
+        expect(p.raw.read('deck.lamp'), true);
         expect(host.registry.read('deck.lamp'), true);
       });
 

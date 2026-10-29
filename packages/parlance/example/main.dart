@@ -52,20 +52,21 @@ Future<void> main() async {
 
   // Ann and bob act through participants of their own, as every part does:
   // what each may call is what its principal may, and main hands out no
-  // registry to act as anyone.
-  final ann = host.participant(Who.ann);
-  final bob = host.participant(Who.bob);
-  final light = ann.state(HouseState.light);
+  // registry to act as anyone. Each uses the house through its client.
+  final annSide = host.participant(Who.ann);
+  final bobSide = host.participant(Who.bob);
+  final ann = HouseClient(annSide);
+  final bob = HouseClient(bobSide);
 
   // --- 1. Typed calls, and who may make them --------------------------------
 
   section('Typed calls');
-  // The params are the word's record: another command's do not compile.
-  show(
+  // The params are the word's: another command's do not compile.
+  await show(
     'ann turns the kitchen light on',
-    await ann.command(HouseCommand.setLight).call((room: 'kitchen', on: true)),
+    () => ann.setLight(room: 'kitchen', on: true),
   );
-  print('  kitchen light: ${light.read(key: 'kitchen')}');
+  print('  kitchen light: ${ann.lightOf('kitchen')}');
   // Why it is on: on whose behalf the owner wrote it, the message that set
   // it going, and the call it was answering.
   final why = registry.explain(HouseState.light.name, key: 'kitchen');
@@ -77,63 +78,54 @@ Future<void> main() async {
   for (final c in why.trail) {
     print('    answering ${c.command} ${c.params} by ${c.cause.by}');
   }
-  show(
-    'bob, a guest, sets the heating',
-    await bob.command(HouseCommand.setHeat).call((target: 25)),
-  );
-  show(
+  await show('bob, a guest, sets the heating', () => bob.setHeat(target: 25));
+  await show(
     'ann lights a room there is not',
-    await ann.command(HouseCommand.setLight).call((room: 'attic', on: true)),
+    () => ann.setLight(room: 'attic', on: true),
   );
   // Whether a word is there for someone, before calling it: a part shows
   // a missing or a closed word for what it is.
-  final asBob = bob;
   print(
     '  for bob: ${HouseCommand.setHeat.name} '
-    '${asBob.status(HouseCommand.setHeat.name)}, '
+    '${bob.status(HouseCommand.setHeat)}, '
     '${HouseCommand.setLight.name} '
-    '${asBob.status(HouseCommand.setLight.name)}, '
-    'garage.open ${asBob.status('garage.open')}',
+    '${bob.status(HouseCommand.setLight)}, '
+    '${VisitState.guests.name} ${VisitClient(bobSide).status(VisitState.guests)}',
   );
 
   // --- 2. A guard of the house -----------------------------------------------
 
   section('A guard');
-  final setMode = ann.command(HouseCommand.setMode);
-  final lock = ann.command(HouseCommand.lock);
-  await setMode.call((mode: Mode.night));
-  final agent = host.participant(Who.agent('night'));
-  show(
+  await ann.setMode(mode: Mode.night);
+  final agentSide = host.participant(Who.agent('night'));
+  await show(
     'an agent unlocks at night',
-    await agent.command(HouseCommand.lock).call((on: false)),
+    () => HouseClient(agentSide).lock(on: false),
   );
-  show('ann unlocks at night', await lock.call((on: false)));
-  await lock.call((on: true));
-  agent.dispose();
-  await setMode.call((mode: Mode.home));
+  await show('ann unlocks at night', () => ann.lock(on: false));
+  await ann.lock(on: true);
+  agentSide.dispose();
+  await ann.setMode(mode: Mode.home);
 
   // --- 3. A query: a question that changes nothing -----------------------------
 
   section('A query');
   // Asked, not called: it only answers, so asking again is safe, and the
   // registry keeps nothing of it (no call record, no id held).
-  final rooms = bob.query(HouseQuery.rooms);
-  final lit = await rooms.ask((lit: true));
-  print('  rooms lit, asked by bob: ${(lit as CallDone<List<String>>).value}');
-  final dark = await rooms.ask((lit: false));
-  print('  and dark: ${(dark as CallDone<List<String>>).value}');
+  print('  rooms lit, asked by bob: ${await bob.rooms(lit: true)}');
+  print('  and dark: ${await bob.rooms(lit: false)}');
 
   // --- 4. A switch flipped by hand ---------------------------------------------
 
   section('By hand');
   // Nobody called a command: the device changed, and the owner is synced
   // because it said where its changes come from.
-  final before = light.read(key: 'kitchen');
+  final before = ann.lightOf('kitchen');
   devices.flip('kitchen');
-  await ann.settle();
+  await annSide.settle();
   print(
     '  the kitchen switch flipped by hand: '
-    'from $before to ${light.read(key: 'kitchen')}',
+    'from $before to ${ann.lightOf('kitchen')}',
   );
 
   // --- 5. A module beside the house, as a scope ----------------------------
@@ -147,22 +139,18 @@ Future<void> main() async {
     access: const WordAccess(call: Who.household),
   );
   visitSide.attach({'book': GuestBook()});
-  await ann.settle();
-  print(
-    '  during the visit: visit.guests ${asBob.status(VisitState.guests.name)}',
-  );
+  await annSide.settle();
+  final visit = VisitClient(annSide);
+  print('  during the visit: visit.guests ${visit.status(VisitState.guests)}');
   house.ring(Who.bob, 'bob');
-  await ann.settle();
-  final guests = ann.state(VisitState.guests);
-  print('  guests: ${guests.read()}');
+  await annSide.settle();
+  print('  guests: ${visit.guests}');
   // The guest book wrote it, answering the ring: nobody passed where it
   // started, the registry gives it from the fact the book followed.
   final booked = registry.lastChange(VisitState.guests.name)!.cause;
   print('  written by ${booked.by}, started by ${booked.origin}');
   visitSide.dispose();
-  print(
-    '  after the visit: visit.guests ${asBob.status(VisitState.guests.name)}',
-  );
+  print('  after the visit: visit.guests ${visit.status(VisitState.guests)}');
 
   // --- 6. A phone that joins over remote ------------------------------------
 
@@ -171,8 +159,8 @@ Future<void> main() async {
   // house opens a session for it and says who it is; it reads what it
   // watches.
   final phone = await Phone.join(host, Who.phone('ann-phone'));
-  // It knows the house through the client made from House: getters and
-  // streams for states, methods for commands, no word or record in sight.
+  // It knows the house through the same client: getters and streams for
+  // states, methods for commands, no word or record in sight.
   final IHouseClient home = HouseClient(phone.part);
   final heats = home.heatChanges.listen((_) {});
   final modes = home.modeChanges.listen((_) {});
@@ -180,13 +168,7 @@ Future<void> main() async {
   print('  the phone sets the heating: done');
   // A call answers once the phone's copy has what it wrote.
   print('  the phone sees: ${home.heat} °C, mode ${home.mode?.name}');
-  try {
-    await home.setHeat(target: 40);
-  } on CallNotDone catch (e) {
-    print('  the phone sets 40 °C: ${e.result.whyNot}');
-  }
-  final rings = await phone.part.fact(HouseFact.rang).recent(5);
-  print('  rings it can see: ${[for (final f in rings) f.payload.who]}');
+  await show('the phone sets 40 °C', () => home.setHeat(target: 40));
   await heats.cancel();
   await modes.cancel();
   await phone.close();
@@ -206,8 +188,8 @@ Future<void> main() async {
   print('  in all: ${journal.length} entries, ${talks.length} conversations');
   await journaling.cancel();
 
-  ann.dispose();
-  bob.dispose();
+  annSide.dispose();
+  bobSide.dispose();
   houseSide.dispose();
   await host.dispose();
 }
@@ -250,12 +232,17 @@ void section(String title) => print('\n$title');
 
 /// What a call came to, in a line: a refusal with its code and guard, any
 /// other end in the result's own words.
-void show(String what, CallResult<Object?> r) => print(
-  '  $what: ${switch (r) {
-    CallDone() => 'done',
-    CallRefused(:final code, :final guard) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}): ${r.whyNot}',
-    _ => r.whyNot,
-  }}',
-);
-
-/// Lets remote and the owner's own changes work through what was just done.
+Future<void> show(String what, Future<void> Function() call) async {
+  try {
+    await call();
+    print('  $what: done');
+  } on CallNotDone catch (e) {
+    final r = e.result;
+    print(
+      '  $what: ${switch (r) {
+        CallRefused(:final code, :final guard) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}): ${r.whyNot}',
+        _ => r.whyNot,
+      }}',
+    );
+  }
+}

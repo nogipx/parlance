@@ -143,7 +143,8 @@ abstract class BoardOwnerBase implements IOwner {
     }
   }
 
-  void _$define(IParticipant p) {
+  void _$define(IParticipant participant) {
+    final p = GeneratedWords.of(participant);
     Keyed.attach(notes, p.state(BoardState.notes).define());
     _$anything = p.state(BoardState.anything).define();
     _$seen = p.fact(BoardFact.seen).define();
@@ -180,7 +181,7 @@ abstract class BoardOwnerBase implements IOwner {
 
 /// The words of [Board] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [BoardClient] is them over a view.
+/// place. [BoardClient] is them over a participant.
 abstract interface class IBoardClient {
   /// note of [note] now.
   Note? notesOf(String note);
@@ -213,86 +214,92 @@ abstract interface class IBoardClient {
   Stream<Note> get seen;
 }
 
-/// The words of [Board] through a view: its participant, a
-/// `LocalView`, a `MirrorView`. Made, it tells the registry
-/// the code was built against them, for it to say where one
-/// is defined otherwise (SPEC §6.9).
+/// The words of [Board] through a participant, here or across
+/// a connection. Made, it tells the registry the code was
+/// built against them, for it to say where one is defined
+/// otherwise (SPEC §6.9).
 final class BoardClient implements IBoardClient {
-  BoardClient(this.view) {
-    view.builtAgainst(boardWords.words, from: boardWords.from);
+  BoardClient(IParticipant participant)
+    : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
-  final IRegistryView view;
+  final GeneratedWords _$words;
 
   @override
-  Note? notesOf(String note) => view.state(BoardState.notes).read(key: note);
+  Note? notesOf(String note) => _$words.state(BoardState.notes).read(key: note);
 
   @override
   Map<String, Note> get notesAll => {
     for (final MapEntry(:key, :value)
-        in view.state(BoardState.notes).readAll().entries)
+        in _$words.state(BoardState.notes).readAll().entries)
       ?key: value,
   };
 
   @override
   Stream<Note?> notesChanges(String note) =>
-      view.state(BoardState.notes).watch(key: note);
+      _$words.state(BoardState.notes).watch(key: note);
 
   @override
-  Object? get anything => view.state(BoardState.anything).read();
+  Object? get anything => _$words.state(BoardState.anything).read();
 
   @override
   Stream<Object?> get anythingChanges =>
-      view.state(BoardState.anything).watch();
+      _$words.state(BoardState.anything).watch();
 
   @override
   Future<({String id})> put({String? id, required Note note}) async {
-    final r = await view.command(BoardCommand.put).call((id: id, note: note));
+    final r = await _$words.command(BoardCommand.put).call((
+      id: id,
+      note: note,
+    ));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Future<void> expire({required String id, required int ms}) async {
-    final r = await view.command(BoardCommand.expire).call((id: id, ms: ms));
+    final r = await _$words.command(BoardCommand.expire).call((id: id, ms: ms));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Future<void> pin({required List<String> ids}) async {
-    final r = await view.command(BoardCommand.pin).call((ids: ids));
+    final r = await _$words.command(BoardCommand.pin).call((ids: ids));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Future<void> count({required int? readers}) async {
-    final r = await view.command(BoardCommand.count).call((readers: readers));
+    final r = await _$words.command(BoardCommand.count).call((
+      readers: readers,
+    ));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
   Stream<Note> get seen =>
-      view.fact(BoardFact.seen).stream.map((f) => f.payload);
+      _$words.fact(BoardFact.seen).stream.map((f) => f.payload);
 
-  /// Whether [word] is there for the view now, as this code was built
+  /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
-  WordStatus status(IWord word) => wordStatus(view, word);
+  WordStatus status(IWord word) => _$words.status(word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+  Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
   /// Each word of [Board] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
   Map<String, List<WordBreak>> get mismatches =>
-      wordMismatches(view, boardWords.words);
+      _$words.mismatches(boardWords.words);
 
   /// note.seen, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
-  Stream<Fact<Note>> get seenFacts => view.fact(BoardFact.seen).stream;
+  Stream<Fact<Note>> get seenFacts => _$words.fact(BoardFact.seen).stream;
 }
 
 /// The vocabulary of [Board]: its name and every word, for

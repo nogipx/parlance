@@ -16,4 +16,7 @@ executables:
   parlance-mcp: parlance_mcp
 
 dev_dependencies:
+  build_runner: ^2.11.1
+  # The example's words are generated.
+  parlance_generator: any
   test: ^1.25.0

@@ -75,8 +75,6 @@ class Details extends StatelessWidget {
             _Field('error', '$error'),
           if (end.result case CallDone(:final value) when value != null)
             _Block('answer', _json.convert(value)),
-          if (end.overridden.isNotEmpty)
-            _Field('overrode', end.overridden.join(', ')),
         ],
         const SizedBox(height: 10),
         _Block('values', _json.convert(values)),

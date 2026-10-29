@@ -65,7 +65,8 @@ abstract class AppOwnerBase implements IOwner {
     value == null ? _$dark?.remove() : _$dark?.set(value);
   }
 
-  void _$define(IParticipant p) {
+  void _$define(IParticipant participant) {
+    final p = GeneratedWords.of(participant);
     _$dark = p.state(AppState.dark).define();
     p.command(AppCommand.toast).serve((x) => toast(text: x.text));
   }
@@ -87,7 +88,7 @@ abstract class AppOwnerBase implements IOwner {
 
 /// The words of [App] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [AppClient] is them over a view.
+/// place. [AppClient] is them over a participant.
 abstract interface class IAppClient {
   /// app.dark now.
   bool? get dark;
@@ -99,42 +100,43 @@ abstract interface class IAppClient {
   Future<void> toast({required String text});
 }
 
-/// The words of [App] through a view: its participant, a
-/// `LocalView`, a `MirrorView`. Made, it tells the registry
-/// the code was built against them, for it to say where one
-/// is defined otherwise (SPEC §6.9).
+/// The words of [App] through a participant, here or across
+/// a connection. Made, it tells the registry the code was
+/// built against them, for it to say where one is defined
+/// otherwise (SPEC §6.9).
 final class AppClient implements IAppClient {
-  AppClient(this.view) {
-    view.builtAgainst(appWords.words, from: appWords.from);
+  AppClient(IParticipant participant)
+    : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 
-  final IRegistryView view;
+  final GeneratedWords _$words;
 
   @override
-  bool? get dark => view.state(AppState.dark).read();
+  bool? get dark => _$words.state(AppState.dark).read();
 
   @override
-  Stream<bool?> get darkChanges => view.state(AppState.dark).watch();
+  Stream<bool?> get darkChanges => _$words.state(AppState.dark).watch();
 
   @override
   Future<void> toast({required String text}) async {
-    final r = await view.command(AppCommand.toast).call((text: text));
+    final r = await _$words.command(AppCommand.toast).call((text: text));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Whether [word] is there for the view now, as this code was built
+  /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
-  WordStatus status(IWord word) => wordStatus(view, word);
+  WordStatus status(IWord word) => _$words.status(word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+  Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
   /// Each word of [App] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
   Map<String, List<WordBreak>> get mismatches =>
-      wordMismatches(view, appWords.words);
+      _$words.mismatches(appWords.words);
 }
 
 /// The vocabulary of [App]: its name and every word, for

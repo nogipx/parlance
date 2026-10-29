@@ -150,12 +150,12 @@ void main() {
           defineNow();
           final b = await asGuest();
           await b.settle();
-          expect(said(b.state(Built.volume).status), [
+          expect(said(b.raw.state(Built.volume).status), [
             'type.max: was 100, is 150',
           ]);
-          expect(b.state(Built.mode).status, const WordReady());
+          expect(b.raw.state(Built.mode).status, const WordReady());
           expect(
-            b.status('deck.volume'),
+            b.raw.status('deck.volume'),
             const WordReady(),
             reason: 'by name there is no type to hold it to',
           );
@@ -167,7 +167,7 @@ void main() {
         p.state(Wide.volume).define();
         final b = await asGuest();
         await b.settle();
-        expect(said(b.state(Built.volume).status), [
+        expect(said(b.raw.state(Built.volume).status), [
           'type.type: was int, is num',
         ], reason: 'a type changed says no bound of it');
       });
@@ -177,7 +177,7 @@ void main() {
         p.command(BrokenCommand.set).define((_) {}, callers: anyone);
         final b = await asGuest();
         await b.settle();
-        expect(said(b.command(BuiltCommand.set).status), [
+        expect(said(b.raw.command(BuiltCommand.set).status), [
           'params.fields.volume.type.type: was int, is text',
         ]);
       });
@@ -186,7 +186,7 @@ void main() {
         defineNow();
         final b = await asGuest();
         await b.settle();
-        expect(b.command(BuiltCommand.set).status, const WordReady());
+        expect(b.raw.command(BuiltCommand.set).status, const WordReady());
       });
 
       test('the words a part was built against, checked at once', () async {
@@ -194,7 +194,7 @@ void main() {
         final b = await asGuest();
         await b.settle();
         expect(
-          wordMismatches(b, [
+          wordMismatches(b.raw, [
             ...Built.values,
             ...BuiltCommand.values,
           ]).map((w, breaks) => MapEntry(w, [for (final x in breaks) '$x'])),
@@ -209,7 +209,7 @@ void main() {
         () async {
           final b = await asGuest();
           final seen = <WordStatus>[];
-          final sub = b.state(Built.volume).statusChanges.listen(seen.add);
+          final sub = b.raw.state(Built.volume).statusChanges.listen(seen.add);
           await pumpEventQueue();
           defineNow();
           await b.settle();

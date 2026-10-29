@@ -169,8 +169,7 @@ class _Empty extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'A parlance journal is JSON lines, a file a day '
-              '(journal-2026-10-28.jsonl). Tephra keeps it in '
-              '~/Library/Application Support/Tephra/journal.',
+              '(journal-2026-10-28.jsonl), where its host writes it.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall,
             ),

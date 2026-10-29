@@ -238,10 +238,10 @@ void main() {
         final sub = b.raw
             .watchAs('deck.mode', builtMode.shape)
             .listen(seen.add);
-        await b.fetch('deck.mode');
+        await b.raw.fetch('deck.mode');
         await pumpEventQueue();
-        expect(b.readAs('deck.mode', builtMode.shape), isNull);
-        expect(b.read('deck.mode'), 'c', reason: 'its JSON is there');
+        expect(b.raw.readAs('deck.mode', builtMode.shape), isNull);
+        expect(b.raw.read('deck.mode'), 'c', reason: 'its JSON is there');
         expect(seen, [null]);
         await sub.cancel();
         if (across) {
@@ -258,12 +258,12 @@ void main() {
         o.state(nowBox).define().set(const {'n': 'x'});
         final b = await asGuest();
         if (b is RemoteParticipant) b.errors.listen(errors.add);
-        await b.fetch('deck.turn');
-        await b.fetch('deck.box');
+        await b.raw.fetch('deck.turn');
+        await b.raw.fetch('deck.box');
         await pumpEventQueue();
-        expect(b.readAs('deck.turn', builtTurn.shape), isNull);
-        expect(b.readAs('deck.box', builtBox.shape), isNull);
-        expect(b.readAs('deck.box', builtBox.shape), isNull);
+        expect(b.raw.readAs('deck.turn', builtTurn.shape), isNull);
+        expect(b.raw.readAs('deck.box', builtBox.shape), isNull);
+        expect(b.raw.readAs('deck.box', builtBox.shape), isNull);
         if (across) {
           expect(
             [for (final e in errors) e.op['word']],
@@ -278,7 +278,7 @@ void main() {
         final say = owner().fact(nowSaid).define();
         final b = await asGuest();
         final heard = <Mode>[];
-        final sub = b.factsAs('deck.said', builtSaid.shape).listen((f) {
+        final sub = b.raw.factsAs('deck.said', builtSaid.shape).listen((f) {
           heard.add(f.$1);
         });
         await b.settle();

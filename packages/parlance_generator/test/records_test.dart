@@ -1,7 +1,6 @@
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
-import 'package:parlance/view.dart';
 import 'package:test/test.dart';
 
 import 'fixtures/board.dart';
@@ -118,7 +117,7 @@ void main() {
 
   test('a record goes in and out as JSON, its fields by their JSON names, '
       'defaults filled', () async {
-    final done = await asAnn.call('note.put', {
+    final done = await asAnn.raw.call('note.put', {
       'note': {
         'level': 'warning',
         'text': 'Hi',
@@ -132,23 +131,26 @@ void main() {
     expect(note.author, 'Ann');
     expect(note.tags, isEmpty);
     expect(note.action!.params, isEmpty);
-    expect(asAnn.read('note', key: 'n1'), {
+    expect(asAnn.raw.read('note', key: 'n1'), {
       'level': 'warning',
       'text': 'Hi',
       'tags': <Object?>[],
       'by': 'Ann',
       'action': {'call': 'note.expire', 'params': <String, Object?>{}},
     });
-    expect(BoardClient(LocalView(r, by: ann)).notesOf('n1')!.author, 'Ann');
+    expect(
+      BoardClient(r.participant(ann.child('reader'))).notesOf('n1')!.author,
+      'Ann',
+    );
   });
 
   test('a word named as its vocabulary, any value, a duration by its JSON '
       'name', () async {
     expect(BoardState.notes.name, 'note');
     board.anything = {'a': 1};
-    expect(asAnn.read('note.anything'), {'a': 1});
+    expect(asAnn.raw.read('note.anything'), {'a': 1});
     board.anything = null;
-    expect(asAnn.read('note.anything'), isNull);
+    expect(asAnn.raw.read('note.anything'), isNull);
     expect(r.commandDescriptor('note.expire')!.params.toJson()['fields'], {
       'id': {
         'type': {'type': 'ref', 'kind': 'note'},
@@ -157,13 +159,13 @@ void main() {
         'type': {'type': 'duration', 'max': 60000},
       },
     });
-    await asAnn.call('note.put', {
+    await asAnn.raw.call('note.put', {
       'note': {'level': 'info', 'text': 'x'},
     });
-    final done = await asAnn.call('note.expire', {'id': 'n1', 'in': 500});
+    final done = await asAnn.raw.call('note.expire', {'id': 'n1', 'in': 500});
     expect(done.ok, isTrue, reason: '$done');
     expect(board.expiries, [500]);
-    final long = await asAnn.call('note.expire', {'id': 'n1', 'in': 60001});
+    final long = await asAnn.raw.call('note.expire', {'id': 'n1', 'in': 60001});
     expect((long as CallRefused).code, Refusal.invalidParams);
   });
 
@@ -207,7 +209,7 @@ void main() {
       author: null,
       action: null,
     ));
-    expect((await asAnn.recent('note.seen', 9)).single.payload, {
+    expect((await asAnn.raw.recent('note.seen', 9)).single.payload, {
       'level': 'info',
       'text': 'seen',
       'tags': <Object?>[],

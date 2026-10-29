@@ -16,7 +16,7 @@ void main() {
     );
     expect(lines, [
       'its tools: describe, read, call, recent_facts, why, notes_add',
-      'notes_add: {text: {type: string}}',
+      'notes_add: {text: {type: string, maxLength: 500}}',
       'the agent adds a note: Done.',
       "a guest's tools: describe, read, call, recent_facts, why",
     ]);

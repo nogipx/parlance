@@ -1,0 +1,6 @@
+targets:
+  $default:
+    builders:
+      # The example's words come from its vocabulary.
+      parlance_generator|parlance:
+        generate_for: ["example/**"]

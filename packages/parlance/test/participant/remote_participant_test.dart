@@ -516,8 +516,8 @@ void main() {
         p.raw.explain('house.secret'),
         throwsA(isA<NotPermitted>()),
       );
-      expect(await p.recent('house.whisper', 5), isEmpty);
-      expect(await p.recent('house.nothing', 5), isEmpty);
+      expect(await p.raw.recent('house.whisper', 5), isEmpty);
+      expect(await p.raw.recent('house.nothing', 5), isEmpty);
     }
   });
 

@@ -39,7 +39,8 @@ abstract class DoorsOwnerBase implements IOwner {
   /// read and written as a map is.
   final Keyed<Room> room = Keyed<Room>();
 
-  void _$define(IParticipant p) {
+  void _$define(IParticipant participant) {
+    final p = GeneratedWords.of(participant);
     Keyed.attach(room, p.state(DoorsState.room).define());
   }
 
@@ -54,7 +55,7 @@ abstract class DoorsOwnerBase implements IOwner {
 
 /// The words of [Doors] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [DoorsClient] is them over a view.
+/// place. [DoorsClient] is them over a participant.
 abstract interface class IDoorsClient {
   /// door.room of [door] now.
   Room? roomOf(String door);
@@ -66,43 +67,44 @@ abstract interface class IDoorsClient {
   Stream<Room?> roomChanges(String door);
 }
 
-/// The words of [Doors] through a view: its participant, a
-/// `LocalView`, a `MirrorView`. Made, it tells the registry
-/// the code was built against them, for it to say where one
-/// is defined otherwise (SPEC §6.9).
+/// The words of [Doors] through a participant, here or across
+/// a connection. Made, it tells the registry the code was
+/// built against them, for it to say where one is defined
+/// otherwise (SPEC §6.9).
 final class DoorsClient implements IDoorsClient {
-  DoorsClient(this.view) {
-    view.builtAgainst(doorsWords.words, from: doorsWords.from);
+  DoorsClient(IParticipant participant)
+    : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
-  final IRegistryView view;
+  final GeneratedWords _$words;
 
   @override
-  Room? roomOf(String door) => view.state(DoorsState.room).read(key: door);
+  Room? roomOf(String door) => _$words.state(DoorsState.room).read(key: door);
 
   @override
   Map<String, Room> get roomAll => {
     for (final MapEntry(:key, :value)
-        in view.state(DoorsState.room).readAll().entries)
+        in _$words.state(DoorsState.room).readAll().entries)
       ?key: value,
   };
 
   @override
   Stream<Room?> roomChanges(String door) =>
-      view.state(DoorsState.room).watch(key: door);
+      _$words.state(DoorsState.room).watch(key: door);
 
-  /// Whether [word] is there for the view now, as this code was built
+  /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
-  WordStatus status(IWord word) => wordStatus(view, word);
+  WordStatus status(IWord word) => _$words.status(word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+  Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
   /// Each word of [Doors] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
   Map<String, List<WordBreak>> get mismatches =>
-      wordMismatches(view, doorsWords.words);
+      _$words.mismatches(doorsWords.words);
 }
 
 /// The vocabulary of [Doors]: its name and every word, for
@@ -164,7 +166,8 @@ abstract class LightsOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write);
   }
 
-  void _$define(IParticipant p) {
+  void _$define(IParticipant participant) {
+    final p = GeneratedWords.of(participant);
     p.command(LightsCommand.on).serve((x) => on(room: x.room));
   }
 
@@ -181,42 +184,43 @@ abstract class LightsOwnerBase implements IOwner {
 
 /// The words of [Lights] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [LightsClient] is them over a view.
+/// place. [LightsClient] is them over a participant.
 abstract interface class ILightsClient {
   /// Calls light.on; a call not done throws [CallNotDone].
   Future<void> on({required Room room});
 }
 
-/// The words of [Lights] through a view: its participant, a
-/// `LocalView`, a `MirrorView`. Made, it tells the registry
-/// the code was built against them, for it to say where one
-/// is defined otherwise (SPEC §6.9).
+/// The words of [Lights] through a participant, here or across
+/// a connection. Made, it tells the registry the code was
+/// built against them, for it to say where one is defined
+/// otherwise (SPEC §6.9).
 final class LightsClient implements ILightsClient {
-  LightsClient(this.view) {
-    view.builtAgainst(lightsWords.words, from: lightsWords.from);
+  LightsClient(IParticipant participant)
+    : _$words = GeneratedWords.of(participant) {
+    _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 
-  final IRegistryView view;
+  final GeneratedWords _$words;
 
   @override
   Future<void> on({required Room room}) async {
-    final r = await view.command(LightsCommand.on).call((room: room));
+    final r = await _$words.command(LightsCommand.on).call((room: room));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
-  /// Whether [word] is there for the view now, as this code was built
+  /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
-  WordStatus status(IWord word) => wordStatus(view, word);
+  WordStatus status(IWord word) => _$words.status(word);
 
   /// [status], then whenever it changes.
-  Stream<WordStatus> statusChanges(IWord word) => wordStatusChanges(view, word);
+  Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
   /// Each word of [Lights] there but not as this code was built against,
   /// with where it breaks; empty when all keep their promises. For a
   /// start in development: `assert(client.mismatches.isEmpty)`.
   Map<String, List<WordBreak>> get mismatches =>
-      wordMismatches(view, lightsWords.words);
+      _$words.mismatches(lightsWords.words);
 }
 
 /// The vocabulary of [Lights]: its name and every word, for

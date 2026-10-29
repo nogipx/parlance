@@ -38,7 +38,7 @@ final class _Dial implements IOwner {
     );
     listen(power, (on) => this.on = on);
     whenAttached(
-      (p) => p
+      (p) => GeneratedWords.of(p)
           .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
           .define()
           .set(7),
@@ -50,7 +50,7 @@ final class _Dial implements IOwner {
   int? at;
 
   void _define(IParticipant p) {
-    p
+    GeneratedWords.of(p)
         .command(_Command.set)
         .serve(
           (x) => at = x.to,
@@ -72,7 +72,10 @@ enum _Fact<T> implements IFactWord<T> {
 
 final class _Bell implements IOwner {
   _Bell() {
-    IOwner.made(this, define: (p) => _rang = p.fact(_Fact.rang).define());
+    IOwner.made(
+      this,
+      define: (p) => _rang = GeneratedWords.of(p).fact(_Fact.rang).define(),
+    );
   }
 
   late IFactEmitterOf<String> _rang;
@@ -121,8 +124,8 @@ final class _Lamps implements IOwner {
     IOwner.made(
       this,
       define: (p) {
-        Keyed.attach(lit, p.state(_Lit.of).define());
-        p
+        Keyed.attach(lit, GeneratedWords.of(p).state(_Lit.of).define());
+        GeneratedWords.of(p)
             .command(_Drop.of)
             .serve(
               (x) => bulbs.remove(x.bulb),
@@ -156,16 +159,18 @@ void main() {
         )
         .attach({'it': lamps});
     final ann = r.participant(const Principal('user', 'ann'));
-    expect(ann.state(_Lit.of).readAll().keys, {'a', 'b'});
+    expect(GeneratedWords.of(ann).state(_Lit.of).readAll().keys, {'a', 'b'});
 
     expect(
-      await ann.command(_Drop.of).call((bulb: 'b')),
+      await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'b')),
       isA<CallDone<void>>(),
     );
     await ann.settle();
-    expect(ann.state(_Lit.of).readAll().keys, {'a'});
+    expect(GeneratedWords.of(ann).state(_Lit.of).readAll().keys, {'a'});
     expect(lamps.lit.keys, ['a']);
-    final gone = await ann.command(_Drop.of).call((bulb: 'b'));
+    final gone = await GeneratedWords.of(
+      ann,
+    ).command(_Drop.of).call((bulb: 'b'));
     expect(gone.whyNot, contains('no bulb b'));
   });
 
@@ -179,7 +184,7 @@ void main() {
         )
         .attach({'it': _Lamps(listed: false)});
     final ann = r.participant(const Principal('user', 'ann'));
-    final r1 = await ann.command(_Drop.of).call((bulb: 'a'));
+    final r1 = await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'a'));
     expect(r1.whyNot, contains("choices('bulb', ...)"));
   });
 
@@ -196,7 +201,9 @@ void main() {
         .attach({'it': bell});
     final heard = <String>[];
     final ann = r.participant(const Principal('user', 'ann'));
-    ann.fact(_Fact.rang).stream.listen((f) => heard.add(f.payload));
+    GeneratedWords.of(
+      ann,
+    ).fact(_Fact.rang).stream.listen((f) => heard.add(f.payload));
     expect(bell.ring('e1', 'bob'), isTrue);
     expect(bell.ring('e1', 'bob'), isFalse);
     expect(bell.ring('e2', 'cat'), isTrue);
@@ -218,14 +225,16 @@ void main() {
     final admin = r.participant(const Principal('admin'));
 
     expect(
-      await ann.command(_Command.set).call((to: 3)),
+      await GeneratedWords.of(ann).command(_Command.set).call((to: 3)),
       isA<CallDone<void>>(),
     );
-    final far = await ann.command(_Command.set).call((to: 30));
+    final far = await GeneratedWords.of(
+      ann,
+    ).command(_Command.set).call((to: 30));
     expect(far, isA<CallRefused>());
     expect(far.whyNot, contains('too far for user/ann'));
     expect(
-      await admin.command(_Command.set).call((to: 30)),
+      await GeneratedWords.of(admin).command(_Command.set).call((to: 30)),
       isA<CallDone<void>>(),
     );
   });
@@ -242,15 +251,23 @@ void main() {
         .attach({'it': _Dial(power.stream)});
     final ann = r.participant(const Principal('user', 'ann'));
     final seen = <WordStatus>[];
-    final sub = ann.command(_Command.set).statusChanges.listen(seen.add);
+    final sub = GeneratedWords.of(
+      ann,
+    ).command(_Command.set).statusChanges.listen(seen.add);
     await ann.settle();
 
     power.add(false);
     await ann.settle();
-    expect(ann.command(_Command.set).status, isA<WordUnavailable>());
+    expect(
+      GeneratedWords.of(ann).command(_Command.set).status,
+      isA<WordUnavailable>(),
+    );
     power.add(true);
     await ann.settle();
-    expect(ann.command(_Command.set).status, isA<WordReady>());
+    expect(
+      GeneratedWords.of(ann).command(_Command.set).status,
+      isA<WordReady>(),
+    );
     await sub.cancel();
     expect(seen.whereType<WordUnavailable>(), hasLength(1));
   });
@@ -263,7 +280,12 @@ void main() {
       vocabularies: [WordSet.open('dial')],
     );
     await p.attach({'it': _Dial(const Stream.empty())});
-    expect(p.read('dial.x1'), 7);
+    expect(
+      GeneratedWords.of(
+        p,
+      ).state(const StateWordOf<int>('dial.x1', Plain(IntType()))).read(),
+      7,
+    );
   });
 
   test('now is the registry\'s clock once attached, the world\'s before', () {

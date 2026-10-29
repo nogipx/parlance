@@ -46,8 +46,8 @@ final class _Deck implements IOwner {
   var served = 0;
 
   void _define(IParticipant p) {
-    level = p.state(_State.level).define();
-    p.command(_Command.set).serve((x) {
+    level = GeneratedWords.of(p).state(_State.level).define();
+    GeneratedWords.of(p).command(_Command.set).serve((x) {
       served++;
       level.set(x.to);
       return x.to;
@@ -74,8 +74,12 @@ void main() {
 
   test('contract: a command\'s handler runs once for a call id; the same '
       'id answers its first result', () async {
-    final first = await user.command(_Command.set).call((to: 7), id: 'c1');
-    final again = await user.command(_Command.set).call((to: 7), id: 'c1');
+    final first = await GeneratedWords.of(
+      user,
+    ).command(_Command.set).call((to: 7), id: 'c1');
+    final again = await GeneratedWords.of(
+      user,
+    ).command(_Command.set).call((to: 7), id: 'c1');
     expect((first as CallDone<int>).value, 7);
     expect((again as CallDone<int>).value, 7);
     expect(deck.served, 1);
@@ -83,10 +87,14 @@ void main() {
 
   test('contract: a refusal says why, and nothing runs', () async {
     final guest = r.participant(const Principal('guest', 'bob'));
-    final r1 = await guest.command(_Command.set).call((to: 1));
+    final r1 = await GeneratedWords.of(
+      guest,
+    ).command(_Command.set).call((to: 1));
     expect(r1, isA<CallRefused>());
     expect(r1.whyNot, isNotEmpty);
-    final r2 = await user.command(_Command.set).call((to: 500));
+    final r2 = await GeneratedWords.of(
+      user,
+    ).command(_Command.set).call((to: 500));
     expect(r2, isA<CallRefused>(), reason: 'out of its range');
     expect(deck.served, 0);
   });
@@ -112,11 +120,11 @@ void main() {
       throwsStateError,
     );
     await user.settle();
-    expect(user.state(_State.level).read(), 1);
+    expect(GeneratedWords.of(user).state(_State.level).read(), 1);
   });
 
   test('contract: what a handler writes follows from its call', () async {
-    await user.command(_Command.set).call((to: 9), id: 'c9');
+    await GeneratedWords.of(user).command(_Command.set).call((to: 9), id: 'c9');
     expect(r.registry.explain('deck.level').change!.cause.parent, 'c9');
   });
 
@@ -127,10 +135,10 @@ void main() {
         const Principal('lamp'),
         vocabularies: [WordSet.open('lamp')],
       );
-      p.state(const _Lamp()).define();
-      expect(user.status('lamp.on'), isA<WordReady>());
+      GeneratedWords.of(p).state(const _Lamp()).define();
+      expect(GeneratedWords.of(user).status(const _Lamp()), isA<WordReady>());
       p.dispose();
-      expect(user.status('lamp.on'), isA<WordMissing>());
+      expect(GeneratedWords.of(user).status(const _Lamp()), isA<WordMissing>());
     },
   );
 }

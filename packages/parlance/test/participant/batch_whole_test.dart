@@ -57,7 +57,7 @@ void main() {
         );
         await settled(p);
         expect(host.registry.read('deck.volume'), 1);
-        expect(p.read('deck.volume'), 1, reason: 'its own copy too');
+        expect(p.raw.read('deck.volume'), 1, reason: 'its own copy too');
         expect(heard, isEmpty);
       });
 
@@ -86,8 +86,8 @@ void main() {
           await settled(p);
           expect(host.registry.read('deck.a'), 1);
           expect(host.registry.read('deck.b'), isNull);
-          expect(p.read('deck.a'), 1);
-          expect(p.read('deck.b'), isNull);
+          expect(p.raw.read('deck.a'), 1);
+          expect(p.raw.read('deck.b'), isNull);
         },
       );
     });

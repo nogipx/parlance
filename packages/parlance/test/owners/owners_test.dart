@@ -243,7 +243,7 @@ void main() {
     final dials = Dials();
     p.attach({'dials': dials});
     final part = p.child('dials');
-    part.state(_Flag.on).define().set(true);
+    part.raw.state(_Flag.on).define().set(true);
     await pumpEventQueue();
     p.dispose();
     await pumpEventQueue();

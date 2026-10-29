@@ -538,7 +538,7 @@ final class _Emitter {
   }
 
   /// `<Class>Client` (SPEC §23.5): the words as a consumer uses them, over
-  /// a view (a participant, `LocalView`, `MirrorView`): states read and
+  /// a participant, here or across a connection: states read and
   /// watched, commands and queries as methods of the class's params that
   /// answer or throw [CallNotDone], facts as streams of their payloads.
   /// What uses it takes `I<Class>Client`, the same members as an
@@ -551,12 +551,7 @@ final class _Emitter {
   ) {
     final members = <String, Element>{};
     void member(String name, _Word w) {
-      if (const {
-            'view',
-            'status',
-            'statusChanges',
-            'mismatches',
-          }.contains(name) ||
+      if (const {'status', 'statusChanges', 'mismatches'}.contains(name) ||
           members.containsKey(name)) {
         throw InvalidGenerationSourceError(
           '$name is had twice by ${_c}Client: name ${w.member} otherwise, or '
@@ -568,23 +563,23 @@ final class _Emitter {
     }
 
     // Each member once: what it says, its signature, and its body in the
-    // client over a view. The interface says only Dart's types and the
+    // client over a participant. The interface says only Dart's types and the
     // vocabulary's own; what is parlance's (a word's status, a fact's
     // message) is the client's alone.
     final all = <({List<String> docs, String signature, String body})>[];
     final own = <({List<String> docs, String signature, String body})>[
       (
         docs: [
-          'Whether [word] is there for the view now, as this code was built',
+          'Whether [word] is there for the participant now, as this code was built',
           'against it: `WordMismatch`, saying where, when not (SPEC §6.5).',
         ],
         signature: 'WordStatus status(IWord word)',
-        body: '=> wordStatus(view, word);',
+        body: '=> _\$words.status(word);',
       ),
       (
         docs: ['[status], then whenever it changes.'],
         signature: 'Stream<WordStatus> statusChanges(IWord word)',
-        body: '=> wordStatusChanges(view, word);',
+        body: '=> _\$words.statusChanges(word);',
       ),
       (
         docs: [
@@ -593,7 +588,7 @@ final class _Emitter {
           'start in development: `assert(client.mismatches.isEmpty)`.',
         ],
         signature: 'Map<String, List<WordBreak>> get mismatches',
-        body: '=> wordMismatches(view, $_words.words);',
+        body: '=> _\$words.mismatches($_words.words);',
       ),
     ];
     for (final st in states) {
@@ -608,12 +603,12 @@ final class _Emitter {
           ..add((
             docs: ['${st.name} now.'],
             signature: '$bare? get ${st.member}',
-            body: '=> view.state($word).read();',
+            body: '=> _\$words.state($word).read();',
           ))
           ..add((
             docs: ['${st.name} now, then whenever it changes.'],
             signature: 'Stream<$bare?> get ${st.member}Changes',
-            body: '=> view.state($word).watch();',
+            body: '=> _\$words.state($word).watch();',
           ));
       } else {
         final key = _keyParam(st.key!);
@@ -624,19 +619,19 @@ final class _Emitter {
           ..add((
             docs: ['${st.name} of [$key] now.'],
             signature: '$bare? ${st.member}Of(String $key)',
-            body: '=> view.state($word).read(key: $key);',
+            body: '=> _\$words.state($word).read(key: $key);',
           ))
           ..add((
             docs: ['${st.name} of every ${st.key}, by key.'],
             signature: 'Map<String, ${st.type}> get ${st.member}All',
             body:
                 '=> {for (final MapEntry(:key, :value) in '
-                'view.state($word).readAll().entries) ?key: value};',
+                '_\$words.state($word).readAll().entries) ?key: value};',
           ))
           ..add((
             docs: ['${st.name} of [$key] now, then on every change.'],
             signature: 'Stream<$bare?> ${st.member}Changes(String $key)',
-            body: '=> view.state($word).watch(key: $key);',
+            body: '=> _\$words.state($word).watch(key: $key);',
           ));
       }
     }
@@ -656,7 +651,7 @@ final class _Emitter {
           signature: 'Future<${c.returns}> ${c.member}($signature)',
           body:
               'async {\n'
-              '    final r = await view.$how($_c$kind.${c.member}).$act($record);\n'
+              '    final r = await _\$words.$how($_c$kind.${c.member}).$act($record);\n'
               '    if (r case CallDone(:final value)) return value;\n'
               '    throw CallNotDone(r);\n'
               '  }',
@@ -671,7 +666,7 @@ final class _Emitter {
         docs: ['${f.name}, as it is said from now on: what it says.'],
         signature: 'Stream<$payload> get ${f.member}',
         body:
-            '=> view.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload);',
+            '=> _\$words.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload);',
       ));
       own.add((
         docs: [
@@ -679,14 +674,14 @@ final class _Emitter {
           'the message (its id, its cause) to follow it from.',
         ],
         signature: 'Stream<Fact<${f.type}>> get ${f.member}Facts',
-        body: '=> view.fact(${_c}Fact.${f.member}).stream;',
+        body: '=> _\$words.fact(${_c}Fact.${f.member}).stream;',
       ));
     }
 
     final out = StringBuffer()
       ..writeln('/// The words of [$_c] as a consumer uses them: what a part')
       ..writeln('/// that uses them takes, so a stand-in can be given in its')
-      ..writeln('/// place. [${_c}Client] is them over a view.')
+      ..writeln('/// place. [${_c}Client] is them over a participant.')
       ..writeln('abstract interface class I${_c}Client {');
     for (final (i, m) in all.indexed) {
       if (i > 0) out.writeln();
@@ -698,16 +693,17 @@ final class _Emitter {
     out
       ..writeln('}')
       ..writeln()
-      ..writeln('/// The words of [$_c] through a view: its participant, a')
-      ..writeln('/// `LocalView`, a `MirrorView`. Made, it tells the registry')
-      ..writeln('/// the code was built against them, for it to say where one')
-      ..writeln('/// is defined otherwise (SPEC §6.9).')
+      ..writeln('/// The words of [$_c] through a participant, here or across')
+      ..writeln('/// a connection. Made, it tells the registry the code was')
+      ..writeln('/// built against them, for it to say where one is defined')
+      ..writeln('/// otherwise (SPEC §6.9).')
       ..writeln('final class ${_c}Client implements I${_c}Client {')
-      ..writeln('  ${_c}Client(this.view) {')
-      ..writeln('    view.builtAgainst($_words.words, from: $_words.from);')
+      ..writeln('  ${_c}Client(IParticipant participant)')
+      ..writeln('    : _\$words = GeneratedWords.of(participant) {')
+      ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')
       ..writeln()
-      ..writeln('  final IRegistryView view;');
+      ..writeln('  final GeneratedWords _\$words;');
     for (final m in all) {
       out
         ..writeln()
@@ -910,7 +906,8 @@ final class _Emitter {
     }
     out
       ..writeln()
-      ..writeln('  void _\$define(IParticipant p) {');
+      ..writeln('  void _\$define(IParticipant participant) {')
+      ..writeln('    final p = GeneratedWords.of(participant);');
     for (final st in states) {
       final define = 'p.state(${_c}State.${st.member}).define(${opts(st)})';
       out.writeln(
