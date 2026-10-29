@@ -7,19 +7,19 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 void main() {
   late Fixture f;
-  late RawFactEmitter raid;
+  late RawFactEmitter party;
 
   setUp(() {
     f = Fixture();
-    raid = f.r.defineFact(
+    party = f.r.defineFact(
       FactDescriptor(
-        'platform.raid',
+        'porch.party',
         type: const ObjectType({
           'from': Field(TextType()),
-          'viewers': Field(IntType(min: 0)),
+          'visitors': Field(IntType(min: 0)),
         }),
       ),
-      by: const Principal('plugin', 'twitch'),
+      by: const Principal('plugin', 'gate'),
     );
   });
   tearDown(() => f.r.dispose());
@@ -43,12 +43,12 @@ void main() {
 
     test('a repeated id is dropped', () async {
       final seen = <FactMessage>[];
-      f.r.facts(fact: 'platform.raid').listen(seen.add);
-      expect(raid.emit({'from': 'a', 'viewers': 3}, id: 'r1'), isTrue);
-      expect(raid.emit({'from': 'a', 'viewers': 3}, id: 'r1'), isFalse);
+      f.r.facts(fact: 'porch.party').listen(seen.add);
+      expect(party.emit({'from': 'a', 'visitors': 3}, id: 'r1'), isTrue);
+      expect(party.emit({'from': 'a', 'visitors': 3}, id: 'r1'), isFalse);
       await pumpEventQueue();
       expect(seen.single.id, 'r1');
-      expect(seen.single.cause.by, const Principal('plugin', 'twitch'));
+      expect(seen.single.cause.by, const Principal('plugin', 'gate'));
     });
 
     test('ids are forgotten after the window', () {
@@ -65,7 +65,7 @@ void main() {
     });
 
     test('payloads are checked', () {
-      expect(() => raid.emit({'from': 'a'}), throwsA(isA<TypeMismatch>()));
+      expect(() => party.emit({'from': 'a'}), throwsA(isA<TypeMismatch>()));
     });
 
     test('recent keeps the last ones per fact', () {
@@ -85,8 +85,8 @@ void main() {
       final ticks = <Tick>[];
       f.r.ticks.listen(ticks.add);
       f.r.batch(() {
-        f.muted.set(true);
-        raid.emit({'from': 'a', 'viewers': 1});
+        f.locked.set(true);
+        party.emit({'from': 'a', 'visitors': 1});
       });
       await pumpEventQueue();
       final t = ticks.single;
@@ -97,28 +97,28 @@ void main() {
 
   group('feed', () {
     test('starts with a snapshot, then live ticks', () async {
-      f.muted.set(true);
+      f.locked.set(true);
       final items = <FeedItem>[];
       final sub = f.r.feed().listen(items.add);
       await pumpEventQueue();
-      f.program.set('main');
+      f.focus.set('main');
       await pumpEventQueue();
       final snap = items.first as Snapshot;
-      expect(snap.states['audio.muted'], {null: true});
+      expect(snap.states['door.locked'], {null: true});
       expect(snap.factsLost, isFalse);
       expect(items.last, isA<Tick>());
       await sub.cancel();
     });
 
     test('resumes after a retained seq, without gaps or repeats', () async {
-      f.muted.set(true);
+      f.locked.set(true);
       final mark = f.r.seq;
-      f.program.set('main');
-      raid.emit({'from': 'a', 'viewers': 1});
+      f.focus.set('main');
+      party.emit({'from': 'a', 'visitors': 1});
       final items = <FeedItem>[];
       final sub = f.r.feed(epoch: f.r.epoch, since: mark).listen(items.add);
       await pumpEventQueue();
-      f.muted.set(false);
+      f.locked.set(false);
       await pumpEventQueue();
       final ticks = items.cast<Tick>();
       expect(ticks.first.from, mark + 1);

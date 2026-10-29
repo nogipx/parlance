@@ -14,19 +14,19 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 /// The registry fixture with a fact to hear.
 final class Board extends Fixture {
   Board({super.registry}) {
-    raid = r.defineFact(
+    party = r.defineFact(
       FactDescriptor(
-        'platform.raid',
+        'porch.party',
         type: const ObjectType({
           'from': Field(TextType()),
-          'viewers': Field(IntType(min: 0)),
+          'visitors': Field(IntType(min: 0)),
         }),
       ),
-      by: const Principal('plugin', 'twitch'),
+      by: const Principal('plugin', 'gate'),
     );
   }
 
-  late final RawFactEmitter raid;
+  late final RawFactEmitter party;
 }
 
 /// A client of an MCP session in memory: sends requests, reads answers.
@@ -196,30 +196,28 @@ void main() {
       f.r
           .defineState(
             StateDescriptor(
-              'studio.secret',
+              'house.secret',
               type: const TextType(),
               readers: const Callers({'agent': Access.deny, '*': Access.allow}),
             ),
             by: owner,
           )
           .set('hush');
-      final one = await c.call('read', {'state': 'studio.secret'});
-      expect((one.error, one.text), (true, 'you may not read studio.secret'));
-      final all = await c.call('read', {'prefix': 'studio.'});
+      final one = await c.call('read', {'state': 'house.secret'});
+      expect((one.error, one.text), (true, 'you may not read house.secret'));
+      final all = await c.call('read', {'prefix': 'house.'});
       expect(all.error, isFalse);
       expect(all.text, isNot(contains('hush')));
-      expect((await c.call('why', {'state': 'studio.secret'})).error, isTrue);
-      expect(await f.r.participant(agent).fetch('studio.secret'), isEmpty);
-      expect(await f.r.participant(user).fetch('studio.secret'), {
-        null: 'hush',
-      });
+      expect((await c.call('why', {'state': 'house.secret'})).error, isTrue);
+      expect(await f.r.participant(agent).fetch('house.secret'), isEmpty);
+      expect(await f.r.participant(user).fetch('house.secret'), {null: 'hush'});
     });
 
     test('a fact it may not hear: no recent of it', () async {
       f.r
           .defineFact(
             FactDescriptor(
-              'studio.whisper',
+              'house.whisper',
               type: const TextType(),
               readers: const Callers({'agent': Access.deny, '*': Access.allow}),
             ),
@@ -227,10 +225,10 @@ void main() {
           )
           .emit('psst');
       expect(
-        (await c.call('recent_facts', {'fact': 'studio.whisper'})).error,
+        (await c.call('recent_facts', {'fact': 'house.whisper'})).error,
         isTrue,
       );
-      expect(await f.r.participant(agent).recent('studio.whisper', 5), isEmpty);
+      expect(await f.r.participant(agent).recent('house.whisper', 5), isEmpty);
     });
 
     test('an entity that tells the type of its value shows it', () async {
@@ -273,11 +271,11 @@ void main() {
       addTearDown(withCommands.close);
       expect(
         await withCommands.tools(),
-        containsAll(['studio_show', 'audio_mute']),
+        containsAll(['house_show', 'door_lock']),
       );
       expect(
         await withCommands.tools(),
-        isNot(contains('audio_gain_set')),
+        isNot(contains('door_chime_set')),
         reason: 'not for agents',
       );
     });
@@ -289,18 +287,18 @@ void main() {
         final commands = {
           for (final x in d['commands'] as List) (x as Map)['name']: x,
         };
-        expect(commands.keys, contains('studio.show'));
-        expect(commands.keys, isNot(contains('audio.gain.set')));
-        final show = commands['studio.show'] as Map;
+        expect(commands.keys, contains('house.show'));
+        expect(commands.keys, isNot(contains('door.chime.set')));
+        final show = commands['house.show'] as Map;
         expect(
-          ((show['params'] as Map)['properties'] as Map)['scene'],
+          ((show['params'] as Map)['properties'] as Map)['room'],
           containsPair('enum', ['main', 'break', 'test']),
         );
-        expect((d['entities'] as Map)['scene'], contains('main (main)'));
-        final audio = await c.json('describe', {'prefix': 'audio.'}) as Map;
+        expect((d['entities'] as Map)['room'], contains('main (main)'));
+        final door = await c.json('describe', {'prefix': 'door.'}) as Map;
         expect(
-          [for (final x in audio['states'] as List) (x as Map)['name']],
-          ['audio.muted', 'audio.gain'],
+          [for (final x in door['states'] as List) (x as Map)['name']],
+          ['door.locked', 'door.chime'],
         );
       },
     );
@@ -308,15 +306,15 @@ void main() {
     test('call does it; a refusal says why; read tells the state', () async {
       expect(
         (await c.call('call', {
-          'command': 'studio.show',
-          'params': {'scene': 'break'},
+          'command': 'house.show',
+          'params': {'room': 'break'},
         })).error,
         isFalse,
       );
-      expect(await c.json('read', {'state': 'studio.program'}), 'break');
+      expect(await c.json('read', {'state': 'house.focus'}), 'break');
       final bad = await c.call('call', {
-        'command': 'studio.show',
-        'params': {'scene': 'nowhere'},
+        'command': 'house.show',
+        'params': {'room': 'nowhere'},
       });
       expect(bad.error, isTrue);
       expect(bad.text, startsWith('invalidParams'));
@@ -324,22 +322,22 @@ void main() {
 
     test('why tells the last change and the calls that led to it', () async {
       await c.call('call', {
-        'command': 'audio.mute',
+        'command': 'door.lock',
         'params': {'on': true},
       });
-      final why = await c.json('why', {'state': 'audio.muted'}) as Map;
+      final why = await c.json('why', {'state': 'door.locked'}) as Map;
       expect(why['value'], true);
-      expect((why['changed'] as Map)['by'], 'host/studio');
-      expect(((why['trail'] as List).first as Map)['call'], 'audio.mute');
+      expect((why['changed'] as Map)['by'], 'host/house');
+      expect(((why['trail'] as List).first as Map)['call'], 'door.lock');
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
     });
 
     test('recent facts', () async {
-      f.raid.emit({'from': 'a', 'viewers': 3});
+      f.party.emit({'from': 'a', 'visitors': 3});
       await pumpEventQueue();
       final facts =
-          await c.json('recent_facts', {'fact': 'platform.raid'}) as List;
-      expect((facts.single as Map)['payload'], {'from': 'a', 'viewers': 3});
+          await c.json('recent_facts', {'fact': 'porch.party'}) as List;
+      expect((facts.single as Map)['payload'], {'from': 'a', 'visitors': 3});
     });
   });
 
@@ -375,41 +373,41 @@ void main() {
     test('the same tools work over remote, as the session may', () async {
       final d = await c.json('describe') as Map;
       final names = [for (final x in d['commands'] as List) (x as Map)['name']];
-      expect(names, contains('studio.show'));
-      expect(names, isNot(contains('audio.gain.set')));
+      expect(names, contains('house.show'));
+      expect(names, isNot(contains('door.chime.set')));
       await c.call('call', {
-        'command': 'studio.show',
-        'params': {'scene': 'test'},
+        'command': 'house.show',
+        'params': {'room': 'test'},
       });
-      expect(await c.json('read', {'state': 'studio.program'}), 'test');
-      final why = await c.json('why', {'state': 'studio.program'}) as Map;
+      expect(await c.json('read', {'state': 'house.focus'}), 'test');
+      final why = await c.json('why', {'state': 'house.focus'}) as Map;
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
-      f.raid.emit({'from': 'b', 'viewers': 1});
+      f.party.emit({'from': 'b', 'visitors': 1});
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(
-        (await c.json('recent_facts', {'fact': 'platform.raid'}) as List),
+        (await c.json('recent_facts', {'fact': 'porch.party'}) as List),
         hasLength(1),
       );
     });
 
     test('a read right after a call reads what it wrote', () async {
-      for (final scene in ['test', 'break', 'main']) {
+      for (final room in ['test', 'break', 'main']) {
         await c.call('call', {
-          'command': 'studio.show',
-          'params': {'scene': scene},
+          'command': 'house.show',
+          'params': {'room': room},
         });
-        expect(await c.json('read', {'state': 'studio.program'}), scene);
+        expect(await c.json('read', {'state': 'house.focus'}), room);
       }
     });
 
     test('a state it reads by name is kept from then on, counted as its '
         'use', () async {
-      f.muted.set(false);
-      expect(await c.json('read', {'state': 'audio.muted'}), false);
-      f.muted.set(true);
+      f.locked.set(false);
+      expect(await c.json('read', {'state': 'door.locked'}), false);
+      f.locked.set(true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(p.read('audio.muted'), true, reason: 'kept: at once');
-      expect(f.r.usesOf('audio.muted').single.listening, 1);
+      expect(p.read('door.locked'), true, reason: 'kept: at once');
+      expect(f.r.usesOf('door.locked').single.listening, 1);
     });
 
     test(
@@ -419,12 +417,12 @@ void main() {
         session.close();
         await responder.close();
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        final read = await c.call('read', {'state': 'studio.program'});
+        final read = await c.call('read', {'state': 'house.focus'});
         expect(read.error, isTrue);
         expect(read.text, contains('not reachable'));
         final call = await c.call('call', {
-          'command': 'studio.show',
-          'params': {'scene': 'test'},
+          'command': 'house.show',
+          'params': {'room': 'test'},
           'id': 'mine',
         });
         expect(call.error, isTrue);
@@ -433,14 +431,14 @@ void main() {
     );
 
     test('a read of every state is a look: it leaves no follower', () async {
-      f.muted.set(true);
+      f.locked.set(true);
       final all = await c.json('read') as Map;
-      expect(all['audio.muted'], true);
+      expect(all['door.locked'], true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(session.states, isEmpty, reason: 'let go after the look');
-      expect(await c.json('read', {'state': 'audio.muted'}), true);
+      expect(await c.json('read', {'state': 'door.locked'}), true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(session.states, {'audio.muted'}, reason: 'one by name is kept');
+      expect(session.states, {'door.locked'}, reason: 'one by name is kept');
     });
 
     test('a word added later is a catalog change the tools follow', () async {

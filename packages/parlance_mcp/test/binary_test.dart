@@ -23,20 +23,20 @@ void main() {
     () async {
       final r = Registry();
       addTearDown(r.dispose);
-      final studio = r.participant(
-        const Principal('studio'),
-        vocabularies: [const WordSet.open('studio')],
+      final house = r.participant(
+        const Principal('house'),
+        vocabularies: [const WordSet.open('house')],
       );
-      final program = studio.defineState(
-        StateDescriptor('studio.program', type: const TextType()),
+      final focus = house.defineState(
+        StateDescriptor('house.focus', type: const TextType()),
       );
-      studio.defineCommand(
+      house.defineCommand(
         CommandDescriptor(
-          'studio.show',
-          params: const ObjectType({'scene': Field(TextType())}),
+          'house.show',
+          params: const ObjectType({'room': Field(TextType())}),
           callers: const Callers({'agent': Access.allow}),
         ),
-        (c) => program.set(c.params['scene']),
+        (c) => focus.set(c.params['room']),
       );
       final dir = Directory.systemTemp.createTempSync('sbmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
@@ -103,12 +103,12 @@ void main() {
       final call = await request('tools/call', {
         'name': 'call',
         'arguments': {
-          'command': 'studio.show',
-          'params': {'scene': 'break'},
+          'command': 'house.show',
+          'params': {'room': 'break'},
         },
       });
       expect((call['result'] as Map)['isError'], isFalse);
-      expect(studio.read('studio.program'), 'break');
+      expect(house.read('house.focus'), 'break');
       expect(sessions, hasLength(1));
       await mcp.stdin.close();
       expect(await mcp.exitCode.timeout(const Duration(seconds: 20)), 0);

@@ -13,32 +13,32 @@ void main() {
   tearDown(() => f.r.dispose());
 
   test('calls, reads, watches and the catalog take an old name', () async {
-    final h = f.r.alias('audio.silenced', 'audio.muted');
-    f.r.alias('audio.hush', 'audio.mute');
-    expect(f.r.canonical('audio.silenced'), 'audio.muted');
-    expect(f.r.stateDescriptor('audio.silenced')?.name, 'audio.muted');
+    final h = f.r.alias('door.silenced', 'door.locked');
+    f.r.alias('door.hush', 'door.lock');
+    expect(f.r.canonical('door.silenced'), 'door.locked');
+    expect(f.r.stateDescriptor('door.silenced')?.name, 'door.locked');
 
-    final done = await f.r.call('audio.hush', {'on': true}, by: user);
+    final done = await f.r.call('door.hush', {'on': true}, by: user);
     expect(done, isA<CallDone<Object?>>());
-    expect(f.r.read('audio.silenced'), true);
-    expect(f.r.readAll('audio.silenced'), {null: true});
+    expect(f.r.read('door.silenced'), true);
+    expect(f.r.readAll('door.silenced'), {null: true});
     expect(f.r.describe()['aliases'], {
-      'audio.silenced': 'audio.muted',
-      'audio.hush': 'audio.mute',
+      'door.silenced': 'door.locked',
+      'door.hush': 'door.lock',
     });
 
     h.dispose();
-    expect(f.r.read('audio.silenced'), isNull);
-    expect(f.r.describe()['aliases'], {'audio.hush': 'audio.mute'});
+    expect(f.r.read('door.silenced'), isNull);
+    expect(f.r.describe()['aliases'], {'door.hush': 'door.lock'});
   });
 
   test('an old name is not a word: it is refused as one, and no word may '
       'take it', () {
-    f.r.alias('audio.silenced', 'audio.muted');
-    expect(() => f.r.alias('audio.muted', 'studio.program'), throwsStateError);
+    f.r.alias('door.silenced', 'door.locked');
+    expect(() => f.r.alias('door.locked', 'house.focus'), throwsStateError);
     expect(
       () => f.r.defineState(
-        StateDescriptor('audio.silenced', type: const BoolType()),
+        StateDescriptor('door.silenced', type: const BoolType()),
         by: owner,
       ),
       throwsStateError,
@@ -46,15 +46,15 @@ void main() {
   });
 
   test('over remote, an old name subscribes to and reads the word', () async {
-    f.r.alias('audio.silenced', 'audio.muted');
-    f.muted.set(true);
+    f.r.alias('door.silenced', 'door.locked');
+    f.locked.set(true);
     final link = Link.open(f.r, user, wire: false);
     addTearDown(link.close);
     final mirror = RegistryMirror()..follow(link.client);
     addTearDown(mirror.dispose);
-    await mirror.subscribe(states: {'audio.silenced'});
+    await mirror.subscribe(states: {'door.silenced'});
     await settle();
-    expect(mirror.read('audio.silenced'), true);
-    expect(mirror.read('audio.muted'), true);
+    expect(mirror.read('door.silenced'), true);
+    expect(mirror.read('door.locked'), true);
   });
 }

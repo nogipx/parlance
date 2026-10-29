@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
-const owner = Principal('host', 'studio');
+const owner = Principal('host', 'house');
 const user = Principal('user', 'local');
 
 Future<void> pump() async {
@@ -34,33 +34,35 @@ void main() {
   test('a state that goes inside a batch tells its watchers so', () async {
     final r = Registry();
     final w = r.defineState(
-      StateDescriptor('a.gain', type: const IntType(), key: 'input'),
+      StateDescriptor('a.chime', type: const IntType(), key: 'input'),
       by: owner,
     );
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
     final seen = <Object?>[];
-    r.watch('a.gain', key: 'mic').listen(seen.add);
+    r.watch('a.chime', key: 'front').listen(seen.add);
     await pump();
-    w.set(5, key: 'mic');
+    w.set(5, key: 'front');
     await pump();
 
     r.batch(() {
-      w.set(6, key: 'mic');
+      w.set(6, key: 'front');
       w.set(7, key: 'line');
       w.dispose();
     });
     await pump();
 
     expect(seen, [null, 5, null]);
-    expect(r.stateDescriptor('a.gain'), isNull);
-    expect(ticks.last.changes.map((c) => (c.key, c.removed)), [('mic', true)]);
+    expect(r.stateDescriptor('a.chime'), isNull);
+    expect(ticks.last.changes.map((c) => (c.key, c.removed)), [
+      ('front', true),
+    ]);
     // The name is free, and the word comes back with nothing of the old.
     r.defineState(
-      StateDescriptor('a.gain', type: const IntType(), key: 'input'),
+      StateDescriptor('a.chime', type: const IntType(), key: 'input'),
       by: owner,
     );
-    expect(r.readAll('a.gain'), isEmpty);
+    expect(r.readAll('a.chime'), isEmpty);
   });
 
   test('the late end of a call takes the place of its timeout in what is '

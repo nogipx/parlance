@@ -12,7 +12,7 @@ import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const plugin = Principal('plugin', 'p');
-const viewer = Principal('viewer', 'v');
+const visitor = Principal('visitor', 'v');
 
 Future<void> pump() => Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -46,7 +46,7 @@ void main() {
       plugin,
       vocabularies: [const WordSet.open('plug')],
     );
-    final other = await host.join(viewer);
+    final other = await host.join(visitor);
     final h = p.defineState(
       StateDescriptor('plug.level', type: const IntType()),
     );
@@ -157,7 +157,7 @@ void main() {
           .set(1);
       final (c, t) = RpcChannelTransport.memoryPair();
       final responder = RpcPeerEndpoint(transport: t);
-      final s = r.participant(viewer).serve(responder);
+      final s = r.participant(visitor).serve(responder);
       responder.start();
       final caller = RpcPeerEndpoint(transport: c)..start();
       final mirror = RegistryMirror()..follow(ParlanceClient(caller));
@@ -176,7 +176,7 @@ void main() {
     final r = Registry();
     final (c, t) = RpcChannelTransport.memoryPair();
     final responder = RpcPeerEndpoint(transport: t);
-    final s = r.participant(viewer).serve(responder);
+    final s = r.participant(visitor).serve(responder);
     responder.start();
     final caller = RpcPeerEndpoint(transport: c)..start();
     final answer = await ParlanceClient(
@@ -195,7 +195,7 @@ void main() {
     final r = Registry();
     final (c, t) = RpcChannelTransport.memoryPair();
     final responder = RpcPeerEndpoint(transport: t);
-    final s = r.participant(viewer).serve(responder);
+    final s = r.participant(visitor).serve(responder);
     responder.start();
     final caller = RpcPeerEndpoint(transport: c)..start();
     final answer = await ParlanceClient(

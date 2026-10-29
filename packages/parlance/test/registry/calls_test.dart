@@ -22,15 +22,15 @@ void main() {
       refused(Refusal.unknownCommand),
     );
     expect(
-      await f.r.call('studio.show', {'scene': 'gone'}, by: user),
+      await f.r.call('house.show', {'room': 'gone'}, by: user),
       refused(Refusal.invalidParams),
     );
     expect(
-      await f.r.call('audio.mute', {'on': true}, by: viewer),
+      await f.r.call('door.lock', {'on': true}, by: visitor),
       refused(Refusal.notPermitted),
     );
     expect(
-      await f.r.call('studio.show', {'scene': 'main'}, by: viewer),
+      await f.r.call('house.show', {'room': 'main'}, by: visitor),
       isA<CallDone<Object?>>(),
       reason: 'warn allows',
     );
@@ -38,10 +38,10 @@ void main() {
 
   test('params get their defaults', () async {
     expect(
-      (await f.r.call('audio.gain.set', {'input': 'mic'}, by: user)).ok,
+      (await f.r.call('door.chime.set', {'input': 'front'}, by: user)).ok,
       isTrue,
     );
-    expect(f.r.read('audio.gain', key: 'mic'), 0);
+    expect(f.r.read('door.chime', key: 'front'), 0);
   });
 
   test('availability', () async {
@@ -58,16 +58,16 @@ void main() {
 
   test('a guard denies, saying which', () async {
     f.r.addGuard('no-test', (c) {
-      if (c.command.name == 'studio.show' && c.params['scene'] == 'test') {
+      if (c.command.name == 'house.show' && c.params['room'] == 'test') {
         return 'not on air';
       }
       return null;
     });
-    final r = await f.r.call('studio.show', {'scene': 'test'}, by: user);
+    final r = await f.r.call('house.show', {'room': 'test'}, by: user);
     expect(r, refused(Refusal.denied));
     expect((r as CallRefused).guard, 'no-test');
     expect(
-      (await f.r.call('studio.show', {'scene': 'main'}, by: user)).ok,
+      (await f.r.call('house.show', {'room': 'main'}, by: user)).ok,
       isTrue,
     );
   });
@@ -96,18 +96,8 @@ void main() {
   test(
     'a repeated id answers the first result without running again',
     () async {
-      final a = f.r.call(
-        'studio.show',
-        {'scene': 'main'},
-        by: user,
-        id: 'same',
-      );
-      final b = f.r.call(
-        'studio.show',
-        {'scene': 'main'},
-        by: user,
-        id: 'same',
-      );
+      final a = f.r.call('house.show', {'room': 'main'}, by: user, id: 'same');
+      final b = f.r.call('house.show', {'room': 'main'}, by: user, id: 'same');
       expect(await a, isA<CallDone<Object?>>());
       expect(identical(await a, await b), isTrue);
       expect(f.shown, ['main']);
@@ -293,21 +283,21 @@ void main() {
     'an id is the call it was given for: another call with it is refused',
     () async {
       final first = await f.r.call(
-        'audio.mute',
+        'door.lock',
         {'on': true},
         by: user,
         id: 'x',
       );
       expect(first, isA<CallDone<Object?>>());
       expect(
-        await f.r.call('audio.mute', {'on': true}, by: user, id: 'x'),
+        await f.r.call('door.lock', {'on': true}, by: user, id: 'x'),
         isA<CallDone<Object?>>(),
         reason: 'the same call answers the first result',
       );
       for (final other in [
-        f.r.call('audio.mute', {'on': false}, by: user, id: 'x'),
-        f.r.call('studio.show', {'scene': 'break'}, by: user, id: 'x'),
-        f.r.call('audio.mute', {'on': true}, by: agent, id: 'x'),
+        f.r.call('door.lock', {'on': false}, by: user, id: 'x'),
+        f.r.call('house.show', {'room': 'break'}, by: user, id: 'x'),
+        f.r.call('door.lock', {'on': true}, by: agent, id: 'x'),
       ]) {
         final r = await other;
         expect(r, isA<CallRefused>());
@@ -323,7 +313,7 @@ void main() {
     f.r.defineCommand(
       CommandDescriptor('x.both', callers: Callers.only(['user'])),
       (c) => f.r.call(
-        'audio.mute',
+        'door.lock',
         {'on': true},
         by: Principal.system,
         cause: c.causeFor(Principal.system),
@@ -331,7 +321,7 @@ void main() {
     );
     await f.r.call('x.both', {}, by: user, id: 'outer');
     await pumpEventQueue();
-    final inner = records.firstWhere((r) => r.command == 'audio.mute');
+    final inner = records.firstWhere((r) => r.command == 'door.lock');
     expect(inner.cause.parent, 'outer');
     expect(inner.cause.by, Principal.system);
   });
@@ -371,12 +361,12 @@ void main() {
 
   test('a result says why not in words, and nothing when done', () async {
     expect(
-      (await f.r.call('audio.mute', {'on': true}, by: user)).whyNot,
+      (await f.r.call('door.lock', {'on': true}, by: user)).whyNot,
       isNull,
     );
     expect(
-      (await f.r.call('audio.mute', {'on': true}, by: viewer)).whyNot,
-      contains('may not call audio.mute'),
+      (await f.r.call('door.lock', {'on': true}, by: visitor)).whyNot,
+      contains('may not call door.lock'),
     );
     expect(const CallFailed('disk full').whyNot, 'disk full');
     expect(const CallTimedOut().whyNot, contains('may still happen'));

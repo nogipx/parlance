@@ -6,22 +6,22 @@ import 'package:parlance/registry.dart';
 import 'package:parlance_links/parlance_links.dart';
 import 'package:test/test.dart';
 
-const studio = Principal('studio');
+const house = Principal('house');
 const plug = Principal('plugin', 'plug');
 const user = Principal('user', 'local');
 
-/// A studio with a state, a command and a fact, and a plugin whose links
+/// A house with a state, a command and a fact, and a plugin whose links
 /// run as it.
 final class Bench {
   Bench({Callers? callers}) {
-    s = registry.participant(studio, vocabularies: [const WordSet.open('st')]);
+    s = registry.participant(house, vocabularies: [const WordSet.open('st')]);
     p = registry.participant(plug, vocabularies: [const WordSet.open('plug')]);
     level = s.defineState(StateDescriptor('st.level', type: const IntType()));
     said = s.defineFact(
       FactDescriptor(
         'st.said',
         type: const ObjectType({
-          'viewer': Field(TextType(), optional: true),
+          'visitor': Field(TextType(), optional: true),
           'n': Field(IntType(), optional: true),
         }),
       ),
@@ -31,7 +31,7 @@ final class Bench {
         'st.note',
         params: const ObjectType({
           'n': Field(IntType(), optional: true),
-          'viewer': Field(TextType(), optional: true),
+          'visitor': Field(TextType(), optional: true),
         }),
         callers: callers ?? Callers({'plugin': Access.allow}),
       ),
@@ -82,7 +82,7 @@ void main() {
         'do': [
           {
             'call': 'st.note',
-            'params': {'n': r'$trigger.n', 'viewer': r'$trigger.viewer'},
+            'params': {'n': r'$trigger.n', 'visitor': r'$trigger.visitor'},
           },
         ],
       },
@@ -237,7 +237,7 @@ void main() {
     expect(b.notes, hasLength(1));
   });
 
-  test('a throttle per viewer lets each through once in its while', () {
+  test('a throttle per visitor lets each through once in its while', () {
     fakeAsync((async) {
       final b = Bench();
       unawaited(
@@ -247,13 +247,13 @@ void main() {
             'when': [
               {
                 'fact': 'st.said',
-                'throttle': {'every': '1m', 'per': r'$trigger.viewer'},
+                'throttle': {'every': '1m', 'per': r'$trigger.visitor'},
               },
             ],
             'do': [
               {
                 'call': 'st.note',
-                'params': {'viewer': r'$trigger.viewer'},
+                'params': {'visitor': r'$trigger.visitor'},
               },
             ],
           },
@@ -261,20 +261,20 @@ void main() {
       );
       async.flushMicrotasks();
       for (final v in ['ann', 'ann', 'bob']) {
-        b.said.emit({'viewer': v});
+        b.said.emit({'visitor': v});
         async.flushMicrotasks();
       }
       async.elapse(const Duration(minutes: 1));
-      b.said.emit({'viewer': 'ann'});
+      b.said.emit({'visitor': 'ann'});
       async.flushMicrotasks();
-      expect(b.notes.map((x) => x.params['viewer']), ['ann', 'bob', 'ann']);
+      expect(b.notes.map((x) => x.params['visitor']), ['ann', 'bob', 'ann']);
       unawaited(b.dispose());
       async.flushMicrotasks();
     });
   });
 
-  test('a throttle per viewer holds back each it let through, however many '
-      'viewers came', () {
+  test('a throttle per visitor holds back each it let through, however many '
+      'visitors came', () {
     fakeAsync((async) {
       final b = Bench();
       unawaited(
@@ -284,13 +284,13 @@ void main() {
             'when': [
               {
                 'fact': 'st.said',
-                'throttle': {'every': '1m', 'per': r'$trigger.viewer'},
+                'throttle': {'every': '1m', 'per': r'$trigger.visitor'},
               },
             ],
             'do': [
               {
                 'call': 'st.note',
-                'params': {'viewer': r'$trigger.viewer'},
+                'params': {'visitor': r'$trigger.visitor'},
               },
             ],
           },
@@ -298,14 +298,14 @@ void main() {
       );
       async.flushMicrotasks();
       for (var i = 0; i < 300; i++) {
-        b.said.emit({'viewer': 'v$i'});
+        b.said.emit({'visitor': 'v$i'});
         async.flushMicrotasks();
       }
-      b.said.emit({'viewer': 'v0'});
+      b.said.emit({'visitor': 'v0'});
       async.flushMicrotasks();
       expect(b.notes, hasLength(300), reason: 'v0 is held back still');
       async.elapse(const Duration(minutes: 2));
-      b.said.emit({'viewer': 'v1'});
+      b.said.emit({'visitor': 'v1'});
       async.flushMicrotasks();
       expect(b.notes, hasLength(301));
       unawaited(b.dispose());
@@ -390,8 +390,8 @@ void main() {
           TriggerExtension(
             'says',
             translate: (o) => const FactTrigger('st.said', Filter({})),
-            accept: (data, o) => (data! as Map)['viewer'] == o['says']
-                ? {'viewer': 'it was ${o['says']}'}
+            accept: (data, o) => (data! as Map)['visitor'] == o['says']
+                ? {'visitor': 'it was ${o['says']}'}
                 : null,
           ),
         ],
@@ -406,15 +406,15 @@ void main() {
           'do': [
             {
               'call': 'st.note',
-              'params': {'viewer': r'$trigger.viewer'},
+              'params': {'visitor': r'$trigger.visitor'},
             },
           ],
         },
       ]);
-      b.said.emit({'viewer': 'bob'});
-      b.said.emit({'viewer': 'ann'});
+      b.said.emit({'visitor': 'bob'});
+      b.said.emit({'visitor': 'ann'});
       await pump();
-      expect(b.notes.single.params, {'viewer': 'it was ann'});
+      expect(b.notes.single.params, {'visitor': 'it was ann'});
     },
   );
 
@@ -429,7 +429,7 @@ void main() {
           'st.again',
           callers: Callers({'plugin': Access.allow}),
         ),
-        (call) => b.said.emit({}, cause: call.causeFor(studio)),
+        (call) => b.said.emit({}, cause: call.causeFor(house)),
       );
       var runs = 0;
       final links = Links(
@@ -540,7 +540,7 @@ void main() {
         'do': [
           {
             'call': 'st.note',
-            'params': {'viewer': id},
+            'params': {'visitor': id},
           },
         ],
       };
@@ -550,7 +550,7 @@ void main() {
       await Future.wait([first, second]);
       b.said.emit({});
       await pump();
-      expect([for (final n in b.notes) n.params['viewer']], ['two']);
+      expect([for (final n in b.notes) n.params['visitor']], ['two']);
       expect(b.errors, isEmpty);
       expect([for (final x in b.links.buttons()) x['id']], ['two']);
     },

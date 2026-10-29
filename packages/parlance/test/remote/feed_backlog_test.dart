@@ -9,7 +9,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
 const host = Principal('host');
-const viewer = Principal('viewer', 'slow');
+const visitor = Principal('visitor', 'slow');
 
 void main() {
   late Registry r;
@@ -20,7 +20,7 @@ void main() {
     r = Registry(retainTicks: retainTicks);
     final (_, s) = RpcChannelTransport.memoryPair();
     endpoint = RpcPeerEndpoint(transport: s);
-    session = r.participant(viewer).serve(endpoint, feedBacklog: 4);
+    session = r.participant(visitor).serve(endpoint, feedBacklog: 4);
   }
 
   tearDown(() async {

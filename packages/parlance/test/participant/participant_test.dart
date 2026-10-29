@@ -7,7 +7,7 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const orders = Principal('module', 'orders');
 const cart = Principal('module', 'cart');
-const someone = Principal('viewer', 'v1');
+const someone = Principal('visitor', 'v1');
 
 typedef Order = ({String id, String status});
 
@@ -182,11 +182,11 @@ void main() {
     });
 
     test('speaks for another only when its rights let it', () async {
-      final mute = r.participant(
+      final lock = r.participant(
         orders,
         vocabularies: [WordSet.open('orders')],
       );
-      final a = mute.fact(OrderFact.placed).define();
+      final a = lock.fact(OrderFact.placed).define();
       expect(
         () => (a as FactEmitterOf<Order>).emit((
           id: 'o',
@@ -194,12 +194,12 @@ void main() {
         ), cause: const Cause(someone)),
         throwsA(isA<StateError>()),
       );
-      mute.dispose();
+      lock.dispose();
       final voice = r.participant(
         orders,
         vocabularies: [WordSet.open('orders')],
         rights: ParticipantRights(
-          speakFor: (_, by, _) => by.kind == 'viewer' ? null : 'viewers only',
+          speakFor: (_, by, _) => by.kind == 'visitor' ? null : 'visitors only',
         ),
       );
       (voice.fact(OrderFact.placed).define() as FactEmitterOf<Order>).emit((
@@ -283,10 +283,7 @@ void main() {
       expect(sync.selector, 'module/orders@sync');
       expect(Principal.parse('module/orders@sync'), sync);
       expect(Principal.fromJson(sync.toJson()), sync);
-      expect(
-        const Principal('studio').child('screen').selector,
-        'studio@screen',
-      );
+      expect(const Principal('house').child('screen').selector, 'house@screen');
       expect(() => sync.child('push'), throwsStateError);
       expect(sync.isWithin(orders), isTrue);
       expect(sync.isWithin(const Principal('module')), isTrue);
@@ -444,7 +441,7 @@ void main() {
     final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
     p.registerKind(EntityKind('order', list: () => const []));
     p.entitiesChanged('order');
-    expect(() => p.entitiesChanged('scene'), throwsA(isA<StateError>()));
+    expect(() => p.entitiesChanged('room'), throwsA(isA<StateError>()));
   });
 
   test(
@@ -511,7 +508,7 @@ void main() {
         isA<ArgumentError>().having(
           (e) => '${e.message}',
           'message',
-          allOf(contains('"cart.muted talk"'), contains('joined by _ or -')),
+          allOf(contains('"cart.locked talk"'), contains('joined by _ or -')),
         ),
       ),
       reason: 'every name is checked when the vocabulary is granted',
@@ -520,18 +517,18 @@ void main() {
 
   test('a selector is kind[/id][@owner], and the nearest one said '
       'decides', () {
-    final viewer = Principal.parse('viewer/twitch.123');
+    final visitor = Principal.parse('visitor/gate.123');
     expect(
-      (viewer.kind, viewer.id, viewer.owner),
-      ('viewer', 'twitch.123', ''),
+      (visitor.kind, visitor.id, visitor.owner),
+      ('visitor', 'gate.123', ''),
     );
-    expect(viewer.parent!.selector, 'viewer');
+    expect(visitor.parent!.selector, 'visitor');
     const rules = Callers({
-      'viewer': Access.allow,
-      'viewer/twitch.42': Access.deny,
+      'visitor': Access.allow,
+      'visitor/gate.42': Access.deny,
     });
-    expect(rules.accessOf(viewer), Access.allow);
-    expect(rules.accessOf(Principal.parse('viewer/twitch.42')), Access.deny);
+    expect(rules.accessOf(visitor), Access.allow);
+    expect(rules.accessOf(Principal.parse('visitor/gate.42')), Access.deny);
     expect(rules.accessOf(Principal.parse('member/9')), Access.deny);
   });
 
@@ -545,25 +542,25 @@ void main() {
       throwsArgumentError,
     );
     expect(
-      () => r.participant(const Principal('viewer', 'twitch:1')),
+      () => r.participant(const Principal('visitor', 'gate:1')),
       throwsArgumentError,
       reason: 'a : in an id would be a level that is not one',
     );
     expect(() => Principal.parse('module/orders/'), throwsArgumentError);
     expect(() => Principal.parse('module/'), throwsArgumentError);
     expect(() => Principal.parse('module/orders@'), throwsArgumentError);
-    expect(() => Principal.parse('viewer/twitch/1'), throwsArgumentError);
-    expect(() => Principal.parse('studio@a@b'), throwsArgumentError);
-    expect(() => Principal.parse('studio@Screen'), throwsArgumentError);
+    expect(() => Principal.parse('visitor/gate/1'), throwsArgumentError);
+    expect(() => Principal.parse('house@a@b'), throwsArgumentError);
+    expect(() => Principal.parse('house@Screen'), throwsArgumentError);
     for (final reserved in ['#', '/', ':', '*', ' ', '~', '%']) {
       expect(
-        () => Principal.parse('viewer/bo${reserved}1'),
+        () => Principal.parse('visitor/bo${reserved}1'),
         throwsArgumentError,
         reason: '$reserved is reserved',
       );
     }
-    expect(() => Principal.parse('Viewer/x'), throwsArgumentError);
-    expect(Principal.parse('viewer/UC_a-b.c').id, 'UC_a-b.c');
+    expect(() => Principal.parse('Visitor/x'), throwsArgumentError);
+    expect(Principal.parse('visitor/UC_a-b.c').id, 'UC_a-b.c');
   });
 
   test('a text from outside becomes a level: as it is when it is one, else '
@@ -584,7 +581,7 @@ void main() {
     expect(Principal.levelOf(made), startsWith('$made.'));
     for (final t in ['ann@mail.com', 'Вася', '', ' b ']) {
       expect(
-        () => Principal('viewer', Principal.levelOf(t)).check(),
+        () => Principal('visitor', Principal.levelOf(t)).check(),
         returnsNormally,
       );
     }
@@ -604,7 +601,7 @@ enum _Other<T> implements IStateWord<T> {
 }
 
 enum _Spaced<T> implements IStateWord<T> {
-  word<bool>('cart.muted talk');
+  word<bool>('cart.locked talk');
 
   const _Spaced(this.name);
   @override

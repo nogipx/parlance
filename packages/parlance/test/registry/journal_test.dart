@@ -11,7 +11,7 @@ void main() {
       'wrote, the call that answered the fact, their ends', () async {
     final r = Registry();
     final said = r.defineFact(
-      FactDescriptor('chat.line', type: const TextType()),
+      FactDescriptor('intercom.line', type: const TextType()),
       by: owner,
     );
     final clipped = r.defineState(
@@ -19,7 +19,7 @@ void main() {
       by: owner,
     );
     r.defineCommand(
-      CommandDescriptor('chat.say', callers: Callers.only(['user'])),
+      CommandDescriptor('intercom.say', callers: Callers.only(['user'])),
       (c) {
         said.emit('!clip', cause: c.causeFor(owner));
         clipped.set('before', cause: c.causeFor(owner));
@@ -30,7 +30,7 @@ void main() {
       (c) => clipped.set('clip-1', cause: c.causeFor(owner)),
     );
     r
-        .facts(fact: 'chat.line')
+        .facts(fact: 'intercom.line')
         .listen(
           (f) => r.call(
             'clip.save',
@@ -41,7 +41,7 @@ void main() {
         );
     final journal = <JournalEntry>[];
     r.journal.listen(journal.add);
-    await r.call('chat.say', {}, by: user, id: 'start');
+    await r.call('intercom.say', {}, by: user, id: 'start');
     await pumpEventQueue();
 
     String line(JournalEntry e) => switch (e) {
@@ -51,13 +51,13 @@ void main() {
       JournalWrite(:final change) => 'write ${change.state}',
     };
     expect(journal.map(line), [
-      'start chat.say',
-      'fact chat.line',
+      'start intercom.say',
+      'fact intercom.line',
       'write clip.last',
       // As it happened: the fact was answered before the call's end came.
       'start clip.save',
       'write clip.last',
-      'end chat.say',
+      'end intercom.say',
       'end clip.save',
     ]);
     expect({for (final e in journal) e.conversation}, {'start'});
@@ -72,8 +72,8 @@ void main() {
     final f = Fixture();
     final journal = <JournalEntry>[];
     f.r.journal.listen(journal.add);
-    f.muted.set(true);
-    await f.r.call('audio.mute', {'on': true}, by: viewer, id: 'v');
+    f.locked.set(true);
+    await f.r.call('door.lock', {'on': true}, by: visitor, id: 'v');
     await pumpEventQueue();
     final end = journal.single as JournalEnd;
     expect((end.call.result as CallRefused).code, Refusal.notPermitted);
@@ -85,13 +85,13 @@ void main() {
     final f = Fixture();
     final journal = <JournalEntry>[];
     f.r.journal.listen(journal.add);
-    await f.r.call('audio.mute', {'on': true}, by: user, id: 'm');
+    await f.r.call('door.lock', {'on': true}, by: user, id: 'm');
     await pumpEventQueue();
     expect(journal.map((e) => e.kind), ['start', 'write', 'end']);
     for (final e in journal) {
       final json = e.toJson();
       expect(json, containsPair('conversation', 'm'));
-      expect(json['origin'], {'word': 'audio.mute', 'by': user.toJson()});
+      expect(json['origin'], {'word': 'door.lock', 'by': user.toJson()});
       expect(json, containsPair('kind', e.kind));
       final back = JournalEntry.fromJson(json);
       expect((back.runtimeType, back.id, back.n), (e.runtimeType, e.id, e.n));
@@ -116,8 +116,8 @@ void main() {
     );
     final journal = <JournalEntry>[];
     f.r.journal.listen(journal.add);
-    await f.r.call('audio.mute', {'on': true}, by: user, id: 'm');
-    await f.r.call('audio.mute', {'on': true}, by: viewer, id: 'v');
+    await f.r.call('door.lock', {'on': true}, by: user, id: 'm');
+    await f.r.call('door.lock', {'on': true}, by: visitor, id: 'v');
     await pumpEventQueue();
     final span = spans.single;
     final ofCall = journal.where((e) => e.conversation == 'm').toList();
@@ -134,10 +134,10 @@ void main() {
 
   test('nothing is made while no one listens', () async {
     final f = Fixture();
-    await f.r.call('audio.mute', {'on': true}, by: user);
+    await f.r.call('door.lock', {'on': true}, by: user);
     final journal = <JournalEntry>[];
     f.r.journal.listen(journal.add);
-    await f.r.call('audio.mute', {'on': false}, by: user);
+    await f.r.call('door.lock', {'on': false}, by: user);
     await pumpEventQueue();
     expect(journal.first.n, 1, reason: 'counted from the first one heard');
     await f.r.dispose();

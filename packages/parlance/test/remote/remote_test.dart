@@ -78,14 +78,14 @@ void main() {
         final names = [
           for (final x in d['descriptors'] as List) (x as Map)['name'],
         ];
-        expect(names, contains('studio.show'));
+        expect(names, contains('house.show'));
       });
 
       test('a call answers its result; a refusal is a result too', () async {
-        final ok = await link.client.call('studio.show', {'scene': 'main'});
+        final ok = await link.client.call('house.show', {'room': 'main'});
         expect(ok, isA<CallDone<Object?>>());
-        expect(f.r.read('studio.program'), 'main');
-        final bad = await link.client.call('studio.show', {'scene': 'gone'});
+        expect(f.r.read('house.focus'), 'main');
+        final bad = await link.client.call('house.show', {'room': 'gone'});
         expect(
           bad,
           isA<CallRefused>().having(
@@ -97,9 +97,9 @@ void main() {
       });
 
       test('the session acts for its principal only', () async {
-        final v = Link.open(f.r, viewer, wire: wire);
+        final v = Link.open(f.r, visitor, wire: wire);
         addTearDown(v.close);
-        final r = await v.client.call('audio.mute', {'on': true});
+        final r = await v.client.call('door.lock', {'on': true});
         expect(
           r,
           isA<CallRefused>().having(
@@ -113,9 +113,9 @@ void main() {
       test('a guard denial comes with its guard', () async {
         f.r.addGuard(
           'no-test',
-          (c) => c.params['scene'] == 'test' ? 'no' : null,
+          (c) => c.params['room'] == 'test' ? 'no' : null,
         );
-        final r = await link.client.call('studio.show', {'scene': 'test'});
+        final r = await link.client.call('house.show', {'room': 'test'});
         expect(
           r,
           isA<CallRefused>().having((x) => x.guard, 'guard', 'no-test'),
@@ -125,19 +125,17 @@ void main() {
       test(
         'a retry with the same id after a reconnect does not run twice',
         () async {
-          await link.client.call('studio.show', {'scene': 'main'}, id: 'once');
+          await link.client.call('house.show', {'room': 'main'}, id: 'once');
           await link.close();
           link = Link.open(f.r, user, wire: wire);
-          final again = await link.client.call('studio.show', {
-            'scene': 'main',
+          final again = await link.client.call('house.show', {
+            'room': 'main',
           }, id: 'once');
           expect(again, isA<CallDone<Object?>>());
           expect(f.shown, ['main']);
           final other = Link.open(f.r, agent, wire: wire);
           addTearDown(other.close);
-          await other.client.call('studio.show', {
-            'scene': 'break',
-          }, id: 'once');
+          await other.client.call('house.show', {'room': 'break'}, id: 'once');
           expect(f.shown, ['main', 'break'], reason: 'ids are per principal');
         },
       );
@@ -145,11 +143,11 @@ void main() {
       test(
         'feed: the catalog, a snapshot, then ticks; catalog changes too',
         () async {
-          f.muted.set(true);
+          f.locked.set(true);
           final items = <RemoteFeed>[];
           final sub = link.client.feed().listen(items.add);
           await settle();
-          f.program.set('break');
+          f.focus.set('break');
           f.r.defineFact(
             FactDescriptor('x.new', type: const AnyType()),
             by: owner,
@@ -157,7 +155,7 @@ void main() {
           await settle();
           expect(items[0], isA<RemoteCatalog>());
           final snap = (items[1] as RemoteSnapshot).snapshot;
-          expect(snap.states['audio.muted'], {null: true});
+          expect(snap.states['door.locked'], {null: true});
           final tick = items.whereType<RemoteTick>().single.tick;
           expect(tick.changes.single.value, 'break');
           final last = items.whereType<RemoteCatalog>().last.json;
@@ -177,24 +175,24 @@ void main() {
           mirror.ticks.listen(seen.add);
           mirror.follow(link.client);
           await settle();
-          f.muted.set(true);
+          f.locked.set(true);
           await settle();
-          expect(mirror.read('audio.muted'), true);
+          expect(mirror.read('door.locked'), true);
 
           await link.close();
           await settle();
           expect(mirror.synced, isFalse);
-          f.program.set('main');
-          f.gain.set(-6, key: 'mic');
-          f.muted.set(false);
+          f.focus.set('main');
+          f.chime.set(-6, key: 'front');
+          f.locked.set(false);
 
           link = Link.open(f.r, user, wire: wire);
           mirror.follow(link.client);
           await settle();
           expect(mirror.synced, isTrue);
-          expect(mirror.read('studio.program'), 'main');
-          expect(mirror.read('audio.gain', key: 'mic'), -6);
-          expect(mirror.read('audio.muted'), false);
+          expect(mirror.read('house.focus'), 'main');
+          expect(mirror.read('door.chime', key: 'front'), -6);
+          expect(mirror.read('door.locked'), false);
           expect(mirror.seq, f.r.seq);
           for (var i = 1; i < seen.length; i++) {
             expect(
@@ -226,14 +224,14 @@ void main() {
       );
 
       group('a subscription', () {
-        late RawFactEmitter raid;
+        late RawFactEmitter party;
         late RawFactEmitter cheer;
         late RegistryMirror mirror;
         final seen = <Tick>[];
 
         setUp(() {
-          raid = f.r.defineFact(
-            FactDescriptor('x.raid', type: const IntType()),
+          party = f.r.defineFact(
+            FactDescriptor('x.party', type: const IntType()),
             by: owner,
           );
           cheer = f.r.defineFact(
@@ -257,29 +255,29 @@ void main() {
 
         test('the feed carries only the states and facts it names, and the '
             'ticks it leaves out leave no gap', () async {
-          await mirror.subscribe(states: {'audio.muted'}, facts: {'x.raid'});
+          await mirror.subscribe(states: {'door.locked'}, facts: {'x.party'});
           mirror.follow(link.client);
           await settle();
           // Each in a tick of its own.
           for (final write in <void Function()>[
-            () => f.program.set('main'),
-            () => f.muted.set(true),
-            () => raid.emit(1),
+            () => f.focus.set('main'),
+            () => f.locked.set(true),
+            () => party.emit(1),
             () => cheer.emit(2),
-            () => f.gain.set(-6, key: 'mic'),
-            () => f.muted.set(false),
-            () => f.program.set('break'),
+            () => f.chime.set(-6, key: 'front'),
+            () => f.locked.set(false),
+            () => f.focus.set('break'),
           ]) {
             write();
             await Future<void>.delayed(Duration.zero);
           }
           await settle();
-          expect(mirror.read('audio.muted'), false);
-          expect(mirror.read('studio.program'), isNull);
-          expect(mirror.readAll('audio.gain'), isEmpty);
+          expect(mirror.read('door.locked'), false);
+          expect(mirror.read('house.focus'), isNull);
+          expect(mirror.readAll('door.chime'), isEmpty);
           expect(
             {for (final t in seen) ...t.changes.map((c) => c.state)},
-            {'audio.muted'},
+            {'door.locked'},
           );
           expect([for (final t in seen) ...t.facts.map((x) => x.payload)], [1]);
           expect(seen.length, 3);
@@ -293,42 +291,42 @@ void main() {
 
         test('a state it takes in comes with its values at once; one it '
             'leaves goes from the copy', () async {
-          f.program.set('main');
-          f.muted.set(true);
-          await mirror.subscribe(states: {'audio.muted'});
+          f.focus.set('main');
+          f.locked.set(true);
+          await mirror.subscribe(states: {'door.locked'});
           mirror.follow(link.client);
           await settle();
-          expect(mirror.read('studio.program'), isNull);
-          await mirror.subscribe(states: {'audio.muted', 'studio.program'});
-          expect(mirror.read('studio.program'), 'main');
-          await mirror.subscribe(states: {'studio.program'});
-          expect(mirror.read('audio.muted'), isNull);
-          f.program.set('break');
-          f.muted.set(false);
+          expect(mirror.read('house.focus'), isNull);
+          await mirror.subscribe(states: {'door.locked', 'house.focus'});
+          expect(mirror.read('house.focus'), 'main');
+          await mirror.subscribe(states: {'house.focus'});
+          expect(mirror.read('door.locked'), isNull);
+          f.focus.set('break');
+          f.locked.set(false);
           await settle();
-          expect(mirror.read('studio.program'), 'break');
-          expect(mirror.read('audio.muted'), isNull);
+          expect(mirror.read('house.focus'), 'break');
+          expect(mirror.read('door.locked'), isNull);
           await mirror.subscribe();
-          expect(mirror.read('audio.muted'), false);
+          expect(mirror.read('door.locked'), false);
           noGaps();
         });
 
         test('a new connection subscribes again before its feed', () async {
-          await mirror.subscribe(states: {'audio.muted'}, facts: const {});
+          await mirror.subscribe(states: {'door.locked'}, facts: const {});
           mirror.follow(link.client);
           await settle();
           await link.close();
           await settle();
-          f.muted.set(true);
-          f.program.set('main');
+          f.locked.set(true);
+          f.focus.set('main');
           link = Link.open(f.r, user, wire: wire);
           mirror.follow(link.client);
           await settle();
-          expect(mirror.read('audio.muted'), true);
-          expect(mirror.read('studio.program'), isNull);
-          expect(link.session.states, {'audio.muted'});
+          expect(mirror.read('door.locked'), true);
+          expect(mirror.read('house.focus'), isNull);
+          expect(link.session.states, {'door.locked'});
           expect(link.session.facts, isEmpty);
-          raid.emit(1);
+          party.emit(1);
           await settle();
           expect(seen.expand((t) => t.facts), isEmpty);
           noGaps();
@@ -336,13 +334,13 @@ void main() {
 
         test('the host knows what the session hears: the facts its feeds '
             'carry, and those it read the recent of', () async {
-          bool raids(String fact) => fact == 'x.raid';
-          expect(link.session.hears(raids), isTrue, reason: 'all, at first');
+          bool parties(String fact) => fact == 'x.party';
+          expect(link.session.hears(parties), isTrue, reason: 'all, at first');
           await link.client.subscribe(states: const [], facts: ['x.cheer']);
-          expect(link.session.hears(raids), isFalse);
+          expect(link.session.hears(parties), isFalse);
           expect(link.session.hears((x) => x.startsWith('x.')), isTrue);
-          await link.client.recent('x.raid', 1);
-          expect(link.session.hears(raids), isTrue);
+          await link.client.recent('x.party', 1);
+          expect(link.session.hears(parties), isTrue);
         });
       });
 
@@ -388,15 +386,15 @@ void main() {
           mirror.ticks.listen(ticks.add);
           await settle();
           expect(mirror.readAll('kittens.settings'), isEmpty);
-          f.muted.set(true);
+          f.locked.set(true);
           await settle();
           secret.set({'channel': 'puppies'});
           await settle();
-          f.muted.set(false);
+          f.locked.set(false);
           await settle();
           expect(mirror.readAll('kittens.settings'), isEmpty);
           expect(ticks.expand((t) => t.changes).map((c) => c.state).toSet(), {
-            'audio.muted',
+            'door.locked',
           });
           for (var i = 1; i < ticks.length; i++) {
             expect(ticks[i].from, ticks[i - 1].to + 1);
@@ -405,12 +403,12 @@ void main() {
           expect(
             await status(
               other.client.subscribe(
-                states: ['kittens.settings', 'audio.muted'],
+                states: ['kittens.settings', 'door.locked'],
               ),
             ),
             isNull,
           );
-          expect(other.session.states, {'audio.muted'});
+          expect(other.session.states, {'door.locked'});
           expect(
             await status(other.client.why('kittens.settings')),
             RpcStatus.permissionDenied,
@@ -521,16 +519,16 @@ void main() {
       test(
         'recent facts come from the registry, older than the session',
         () async {
-          final raid = f.r.defineFact(
-            FactDescriptor('x.raid', type: const IntType()),
+          final party = f.r.defineFact(
+            FactDescriptor('x.party', type: const IntType()),
             by: owner,
           );
-          raid.emit(1);
-          raid.emit(2);
+          party.emit(1);
+          party.emit(2);
           final late = Link.open(f.r, user, wire: wire);
           addTearDown(late.close);
           expect(
-            [for (final m in await late.client.recent('x.raid', 5)) m.payload],
+            [for (final m in await late.client.recent('x.party', 5)) m.payload],
             [1, 2],
           );
         },
@@ -542,10 +540,10 @@ void main() {
           final mirror = RegistryMirror()..follow(link.client);
           addTearDown(mirror.dispose);
           await settle();
-          final r = await link.client.callAt('studio.show', {'scene': 'break'});
+          final r = await link.client.callAt('house.show', {'room': 'break'});
           expect(r.seq, f.r.seq);
           expect(await mirror.reach(r.epoch!, r.seq!), isTrue);
-          expect(mirror.read('studio.program'), 'break');
+          expect(mirror.read('house.focus'), 'break');
           expect(
             await mirror.reach(
               r.epoch!,
@@ -559,10 +557,10 @@ void main() {
 
       group('a session that owns words', () {
         const plugin = Principal('plugin', 'kittens');
-        // The host's rights: words under its id, and a viewer it speaks
+        // The host's rights: words under its id, and a visitor it speaks
         // for.
         final rights = ParticipantRights(
-          speakFor: (p, by, fact) => by.kind == 'viewer' ? null : 'not $by',
+          speakFor: (p, by, fact) => by.kind == 'visitor' ? null : 'not $by',
         );
         late Link k;
         late RemoteOwner o;
@@ -642,7 +640,7 @@ void main() {
           expect(
             await status(
               k.client.define(
-                StateDescriptor('studio.lights', type: const BoolType()),
+                StateDescriptor('house.lights', type: const BoolType()),
               ),
             ),
             RpcStatus.permissionDenied,
@@ -656,7 +654,7 @@ void main() {
             RpcStatus.alreadyExists,
           );
           expect(
-            await status(k.client.write('audio.muted', value: true)),
+            await status(k.client.write('door.locked', value: true)),
             RpcStatus.permissionDenied,
           );
           expect(
@@ -675,11 +673,11 @@ void main() {
           );
         });
 
-        test("it says its own facts, for a viewer the host lets it speak "
+        test("it says its own facts, for a visitor the host lets it speak "
             "for; a repeat of an id is dropped; another's fact it does not "
             "say", () async {
           f.r.defineFact(
-            FactDescriptor('platform.raid', type: const AnyType()),
+            FactDescriptor('porch.party', type: const AnyType()),
             by: owner,
           );
           await k.client.define(
@@ -691,17 +689,17 @@ void main() {
               'kittens.adopted',
               {'name': 'Bo'},
               id: 'f1',
-              by: viewer,
+              by: visitor,
             ),
             true,
           );
           expect(
-            await k.client.emit('kittens.adopted', {}, id: 'f1', by: viewer),
+            await k.client.emit('kittens.adopted', {}, id: 'f1', by: visitor),
             false,
           );
-          expect(f.r.recent('kittens.adopted').last.cause.by, viewer);
+          expect(f.r.recent('kittens.adopted').last.cause.by, visitor);
           expect(
-            await status(k.client.emit('platform.raid', {})),
+            await status(k.client.emit('porch.party', {})),
             RpcStatus.permissionDenied,
           );
           expect(
@@ -709,7 +707,7 @@ void main() {
             RpcStatus.permissionDenied,
           );
           expect(
-            await status(k.client.emit('audio.nothing', {})),
+            await status(k.client.emit('door.nothing', {})),
             RpcStatus.notFound,
           );
         });

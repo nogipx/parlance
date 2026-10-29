@@ -11,7 +11,7 @@ void main() {
       'and a cause made by hand naming only its parent too', () async {
     final r = Registry();
     final said = r.defineFact(
-      FactDescriptor('chat.line', type: const TextType()),
+      FactDescriptor('intercom.line', type: const TextType()),
       by: owner,
     );
     final clipped = r.defineState(
@@ -19,7 +19,7 @@ void main() {
       by: owner,
     );
     r.defineCommand(
-      CommandDescriptor('chat.say', callers: Callers.only(['user'])),
+      CommandDescriptor('intercom.say', callers: Callers.only(['user'])),
       (c) => said.emit('!clip', cause: c.causeFor(owner)),
     );
     r.defineCommand(
@@ -28,7 +28,7 @@ void main() {
     );
     // A listener answers the fact with a cause it makes itself.
     r
-        .facts(fact: 'chat.line')
+        .facts(fact: 'intercom.line')
         .listen(
           (f) => r.call(
             'clip.save',
@@ -37,12 +37,15 @@ void main() {
             cause: Cause(user, parent: f.id),
           ),
         );
-    await r.call('chat.say', {}, by: user, id: 'start');
+    await r.call('intercom.say', {}, by: user, id: 'start');
     await pumpEventQueue();
 
     final talk = r.conversation('start');
-    expect([for (final c in talk.calls) c.command], ['chat.say', 'clip.save']);
-    expect([for (final f in talk.facts) f.fact], ['chat.line']);
+    expect(
+      [for (final c in talk.calls) c.command],
+      ['intercom.say', 'clip.save'],
+    );
+    expect([for (final f in talk.facts) f.fact], ['intercom.line']);
     expect([for (final c in talk.changes) c.state], ['clip.last']);
     expect(r.lastChange('clip.last')!.cause.conversation, 'start');
     expect(r.conversation('another').isEmpty, isTrue);
@@ -53,10 +56,10 @@ void main() {
       'follows, whoever acts on the way; a message that follows from '
       'nothing is its own origin, whatever it claims', () async {
     final r = Registry();
-    const viewer = Principal('viewer', 'twitch.7');
+    const visitor = Principal('visitor', 'gate.7');
     const plugin = Principal('plugin', 'basics');
     final said = r.defineFact(
-      FactDescriptor('chat.line', type: const TextType()),
+      FactDescriptor('intercom.line', type: const TextType()),
       by: owner,
     );
     final clipped = r.defineState(
@@ -64,7 +67,7 @@ void main() {
       by: owner,
     );
     r.defineCommand(
-      CommandDescriptor('chat.say', callers: Callers.only(['viewer'])),
+      CommandDescriptor('intercom.say', callers: Callers.only(['visitor'])),
       (c) => said.emit('!clip', cause: c.causeFor(owner)),
     );
     r.defineCommand(
@@ -73,7 +76,7 @@ void main() {
     );
     // The plugin names the fact it answers, and claims another origin.
     r
-        .facts(fact: 'chat.line')
+        .facts(fact: 'intercom.line')
         .listen(
           (f) => r.call(
             'clip.save',
@@ -83,17 +86,17 @@ void main() {
             cause: Cause(
               plugin,
               parent: f.id,
-              origin: const Origin('audio.mute', user),
+              origin: const Origin('door.lock', user),
             ),
           ),
         );
-    await r.call('chat.say', {}, by: viewer, id: 'irc:1');
+    await r.call('intercom.say', {}, by: visitor, id: 'irc:1');
     await pumpEventQueue();
-    const started = Origin('chat.say', viewer);
+    const started = Origin('intercom.say', visitor);
     final talk = r.conversation('irc:1');
     expect(
       [for (final c in talk.calls) (c.command, c.cause.originOf(c.command))],
-      [('chat.say', started), ('clip.save', started)],
+      [('intercom.say', started), ('clip.save', started)],
     );
     expect(talk.calls.first.cause.origin, isNull, reason: 'it started it');
     expect(talk.facts.single.cause.origin, started);
@@ -115,7 +118,7 @@ void main() {
   test('calls a handler makes, and the calls theirs make, have the origin '
       'of the first, with nothing passed but the call\'s cause', () async {
     final r = Registry();
-    const viewer = Principal('viewer', 'twitch.7');
+    const visitor = Principal('visitor', 'gate.7');
     for (final (name, next) in [
       ('a.go', ['b.go']),
       ('b.go', ['c.go', 'd.go']),
@@ -123,7 +126,7 @@ void main() {
       ('d.go', <String>[]),
     ]) {
       r.defineCommand(
-        CommandDescriptor(name, callers: Callers.only(['viewer', 'host'])),
+        CommandDescriptor(name, callers: Callers.only(['visitor', 'host'])),
         (c) async {
           for (final n in next) {
             await r.call(n, {}, by: owner, cause: c.causeFor(owner));
@@ -131,9 +134,9 @@ void main() {
         },
       );
     }
-    await r.call('a.go', {}, by: viewer, id: 'start');
+    await r.call('a.go', {}, by: visitor, id: 'start');
     final calls = r.conversation('start').calls;
-    const started = Origin('a.go', viewer);
+    const started = Origin('a.go', visitor);
     expect(
       [
         for (final c in calls)
@@ -143,7 +146,7 @@ void main() {
         ('c.go', owner, started),
         ('d.go', owner, started),
         ('b.go', owner, started),
-        ('a.go', viewer, started),
+        ('a.go', visitor, started),
       ],
     );
     expect(calls.last.cause.origin, isNull, reason: 'the first is its own');
@@ -184,10 +187,10 @@ void main() {
     final f = Fixture(
       registry: Registry(log: logs.scope('p'), onError: (e, _) {}),
     );
-    await f.r.call('audio.mute', {'on': true}, by: user, id: 'm');
+    await f.r.call('door.lock', {'on': true}, by: user, id: 'm');
     await pumpEventQueue();
     expect(spans.single.data, containsPair('conversation', 'm'));
-    expect(spans.single.data, containsPair('origin', 'audio.mute'));
+    expect(spans.single.data, containsPair('origin', 'door.lock'));
     expect(spans.single.data, containsPair('originBy', 'user/local'));
     await f.r.dispose();
     logs.dispose();

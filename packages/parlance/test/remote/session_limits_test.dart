@@ -46,7 +46,7 @@ void main() {
       'makes room', () async {
     final (p, errors) = await join(const SessionLimits(stateBytes: 200));
     final seen = p.defineState(
-      StateDescriptor('notes.seen', type: const TextType(), key: 'viewer'),
+      StateDescriptor('notes.seen', type: const TextType(), key: 'visitor'),
     );
     for (var i = 0; i < 20; i++) {
       seen.set('x' * 20, key: 'v$i');

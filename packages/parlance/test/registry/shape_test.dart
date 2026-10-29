@@ -9,23 +9,23 @@ import 'package:test/test.dart';
 /// held to one rule.
 final class _Ctx implements ITypeContext {
   @override
-  bool hasKind(String kind) => kind == 'scene';
+  bool hasKind(String kind) => kind == 'room';
 
   @override
-  bool hasEntity(String kind, String id) => kind == 'scene' && id == 'main';
+  bool hasEntity(String kind, String id) => kind == 'room' && id == 'main';
 
   @override
   String? checkCustom(String name, Object? value) =>
       value is String && value.startsWith('#') ? null : 'not a color';
 }
 
-/// Scenes that come and go.
+/// Rooms that come and go.
 final class _Known implements ITypeContext {
   _Known(this.ids);
   final Set<String> ids;
 
   @override
-  bool hasKind(String kind) => kind == 'scene';
+  bool hasKind(String kind) => kind == 'room';
 
   @override
   bool hasEntity(String kind, String id) => ids.contains(id);
@@ -64,16 +64,16 @@ const track = RecordShape<Track>(
 
 /// Fields that may be left out, one with a default, one that may be null,
 /// one that must be there, and a ref.
-typedef Cue = ({String? scene, String? note, int? fade, String? label});
+typedef Cue = ({String? room, String? note, int? fade, String? label});
 
 Map<String, Object?> _cueTo(Cue c) => {
-  'scene': c.scene,
+  'room': c.room,
   'note': c.note,
   'fade': c.fade,
   'label': c.label,
 };
 Cue _cueFrom(Map<String, Object?> m) => (
-  scene: m['scene'] as String?,
+  room: m['room'] as String?,
   note: m['note'] as String?,
   fade: m['fade'] as int?,
   label: m['label'] as String?,
@@ -81,7 +81,7 @@ Cue _cueFrom(Map<String, Object?> m) => (
 
 const cue = RecordShape<Cue>(
   {
-    'scene': Part(Plain(ChoiceType('scene'))),
+    'room': Part(Plain(ChoiceType('room'))),
     'note': Part(Nullable(Plain(TextType()))),
     'fade': Part(Plain(IntType(max: 500)), defaultValue: 250),
     'label': Part(Plain(TextType()), optional: true),
@@ -208,13 +208,13 @@ void main() {
   });
 
   test('left-out fields: defaults, nulls, missing, refs', () {
-    same(cue, (scene: 'main', note: null, fade: null, label: null));
-    same(cue, (scene: 'main', note: 'hi', fade: 100, label: 'x'));
-    same(cue, (scene: 'side', note: null, fade: 1, label: null));
-    same(cue, (scene: null, note: null, fade: 1, label: null));
-    same(cue, (scene: 'main', note: null, fade: 900, label: null));
+    same(cue, (room: 'main', note: null, fade: null, label: null));
+    same(cue, (room: 'main', note: 'hi', fade: 100, label: 'x'));
+    same(cue, (room: 'side', note: null, fade: 1, label: null));
+    same(cue, (room: null, note: null, fade: 1, label: null));
+    same(cue, (room: 'main', note: null, fade: 900, label: null));
     final kept = cue.check((
-      scene: 'main',
+      room: 'main',
       note: null,
       fade: null,
       label: null,
@@ -226,8 +226,8 @@ void main() {
     same(playlist, [t('a'), t('b')]);
     same(playlist, [t('a'), t('b'), t('c')]);
     same(playlist, [t('a'), t('b', volume: -1)]);
-    same(levels, {'mic': 3, 'desk': 0});
-    same(levels, {'mic': -3});
+    same(levels, {'front': 3, 'desk': 0});
+    same(levels, {'front': -3});
     same(levels, {'a': 1, 'b': 2, 'c': 3});
     same(shot, Wide(35));
     same(shot, Wide(5));
@@ -244,14 +244,14 @@ void main() {
     equalAlike(track, t('a'), t('a', volume: 51));
     equalAlike(playlist, [t('a')], [t('a')]);
     equalAlike(playlist, [t('a')], [t('a'), t('b')]);
-    equalAlike(levels, {'mic': 1}, {'mic': 1});
-    equalAlike(levels, {'mic': 1}, {'desk': 1});
+    equalAlike(levels, {'front': 1}, {'front': 1});
+    equalAlike(levels, {'front': 1}, {'desk': 1});
     equalAlike(shot, Wide(35), Wide(35));
     equalAlike(shot, Wide(35), Close('ann'));
     equalAlike(
       cue,
-      (scene: 'main', note: null, fade: 1, label: null),
-      (scene: 'main', note: null, fade: 1, label: null),
+      (room: 'main', note: null, fade: 1, label: null),
+      (room: 'main', note: null, fade: 1, label: null),
     );
   });
 
@@ -263,7 +263,7 @@ void main() {
     expect(() => kept.tags.add('c'), throwsUnsupportedError);
     final list = playlist.check([t('a')], ctx);
     expect(() => list.add(t('b')), throwsUnsupportedError);
-    final map = levels.check({'mic': 1}, ctx);
+    final map = levels.check({'front': 1}, ctx);
     expect(() => map['desk'] = 2, throwsUnsupportedError);
   });
 
@@ -272,7 +272,7 @@ void main() {
     expect(identical(track.check(kept, ctx), kept), isTrue);
     final list = playlist.check([kept], ctx);
     expect(identical(playlist.check(list, ctx), list), isTrue);
-    final map = levels.check({'mic': 1}, ctx);
+    final map = levels.check({'front': 1}, ctx);
     expect(identical(levels.check(map, ctx), map), isTrue);
   });
 
@@ -346,7 +346,7 @@ void main() {
     const cues = ListShape(cue);
     final known = _Known({'main'});
     final before = cues.check([
-      (scene: 'main', note: null, fade: 1, label: null),
+      (room: 'main', note: null, fade: 1, label: null),
     ], known);
     expect(cue.checkedAlone, isFalse);
     expect(track.checkedAlone, isTrue);
@@ -354,11 +354,7 @@ void main() {
     expect(
       () => cues.check([before[0]], known, was: before),
       throwsA(
-        isA<TypeMismatch>().having(
-          (e) => '$e',
-          'text',
-          '0.scene: no scene main',
-        ),
+        isA<TypeMismatch>().having((e) => '$e', 'text', '0.room: no room main'),
       ),
     );
   });

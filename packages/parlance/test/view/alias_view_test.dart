@@ -4,7 +4,7 @@ import 'package:parlance/view.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
-const owner = Principal('host', 'studio');
+const owner = Principal('host', 'house');
 
 void main() {
   test('a view told the changes of an old name hears the word', () async {
@@ -31,7 +31,7 @@ void main() {
         by: owner,
       );
       host.registry.alias('a.told', 'a.said');
-      final p = await host.join(const Principal('viewer', 'v'));
+      final p = await host.join(const Principal('visitor', 'v'));
       final heard = <Object?>[];
       p.facts('a.told').listen((f) => heard.add(f.payload));
       await host.settle();

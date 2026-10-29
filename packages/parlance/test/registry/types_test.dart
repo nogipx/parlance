@@ -3,10 +3,10 @@ import 'package:test/test.dart';
 
 final class _Ctx implements ITypeContext {
   @override
-  bool hasKind(String kind) => kind == 'scene';
+  bool hasKind(String kind) => kind == 'room';
 
   @override
-  bool hasEntity(String kind, String id) => kind == 'scene' && id == 'main';
+  bool hasEntity(String kind, String id) => kind == 'room' && id == 'main';
 
   @override
   String? checkCustom(String name, Object? value) =>
@@ -37,11 +37,11 @@ void main() {
   });
 
   test('refs need a registered kind and an entity in it', () {
-    expect(ok(const ChoiceType('scene'), 'main'), 'main');
-    expect(() => ok(const ChoiceType('scene'), 'gone'), fails('no scene gone'));
+    expect(ok(const ChoiceType('room'), 'main'), 'main');
+    expect(() => ok(const ChoiceType('room'), 'gone'), fails('no room gone'));
     expect(
-      () => ok(const ChoiceType('room'), 'x'),
-      fails('no one gives the choices of room'),
+      () => ok(const ChoiceType('lamp'), 'x'),
+      fails('no one gives the choices of lamp'),
     );
   });
 
@@ -76,7 +76,7 @@ void main() {
 
   test('types round-trip through JSON', () {
     const t = ObjectType({
-      'scene': Field(ChoiceType('scene')),
+      'room': Field(ChoiceType('room')),
       'n': Field(IntType(min: 1, max: 5), defaultValue: 2),
       'tags': Field(ListType(EnumType(['x', 'y']), maxItems: 3)),
       'd': Field(DurationType(max: 1000), optional: true),

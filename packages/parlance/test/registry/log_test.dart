@@ -28,22 +28,22 @@ void main() {
       registry: Registry(log: logs.scope('parlance'), onError: (e, _) {}),
     );
     f.r.defineCommand(
-      CommandDescriptor('studio.open', callers: Callers.only(['user'])),
+      CommandDescriptor('house.open', callers: Callers.only(['user'])),
       (c) async {
         c.span.event('opening');
         await f.r.call(
-          'studio.show',
-          {'scene': 'break'},
+          'house.show',
+          {'room': 'break'},
           by: user,
           cause: c.causeFor(user),
         );
       },
     );
-    await f.r.call('studio.open', {}, by: user, id: 'outer');
+    await f.r.call('house.open', {}, by: user, id: 'outer');
     await pumpEventQueue();
 
-    final open = spans().singleWhere((s) => s.name == 'studio.open');
-    final show = spans().singleWhere((s) => s.name == 'studio.show');
+    final open = spans().singleWhere((s) => s.name == 'house.open');
+    final show = spans().singleWhere((s) => s.name == 'house.show');
     expect(open.scope, 'parlance.calls');
     expect(open.traceId, matches(RegExp(r'^[0-9a-f]{32}$')), reason: 'W3C');
     expect(open.data, containsPair('call', 'outer'));
@@ -54,7 +54,7 @@ void main() {
     expect(show.data, containsPair('parent', 'outer'));
     expect(show.status, LogSpanStatus.ok);
     final wrote = show.events.singleWhere((e) => e.message == 'wrote');
-    expect(wrote.data, containsPair('state', 'studio.program'));
+    expect(wrote.data, containsPair('state', 'house.focus'));
     await f.r.dispose();
   });
 
@@ -151,14 +151,14 @@ void main() {
       CommandDescriptor('x.bad', callers: Callers.only(['user'])),
       (_) => throw StateError('no'),
     );
-    await r.call('x.bad', {}, by: viewer);
+    await r.call('x.bad', {}, by: visitor);
     await r.call('x.bad', {}, by: user);
     await pumpEventQueue();
     final refused = events().singleWhere((e) => e.message == 'refused');
     expect(refused.level, RpcLogLevel.info);
     expect(refused.data, containsPair('command', 'x.bad'));
     expect(refused.data, containsPair('code', 'notPermitted'));
-    expect(refused.data, containsPair('by', viewer.selector));
+    expect(refused.data, containsPair('by', visitor.selector));
     expect(spans().single.status, LogSpanStatus.error);
     expect('${spans().single.stackTrace}', contains('log_test.dart'));
     await r.dispose();
@@ -225,11 +225,11 @@ void main() {
     final f = Fixture(
       registry: Registry(log: quiet.scope('parlance'), onError: (e, _) {}),
     );
-    await f.r.call('studio.show', {'scene': 'break'}, by: user);
-    await f.r.call('studio.show', {'scene': 'break'}, by: owner);
+    await f.r.call('house.show', {'room': 'break'}, by: user);
+    await f.r.call('house.show', {'room': 'break'}, by: owner);
     await pumpEventQueue();
     final span = kept.whereType<LogSpan>().single;
-    expect(span.name, 'studio.show');
+    expect(span.name, 'house.show');
     expect(span.events, isEmpty, reason: 'its writes are told at debug');
     expect(span.data, isNot(contains('params')));
     expect(kept.whereType<LogEvent>(), isEmpty);

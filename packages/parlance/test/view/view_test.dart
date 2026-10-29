@@ -15,7 +15,7 @@ import '../remote/remote_test.dart' show Link, settle;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 enum _State<T> implements IStateWord<T> {
-  muted<bool>(Plain(BoolType()));
+  locked<bool>(Plain(BoolType()));
 
   const _State(this.shape);
 
@@ -24,16 +24,16 @@ enum _State<T> implements IStateWord<T> {
 
   @override
   String get name => switch (this) {
-    muted => 'audio.muted',
+    locked => 'door.locked',
   };
 
   @override
   String? get key => null;
 }
 
-/// The muted state as code built against another owner's knows it.
+/// The locked state as code built against another owner's knows it.
 enum _Text<T> implements IStateWord<T> {
-  muted<String>(Plain(TextType()));
+  locked<String>(Plain(TextType()));
 
   const _Text(this.shape);
 
@@ -41,7 +41,7 @@ enum _Text<T> implements IStateWord<T> {
   final Shape<T> shape;
 
   @override
-  String get name => 'audio.muted';
+  String get name => 'door.locked';
 
   @override
   String? get key => null;
@@ -51,7 +51,7 @@ enum _Text<T> implements IStateWord<T> {
 final class _Notes implements IStateWord<String> {
   const _Notes();
   @override
-  String get name => 'studio.notes';
+  String get name => 'house.notes';
   @override
   Shape<String> get shape => const Plain(TextType());
   @override
@@ -59,7 +59,7 @@ final class _Notes implements IStateWord<String> {
 }
 
 const _otherwise = [
-  Mismatch(user, 'audio.muted', [
+  Mismatch(user, 'door.locked', [
     WordBreak('type.type', BreakKind.type, 'text', 'bool'),
   ]),
 ];
@@ -75,16 +75,16 @@ void main() {
         'and calls as its principal', () async {
       final view = LocalView(f.r, by: user);
       final told = <int>[];
-      final sub = view.changes({'audio.muted'}).listen((_) => told.add(1));
-      f.program.set('main');
-      f.muted.set(true);
+      final sub = view.changes({'door.locked'}).listen((_) => told.add(1));
+      f.focus.set('main');
+      f.locked.set(true);
       await settle();
-      expect(told, [1], reason: 'the program is not what it asked for');
-      expect(view.state(_State.muted).read(), isTrue);
+      expect(told, [1], reason: 'the focus is not what it asked for');
+      expect(view.state(_State.locked).read(), isTrue);
 
-      final r = await view.call('studio.show', {'scene': 'break'});
+      final r = await view.call('house.show', {'room': 'break'});
       expect(r, isA<CallDone<Object?>>());
-      expect(view.read('studio.program'), 'break');
+      expect(view.read('house.focus'), 'break');
       expect(f.shown, ['break']);
       await sub.cancel();
     });
@@ -158,20 +158,20 @@ void main() {
     test(
       'keeps what its listeners ask for, all of them, until none does',
       () async {
-        f.program.set('main');
-        f.muted.set(true);
-        final a = view.changes({'audio.muted'}).listen((_) {});
-        final b = view.changes({'studio.program'}).listen((_) {});
+        f.focus.set('main');
+        f.locked.set(true);
+        final a = view.changes({'door.locked'}).listen((_) {});
+        final b = view.changes({'house.focus'}).listen((_) {});
         await settle();
-        expect(mirror.states, {'audio.muted', 'studio.program'});
+        expect(mirror.states, {'door.locked', 'house.focus'});
         expect(
-          (view.read('audio.muted'), view.read('studio.program')),
+          (view.read('door.locked'), view.read('house.focus')),
           (true, 'main'),
         );
         await a.cancel();
         await settle();
-        expect(mirror.states, {'studio.program'});
-        expect(view.read('audio.muted'), isNull);
+        expect(mirror.states, {'house.focus'});
+        expect(view.read('door.locked'), isNull);
         await b.cancel();
         await settle();
         expect(mirror.states, isEmpty);
@@ -179,26 +179,29 @@ void main() {
     );
 
     test('a read after a call reads what it wrote', () async {
-      final sub = view.changes({'studio.program'}).listen((_) {});
+      final sub = view.changes({'house.focus'}).listen((_) {});
       await settle();
-      await view.call('studio.show', {'scene': 'break'});
-      expect(view.read('studio.program'), 'break');
+      await view.call('house.show', {'room': 'break'});
+      expect(view.read('house.focus'), 'break');
       await sub.cancel();
     });
 
     test('hears the facts its listeners ask for', () async {
-      final raid = f.r.defineFact(
-        FactDescriptor('x.raid', type: const IntType()),
+      final party = f.r.defineFact(
+        FactDescriptor('x.party', type: const IntType()),
         by: owner,
       );
       final heard = <Object?>[];
-      final sub = view.facts('x.raid').listen((m) => heard.add(m.payload));
+      final sub = view.facts('x.party').listen((m) => heard.add(m.payload));
       await settle();
-      raid.emit(5);
+      party.emit(5);
       await settle();
       expect(heard, [5]);
-      expect([for (final m in await view.recent('x.raid', 10)) m.payload], [5]);
-      expect(mirror.facts, {'x.raid'});
+      expect(
+        [for (final m in await view.recent('x.party', 10)) m.payload],
+        [5],
+      );
+      expect(mirror.facts, {'x.party'});
       await sub.cancel();
     });
   });
@@ -218,22 +221,22 @@ void main() {
       final go = f.r.defineCommand(
         CommandDescriptor('x.go', callers: Callers.only(['user'])),
         (_) {},
-        available: () => f.r.read('audio.muted') == true ? 'muted' : null,
+        available: () => f.r.read('door.locked') == true ? 'locked' : null,
       );
       await after();
       expect(view.status('x.go'), const WordReady());
-      f.muted.set(true);
+      f.locked.set(true);
       await after();
-      expect(view.status('x.go'), const WordUnavailable('muted'));
-      f.muted.set(true);
-      f.program.set('main');
+      expect(view.status('x.go'), const WordUnavailable('locked'));
+      f.locked.set(true);
+      f.focus.set('main');
       await after();
       go.dispose();
       await after();
       expect(seen, const [
         WordMissing(),
         WordReady(),
-        WordUnavailable('muted'),
+        WordUnavailable('locked'),
         WordMissing(),
       ], reason: 'a tick that leaves the status as it was tells nothing');
       await sub.cancel();
@@ -241,8 +244,8 @@ void main() {
 
     void closed(IRegistryView view) {
       expect(view.status('host.secret'), const WordNotPermitted());
-      expect(view.status('audio.mute'), const WordReady());
-      expect(view.status('audio.muted'), const WordReady());
+      expect(view.status('door.lock'), const WordReady());
+      expect(view.status('door.locked'), const WordReady());
     }
 
     void defineSecret() => f.r.defineState(
@@ -262,17 +265,14 @@ void main() {
         'not permitted', () {
       defineSecret();
       closed(LocalView(f.r, by: user));
-      final asViewer = LocalView(f.r, by: viewer);
-      expect(asViewer.status('audio.mute'), const WordNotPermitted());
-      expect(asViewer.status('studio.show'), const WordReady(), reason: 'warn');
+      final asVisitor = LocalView(f.r, by: visitor);
+      expect(asVisitor.status('door.lock'), const WordNotPermitted());
+      expect(asVisitor.status('house.show'), const WordReady(), reason: 'warn');
     });
 
     test('an old name has the status of its word', () {
-      f.r.alias('audio.silent', 'audio.muted');
-      expect(
-        LocalView(f.r, by: user).status('audio.silent'),
-        const WordReady(),
-      );
+      f.r.alias('door.silent', 'door.locked');
+      expect(LocalView(f.r, by: user).status('door.silent'), const WordReady());
     });
 
     group('over remote', () {
@@ -306,12 +306,12 @@ void main() {
   test('a typed command through a view answers as its word says', () async {
     final view = LocalView(f.r, by: user);
     final done = Completer<void>();
-    final sub = view.changes({'audio.muted'}).listen((_) {
+    final sub = view.changes({'door.locked'}).listen((_) {
       if (!done.isCompleted) done.complete();
     });
-    await view.call('audio.mute', {'on': true});
+    await view.call('door.lock', {'on': true});
     await done.future;
-    expect(view.state(_State.muted).read(), isTrue);
+    expect(view.state(_State.locked).read(), isTrue);
     await sub.cancel();
   });
 }

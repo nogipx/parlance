@@ -11,7 +11,7 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const kittens = Principal('plugin', 'kittens');
 const crew = Principal('user', 'local');
-const someone = Principal('viewer', 'v1');
+const someone = Principal('visitor', 'v1');
 
 Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -391,7 +391,7 @@ void main() {
   test('it speaks for another only when the host lets it', () async {
     final p = await join(
       rights: ParticipantRights(
-        speakFor: (_, by, _) => by.kind == 'viewer' ? null : 'viewers only',
+        speakFor: (_, by, _) => by.kind == 'visitor' ? null : 'visitors only',
       ),
     );
     final errors = <ParticipantError>[];
@@ -402,7 +402,7 @@ void main() {
     await p.flush();
     await settle();
     expect(r.recent('kittens.purred').single.cause.by, someone);
-    expect(errors.single.message, 'viewers only');
+    expect(errors.single.message, 'visitors only');
   });
 
   test('a value its state or fact cannot hold is refused at once, as in '
@@ -427,13 +427,13 @@ void main() {
   });
 
   test('it watches another\'s state through its mirror', () async {
-    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
-    final program = owner.state(_Program.scene).define()..set('main');
+    final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
+    final focus = owner.state(_Focus.room).define()..set('main');
     final p = await join();
     final seen = <String?>[];
-    final sub = p.state(_Program.scene).watch().listen(seen.add);
+    final sub = p.state(_Focus.room).watch().listen(seen.add);
     await settle();
-    program.set('break');
+    focus.set('break');
     await settle();
     expect(seen, ['main', 'break']);
     await sub.cancel();
@@ -491,17 +491,17 @@ void main() {
 
   test('explain and recent answer across a connection as in the host\'s '
       'process', () async {
-    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
     owner.defineState(
       StateDescriptor(
-        'studio.secret',
+        'house.secret',
         type: const TextType(),
         readers: Callers.only(['user']),
       ),
     );
     owner.defineFact(
       FactDescriptor(
-        'studio.whisper',
+        'house.whisper',
         type: const TextType(),
         readers: Callers.only(['user']),
       ),
@@ -509,15 +509,15 @@ void main() {
     final here = r.participant(kittens.child('here'));
     final there = await join();
     for (final p in <IParticipant>[here, there]) {
-      final none = await p.raw.explain('studio.nothing');
+      final none = await p.raw.explain('house.nothing');
       expect((none.value, none.change), (null, null));
       expect(none.trail, isEmpty);
       await expectLater(
-        p.raw.explain('studio.secret'),
+        p.raw.explain('house.secret'),
         throwsA(isA<NotPermitted>()),
       );
-      expect(await p.recent('studio.whisper', 5), isEmpty);
-      expect(await p.recent('studio.nothing', 5), isEmpty);
+      expect(await p.recent('house.whisper', 5), isEmpty);
+      expect(await p.recent('house.nothing', 5), isEmpty);
     }
   });
 
@@ -591,17 +591,17 @@ void main() {
   });
 
   test('a call that writes what it does not watch answers at once', () async {
-    final studio = r.participant(crew, vocabularies: [WordSet.open('studio')]);
-    final program = studio.defineState(
-      StateDescriptor('studio.program', type: const TextType()),
+    final house = r.participant(crew, vocabularies: [WordSet.open('house')]);
+    final focus = house.defineState(
+      StateDescriptor('house.focus', type: const TextType()),
     );
-    studio.defineCommand(
-      CommandDescriptor('studio.show', callers: Callers.only(['plugin'])),
-      (c) => program.set('break', cause: c.causeFor(crew)),
+    house.defineCommand(
+      CommandDescriptor('house.show', callers: Callers.only(['plugin'])),
+      (c) => focus.set('break', cause: c.causeFor(crew)),
     );
     final p = await join();
     final took = Stopwatch()..start();
-    expect((await p.call('studio.show', {})).ok, isTrue);
+    expect((await p.call('house.show', {})).ok, isTrue);
     expect(
       took.elapsedMilliseconds,
       lessThan(500),
@@ -643,53 +643,53 @@ void main() {
 
   test('a word it may not read holds back none of the words it watches '
       'after', () async {
-    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
+    final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
     owner
         .defineState(
           StateDescriptor(
-            'studio.secret',
+            'house.secret',
             type: const TextType(),
             readers: Callers.only(['user']),
           ),
         )
         .set('hush');
-    owner.state(_Program.scene).define().set('main');
+    owner.state(_Focus.room).define().set('main');
     final p = await join();
-    final secret = p.watch('studio.secret').listen((_) {});
+    final secret = p.watch('house.secret').listen((_) {});
     await settle();
     final seen = <String?>[];
-    final program = p.state(_Program.scene).watch().listen(seen.add);
+    final focus = p.state(_Focus.room).watch().listen(seen.add);
     await settle();
     expect(seen, ['main']);
-    expect(p.read('studio.secret'), isNull);
-    expect(p.status('studio.secret'), const WordNotPermitted());
+    expect(p.read('house.secret'), isNull);
+    expect(p.status('house.secret'), const WordNotPermitted());
     await secret.cancel();
-    await program.cancel();
+    await focus.cancel();
   });
 
   test('a word it watches before it is there counts once it comes', () async {
     final p = await join();
-    final sub = p.state(_Program.scene).watch().listen((_) {});
+    final sub = p.state(_Focus.room).watch().listen((_) {});
     await settle();
-    expect(r.usesOf('studio.program'), isEmpty);
-    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
-    owner.state(_Program.scene).define().set('main');
+    expect(r.usesOf('house.focus'), isEmpty);
+    final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
+    owner.state(_Focus.room).define().set('main');
     await settle();
-    expect(r.usesOf('studio.program').single.listening, 1);
+    expect(r.usesOf('house.focus').single.listening, 1);
     await sub.cancel();
   });
 
   test('what it watches is its use of the word, while it watches', () async {
-    final owner = r.participant(crew, vocabularies: [WordSet.open('studio')]);
-    owner.state(_Program.scene).define().set('main');
+    final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
+    owner.state(_Focus.room).define().set('main');
     final p = await join();
-    final sub = p.state(_Program.scene).watch().listen((_) {});
+    final sub = p.state(_Focus.room).watch().listen((_) {});
     await settle();
-    final use = r.usesOf('studio.program').single;
+    final use = r.usesOf('house.focus').single;
     expect((use.by, use.listening), (kittens, 1));
     await sub.cancel();
     await settle();
-    expect(r.usesOf('studio.program').single.listening, 0, reason: 'gone');
+    expect(r.usesOf('house.focus').single.listening, 0, reason: 'gone');
   });
 
   test('going, it withdraws its words', () async {
@@ -844,10 +844,10 @@ void main() {
   });
 }
 
-enum _Program<T> implements IStateWord<T> {
-  scene<String>('studio.program');
+enum _Focus<T> implements IStateWord<T> {
+  room<String>('house.focus');
 
-  const _Program(this.name);
+  const _Focus(this.name);
   @override
   final String name;
   @override

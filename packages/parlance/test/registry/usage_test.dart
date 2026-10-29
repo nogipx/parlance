@@ -13,22 +13,22 @@ void main() {
   test(
     'a call counts as its caller\'s use of the word, refused or not',
     () async {
-      await f.r.call('audio.mute', {'on': true}, by: user);
-      await f.r.call('audio.mute', {'on': false}, by: user);
-      await f.r.call('audio.mute', {'on': true}, by: viewer);
-      final uses = {for (final u in f.r.usesOf('audio.mute')) u.by: u};
+      await f.r.call('door.lock', {'on': true}, by: user);
+      await f.r.call('door.lock', {'on': false}, by: user);
+      await f.r.call('door.lock', {'on': true}, by: visitor);
+      final uses = {for (final u in f.r.usesOf('door.lock')) u.by: u};
       expect(uses[user]!.calls, 2);
-      expect(uses[viewer]!.calls, 1, reason: 'notPermitted, still a use');
-      expect(f.r.usesOf('studio.show'), isEmpty);
+      expect(uses[visitor]!.calls, 1, reason: 'notPermitted, still a use');
+      expect(f.r.usesOf('house.show'), isEmpty);
     },
   );
 
   test('an old name is counted as it was named, apart from the word', () async {
-    f.r.alias('audio.silence', 'audio.mute');
-    await f.r.call('audio.silence', {'on': true}, by: agent);
-    expect(f.r.usesOf('audio.silence').single.by, agent);
-    expect(f.r.usesOf('audio.mute'), isEmpty);
-    expect(f.r.usage.keys, ['audio.silence']);
+    f.r.alias('door.silence', 'door.lock');
+    await f.r.call('door.silence', {'on': true}, by: agent);
+    expect(f.r.usesOf('door.silence').single.by, agent);
+    expect(f.r.usesOf('door.lock'), isEmpty);
+    expect(f.r.usage.keys, ['door.silence']);
   });
 
   test('a name there is no word of keeps nothing', () async {
@@ -41,33 +41,35 @@ void main() {
   test('past usersPerWord, uses are counted under the kind alone', () async {
     final r = Registry(usersPerWord: 2);
     r.defineCommand(
-      CommandDescriptor('chat.clip', callers: Callers.only(['viewer'])),
+      CommandDescriptor('intercom.clip', callers: Callers.only(['visitor'])),
       (_) {},
     );
     for (final id in ['a', 'b', 'c', 'd']) {
-      await r.call('chat.clip', {}, by: Principal('viewer', id));
+      await r.call('intercom.clip', {}, by: Principal('visitor', id));
     }
-    final by = {for (final u in r.usesOf('chat.clip')) u.by.selector: u.calls};
-    expect(by, {'viewer/a': 1, 'viewer/b': 1, 'viewer': 2});
+    final by = {
+      for (final u in r.usesOf('intercom.clip')) u.by.selector: u.calls,
+    };
+    expect(by, {'visitor/a': 1, 'visitor/b': 1, 'visitor': 2});
     await r.dispose();
   });
 
   test('a listener counts while it listens; a read once', () {
-    final h = f.r.listenedBy('audio.muted', viewer)!;
-    expect(f.r.usesOf('audio.muted').single.listening, 1);
+    final h = f.r.listenedBy('door.locked', visitor)!;
+    expect(f.r.usesOf('door.locked').single.listening, 1);
     h.dispose();
-    f.r.usedBy('audio.muted', viewer);
-    final use = f.r.usesOf('audio.muted').single;
+    f.r.usedBy('door.locked', visitor);
+    final use = f.r.usesOf('door.locked').single;
     expect((use.listening, use.reads), (0, 1));
-    expect(use.toJson()['by'], viewer.selector);
+    expect(use.toJson()['by'], visitor.selector);
   });
 
   test('a read by name, as an agent makes it, is its use', () async {
     final p = f.r.participant(agent);
-    await p.fetch('audio.muted');
-    await p.explain('studio.program');
-    expect(f.r.usesOf('audio.muted').single.reads, 1);
-    expect(f.r.usesOf('studio.program').single.by, agent);
+    await p.fetch('door.locked');
+    await p.explain('house.focus');
+    expect(f.r.usesOf('door.locked').single.reads, 1);
+    expect(f.r.usesOf('house.focus').single.by, agent);
   });
 
   test(
@@ -93,10 +95,10 @@ void main() {
   );
 
   test('what was counted of an old name goes when the old name does', () async {
-    final silence = f.r.alias('audio.silence', 'audio.mute');
-    await f.r.call('audio.silence', {'on': true}, by: agent);
+    final silence = f.r.alias('door.silence', 'door.lock');
+    await f.r.call('door.silence', {'on': true}, by: agent);
     silence.dispose();
-    expect(f.r.usesOf('audio.silence'), isEmpty);
+    expect(f.r.usesOf('door.silence'), isEmpty);
     expect(f.r.usage, isEmpty);
   });
 }

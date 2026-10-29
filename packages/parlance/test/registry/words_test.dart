@@ -136,17 +136,17 @@ void main() {
     'a typed call goes in as JSON and its answer comes back typed',
     () async {
       final r = await f.r.command(TestCommand.tune).call((
-        input: 'mic',
+        input: 'front',
         db: -6,
         level: Level.high,
       ), by: user);
-      expect((r as CallDone<Heard>).value.inputs, ['mic']);
-      expect(f.r.read('test.tune', key: 'mic'), {
-        'input': 'mic',
+      expect((r as CallDone<Heard>).value.inputs, ['front']);
+      expect(f.r.read('test.tune', key: 'front'), {
+        'input': 'front',
         'db': -6,
         'level': 'high',
       });
-      expect(f.r.state(TestState.tune).read(key: 'mic')?.level, Level.high);
+      expect(f.r.state(TestState.tune).read(key: 'front')?.level, Level.high);
     },
   );
 
@@ -161,7 +161,7 @@ void main() {
       isA<CallRefused>().having((x) => x.code, 'code', Refusal.invalidParams),
     );
     expect(
-      await f.r.command(TestCommand.reset).call((), by: viewer),
+      await f.r.command(TestCommand.reset).call((), by: visitor),
       isA<CallRefused>(),
     );
     expect(
@@ -187,16 +187,16 @@ void main() {
     final levels = <Level?>[];
     f.r.state(TestState.level).watch().listen(levels.add);
     await f.r.command(TestCommand.tune).call((
-      input: 'mic',
+      input: 'front',
       db: 3,
       level: null,
     ), by: user);
     await pumpEventQueue();
-    expect(facts.single.payload, (input: 'mic', db: 3, level: null));
+    expect(facts.single.payload, (input: 'front', db: 3, level: null));
     expect(facts.single.cause.parent, isNotNull);
     expect(f.r.fact(TestFact.tuned).recent().single.payload.db, 3);
     expect(levels, [null]);
-    expect(f.r.state(TestState.tune).readAll().keys, ['mic']);
+    expect(f.r.state(TestState.tune).readAll().keys, ['front']);
   });
 
   test('a nullable state takes none, a list, and none again', () async {

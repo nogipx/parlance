@@ -68,7 +68,7 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 ## Testing
 
 - A module of a host is tested with `TestHost` (`package:parlance/testing.dart`, SPEC §24): its own participant, stand-ins for the words of others, what it wrote, said and called read back.
-- Fixtures: `test/registry/fixture.dart` (`Fixture`, principals `user`, `agent`, `viewer`, `owner`).
+- Fixtures: `test/registry/fixture.dart` (`Fixture`, principals `user`, `agent`, `visitor`, `owner`).
 - A whole host in miniature: `example/` (run `fvm dart run example/main.dart`); `test/example_test.dart` holds it to what it prints.
 - Time: `fakeAsync(..., initialTime: DateTime(...))` whenever time matters; the registry reads time from its `clock`.
 - Name tests after the promise they hold ("an id stands for one call").
