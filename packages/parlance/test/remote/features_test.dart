@@ -87,7 +87,10 @@ void main() {
     p.builtAgainst(Built.values);
     await p.flush();
     expect(r.mismatches, isEmpty, reason: 'nothing told an older host');
-    expect(errors, isEmpty);
+    // Nothing it sent was refused; what does not meet the code it learns
+    // itself, from the catalog, whatever the host speaks.
+    expect(errors.map((e) => e.code), ['mismatch']);
+    expect(errors.single.op, {'op': 'built', 'word': 'deck.volume'});
     expect(p.status('deck.volume'), const WordReady());
     await p.close();
   });

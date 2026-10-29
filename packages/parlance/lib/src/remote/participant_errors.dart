@@ -76,7 +76,9 @@ final class ParticipantError {
   /// `unreadable` when it read a value its code cannot read, built against
   /// the word otherwise (SPEC §25.2); `malformed` when the host's feed
   /// brought what is no item of the protocol (`{op: feed}`), a host's
-  /// defect: it follows again from a snapshot, or says it stopped.
+  /// defect: it follows again from a snapshot, or says it stopped;
+  /// `mismatch` when a word its code was built against is there otherwise
+  /// (`{op: built, word}`), every break in the message (SPEC §6.9).
   final String code;
   final String message;
 

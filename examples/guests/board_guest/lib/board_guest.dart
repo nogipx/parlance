@@ -8,9 +8,7 @@ import 'dart:async';
 
 import 'package:host_words/host_words.dart';
 import 'package:notes_words/notes_words.dart';
-import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
-import 'package:parlance/view.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 /// The board: what it does, through the words' interfaces only, so a test
@@ -40,23 +38,12 @@ final class Board {
 /// What the guest's `main` does: joins its host over [endpoint] and makes
 /// the board over the clients of the words it uses. Whenever one of them
 /// comes not as the board was built against (the notes guest updated
-/// apart from it), [onMismatch] is told every difference, at once; by
-/// default it is printed, in development.
+/// apart from it), the participant tells it itself: an error `mismatch`
+/// with every break, to [onError], and in development the developer log.
 Future<(RemoteParticipant, Board)> startBoard(
   RpcPeerEndpoint endpoint, {
-  void Function(String word, List<WordBreak> breaks)? onMismatch,
+  void Function(ParticipantError error)? onError,
 }) async {
-  final p = await RemoteParticipant.over(endpoint);
-  final tell =
-      onMismatch ??
-      (word, breaks) => print(
-        'board: $word is not as built against: '
-        '${breaks.join('; ')}',
-      );
-  for (final w in [...appWords.words, ...notesWords.words]) {
-    wordStatusChanges(p, w).listen((s) {
-      if (s case WordMismatch(:final breaks)) tell(w.name, breaks);
-    });
-  }
+  final p = await RemoteParticipant.over(endpoint, onError: onError);
   return (p, Board(AppClient(p), NotesClient(p)));
 }

@@ -17,7 +17,7 @@ Future<void> settle() => Future<void>.delayed(const Duration(milliseconds: 20));
 
 void main() {
   late Host host;
-  final mismatches = <String, List<String>>{};
+  final mismatches = <String, String>{};
 
   setUp(() {
     host = Host();
@@ -33,7 +33,9 @@ void main() {
     'board',
     (e) => startBoard(
       e,
-      onMismatch: (w, b) => mismatches[w] = [for (final x in b) '$x'],
+      onError: (x) {
+        if (x.code == 'mismatch') mismatches['${x.op['word']}'] = x.message;
+      },
     ),
   );
 
@@ -89,20 +91,22 @@ void main() {
       final (p, b) = await board();
       await p.settle();
       await settle();
-      expect(mismatches['notes.add'], [
-        'params.fields.text.type.maxLength: was 200, is 100',
-      ]);
-      expect(mismatches['notes.all'], ['type.item.type: was object, is text']);
-      expect(NotesClient(p).mismatches.keys, {'notes.add', 'notes.all'});
       expect(
-        {
-          for (final m in host.registry.mismatches)
-            if (m.by == Who.widlet('board'))
-              m.word: [for (final b in m.breaks) '$b'],
-        },
-        mismatches,
-        reason: 'the host is told it too, as the board tells it',
+        mismatches['notes.add'],
+        contains('params.fields.text.type.maxLength: was 200, is 100'),
       );
+      expect(
+        mismatches['notes.all'],
+        contains('type.item.type: was object, is text'),
+      );
+      expect(NotesClient(p).mismatches.keys, {'notes.add', 'notes.all'});
+      // The host is told it too, as the board is.
+      for (final m in host.registry.mismatches) {
+        if (m.by != Who.widlet('board')) continue;
+        for (final b in m.breaks) {
+          expect(mismatches[m.word], contains('$b'));
+        }
+      }
       await b.close();
     },
   );

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:developer' as developer;
 
 import 'package:clock/clock.dart' as clock_zone;
 import 'package:clock/clock.dart' show Clock;
@@ -19,6 +20,7 @@ import '../registry/shapes.dart';
 import '../registry/types.dart';
 import '../registry/words.dart';
 import '../view/mirror_view.dart';
+import '../view/view.dart' show wordStatusChanges;
 import 'built.dart';
 import 'contract.dart';
 import 'client.dart';
@@ -828,8 +830,46 @@ final class RemoteParticipant implements IParticipant {
   /// The host is told each word once, by fingerprint, and told again on a
   /// new session.
   @override
-  void builtAgainst(Iterable<IWord> words, {String? from}) =>
-      _builtAgainst(schemasOf(words), from, null);
+  void builtAgainst(Iterable<IWord> words, {String? from}) {
+    _builtAgainst(schemasOf(words), from, null);
+    _watchBuilt(words, from);
+  }
+
+  /// Each word it was built against, watched: when one is there otherwise
+  /// than its code was built against (SPEC §6.9), that is told as its
+  /// error (`mismatch`, `{op: built, word}`), every break, so a guest
+  /// learns it with nothing written for it; and in development, with no
+  /// log, in the developer log.
+  final Map<String, StreamSubscription<WordStatus>> _watching = {};
+
+  void _watchBuilt(Iterable<IWord> words, String? from) {
+    if (_disposed) return;
+    for (final w in words) {
+      unawaited(_watching.remove(w.name)?.cancel());
+      _watching[w.name] = wordStatusChanges(this, w).listen((s) {
+        if (s case WordMismatch(:final breaks)) {
+          final why =
+              '${w.name}${from == null ? '' : ' of $from'} is not as built '
+              'against: ${breaks.join('; ')}';
+          _fail(
+            {'op': 'built', 'word': w.name, 'from': ?from},
+            'mismatch',
+            why,
+          );
+          if (!log.isEnabled(RpcLogLevel.warning)) {
+            assert(() {
+              developer.log(
+                '${who.selector}: $why',
+                name: 'parlance',
+                level: 900,
+              );
+              return true;
+            }());
+          }
+        }
+      });
+    }
+  }
 
   /// What it and its parts told the host they were built against: kept
   /// also for a host that does not speak it, to tell a new session that
@@ -1172,6 +1212,10 @@ final class RemoteParticipant implements IParticipant {
     final unbuilt = _built.forget();
     if (_speaks.contains('built')) unbuilt.forEach(_ask);
     _disposed = true;
+    for (final w in _watching.values) {
+      unawaited(w.cancel());
+    }
+    _watching.clear();
     _own.clear();
     _states.clear();
     _facts.clear();

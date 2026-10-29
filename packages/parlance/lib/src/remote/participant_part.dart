@@ -109,8 +109,10 @@ final class _Part implements IParticipant {
   Descriptor? descriptor(String word) => _root.descriptor(word);
 
   @override
-  void builtAgainst(Iterable<IWord> words, {String? from}) =>
-      _root._builtAgainst(schemasOf(words), from, who);
+  void builtAgainst(Iterable<IWord> words, {String? from}) {
+    _root._builtAgainst(schemasOf(words), from, who);
+    _root._watchBuilt(words, from);
+  }
 
   @override
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) =>
