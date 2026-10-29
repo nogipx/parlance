@@ -145,11 +145,11 @@ abstract class HouseOwnerBase implements IOwner {
   /// house.heat.target, as this owner last set it.
   num? get heat => _$heatNow;
 
-  /// Sets house.heat.target.
-  set heat(num value) {
+  /// Sets house.heat.target; null removes it.
+  set heat(num? value) {
     _$heatNow = value;
     _$heatSet = true;
-    _$heat?.set(value);
+    value == null ? _$heat?.remove() : _$heat?.set(value);
   }
 
   IStateWriterOf<Mode>? _$mode;
@@ -159,11 +159,11 @@ abstract class HouseOwnerBase implements IOwner {
   /// house.mode, as this owner last set it.
   Mode? get mode => _$modeNow;
 
-  /// Sets house.mode.
-  set mode(Mode value) {
+  /// Sets house.mode; null removes it.
+  set mode(Mode? value) {
     _$modeNow = value;
     _$modeSet = true;
-    _$mode?.set(value);
+    value == null ? _$mode?.remove() : _$mode?.set(value);
   }
 
   IStateWriterOf<bool>? _$locked;
@@ -173,11 +173,11 @@ abstract class HouseOwnerBase implements IOwner {
   /// house.door.locked, as this owner last set it.
   bool? get locked => _$lockedNow;
 
-  /// Sets house.door.locked.
-  set locked(bool value) {
+  /// Sets house.door.locked; null removes it.
+  set locked(bool? value) {
     _$lockedNow = value;
     _$lockedSet = true;
-    _$locked?.set(value);
+    value == null ? _$locked?.remove() : _$locked?.set(value);
   }
 
   IFactEmitterOf<HouseRang>? _$rang;
@@ -231,9 +231,18 @@ abstract class HouseOwnerBase implements IOwner {
     if (_$written) return;
     _$written = true;
     Keyed.writeAll(light);
-    if (_$heatSet) _$heat!.set(_$heatNow as num);
-    if (_$modeSet) _$mode!.set(_$modeNow as Mode);
-    if (_$lockedSet) _$locked!.set(_$lockedNow as bool);
+    if (_$heatSet) {
+      final v = _$heatNow;
+      v == null ? _$heat!.remove() : _$heat!.set(v);
+    }
+    if (_$modeSet) {
+      final v = _$modeNow;
+      v == null ? _$mode!.remove() : _$mode!.set(v);
+    }
+    if (_$lockedSet) {
+      final v = _$lockedNow;
+      v == null ? _$locked!.remove() : _$locked!.set(v);
+    }
   }
 
   /// Says house.doorbell.rang; on behalf of [by], when given.
@@ -556,11 +565,11 @@ abstract class VisitOwnerBase implements IOwner {
   /// visit.guests, as this owner last set it.
   List<String>? get guests => _$guestsNow;
 
-  /// Sets visit.guests.
-  set guests(List<String> value) {
+  /// Sets visit.guests; null removes it.
+  set guests(List<String>? value) {
     _$guestsNow = value;
     _$guestsSet = true;
-    _$guests?.set(value);
+    value == null ? _$guests?.remove() : _$guests?.set(value);
   }
 
   void _$define(IParticipant p) {
@@ -574,7 +583,10 @@ abstract class VisitOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$guestsSet) _$guests!.set(_$guestsNow as List<String>);
+    if (_$guestsSet) {
+      final v = _$guestsNow;
+      v == null ? _$guests!.remove() : _$guests!.set(v);
+    }
   }
 
   /// Serves visit.leave.

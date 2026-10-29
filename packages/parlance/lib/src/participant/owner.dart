@@ -8,7 +8,7 @@ import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart' show Fact, ICommandWord;
 import 'serving.dart';
-import 'serving.dart' as serving_ show apart;
+import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
@@ -218,6 +218,12 @@ extension OwnerTools on IOwner {
   /// nothing it was answering (a timer set in a handler, to act later on
   /// its own).
   R apart<R>(R Function() act) => serving_.apart(act);
+
+  /// Runs [say], the fact it says there said under [id]: said again under
+  /// the same id, it is dropped, and this answers false (in the host's
+  /// process; across a connection the host drops it). For what comes from
+  /// outside more than once: a platform's event, a webhook retried.
+  bool once(String id, void Function() say) => serving_.once(id, say);
 
   /// Runs [writes] as one tick, as a handler's or a sync's are: seen
   /// whole, or not at all when it throws. Not attached, it just runs them.

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../participant/serving.dart' show inReplyAs;
+import '../participant/serving.dart' show droppedOnce, inReplyAs, onceId;
 import 'cause.dart';
 import 'descriptors.dart';
 import 'ids.dart';
@@ -656,13 +656,18 @@ final class FactEmitterOf<T>
   final IFactHandle raw;
   final Shape<T> _shape;
 
-  /// As [RawFactEmitter.emit].
+  /// As [RawFactEmitter.emit]; under the id of a `once` it runs in, when
+  /// none is given.
   @override
-  bool emit(T payload, {String? id, Cause? cause}) => raw.emit(
-    raw.shape == null ? _shape.toJson(payload) : payload,
-    id: id,
-    cause: cause,
-  );
+  bool emit(T payload, {String? id, Cause? cause}) {
+    final said = raw.emit(
+      raw.shape == null ? _shape.toJson(payload) : payload,
+      id: id ?? onceId,
+      cause: cause,
+    );
+    if (!said) droppedOnce();
+    return said;
+  }
 
   /// Says it on behalf of [by], as far as the participant's rights let it
   /// speak for another: following from the call or the fact being

@@ -35,3 +35,28 @@ Cause? inReplyAs(Principal by) => _now?.causeFor(by);
 /// On whose behalf the call or the fact being answered came, where it
 /// runs; null where nothing is being answered.
 Principal? get answering => _now?.by;
+
+final Object _once = Object();
+
+final class _Once {
+  _Once(this.id);
+  final String id;
+  bool said = true;
+}
+
+/// Runs [say], what it says said under [id] (SPEC §8): said again under
+/// the same id, the registry drops it. False when it was dropped so, in
+/// the host's process; across a connection the host drops it, and this
+/// is true. For what comes from outside more than once (a platform's
+/// event, a webhook retried).
+bool once(String id, void Function() say) {
+  final o = _Once(id);
+  runZoned(say, zoneValues: {_once: o});
+  return o.said;
+}
+
+/// The id what is said here is said under ([once]); null outside it.
+String? get onceId => (Zone.current[_once] as _Once?)?.id;
+
+/// What was said here under [onceId] was dropped as said before.
+void droppedOnce() => (Zone.current[_once] as _Once?)?.said = false;

@@ -14,7 +14,6 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/app.dart';
 import 'package:parlance/mcp.dart';
-import 'package:parlance/participant.dart' show IParticipantRaw;
 import 'package:parlance/registry.dart' show JournalEntry, JournalFact;
 
 import 'house/house.dart';
@@ -199,7 +198,7 @@ Future<void> main() async {
 
   section('An agent over MCP');
   final tools = await parlanceTools(
-    host.participant(Who.agent('demo')).raw,
+    host.participant(Who.agent('demo')),
     commandTools: true,
   );
   print('  its tools: ${[for (final t in tools) t.name].join(', ')}');

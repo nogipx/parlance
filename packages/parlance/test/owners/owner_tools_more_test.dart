@@ -63,7 +63,49 @@ final class _Dial implements IOwner {
   }
 }
 
+enum _Fact<T> implements IFactWord<T> {
+  rang<String>('bell.rang', Plain(TextType()));
+
+  const _Fact(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+}
+
+final class _Bell implements IOwner {
+  _Bell() {
+    IOwner.made(this, define: (p) => _rang = keep(p.fact(_Fact.rang).define()));
+  }
+
+  late IFactEmitterOf<String> _rang;
+
+  /// A ring from outside, which may come twice.
+  bool ring(String id, String who) => once(id, () => _rang.emit(who));
+}
+
 void main() {
+  test('a fact said once by its id is said once, however often it '
+      'comes', () async {
+    final r = Host();
+    addTearDown(r.dispose);
+    final bell = _Bell();
+    await r
+        .participant(
+          const Principal('bell'),
+          vocabularies: [WordSet.open('bell')],
+        )
+        .attach({'it': bell});
+    final heard = <String>[];
+    final ann = r.participant(const Principal('user', 'ann'));
+    ann.fact(_Fact.rang).stream.listen((f) => heard.add(f.payload));
+    expect(bell.ring('e1', 'bob'), isTrue);
+    expect(bell.ring('e1', 'bob'), isFalse);
+    expect(bell.ring('e2', 'cat'), isTrue);
+    await ann.settle();
+    expect(heard, ['bob', 'cat']);
+  });
+
   test('a guard of its own command judges the params and who calls', () async {
     final r = Host();
     addTearDown(r.dispose);

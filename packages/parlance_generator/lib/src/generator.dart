@@ -817,13 +817,29 @@ final class _Emitter {
           ..writeln('  /// ${st.name}, as this owner last set it.')
           ..writeln('  ${nullable(t)} get $m => _\$${m}Now;')
           ..writeln()
-          ..writeln('  /// Sets ${st.name}.')
-          ..writeln('  set $m($t value) {')
-          ..writeln('    _\$${m}Now = value;')
-          ..writeln('    _\$${m}Set = true;')
-          ..writeln('    _\$$m?.set(value);')
-          ..writeln('  }')
           ..writeln();
+        if (t.endsWith('?') || t == 'dynamic') {
+          out
+            ..writeln('  /// Sets ${st.name}.')
+            ..writeln('  set $m($t value) {')
+            ..writeln('    _\$${m}Now = value;')
+            ..writeln('    _\$${m}Set = true;')
+            ..writeln('    _\$$m?.set(value);')
+            ..writeln('  }')
+            ..writeln();
+        } else {
+          // A state that is never null is removed by null.
+          out
+            ..writeln('  /// Sets ${st.name}; null removes it.')
+            ..writeln('  set $m($t? value) {')
+            ..writeln('    _\$${m}Now = value;')
+            ..writeln('    _\$${m}Set = true;')
+            ..writeln(
+              '    value == null ? _\$$m?.remove() : _\$$m?.set(value);',
+            )
+            ..writeln('  }')
+            ..writeln();
+        }
       }
     }
     for (final f in facts) {
@@ -900,10 +916,14 @@ final class _Emitter {
         out.writeln('    Keyed.writeAll($m);');
       } else {
         final t = st.type;
-        final now = t.endsWith('?') || t == 'dynamic'
-            ? '_\$${m}Now'
-            : '_\$${m}Now as $t';
-        out.writeln('    if (_\$${m}Set) _\$$m!.set($now);');
+        out.writeln(
+          t.endsWith('?') || t == 'dynamic'
+              ? '    if (_\$${m}Set) _\$$m!.set(_\$${m}Now);'
+              : '    if (_\$${m}Set) {\n'
+                    '      final v = _\$${m}Now;\n'
+                    '      v == null ? _\$$m!.remove() : _\$$m!.set(v);\n'
+                    '    }',
+        );
       }
     }
     out

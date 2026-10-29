@@ -34,9 +34,10 @@ String commandToolName(String command) =>
 /// [commandTools], each command it may call is a tool of its own as well,
 /// made from its description.
 Future<List<McpTool>> parlanceTools(
-  IRawParticipant p, {
+  IParticipant agent, {
   bool commandTools = false,
 }) async {
+  final p = agent.raw;
   final d = await p.describe();
   final descriptors = [
     for (final x in d['descriptors'] as List? ?? const [])

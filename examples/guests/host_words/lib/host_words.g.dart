@@ -58,11 +58,11 @@ abstract class AppOwnerBase implements IOwner {
   /// app.dark, as this owner last set it.
   bool? get dark => _$darkNow;
 
-  /// Sets app.dark.
-  set dark(bool value) {
+  /// Sets app.dark; null removes it.
+  set dark(bool? value) {
     _$darkNow = value;
     _$darkSet = true;
-    _$dark?.set(value);
+    value == null ? _$dark?.remove() : _$dark?.set(value);
   }
 
   void _$define(IParticipant p) {
@@ -76,7 +76,10 @@ abstract class AppOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$darkSet) _$dark!.set(_$darkNow as bool);
+    if (_$darkSet) {
+      final v = _$darkNow;
+      v == null ? _$dark!.remove() : _$dark!.set(v);
+    }
   }
 
   /// Serves app.toast.

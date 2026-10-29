@@ -309,6 +309,14 @@ void main() {
       expect(deck.playing?.title, 'A', reason: 'what it set, it reads');
     });
 
+    test('a state never null is removed by null, and set again', () {
+      deck.volume = null;
+      expect(deck.volume, isNull);
+      expect(asAnn.readAll('player.volume'), isEmpty);
+      deck.volume = 7;
+      expect(asAnn.state(PlayerState.volume).read(), 7);
+    });
+
     test('keyed states, set and removed by key', () async {
       deck.speakerLevel['left'] = 0.5;
       deck.speakerLevel['right'] = 1;

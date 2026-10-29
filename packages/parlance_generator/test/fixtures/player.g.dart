@@ -222,11 +222,11 @@ abstract class PlayerOwnerBase implements IOwner {
   /// player.volume, as this owner last set it.
   int? get volume => _$volumeNow;
 
-  /// Sets player.volume.
-  set volume(int value) {
+  /// Sets player.volume; null removes it.
+  set volume(int? value) {
     _$volumeNow = value;
     _$volumeSet = true;
-    _$volume?.set(value);
+    value == null ? _$volume?.remove() : _$volume?.set(value);
   }
 
   IStateWriterOf<Repeat>? _$repeat;
@@ -236,11 +236,11 @@ abstract class PlayerOwnerBase implements IOwner {
   /// player.repeat, as this owner last set it.
   Repeat? get repeat => _$repeatNow;
 
-  /// Sets player.repeat.
-  set repeat(Repeat value) {
+  /// Sets player.repeat; null removes it.
+  set repeat(Repeat? value) {
     _$repeatNow = value;
     _$repeatSet = true;
-    _$repeat?.set(value);
+    value == null ? _$repeat?.remove() : _$repeat?.set(value);
   }
 
   IStateWriterOf<Track?>? _$playing;
@@ -336,8 +336,14 @@ abstract class PlayerOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$volumeSet) _$volume!.set(_$volumeNow as int);
-    if (_$repeatSet) _$repeat!.set(_$repeatNow as Repeat);
+    if (_$volumeSet) {
+      final v = _$volumeNow;
+      v == null ? _$volume!.remove() : _$volume!.set(v);
+    }
+    if (_$repeatSet) {
+      final v = _$repeatNow;
+      v == null ? _$repeat!.remove() : _$repeat!.set(v);
+    }
     if (_$playingSet) _$playing!.set(_$playingNow);
     Keyed.writeAll(speakerLevel);
   }

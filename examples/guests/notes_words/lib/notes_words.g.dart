@@ -77,11 +77,11 @@ abstract class NotesOwnerBase implements IOwner {
   /// notes.all, as this owner last set it.
   List<Note>? get all => _$allNow;
 
-  /// Sets notes.all.
-  set all(List<Note> value) {
+  /// Sets notes.all; null removes it.
+  set all(List<Note>? value) {
     _$allNow = value;
     _$allSet = true;
-    _$all?.set(value);
+    value == null ? _$all?.remove() : _$all?.set(value);
   }
 
   IFactEmitterOf<NotesAdded>? _$added;
@@ -112,7 +112,10 @@ abstract class NotesOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$allSet) _$all!.set(_$allNow as List<Note>);
+    if (_$allSet) {
+      final v = _$allNow;
+      v == null ? _$all!.remove() : _$all!.set(v);
+    }
   }
 
   /// Says notes.added; on behalf of [by], when given.
