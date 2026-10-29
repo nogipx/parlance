@@ -215,7 +215,7 @@ abstract base class PlayerOwner extends Owner {
     Owner.made(this, define: _define, write: _write);
   }
 
-  StateWriterOf<int>? _volume;
+  IStateWriterOf<int>? _volume;
   int? _volumeNow;
   var _volumeSet = false;
 
@@ -229,7 +229,7 @@ abstract base class PlayerOwner extends Owner {
     _volume?.set(value);
   }
 
-  StateWriterOf<Repeat>? _repeat;
+  IStateWriterOf<Repeat>? _repeat;
   Repeat? _repeatNow;
   var _repeatSet = false;
 
@@ -243,7 +243,7 @@ abstract base class PlayerOwner extends Owner {
     _repeat?.set(value);
   }
 
-  StateWriterOf<Track?>? _playing;
+  IStateWriterOf<Track?>? _playing;
   Track? _playingNow;
   var _playingSet = false;
 
@@ -261,14 +261,14 @@ abstract base class PlayerOwner extends Owner {
   /// read and written as a map is.
   final Keyed<num> speakerLevel = Keyed<num>();
 
-  FactEmitterOf<PlayerClipped>? _clipped;
-  FactEmitterOf<Track>? _finished;
+  IFactEmitterOf<PlayerClipped>? _clipped;
+  IFactEmitterOf<Track>? _finished;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -300,37 +300,31 @@ abstract base class PlayerOwner extends Owner {
     keep(
       p
           .command(PlayerCommand.setVolume)
-          .define((c) => setVolume(volume: c.params.volume)),
+          .serve((x) => setVolume(volume: x.volume)),
     );
     keep(
       p
           .command(PlayerCommand.play)
-          .define(
-            (c) => play(
-              track: c.params.track,
-              repeat: c.params.repeat,
-              on: c.params.on,
-            ),
+          .serve(
+            (x) => play(track: x.track, repeat: x.repeat, on: x.on),
             deadline: const Duration(microseconds: 5000000),
             available: whyNotPlay,
           ),
     );
-    keep(
-      p.command(PlayerCommand.skip).define((c) => skip(count: c.params.count)),
-    );
+    keep(p.command(PlayerCommand.skip).serve((x) => skip(count: x.count)));
     keep(
       p
           .command(PlayerCommand.stop)
-          .define(
-            (c) => stop(),
+          .serve(
+            (_) => stop(),
             callers: const Callers({'listener': Access.allow}),
           ),
     );
     keep(
       p
           .query(PlayerQuery.search)
-          .define(
-            (a) => search(text: a.params.text, limit: a.params.limit),
+          .serve(
+            (x) => search(text: x.text, limit: x.limit),
             askers: const Callers({'*': Access.allow}),
           ),
     );

@@ -286,6 +286,22 @@ final class ParticipantQueryOf<P, R> {
     returns: word.returns,
   );
 
+  /// Defines it as [define] does, answered by [handler] of its params
+  /// alone: what a base the generator made gives it (SPEC §23.4).
+  IHandle serve(
+    FutureOr<R> Function(P params) handler, {
+    Callers? askers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+    Availability? available,
+  }) => define(
+    (a) => handler(a.params),
+    askers: askers,
+    deadline: deadline,
+    meta: meta,
+    available: available,
+  );
+
   /// Asks it as the participant; asking again asks again.
   Future<CallResult<R>> ask(P params, {Cause? cause}) async => word.answer(
     await participant.callAs(word.name, params, word.params, cause: cause),
@@ -391,6 +407,23 @@ final class ParticipantCommandOf<P, R> {
     available: available,
     params: word.params,
     returns: word.returns,
+  );
+
+  /// Defines it as [define] does, served by [handler] of its params
+  /// alone: what a base the generator made gives it (SPEC §23.4), with no
+  /// call object; what the handler does follows from the call anyway.
+  IHandle serve(
+    FutureOr<R> Function(P params) handler, {
+    Callers? callers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+    Availability? available,
+  }) => define(
+    (c) => handler(c.params),
+    callers: callers,
+    deadline: deadline,
+    meta: meta,
+    available: available,
   );
 
   /// Calls it with [params] as the participant; [override] as

@@ -138,7 +138,7 @@ abstract base class HouseOwner extends Owner {
   /// read and written as a map is.
   final Keyed<bool> light = Keyed<bool>();
 
-  StateWriterOf<num>? _heat;
+  IStateWriterOf<num>? _heat;
   num? _heatNow;
   var _heatSet = false;
 
@@ -152,7 +152,7 @@ abstract base class HouseOwner extends Owner {
     _heat?.set(value);
   }
 
-  StateWriterOf<Mode>? _mode;
+  IStateWriterOf<Mode>? _mode;
   Mode? _modeNow;
   var _modeSet = false;
 
@@ -166,7 +166,7 @@ abstract base class HouseOwner extends Owner {
     _mode?.set(value);
   }
 
-  StateWriterOf<bool>? _locked;
+  IStateWriterOf<bool>? _locked;
   bool? _lockedNow;
   var _lockedSet = false;
 
@@ -180,14 +180,14 @@ abstract base class HouseOwner extends Owner {
     _locked?.set(value);
   }
 
-  FactEmitterOf<HouseRang>? _rang;
-  FactEmitterOf<HouseMotion>? _motion;
+  IFactEmitterOf<HouseRang>? _rang;
+  IFactEmitterOf<HouseMotion>? _motion;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -207,27 +207,21 @@ abstract base class HouseOwner extends Owner {
     keep(
       p
           .command(HouseCommand.setLight)
-          .define(
-            (c) => setLight(room: c.params.room, on: c.params.on),
+          .serve(
+            (x) => setLight(room: x.room, on: x.on),
             callers: Who.anyone,
           ),
     );
     keep(
-      p
-          .command(HouseCommand.setHeat)
-          .define((c) => setHeat(target: c.params.target)),
+      p.command(HouseCommand.setHeat).serve((x) => setHeat(target: x.target)),
     );
-    keep(
-      p
-          .command(HouseCommand.setMode)
-          .define((c) => setMode(mode: c.params.mode)),
-    );
+    keep(p.command(HouseCommand.setMode).serve((x) => setMode(mode: x.mode)));
     keep(
       p
           .command(HouseCommand.lock)
-          .define((c) => lock(on: c.params.on), available: whyNotLock),
+          .serve((x) => lock(on: x.on), available: whyNotLock),
     );
-    keep(p.query(HouseQuery.rooms).define((a) => rooms(lit: a.params.lit)));
+    keep(p.query(HouseQuery.rooms).serve((x) => rooms(lit: x.lit)));
     defineMore(p);
   }
 
@@ -559,7 +553,7 @@ abstract base class VisitOwner extends Owner {
     Owner.made(this, define: _define, write: _write);
   }
 
-  StateWriterOf<List<String>>? _guests;
+  IStateWriterOf<List<String>>? _guests;
   List<String>? _guestsNow;
   var _guestsSet = false;
 
@@ -575,7 +569,7 @@ abstract base class VisitOwner extends Owner {
 
   void _define(IParticipant p) {
     _guests = keep(p.state(VisitState.guests).define());
-    keep(p.command(VisitCommand.leave).define((c) => leave(who: c.params.who)));
+    keep(p.command(VisitCommand.leave).serve((x) => leave(who: x.who)));
     defineMore(p);
   }
 

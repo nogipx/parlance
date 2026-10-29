@@ -259,7 +259,30 @@ final class _StateReaderOf<T> implements IStateReader<T> {
 /// The only write handle of a typed state.
 ///
 /// It is a [IStateWriter] of an unkeyed state; [at] gives one of a key.
-final class StateWriterOf<T> implements IHandle, IStateWriter<T> {
+/// What a base the generator made writes a state through (SPEC §23.4):
+/// part of the generator's contract, which a published words package's
+/// `.g.dart` holds to, so it stays as it is; the participant's handles,
+/// in this process and across a connection, are it.
+abstract interface class IStateWriterOf<T> implements IHandle {
+  /// Writes [value], of [key] for a keyed state.
+  void set(T value, {String? key});
+
+  /// Removes the value, of [key] for a keyed state.
+  void remove({String? key});
+}
+
+/// What a base the generator made says a fact through (SPEC §23.4): the
+/// generator's contract, as [IStateWriterOf] is.
+abstract interface class IFactEmitterOf<T> implements IHandle {
+  /// Says [payload]; false when the registry dropped it as said before.
+  bool emit(T payload);
+
+  /// Says [payload] on behalf of [by], as far as the rights let it.
+  bool emitFor(T payload, Principal by);
+}
+
+final class StateWriterOf<T>
+    implements IHandle, IStateWriter<T>, IStateWriterOf<T> {
   StateWriterOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.
@@ -292,7 +315,7 @@ final class StateWriterOf<T> implements IHandle, IStateWriter<T> {
 /// holds one for each keyed state, and writes through it once attached.
 final class Keyed<T> {
   final Map<String, T> _now = {};
-  StateWriterOf<T>? _writer;
+  IStateWriterOf<T>? _writer;
 
   /// What it set of [key], if it did.
   T? operator [](String key) => _now[key];
@@ -317,7 +340,7 @@ final class Keyed<T> {
 
   /// For the base the generator made: [k] writes through [writer] from
   /// now on.
-  static void attach<T>(Keyed<T> k, StateWriterOf<T> writer) =>
+  static void attach<T>(Keyed<T> k, IStateWriterOf<T> writer) =>
       k._writer = writer;
 
   /// For the base the generator made: writes what [k] was set before it
@@ -599,7 +622,8 @@ final class _FactListenerOf<T> implements IFactListener<T> {
 }
 
 /// An emit handle of a typed fact; an [IFactEmitter] as the core's.
-final class FactEmitterOf<T> implements IHandle, IFactEmitter<T> {
+final class FactEmitterOf<T>
+    implements IHandle, IFactEmitter<T>, IFactEmitterOf<T> {
   FactEmitterOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.
@@ -617,6 +641,7 @@ final class FactEmitterOf<T> implements IHandle, IFactEmitter<T> {
   /// Says it on behalf of [by], as far as the participant's rights let it
   /// speak for another: following from the call or the fact being
   /// answered where it is said, if one is.
+  @override
   bool emitFor(T payload, Principal by, {String? id}) =>
       emit(payload, id: id, cause: inReplyAs(by) ?? Cause(by));
 

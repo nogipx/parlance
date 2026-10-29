@@ -107,7 +107,7 @@ abstract base class BoardOwner extends Owner {
   /// read and written as a map is.
   final Keyed<Note> notes = Keyed<Note>();
 
-  StateWriterOf<Object?>? _anything;
+  IStateWriterOf<Object?>? _anything;
   Object? _anythingNow;
   var _anythingSet = false;
 
@@ -121,13 +121,13 @@ abstract base class BoardOwner extends Owner {
     _anything?.set(value);
   }
 
-  FactEmitterOf<Note>? _seen;
+  IFactEmitterOf<Note>? _seen;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -141,22 +141,12 @@ abstract base class BoardOwner extends Owner {
     Keyed.attach(notes, keep(p.state(BoardState.notes).define()));
     _anything = keep(p.state(BoardState.anything).define());
     _seen = keep(p.fact(BoardFact.seen).define(open: true));
+    keep(p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note)));
     keep(
-      p
-          .command(BoardCommand.put)
-          .define((c) => put(id: c.params.id, note: c.params.note)),
+      p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms)),
     );
-    keep(
-      p
-          .command(BoardCommand.expire)
-          .define((c) => expire(id: c.params.id, ms: c.params.ms)),
-    );
-    keep(p.command(BoardCommand.pin).define((c) => pin(ids: c.params.ids)));
-    keep(
-      p
-          .command(BoardCommand.count)
-          .define((c) => count(readers: c.params.readers)),
-    );
+    keep(p.command(BoardCommand.pin).serve((x) => pin(ids: x.ids)));
+    keep(p.command(BoardCommand.count).serve((x) => count(readers: x.readers)));
     defineMore(p);
   }
 

@@ -164,7 +164,7 @@ abstract base class LightsOwner extends Owner {
   }
 
   void _define(IParticipant p) {
-    keep(p.command(LightsCommand.on).define((c) => on(room: c.params.room)));
+    keep(p.command(LightsCommand.on).serve((x) => on(room: x.room)));
     defineMore(p);
   }
 

@@ -51,7 +51,7 @@ abstract base class AppOwner extends Owner {
     Owner.made(this, define: _define, write: _write);
   }
 
-  StateWriterOf<bool>? _dark;
+  IStateWriterOf<bool>? _dark;
   bool? _darkNow;
   var _darkSet = false;
 
@@ -67,7 +67,7 @@ abstract base class AppOwner extends Owner {
 
   void _define(IParticipant p) {
     _dark = keep(p.state(AppState.dark).define());
-    keep(p.command(AppCommand.toast).define((c) => toast(text: c.params.text)));
+    keep(p.command(AppCommand.toast).serve((x) => toast(text: x.text)));
     defineMore(p);
   }
 

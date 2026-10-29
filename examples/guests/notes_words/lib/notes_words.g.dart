@@ -70,7 +70,7 @@ abstract base class NotesOwner extends Owner {
     Owner.made(this, define: _define, write: _write);
   }
 
-  StateWriterOf<List<Note>>? _all;
+  IStateWriterOf<List<Note>>? _all;
   List<Note>? _allNow;
   var _allSet = false;
 
@@ -84,13 +84,13 @@ abstract base class NotesOwner extends Owner {
     _all?.set(value);
   }
 
-  FactEmitterOf<NotesAdded>? _added;
+  IFactEmitterOf<NotesAdded>? _added;
 
   /// What it said while not attached, for a test to read:
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
+  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
     } else if (by == null) {
@@ -103,7 +103,7 @@ abstract base class NotesOwner extends Owner {
   void _define(IParticipant p) {
     _all = keep(p.state(NotesState.all).define());
     _added = keep(p.fact(NotesFact.added).define());
-    keep(p.command(NotesCommand.add).define((c) => add(text: c.params.text)));
+    keep(p.command(NotesCommand.add).serve((x) => add(text: x.text)));
     defineMore(p);
   }
 

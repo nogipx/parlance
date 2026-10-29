@@ -794,7 +794,7 @@ final class _Emitter {
     String nullable(String t) => t.endsWith('?') ? t : '$t?';
     String args(_Callable c, String of) => [
       for (final p in (c.element as MethodElement).formalParameters)
-        '${p.displayName}: $of.params.${p.displayName}',
+        '${p.displayName}: $of.${p.displayName}',
     ].join(', ');
 
     final out = StringBuffer()
@@ -823,7 +823,7 @@ final class _Emitter {
       } else {
         member(m, st);
         out
-          ..writeln('  StateWriterOf<$t>? _$m;')
+          ..writeln('  IStateWriterOf<$t>? _$m;')
           ..writeln('  ${nullable(t)} _${m}Now;')
           ..writeln('  var _${m}Set = false;')
           ..writeln()
@@ -841,7 +841,7 @@ final class _Emitter {
     }
     for (final f in facts) {
       member(f.member, f);
-      out.writeln('  FactEmitterOf<${f.type}>? _${f.member};');
+      out.writeln('  IFactEmitterOf<${f.type}>? _${f.member};');
     }
     if (facts.isNotEmpty) {
       out
@@ -851,7 +851,7 @@ final class _Emitter {
         ..writeln('  final List<(String, Object?)> said = [];')
         ..writeln()
         ..writeln(
-          '  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, '
+          '  void _say<T>(String fact, IFactEmitterOf<T>? e, T payload, '
           'Principal? by) {',
         )
         ..writeln('    if (e == null) {')
@@ -881,18 +881,21 @@ final class _Emitter {
         '.define(${opts(f)}));',
       );
     }
+    // Served by the params alone: the generated code holds no call.
+    String serving(_Callable c) =>
+        (c.element as MethodElement).formalParameters.isEmpty
+        ? '(_) => ${c.member}()'
+        : '(x) => ${c.member}(${args(c, 'x')})';
     for (final c in commands) {
-      final serve = '(c) => ${c.member}(${args(c, 'c')})';
       out.writeln(
         '    keep(p.command(${_c}Command.${c.member})'
-        '.define(${[serve, opts(c)].where((x) => x.isNotEmpty).join(', ')}));',
+        '.serve(${[serving(c), opts(c)].where((x) => x.isNotEmpty).join(', ')}));',
       );
     }
     for (final q in queries) {
-      final serve = '(a) => ${q.member}(${args(q, 'a')})';
       out.writeln(
         '    keep(p.query(${_c}Query.${q.member})'
-        '.define(${[serve, opts(q)].where((x) => x.isNotEmpty).join(', ')}));',
+        '.serve(${[serving(q), opts(q)].where((x) => x.isNotEmpty).join(', ')}));',
       );
     }
     out
