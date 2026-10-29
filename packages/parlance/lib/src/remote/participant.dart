@@ -392,6 +392,17 @@ final class RemoteParticipant implements IParticipant {
         '$who defines in ${vocabularies.isEmpty ? 'no vocabulary' : vocabularies.join(', ')}, not ${d.name}',
       );
     }
+    // A name it holds is taken, as in the host's process: defined again,
+    // it would take the place of its own word here while the host keeps
+    // the first.
+    if (_states.containsKey(d.name) ||
+        _facts.containsKey(d.name) ||
+        _commands.containsKey(d.name)) {
+      throw StateError('${d.name} is defined');
+    }
+    if (_mirror.canonical(d.name) case final now when now != d.name) {
+      throw StateError('${d.name} is an old name of $now');
+    }
   }
 
   /// Whether a cause by [by] is [speaker]'s own act: [speaker] itself, or
