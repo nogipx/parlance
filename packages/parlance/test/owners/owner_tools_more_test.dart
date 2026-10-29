@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:parlance/app.dart';
 import 'package:test/test.dart';
+import 'package:parlance/registry.dart' show StateWordOf;
 
 /// What an owner says with the tools beside its words (SPEC §19): a guard
 /// of its own command by its params, the time by the registry's clock,

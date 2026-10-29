@@ -310,10 +310,9 @@ extension OwnerTools on IOwner {
   }
 }
 
-/// An owner written by hand, without a base the generator made (in tests
-/// and tools): it defines its words in [define] and writes what it has
-/// now in [sync]. Not in `schema.dart`: its members are its subclasses'
-/// names, so it is no frozen contract.
+/// An owner written by hand, for the package's own tests: it defines its
+/// words in [define] and writes what it has now in [sync]. Not exported:
+/// an app's owner extends the base its words' generator made.
 abstract base class Owner implements IOwner, IHandle {
   Owner() {
     final c = _Core.of(this);

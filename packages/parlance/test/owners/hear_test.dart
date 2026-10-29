@@ -2,6 +2,7 @@ import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/owner.dart' show Owner;
 
 /// What an owner does on hearing another's fact follows from that fact,
 /// as a handler's follows from its call (SPEC §4): no cause passed. And a

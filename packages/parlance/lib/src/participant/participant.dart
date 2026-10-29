@@ -141,7 +141,8 @@ abstract interface class IParticipant implements IHandle {
 /// name and descriptor, beside its typed words. Every participant the
 /// library makes is one ([IParticipantRaw.raw]). Not frozen: it changes
 /// as the library does.
-abstract interface class IRawParticipant implements IParticipant, IRegistryView {
+abstract interface class IRawParticipant
+    implements IParticipant, IRegistryView {
   /// The catalog as it sees it (SPEC §22): the words, what it may call and
   /// read, what cannot run now; what an agent or an editor shows of it.
   Future<Map<String, Object?>> describe();
@@ -278,8 +279,7 @@ extension type GeneratedWords._(IRawParticipant _p) {
   ParticipantCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
       _p.command(word);
   ParticipantFactOf<T> fact<T>(IFactWord<T> word) => _p.fact(word);
-  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
-      _p.query(word);
+  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) => _p.query(word);
 
   /// Tells the registry the code was built against [words] (SPEC §6.9).
   void builtAgainst(Iterable<IWord> words, {String? from}) =>

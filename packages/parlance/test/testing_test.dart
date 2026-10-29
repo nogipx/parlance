@@ -2,6 +2,7 @@ import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/owner.dart' show Owner;
 
 enum Outside<T> implements IStateWord<T> {
   temperature<num>('weather.outside');

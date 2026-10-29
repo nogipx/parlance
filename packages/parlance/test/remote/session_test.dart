@@ -9,6 +9,7 @@ import 'package:parlance/src/remote/mirror.dart' show RegistryMirror;
 import 'package:parlance/testing.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/owner.dart' show Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const plugin = Principal('plugin', 'p');

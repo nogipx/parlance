@@ -4,6 +4,7 @@ import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/owner.dart' show Owner;
 
 /// An owner's handler knows who it answers (`caller`), may act on its own
 /// in it (`apart`), and writes as one tick outside a handler (`together`),

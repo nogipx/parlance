@@ -4,6 +4,7 @@ import 'package:parlance/remote.dart';
 import 'package:parlance/src/remote/client.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/owner.dart' show Owner;
 
 /// A registry disposed ends what holds it, the last made first: its
 /// participants, their owners and parts, and the sessions it serves.

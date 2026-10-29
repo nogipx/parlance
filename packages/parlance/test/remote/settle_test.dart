@@ -4,6 +4,7 @@ import 'package:parlance/remote.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/owner.dart' show Owner;
 
 /// What a guest waits for, with no delay of its own: `attach` until the
 /// host has its owners' words, `settle` until its copy and its listeners
