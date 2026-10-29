@@ -873,6 +873,12 @@ final class RemoteParticipant implements IParticipant {
 
   IFactHandle _producer(String fact, Principal? as) {
     _live();
+    // As in the host's process: a fact only its owner says is refused
+    // here, as its copy of the catalog knows it. One it does not know yet
+    // may be defined by now: the host says, on [errors].
+    if (_mirror.descriptorOf(fact) case FactDescriptor(open: false)) {
+      throw StateError('$fact is not open');
+    }
     return _Fact(
       this,
       FactDescriptor(fact, type: const AnyType(), open: true),

@@ -106,10 +106,18 @@ final class _Fact implements IFactHandle {
     final by = cause != null && !_p._ownAct(cause.by, speaker)
         ? cause.by
         : null;
+    // Another's fact is held to its type as the catalog says it now, as
+    // far as the copy knows it: refused here, as in the host's process.
+    final type = own
+        ? descriptor.type
+        : switch (_p._mirror.descriptorOf(descriptor.name)) {
+            final FactDescriptor d => d.type,
+            _ => descriptor.type,
+          };
     _p._ask({
       'op': 'emit',
       'fact': descriptor.name,
-      'payload': freezeJson(descriptor.type.check(payload, const _Unseen())),
+      'payload': freezeJson(type.check(payload, const _Unseen())),
       // Its id is given here, so a fact sent again after a drop is dropped
       // by the host if it took it before.
       'id': id ?? newId(),
