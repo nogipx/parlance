@@ -6,8 +6,9 @@ import 'package:build_test/build_test.dart';
 import 'package:parlance_generator/builder.dart';
 import 'package:test/test.dart';
 
-/// A text the generator puts in code is code of the same text, whatever
-/// it holds: quotes, a dollar, a backslash, lines.
+/// What the generator puts in code is code of the same: a text whatever
+/// it holds (quotes, a dollar, a backslash, lines), a constant as the
+/// generated part can name it.
 void main() {
   final parlance = {
     for (final f in Directory('../parlance/lib').listSync(recursive: true))
@@ -52,5 +53,46 @@ two \$lines, \\ and\r\nthree''')
     expect(made, isNotNull);
     expect(() => parseString(content: made!), returnsNormally);
     expect(made, contains(r"'one \'line\'\ntwo \$lines, \\ and\r\nthree'"));
+  });
+  test('a constant imported with a prefix is named as the part can', () async {
+    String? made;
+    await testBuilder(
+      parlanceBuilder(BuilderOptions.empty),
+      {
+        ...parlance,
+        'a|lib/who.dart': '''
+import 'package:parlance/registry.dart';
+const crew = Callers({'crew': Access.allow});
+abstract final class Who {
+  static const staff = Callers({'staff': Access.allow});
+}
+''',
+        'a|lib/words.dart': '''
+import 'package:parlance/schema.dart';
+import 'who.dart' as who;
+part 'words.g.dart';
+
+@Vocabulary('orders')
+abstract class Orders {
+  @CommandWord(callers: who.crew)
+  void cancel();
+  @CommandWord(callers: who.Who.staff)
+  void close();
+}
+''',
+      },
+      rootPackage: 'a',
+      generateFor: {'a|lib/words.dart'},
+      outputs: {
+        'a|lib/words.parlance.g.part': decodedMatches(
+          predicate<String>((s) {
+            made = s;
+            return true;
+          }),
+        ),
+      },
+    );
+    expect(made, contains("Callers({'crew': Access.allow})"));
+    expect(made, contains("Callers({'staff': Access.allow})"));
   });
 }

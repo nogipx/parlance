@@ -476,11 +476,20 @@ final class _Emitter {
     final v = o.variable;
     if (v == null || !v.isConst) return literal;
     return switch (v.enclosingElement) {
-      final InterfaceElement e => '${e.displayName}.${v.displayName}',
-      LibraryElement() => v.displayName,
+      final InterfaceElement e when _sees(e) =>
+        '${e.displayName}.${v.displayName}',
+      LibraryElement() when _sees(v) => v.displayName,
       _ => literal,
     };
   }
+
+  /// Whether the generated part names [e] by its name alone: it is the
+  /// library's, or imported with no prefix.
+  bool _sees(Element e) =>
+      switch (cls.library.firstFragment.scope.lookup(e.displayName).getter) {
+        final GetterElement g => g.variable == e,
+        final found => found == e,
+      };
 
   /// [o], a `Callers`, as code: by the constant that names it, if any.
   String _callers(DartObject o) => _code(o, _callersLiteral(o));
