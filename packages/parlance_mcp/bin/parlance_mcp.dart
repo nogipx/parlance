@@ -63,6 +63,8 @@ Future<void> main(List<String> args) async {
   RemoteParticipant? joined;
   StreamSubscription<void>? changes;
 
+  // Whether the agent was given no tools while the host was away.
+  var missed = false;
   late final McpSession session;
   session = McpSession(
     input: stdin.transform(utf8.decoder).transform(const LineSplitter()),
@@ -76,6 +78,7 @@ Future<void> main(List<String> args) async {
         return await parlanceTools(p, commandTools: commandTools);
       } on Object catch (e) {
         stderr.writeln('parlance-mcp: the host is not reachable: $e');
+        missed = true;
         return const [];
       }
     },
@@ -84,6 +87,8 @@ Future<void> main(List<String> args) async {
     joining.then((p) {
       joined = p;
       changes = p.catalogChanges.listen((_) => session.toolsChanged());
+      // What it was given before is not what there is: it lists again.
+      if (missed) session.toolsChanged();
     }, onError: (Object e) => stderr.writeln('parlance-mcp: $e')),
   );
 

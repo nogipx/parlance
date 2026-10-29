@@ -114,4 +114,63 @@ void main() {
       expect(await mcp.exitCode.timeout(const Duration(seconds: 20)), 0);
     },
   );
+  test(
+    'an agent given no tools while the host was away is told when it comes',
+    timeout: const Timeout(Duration(minutes: 2)),
+    () async {
+      final r = Registry();
+      addTearDown(r.dispose);
+      final dir = Directory.systemTemp.createTempSync('sbmcp');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = '${dir.path}/r.sock';
+
+      final mcp = await Process.start(Platform.resolvedExecutable, [
+        'run',
+        'bin/parlance_mcp.dart',
+        '--connect',
+        'unix:$path',
+      ]);
+      addTearDown(mcp.kill);
+      final lines = StreamController<Map<String, Object?>>.broadcast();
+      mcp.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((l) => lines.add(jsonDecode(l) as Map<String, Object?>));
+      mcp.stderr.transform(utf8.decoder).listen((_) {});
+      var id = 0;
+      Future<Map<String, Object?>> request(String method, [Object? params]) {
+        final n = ++id;
+        final answer = lines.stream.firstWhere((m) => m['id'] == n);
+        mcp.stdin.writeln(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': n,
+            'method': method,
+            'params': ?params,
+          }),
+        );
+        return answer.timeout(const Duration(seconds: 60));
+      }
+
+      Future<List<Object?>> tools() async =>
+          ((await request('tools/list'))['result'] as Map)['tools'] as List;
+
+      await request('initialize', {'protocolVersion': '2025-06-18'});
+      expect(await tools(), isEmpty, reason: 'no host yet');
+
+      final told = lines.stream
+          .firstWhere((m) => m['method'] == 'notifications/tools/list_changed')
+          .timeout(const Duration(seconds: 30));
+      final server = RpcSocketServer(
+        address: RpcSocketAddress.unix(path),
+        mode: RpcPeerMode((endpoint) => r.participant(agent).serve(endpoint)),
+      );
+      await server.start();
+      addTearDown(server.stop);
+      await told;
+      expect(await tools(), isNotEmpty);
+      await mcp.stdin.close();
+      expect(await mcp.exitCode.timeout(const Duration(seconds: 20)), 0);
+    },
+  );
 }
