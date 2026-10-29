@@ -50,6 +50,19 @@ extension Participants on Registry {
     }
     final names = given.toSet();
     final taken = _taken[this] ??= {};
+    // A session of the same principal holding them is one whose
+    // connection went and was not seen to (a link half open, its host
+    // told late): a new session of the part takes its place, as an MQTT
+    // broker takes a client's session over (SPEC §14). Another
+    // principal's is refused below.
+    for (final old in {
+      for (final ns in names)
+        for (final e in taken.entries)
+          if (_overlap(ns, e.key) && e.value.who == who && e.value._end != null)
+            e.value,
+    }) {
+      old._end!();
+    }
     for (final ns in names) {
       checkName(ns, 'vocabulary');
       for (final e in taken.entries) {
@@ -104,8 +117,10 @@ final Expando<bool> keepsNothing = Expando('keeps nothing');
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
-/// guards, kinds, owners or parts would go with the session. Not exported.
-void takeForServing(LocalParticipant p) {
+/// guards, kinds, owners or parts would go with the session. [end] ends
+/// the session, when a new one of the same principal takes its place
+/// ([Participants.participant]). Not exported.
+void takeForServing(LocalParticipant p, {required void Function() end}) {
   p._live();
   if (keepsNothing[p._r] == true) {
     throw StateError(
@@ -122,6 +137,7 @@ void takeForServing(LocalParticipant p) {
     );
   }
   p._served = true;
+  p._end = end;
 }
 
 final class LocalParticipant implements IParticipant {
@@ -165,6 +181,9 @@ final class LocalParticipant implements IParticipant {
   final Set<String> _kinds = {};
   bool _disposed = false;
   bool _served = false;
+
+  /// Ends the session that serves it; null while none does.
+  void Function()? _end;
 
   @override
   Clock get clock => _r.clock;

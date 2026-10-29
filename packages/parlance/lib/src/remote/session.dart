@@ -36,8 +36,9 @@ extension ServeParticipant on LocalParticipant {
     LogScope? log,
     Set<String>? features,
   }) {
-    takeForServing(this);
-    final s = RemoteSession._(
+    late final RemoteSession s;
+    takeForServing(this, end: () => s._takenOver());
+    s = RemoteSession._(
       endpoint,
       this,
       session: session,
@@ -787,6 +788,15 @@ final class RemoteSession extends ParlanceContractPeer {
     } finally {
       _serving.remove(c.id);
     }
+  }
+
+  /// A new session of its principal took its place: this one's connection
+  /// is gone, though not seen to (SPEC §14).
+  void _takenOver() {
+    if (log.isEnabled(RpcLogLevel.info)) {
+      log.info('taken over by a new session');
+    }
+    close();
   }
 
   /// Ends the session: its words go, its calls are refused.
