@@ -51,23 +51,13 @@ abstract class AppOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write, words: appWords);
   }
 
-  IStateWriterOf<bool>? _$dark;
-  bool? _$darkNow;
-  var _$darkSet = false;
-
-  /// app.dark, as this owner last set it.
-  bool? get dark => _$darkNow;
-
-  /// Sets app.dark; null removes it.
-  set dark(bool? value) {
-    _$darkNow = value;
-    _$darkSet = true;
-    value == null ? _$dark?.remove() : _$dark?.set(value);
-  }
+  /// app.dark: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<bool> dark = Single<bool>();
 
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
-    _$dark = p.state(AppState.dark).define();
+    Single.attach(dark, p.state(AppState.dark).define());
     p.command(AppCommand.toast).serve((x) => toast(text: x.text));
   }
 
@@ -76,10 +66,7 @@ abstract class AppOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$darkSet) {
-      final v = _$darkNow;
-      v == null ? _$dark!.remove() : _$dark!.set(v);
-    }
+    Single.write(dark);
   }
 
   /// Serves app.toast.

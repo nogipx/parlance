@@ -145,9 +145,9 @@ void main() {
   test('a word named as its vocabulary, any value, a duration by its JSON '
       'name', () async {
     expect(BoardState.notes.name, 'note');
-    board.anything = {'a': 1};
+    board.anything.set({'a': 1});
     expect(asAnn.raw.read('note.anything'), {'a': 1});
-    board.anything = null;
+    board.anything.set(null);
     expect(asAnn.raw.read('note.anything'), isNull);
     expect(r.commandDescriptor('note.expire')!.params.toJson()['fields'], {
       'id': {

@@ -70,19 +70,9 @@ abstract class NotesOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write, words: notesWords);
   }
 
-  IStateWriterOf<List<Note>>? _$all;
-  List<Note>? _$allNow;
-  var _$allSet = false;
-
-  /// notes.all, as this owner last set it.
-  List<Note>? get all => _$allNow;
-
-  /// Sets notes.all; null removes it.
-  set all(List<Note>? value) {
-    _$allNow = value;
-    _$allSet = true;
-    value == null ? _$all?.remove() : _$all?.set(value);
-  }
+  /// notes.all: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<List<Note>> all = Single<List<Note>>();
 
   IFactEmitterOf<NotesAdded>? _$added;
 
@@ -102,7 +92,7 @@ abstract class NotesOwnerBase implements IOwner {
 
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
-    _$all = p.state(NotesState.all).define();
+    Single.attach(all, p.state(NotesState.all).define());
     _$added = p.fact(NotesFact.added).define();
     p.command(NotesCommand.add).serve((x) => add(text: x.text));
   }
@@ -112,10 +102,7 @@ abstract class NotesOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$allSet) {
-      final v = _$allNow;
-      v == null ? _$all!.remove() : _$all!.set(v);
-    }
+    Single.write(all);
   }
 
   /// Says notes.added; on behalf of [by], when given.

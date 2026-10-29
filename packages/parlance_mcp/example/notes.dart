@@ -18,7 +18,7 @@ abstract class Notes {
 /// The notebook's owner: it keeps the notes, the count follows.
 final class Book extends NotesOwnerBase {
   Book() {
-    count = 0;
+    count.set(0);
   }
 
   final _kept = <String>[];
@@ -26,6 +26,6 @@ final class Book extends NotesOwnerBase {
   @override
   void add({required String text}) {
     _kept.add(text);
-    count = _kept.length;
+    count.set(_kept.length);
   }
 }

@@ -11,14 +11,14 @@ import 'words.dart';
 /// made from [Visit]; what it sets in answer to the ring follows from it.
 final class GuestBook extends VisitOwnerBase {
   GuestBook() {
-    guests = const [];
+    guests.set(const []);
     hear(
       HouseClient.of(this).rangFacts,
-      (rang) => guests = [...?guests, rang.who],
+      (rang) => guests.set([...?guests.value, rang.who]),
     );
   }
 
   @override
   void leave({required String who}) =>
-      guests = [...?guests?.where((g) => g != who)];
+      guests.set([...?guests.value?.where((g) => g != who)]);
 }

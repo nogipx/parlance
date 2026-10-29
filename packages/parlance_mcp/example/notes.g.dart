@@ -51,23 +51,13 @@ abstract class NotesOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write, words: notesWords);
   }
 
-  IStateWriterOf<int>? _$count;
-  int? _$countNow;
-  var _$countSet = false;
-
-  /// notes.count, as this owner last set it.
-  int? get count => _$countNow;
-
-  /// Sets notes.count; null removes it.
-  set count(int? value) {
-    _$countNow = value;
-    _$countSet = true;
-    value == null ? _$count?.remove() : _$count?.set(value);
-  }
+  /// notes.count: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<int> count = Single<int>();
 
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
-    _$count = p.state(NotesState.count).define();
+    Single.attach(count, p.state(NotesState.count).define());
     p
         .command(NotesCommand.add)
         .serve(
@@ -81,10 +71,7 @@ abstract class NotesOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$countSet) {
-      final v = _$countNow;
-      v == null ? _$count!.remove() : _$count!.set(v);
-    }
+    Single.write(count);
   }
 
   /// Serves notes.add.

@@ -15,9 +15,9 @@ const anyone = Callers({'*': Access.allow});
 /// handle, no copy of its states.
 final class Deck extends PlayerOwnerBase {
   Deck() {
-    volume = 50;
-    repeat = Repeat.off;
-    playing = null;
+    volume.set(50);
+    repeat.set(Repeat.off);
+    playing.set(null);
   }
 
   final List<Track> library = [
@@ -28,7 +28,7 @@ final class Deck extends PlayerOwnerBase {
 
   @override
   void setVolume({required int volume}) {
-    this.volume = volume;
+    this.volume.set(volume);
     if (volume > 90) clipped(volume: volume);
   }
 
@@ -39,7 +39,7 @@ final class Deck extends PlayerOwnerBase {
     String? on,
   }) async {
     await Future<void>.delayed(Duration.zero);
-    playing = track;
+    playing.set(track);
   }
 
   @override
@@ -308,14 +308,14 @@ void main() {
         on: null,
       ), id: 'p1');
       expect(r.lastChange('player.playing')!.cause.parent, 'p1');
-      expect(deck.playing?.title, 'A', reason: 'what it set, it reads');
+      expect(deck.playing.value?.title, 'A', reason: 'what it set, it reads');
     });
 
-    test('a state never null is removed by null, and set again', () {
-      deck.volume = null;
-      expect(deck.volume, isNull);
+    test('a state is removed by remove, and set again', () {
+      deck.volume.remove();
+      expect(deck.volume.value, isNull);
       expect(asAnn.raw.readAll('player.volume'), isEmpty);
-      deck.volume = 7;
+      deck.volume.set(7);
       expect(asAnn.raw.state(PlayerState.volume).read(), 7);
     });
 
@@ -352,7 +352,7 @@ void main() {
 
   test('an owner not attached keeps what it set and said, for a test', () {
     final deck = Deck()..setVolume(volume: 95);
-    expect(deck.volume, 95);
+    expect(deck.volume.value, 95);
     expect(deck.said, [('player.clipped', (volume: 95))]);
     expect(deck.skip(count: 2), 2);
   });

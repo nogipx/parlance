@@ -835,7 +835,6 @@ final class _Emitter {
       ...w.options,
       if (w.available) 'available: whyNot${_pascal(w.member)}',
     ].join(', ');
-    String nullable(String t) => t.endsWith('?') ? t : '$t?';
     String args(_Callable c, String of) => [
       for (final p in (c.element as MethodElement).formalParameters)
         '${p.displayName}: $of.${p.displayName}',
@@ -870,36 +869,12 @@ final class _Emitter {
       } else {
         member(m, st);
         out
-          ..writeln('  IStateWriterOf<$t>? _\$$m;')
-          ..writeln('  ${nullable(t)} _\$${m}Now;')
-          ..writeln('  var _\$${m}Set = false;')
-          ..writeln()
-          ..writeln('  /// ${st.name}, as this owner last set it.')
-          ..writeln('  ${nullable(t)} get $m => _\$${m}Now;')
-          ..writeln()
+          ..writeln(
+            '  /// ${st.name}: what this owner set last, read by `value`,',
+          )
+          ..writeln('  /// written by `set` and `remove`.')
+          ..writeln('  final Single<$t> $m = Single<$t>();')
           ..writeln();
-        if (t.endsWith('?') || t == 'dynamic') {
-          out
-            ..writeln('  /// Sets ${st.name}.')
-            ..writeln('  set $m($t value) {')
-            ..writeln('    _\$${m}Now = value;')
-            ..writeln('    _\$${m}Set = true;')
-            ..writeln('    _\$$m?.set(value);')
-            ..writeln('  }')
-            ..writeln();
-        } else {
-          // A state that is never null is removed by null.
-          out
-            ..writeln('  /// Sets ${st.name}; null removes it.')
-            ..writeln('  set $m($t? value) {')
-            ..writeln('    _\$${m}Now = value;')
-            ..writeln('    _\$${m}Set = true;')
-            ..writeln(
-              '    value == null ? _\$$m?.remove() : _\$$m?.set(value);',
-            )
-            ..writeln('  }')
-            ..writeln();
-        }
       }
     }
     for (final f in facts) {
@@ -934,7 +909,7 @@ final class _Emitter {
       final define = 'p.state(${_c}State.${st.member}).define(${opts(st)})';
       out.writeln(
         st.key == null
-            ? '    _\$${st.member} = $define;'
+            ? '    Single.attach(${st.member}, $define);'
             : '    Keyed.attach(${st.member}, $define);',
       );
     }
@@ -974,15 +949,7 @@ final class _Emitter {
       if (st.key != null) {
         out.writeln('    Keyed.writeAll($m);');
       } else {
-        final t = st.type;
-        out.writeln(
-          t.endsWith('?') || t == 'dynamic'
-              ? '    if (_\$${m}Set) _\$$m!.set(_\$${m}Now);'
-              : '    if (_\$${m}Set) {\n'
-                    '      final v = _\$${m}Now;\n'
-                    '      v == null ? _\$$m!.remove() : _\$$m!.set(v);\n'
-                    '    }',
-        );
+        out.writeln('    Single.write($m);');
       }
     }
     out

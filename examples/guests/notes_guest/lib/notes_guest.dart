@@ -11,7 +11,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 /// them and keeps the notes it set; this serves `notes.add`.
 final class Notebook extends NotesOwnerBase {
   Notebook() {
-    all = const [];
+    all.set(const []);
   }
 
   var _next = 0;
@@ -19,7 +19,7 @@ final class Notebook extends NotesOwnerBase {
   @override
   void add({required String text}) {
     final note = (id: 'n${++_next}', text: text);
-    all = [...?all, note];
+    all.set([...?all.value, note]);
     added(id: note.id, text: note.text);
   }
 }

@@ -52,7 +52,7 @@ final class Home extends HouseOwnerBase {
     guard(
       HouseCommand.lock,
       'night-door',
-      (lock, by) => !lock.on && mode == Mode.night && by.kind != 'resident'
+      (lock, by) => !lock.on && mode.value == Mode.night && by.kind != 'resident'
           ? 'at night only a resident unlocks the door'
           : null,
     );
@@ -67,13 +67,22 @@ final class Home extends HouseOwnerBase {
   }
 
   @override
-  void setHeat({required num target}) => heat = devices.heat = target;
+  void setHeat({required num target}) {
+    devices.heat = target;
+    heat.set(target);
+  }
 
   @override
-  void setMode({required Mode mode}) => this.mode = devices.mode = mode;
+  void setMode({required Mode mode}) {
+    devices.mode = mode;
+    this.mode.set(mode);
+  }
 
   @override
-  void lock({required bool on}) => locked = devices.locked = on;
+  void lock({required bool on}) {
+    devices.locked = on;
+    locked.set(on);
+  }
 
   @override
   String? whyNotLock() => devices.mode == Mode.away && !devices.locked
@@ -92,9 +101,9 @@ final class Home extends HouseOwnerBase {
     for (final MapEntry(:key, :value) in devices.lights.entries) {
       light.set(key, value);
     }
-    heat = devices.heat;
-    mode = devices.mode;
-    locked = devices.locked;
+    heat.set(devices.heat);
+    mode.set(devices.mode);
+    locked.set(devices.locked);
   }
 
   /// The doorbell: [by] rang it, and the fact says so; its base says it

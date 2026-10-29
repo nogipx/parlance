@@ -221,47 +221,17 @@ abstract class PlayerOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write, words: playerWords);
   }
 
-  IStateWriterOf<int>? _$volume;
-  int? _$volumeNow;
-  var _$volumeSet = false;
+  /// player.volume: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<int> volume = Single<int>();
 
-  /// player.volume, as this owner last set it.
-  int? get volume => _$volumeNow;
+  /// player.repeat: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<Repeat> repeat = Single<Repeat>();
 
-  /// Sets player.volume; null removes it.
-  set volume(int? value) {
-    _$volumeNow = value;
-    _$volumeSet = true;
-    value == null ? _$volume?.remove() : _$volume?.set(value);
-  }
-
-  IStateWriterOf<Repeat>? _$repeat;
-  Repeat? _$repeatNow;
-  var _$repeatSet = false;
-
-  /// player.repeat, as this owner last set it.
-  Repeat? get repeat => _$repeatNow;
-
-  /// Sets player.repeat; null removes it.
-  set repeat(Repeat? value) {
-    _$repeatNow = value;
-    _$repeatSet = true;
-    value == null ? _$repeat?.remove() : _$repeat?.set(value);
-  }
-
-  IStateWriterOf<Track?>? _$playing;
-  Track? _$playingNow;
-  var _$playingSet = false;
-
-  /// player.playing, as this owner last set it.
-  Track? get playing => _$playingNow;
-
-  /// Sets player.playing.
-  set playing(Track? value) {
-    _$playingNow = value;
-    _$playingSet = true;
-    _$playing?.set(value);
-  }
+  /// player.playing: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<Track?> playing = Single<Track?>();
 
   /// player.speaker.level, by speaker: what this owner set of each,
   /// read by `of`, written by `set` and `remove`.
@@ -286,16 +256,19 @@ abstract class PlayerOwnerBase implements IOwner {
 
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
-    _$volume = p
-        .state(PlayerState.volume)
-        .define(
-          meta: const {
-            'label': 'Volume',
-            'steps': [0, 50, 100],
-          },
-        );
-    _$repeat = p.state(PlayerState.repeat).define();
-    _$playing = p.state(PlayerState.playing).define();
+    Single.attach(
+      volume,
+      p
+          .state(PlayerState.volume)
+          .define(
+            meta: const {
+              'label': 'Volume',
+              'steps': [0, 50, 100],
+            },
+          ),
+    );
+    Single.attach(repeat, p.state(PlayerState.repeat).define());
+    Single.attach(playing, p.state(PlayerState.playing).define());
     Keyed.attach(speakerLevel, p.state(PlayerState.speakerLevel).define());
     _$clipped = p.fact(PlayerFact.clipped).define();
     _$finished = p.fact(PlayerFact.finished).define();
@@ -329,15 +302,9 @@ abstract class PlayerOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$volumeSet) {
-      final v = _$volumeNow;
-      v == null ? _$volume!.remove() : _$volume!.set(v);
-    }
-    if (_$repeatSet) {
-      final v = _$repeatNow;
-      v == null ? _$repeat!.remove() : _$repeat!.set(v);
-    }
-    if (_$playingSet) _$playing!.set(_$playingNow);
+    Single.write(volume);
+    Single.write(repeat);
+    Single.write(playing);
     Keyed.writeAll(speakerLevel);
   }
 

@@ -393,6 +393,53 @@ final class Keyed<T> {
   }
 }
 
+/// A state as its owner keeps it (SPEC §23.4): what it set last, read by
+/// [value], written by [set] and [remove]. A base the generator made
+/// holds one for each state with no key, and writes through it once
+/// attached; what was set before is written then.
+final class Single<T> {
+  T? _now;
+  _Last _last = _Last.none;
+  IStateWriterOf<T>? _writer;
+
+  /// What it set last; null before it set anything, and after [remove].
+  T? get value => _now;
+
+  /// Sets the value.
+  void set(T value) {
+    _now = value;
+    _last = _Last.set;
+    _writer?.set(value);
+  }
+
+  /// Removes the value: the state is not there until set again.
+  void remove() {
+    _now = null;
+    _last = _Last.removed;
+    _writer?.remove();
+  }
+
+  /// For the base the generator made: [s] writes through [writer] from
+  /// now on.
+  static void attach<T>(Single<T> s, IStateWriterOf<T> writer) =>
+      s._writer = writer;
+
+  /// For the base the generator made: writes what [s] was set before it
+  /// was attached.
+  static void write<T>(Single<T> s) {
+    switch (s._last) {
+      case _Last.none:
+        return;
+      case _Last.set:
+        s._writer!.set(s._now as T);
+      case _Last.removed:
+        s._writer!.remove();
+    }
+  }
+}
+
+enum _Last { none, set, removed }
+
 final class _KeyWriter<T> implements IStateWriter<T> {
   _KeyWriter(this._writer, this._key);
   final StateWriterOf<T> _writer;

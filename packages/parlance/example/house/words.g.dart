@@ -144,47 +144,17 @@ abstract class HouseOwnerBase implements IOwner {
   /// read by `of`, written by `set` and `remove`.
   final Keyed<bool> light = Keyed<bool>();
 
-  IStateWriterOf<num>? _$heat;
-  num? _$heatNow;
-  var _$heatSet = false;
+  /// house.heat.target: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<num> heat = Single<num>();
 
-  /// house.heat.target, as this owner last set it.
-  num? get heat => _$heatNow;
+  /// house.mode: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<Mode> mode = Single<Mode>();
 
-  /// Sets house.heat.target; null removes it.
-  set heat(num? value) {
-    _$heatNow = value;
-    _$heatSet = true;
-    value == null ? _$heat?.remove() : _$heat?.set(value);
-  }
-
-  IStateWriterOf<Mode>? _$mode;
-  Mode? _$modeNow;
-  var _$modeSet = false;
-
-  /// house.mode, as this owner last set it.
-  Mode? get mode => _$modeNow;
-
-  /// Sets house.mode; null removes it.
-  set mode(Mode? value) {
-    _$modeNow = value;
-    _$modeSet = true;
-    value == null ? _$mode?.remove() : _$mode?.set(value);
-  }
-
-  IStateWriterOf<bool>? _$locked;
-  bool? _$lockedNow;
-  var _$lockedSet = false;
-
-  /// house.door.locked, as this owner last set it.
-  bool? get locked => _$lockedNow;
-
-  /// Sets house.door.locked; null removes it.
-  set locked(bool? value) {
-    _$lockedNow = value;
-    _$lockedSet = true;
-    value == null ? _$locked?.remove() : _$locked?.set(value);
-  }
+  /// house.door.locked: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<bool> locked = Single<bool>();
 
   IFactEmitterOf<HouseRang>? _$rang;
   IFactEmitterOf<HouseMotion>? _$motion;
@@ -206,9 +176,9 @@ abstract class HouseOwnerBase implements IOwner {
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
     Keyed.attach(light, p.state(HouseState.light).define());
-    _$heat = p.state(HouseState.heat).define();
-    _$mode = p.state(HouseState.mode).define();
-    _$locked = p.state(HouseState.locked).define();
+    Single.attach(heat, p.state(HouseState.heat).define());
+    Single.attach(mode, p.state(HouseState.mode).define());
+    Single.attach(locked, p.state(HouseState.locked).define());
     _$rang = p.fact(HouseFact.rang).define();
     _$motion = p.fact(HouseFact.motion).define();
     p
@@ -231,18 +201,9 @@ abstract class HouseOwnerBase implements IOwner {
     if (_$written) return;
     _$written = true;
     Keyed.writeAll(light);
-    if (_$heatSet) {
-      final v = _$heatNow;
-      v == null ? _$heat!.remove() : _$heat!.set(v);
-    }
-    if (_$modeSet) {
-      final v = _$modeNow;
-      v == null ? _$mode!.remove() : _$mode!.set(v);
-    }
-    if (_$lockedSet) {
-      final v = _$lockedNow;
-      v == null ? _$locked!.remove() : _$locked!.set(v);
-    }
+    Single.write(heat);
+    Single.write(mode);
+    Single.write(locked);
   }
 
   /// Says house.doorbell.rang; on behalf of [by], when given.
@@ -579,23 +540,13 @@ abstract class VisitOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write, words: visitWords);
   }
 
-  IStateWriterOf<List<String>>? _$guests;
-  List<String>? _$guestsNow;
-  var _$guestsSet = false;
-
-  /// visit.guests, as this owner last set it.
-  List<String>? get guests => _$guestsNow;
-
-  /// Sets visit.guests; null removes it.
-  set guests(List<String>? value) {
-    _$guestsNow = value;
-    _$guestsSet = true;
-    value == null ? _$guests?.remove() : _$guests?.set(value);
-  }
+  /// visit.guests: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<List<String>> guests = Single<List<String>>();
 
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
-    _$guests = p.state(VisitState.guests).define();
+    Single.attach(guests, p.state(VisitState.guests).define());
     p.command(VisitCommand.leave).serve((x) => leave(who: x.who));
   }
 
@@ -604,10 +555,7 @@ abstract class VisitOwnerBase implements IOwner {
   void _$write() {
     if (_$written) return;
     _$written = true;
-    if (_$guestsSet) {
-      final v = _$guestsNow;
-      v == null ? _$guests!.remove() : _$guests!.set(v);
-    }
+    Single.write(guests);
   }
 
   /// Serves visit.leave.

@@ -79,6 +79,7 @@ export 'src/registry/words.dart'
         IStateWriterOf,
         IFactEmitterOf,
         Keyed,
+        Single,
         CallNotDone;
 export 'src/schema/annotations.dart';
 export 'src/schema/schema.dart';

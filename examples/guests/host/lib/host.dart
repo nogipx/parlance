@@ -26,7 +26,7 @@ abstract final class Who {
 /// The owner of the app's words.
 final class AppHost extends AppOwnerBase {
   AppHost() {
-    dark = false;
+    dark.set(false);
   }
 
   final List<String> toasts = [];

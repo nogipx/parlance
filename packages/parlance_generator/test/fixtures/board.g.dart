@@ -113,19 +113,9 @@ abstract class BoardOwnerBase implements IOwner {
   /// read by `of`, written by `set` and `remove`.
   final Keyed<Note> notes = Keyed<Note>();
 
-  IStateWriterOf<Object?>? _$anything;
-  Object? _$anythingNow;
-  var _$anythingSet = false;
-
-  /// note.anything, as this owner last set it.
-  Object? get anything => _$anythingNow;
-
-  /// Sets note.anything.
-  set anything(Object? value) {
-    _$anythingNow = value;
-    _$anythingSet = true;
-    _$anything?.set(value);
-  }
+  /// note.anything: what this owner set last, read by `value`,
+  /// written by `set` and `remove`.
+  final Single<Object?> anything = Single<Object?>();
 
   IFactEmitterOf<Note>? _$seen;
 
@@ -146,7 +136,7 @@ abstract class BoardOwnerBase implements IOwner {
   void _$define(IParticipant participant) {
     final p = GeneratedWords.of(participant);
     Keyed.attach(notes, p.state(BoardState.notes).define());
-    _$anything = p.state(BoardState.anything).define();
+    Single.attach(anything, p.state(BoardState.anything).define());
     _$seen = p.fact(BoardFact.seen).define();
     p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note));
     p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms));
@@ -160,7 +150,7 @@ abstract class BoardOwnerBase implements IOwner {
     if (_$written) return;
     _$written = true;
     Keyed.writeAll(notes);
-    if (_$anythingSet) _$anything!.set(_$anythingNow);
+    Single.write(anything);
   }
 
   /// Says note.seen; on behalf of [by], when given.
