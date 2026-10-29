@@ -12,6 +12,7 @@ import '../registry/registry.dart';
 import '../registry/words.dart';
 import '../remote/participant.dart';
 import '../remote/session.dart';
+import '../host.dart';
 
 /// A registry for a test, what happened in it, and stand-ins for the
 /// modules the test leaves out (SPEC §24).
@@ -24,17 +25,21 @@ final class TestHost {
   factory TestHost({Clock? clock, LogScope? log}) {
     final errors = <Object>[];
     return TestHost._(
-      Registry(clock: clock, log: log, onError: (e, _) => errors.add(e)),
+      Host(clock: clock, log: log, onError: (e, _) => errors.add(e)),
       errors,
     );
   }
 
-  TestHost._(this.registry, this.errors) {
+  TestHost._(this.host, this.errors) {
     _ticks = registry.ticks.listen(ticks.add);
     _calls = registry.calls.listen(calls.add);
   }
 
-  final Registry registry;
+  /// The host the test runs, as `main` would make it.
+  final Host host;
+
+  /// Its registry, for what the test reads back.
+  Registry get registry => host.registry;
 
   /// Every tick committed, in order, once [settle] has let them come.
   final List<Tick> ticks = [];
@@ -50,18 +55,18 @@ final class TestHost {
   late final StreamSubscription<Tick> _ticks;
   late final StreamSubscription<CallRecord> _calls;
   final Map<String, LocalParticipant> _standIns = {};
-  final List<RemoteSession> _sessions = [];
+  final List<IGuestSession> _sessions = [];
   final List<RpcPeerEndpoint> _hosts = [];
-  final List<RemoteParticipant> _remotes = [];
+  final List<IGuest> _remotes = [];
   final List<RpcClientConnection> _connections = [];
 
   /// A participant for the module under test, as `main` would make it.
-  LocalParticipant participant(
+  IParticipant participant(
     Principal who, {
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
-  }) => registry.participant(
+  }) => host.participant(
     who,
     vocabularies: vocabularies,
     rights: rights,
@@ -73,7 +78,7 @@ final class TestHost {
   /// joins. The connection carries frames as bytes, encoded and decoded as
   /// across a process boundary, so what passes here passes over a real
   /// wire: a value that is no JSON fails here as it would there.
-  Future<RemoteParticipant> join(
+  Future<IGuest> join(
     Principal who, {
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
@@ -95,7 +100,7 @@ final class TestHost {
       shouldReconnect: (_) => false,
     );
     _connections.add(connection);
-    final p = await RemoteParticipant.join(connection);
+    final p = await Guest.join(connection);
     _remotes.add(p);
     return p;
   }
@@ -169,7 +174,7 @@ final class TestHost {
   /// participants across a connection answered.
   Future<void> settle() async {
     for (final p in _remotes) {
-      await p.flush();
+      await p.settle();
     }
     for (var i = 0; i < 20; i++) {
       await Future<void>.delayed(Duration.zero);
@@ -196,7 +201,7 @@ final class TestHost {
     }
     await _ticks.cancel();
     await _calls.cancel();
-    await registry.dispose();
+    await host.dispose();
   }
 }
 

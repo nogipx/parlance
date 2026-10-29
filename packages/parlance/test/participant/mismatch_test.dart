@@ -130,9 +130,9 @@ void main() {
 
   void defineNow() {
     final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-    p.state(Now.volume).define();
-    p.state(Now.mode).define();
-    p.command(NowCommand.set).define((_) {}, callers: anyone);
+    p.raw.state(Now.volume).define();
+    p.raw.state(Now.mode).define();
+    p.raw.command(NowCommand.set).define((_) {}, callers: anyone);
   }
 
   for (final across in [false, true]) {
@@ -164,7 +164,7 @@ void main() {
 
       test('every difference is told, at once', () async {
         final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-        p.state(Wide.volume).define();
+        p.raw.state(Wide.volume).define();
         final b = await asGuest();
         await b.settle();
         expect(said(b.raw.state(Built.volume).status), [
@@ -174,7 +174,7 @@ void main() {
 
       test('a param added beside a break is no break of its own', () async {
         final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-        p.command(BrokenCommand.set).define((_) {}, callers: anyone);
+        p.raw.command(BrokenCommand.set).define((_) {}, callers: anyone);
         final b = await asGuest();
         await b.settle();
         expect(said(b.raw.command(BuiltCommand.set).status), [

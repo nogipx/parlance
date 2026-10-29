@@ -203,7 +203,7 @@ final class Phone {
     final (c, s) = RpcChannelTransport.memoryPair();
     // The host decides who the connection is, when it accepts it.
     final host = RpcPeerEndpoint(transport: s);
-    final session = house.serve(host, principal);
+    final session = house.participant(principal).serve(host);
     host.start();
     // In memory the connection does not come back once lost; over a socket
     // the factory would dial again, and the phone would join again.

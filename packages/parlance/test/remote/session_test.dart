@@ -48,13 +48,13 @@ void main() {
       vocabularies: [const WordSet.open('plug')],
     );
     final other = await host.join(visitor);
-    final h = p.defineState(
+    final h = p.raw.defineState(
       StateDescriptor('plug.level', type: const IntType()),
     );
     h.set(5);
     await host.settle();
     final there = <Object?>[];
-    other.watch('plug.level').listen(there.add);
+    other.raw.watch('plug.level').listen(there.add);
     await host.settle();
 
     h.dispose();
@@ -62,7 +62,7 @@ void main() {
 
     expect(seen, [null, 5, null]);
     expect(there.last, isNull);
-    expect(other.read('plug.level'), isNull);
+    expect(other.raw.read('plug.level'), isNull);
   });
 
   test(

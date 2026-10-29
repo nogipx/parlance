@@ -56,13 +56,13 @@ final class Shell {
   /// Serves the guest [id] over [endpoint]: a participant of its own, its
   /// words named in the vocabulary of its id (a guest's words come at run
   /// time), its commands called by the guests and the user.
-  IGuestSession load(String id, RpcPeerEndpoint endpoint) =>
-      _guests[id] = host.serve(
-        endpoint,
+  IGuestSession load(String id, RpcPeerEndpoint endpoint) => _guests[id] = host
+      .participant(
         Who.widlet(id),
         vocabularies: [WordSet.open(id)],
         access: const WordAccess(call: Who.callers),
-      );
+      )
+      .serve(endpoint);
 
   /// Unloads the guest [id]: its session ends, and its words go with it.
   void unload(String id) => _guests.remove(id)?.close();

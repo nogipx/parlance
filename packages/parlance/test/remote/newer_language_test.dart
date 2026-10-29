@@ -137,9 +137,9 @@ void main() {
       const Principal('deck'),
       vocabularies: [WordSet.open('deck')],
     );
-    final w1 = deck.state(S<String>('deck.w1', abc)).define();
-    deck.state(S<String>('deck.w2', abc)).define();
-    host.participant(const Principal('widlet', 'b')).builtAgainst(const [
+    final w1 = deck.raw.state(S<String>('deck.w1', abc)).define();
+    deck.raw.state(S<String>('deck.w2', abc)).define();
+    host.participant(const Principal('widlet', 'b')).raw.builtAgainst(const [
       S('deck.old', EnumShape(Mode.values)),
     ]);
     final toW1 = host.registry.alias('deck.old', 'deck.w1');

@@ -53,7 +53,7 @@ final class HostBounds {
 
 /// What a host's `main` makes (SPEC §22): the registry of its process,
 /// seen only as what `main` does with it. It makes the participants of the
-/// app's parts, serves guests across connections, says the old names of
+/// app's parts (served across a connection, `serve`), says the old names of
 /// words and the types the app adds, and ends it all.
 ///
 /// Frozen (`app.dart`): what it shows is never taken away; only the
@@ -99,26 +99,6 @@ final class Host {
     access: access,
   );
 
-  /// Serves a guest across [endpoint] (SPEC §14, §22.4) as [who], with
-  /// what [participant] would give it: what it asks past [limits] is
-  /// refused. A new session of [who] takes the place of one there.
-  IGuestSession serve(
-    RpcPeerEndpoint endpoint,
-    Principal who, {
-    Iterable<WordSet> vocabularies = const [],
-    ParticipantRights rights = ParticipantRights.none,
-    WordAccess access = WordAccess.none,
-    SessionLimits limits = const SessionLimits(),
-    LogScope? log,
-  }) => registry
-      .participant(
-        who,
-        vocabularies: vocabularies,
-        rights: rights,
-        access: access,
-      )
-      .serve(endpoint, limits: limits, log: log);
-
   /// Says [old] is a name of the word [now] (SPEC §6.4): what asks by the
   /// old name gets the word, until the handle is disposed.
   IHandle alias(String old, String now) => registry.alias(old, now);
@@ -131,6 +111,24 @@ final class Host {
   /// Ends every participant and session, the last made first, and the
   /// registry.
   Future<void> dispose() => registry.dispose();
+}
+
+/// A participant of a host served across a connection (SPEC §14, §22.4):
+/// the part at the other end, a guest ([Guest.join]), speaks as it, with
+/// what it was given, and nothing more.
+extension ServeAcross on IParticipant {
+  /// Serves this participant across [endpoint]: the guest there reads,
+  /// calls and owns words as it; what it asks past [limits] is refused.
+  /// The participant is the session's from then on, and goes with it. Only
+  /// a new participant of a host is served, and once ([StateError]).
+  IGuestSession serve(
+    RpcPeerEndpoint endpoint, {
+    SessionLimits limits = const SessionLimits(),
+    LogScope? log,
+  }) => switch (this) {
+    final LocalParticipant p => p.serve(endpoint, limits: limits, log: log),
+    _ => throw StateError('$who is no participant of a host to serve'),
+  };
 }
 
 /// How a guest's `main` joins its host (SPEC §22.4): the participant it

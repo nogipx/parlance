@@ -99,8 +99,8 @@ void main() {
   });
   tearDown(() => host.dispose());
 
-  LocalParticipant owner() =>
-      host.participant(deck, vocabularies: [WordSet.open('deck')]);
+  IRawParticipant owner() =>
+      host.participant(deck, vocabularies: [WordSet.open('deck')]).raw;
 
   for (final across in [false, true]) {
     group(across ? 'across a connection' : 'in this process', () {
@@ -237,14 +237,14 @@ void main() {
           );
       final b = across ? await host.join(guest) : host.participant(guest);
       if (b is RemoteParticipant) await b.settle();
-      final before = await b.command(BuiltCommand.turn).call((
+      final before = await b.raw.command(BuiltCommand.turn).call((
         volume: 3,
         fade: true,
       ));
       expect(before, isA<CallRefused>(), reason: 'not told, it is refused');
-      b.builtAgainst(BuiltCommand.values);
+      b.raw.builtAgainst(BuiltCommand.values);
       if (b is RemoteParticipant) await b.flush();
-      final r = await b.command(BuiltCommand.turn).call((
+      final r = await b.raw.command(BuiltCommand.turn).call((
         volume: 5,
         fade: true,
       ));
@@ -259,7 +259,7 @@ void main() {
 
   test('a word gone is no mismatch: it is missing', () async {
     final now = owner().state(Now.volume).define();
-    host.participant(guest).builtAgainst(Built.values);
+    host.participant(guest).raw.builtAgainst(Built.values);
     now.dispose();
     await pumpEventQueue();
     expect(host.registry.mismatches, isEmpty);
@@ -268,7 +268,7 @@ void main() {
 
   test('a word under an old name is held to what the old name was built '
       'against', () async {
-    host.participant(guest).builtAgainst([_Old.volume]);
+    host.participant(guest).raw.builtAgainst([_Old.volume]);
     owner().state(Now.volume).define();
     host.registry.alias('deck.loudness', 'deck.volume');
     expect(host.registry.mismatches, [

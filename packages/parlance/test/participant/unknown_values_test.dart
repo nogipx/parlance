@@ -216,8 +216,8 @@ void main() {
   setUp(() => host = TestHost());
   tearDown(() => host.dispose());
 
-  LocalParticipant owner() =>
-      host.participant(deck, vocabularies: [WordSet.open('deck')]);
+  IRawParticipant owner() =>
+      host.participant(deck, vocabularies: [WordSet.open('deck')]).raw;
 
   for (final across in [false, true]) {
     group(across ? 'across a connection' : 'in this process', () {
@@ -299,7 +299,7 @@ void main() {
     test('is told certain once a value written meets it', () async {
       final told = <Mismatch>[];
       host.registry.mismatchChanges.listen(told.add);
-      final b = host.participant(guest)..builtAgainst([builtMode]);
+      final b = host.participant(guest)..raw.builtAgainst([builtMode]);
       final mode = owner().state(nowMode).define();
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks, [possible]);
@@ -310,13 +310,13 @@ void main() {
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks.single.certain, isTrue);
       expect(told.last.breaks.single.certain, isTrue);
-      expect(b.readAs('deck.mode', builtMode.shape), isNull);
+      expect(b.raw.readAs('deck.mode', builtMode.shape), isNull);
     });
 
     test('deep in what is written: a field of an item of a list', () async {
       ValueType<Object?> queue(EnumType mode) =>
           ListType(ObjectType({'mode': Field(mode)}));
-      host.participant(guest).builtAgainst([
+      host.participant(guest).raw.builtAgainst([
         S('deck.queue', Plain(queue(const EnumType(['a', 'b'])))),
       ]);
       final q = owner().state(S<Object?>('deck.queue', Plain(queue(abc))));
@@ -340,7 +340,7 @@ void main() {
     });
 
     test('a needed field left out, once a value lacks it', () async {
-      host.participant(guest).builtAgainst([builtTurn]);
+      host.participant(guest).raw.builtAgainst([builtTurn]);
       final turn = owner().state(nowTurn).define();
       await pumpEventQueue();
       final only = host.registry.mismatches.single.breaks.single;
@@ -355,7 +355,7 @@ void main() {
     });
 
     test('by a fact said', () async {
-      host.participant(guest).builtAgainst([builtSaid]);
+      host.participant(guest).raw.builtAgainst([builtSaid]);
       final say = owner().fact(nowSaid).define();
       await pumpEventQueue();
       say.emit('a');
@@ -367,12 +367,12 @@ void main() {
     });
 
     test('by an answer, to the one who asked only', () async {
-      final b = host.participant(guest)..builtAgainst([builtPick]);
+      final b = host.participant(guest)..raw.builtAgainst([builtPick]);
       const other = Principal('widlet', 'c');
-      final c = host.participant(other)..builtAgainst([builtPick]);
+      final c = host.participant(other)..raw.builtAgainst([builtPick]);
       owner().query(nowPick).define((_) => 'c');
       await pumpEventQueue();
-      final answer = await b.query(builtPick).ask(());
+      final answer = await b.raw.query(builtPick).ask(());
       expect(answer, isA<CallFailed>(), reason: 'its code cannot read it');
       final byWho = {
         for (final m in host.registry.mismatches) m.by: m.breaks.single.certain,

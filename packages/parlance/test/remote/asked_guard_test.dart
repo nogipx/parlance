@@ -2,6 +2,7 @@ import 'package:parlance/registry.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
+import 'package:parlance/participant.dart';
 
 /// A guard a part keeps across a connection judges the calls of its own
 /// commands only (SPEC §10): any other call is not held up asking it, so
@@ -18,6 +19,7 @@ void main() {
           const Principal('deck'),
           vocabularies: [WordSet.open('deck')],
         )
+        .raw
         .defineCommand(
           CommandDescriptor('deck.go', callers: Callers.only(['user'])),
           (_) => ran = true,
@@ -26,13 +28,13 @@ void main() {
       const Principal('widlet', 'b'),
       vocabularies: [WordSet.open('widlet')],
     );
-    guest
+    guest.raw
       ..defineCommand(
         CommandDescriptor('widlet.do', callers: Callers.only(['user'])),
         (_) {},
       )
       ..addGuard('quiet', (_) => 'no');
-    await guest.flush();
+    await guest.settle();
     final done = host.registry.call('deck.go', {}, by: const Principal('user'));
     expect(ran, isTrue, reason: 'begun as it was called');
     expect(await done, isA<CallDone<Object?>>());

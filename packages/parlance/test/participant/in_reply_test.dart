@@ -64,7 +64,10 @@ void main() {
         await settled(p);
         final facts = <FactMessage>[];
         host.registry.facts(fact: 'deck.said').listen(facts.add);
-        final r = await host.participant(user).call('deck.go', {}, id: 'go1');
+        final r = await host
+            .participant(user)
+            .raw
+            .call('deck.go', {}, id: 'go1');
         expect(r, isA<CallDone<Object?>>());
         await settled(p);
         for (final s in ['deck.before', 'deck.after']) {

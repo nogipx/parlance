@@ -129,7 +129,9 @@ void main() {
 
   test('a stand-in command answers what it is told', () async {
     host.commandOf(Heater.power, answer: (p) => throw StateError('broken'));
-    final r = await host.participant(me).command(Heater.power).call((on: true));
+    final r = await host.participant(me).raw.command(Heater.power).call((
+      on: true,
+    ));
     expect(r, isA<CallFailed>());
   });
 }

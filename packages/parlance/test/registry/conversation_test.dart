@@ -2,6 +2,7 @@ import 'package:parlance/registry.dart';
 import 'package:parlance/testing.dart';
 import 'package:rpc_dart/logger.dart';
 import 'package:test/test.dart';
+import 'package:parlance/participant.dart';
 
 import 'fixture.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
@@ -160,14 +161,14 @@ void main() {
       const Principal('plugin', 'clips'),
       vocabularies: [WordSet.open('clips')],
     );
-    final last = p.defineState(
+    final last = p.raw.defineState(
       StateDescriptor('clips.last', type: const TextType()),
     );
-    p.defineCommand(
+    p.raw.defineCommand(
       CommandDescriptor('clips.save', callers: Callers.only(['user'])),
       (c) => last.set('clip-1', cause: c.causeFor(p.who)),
     );
-    await p.flush();
+    await p.settle();
     await host.registry.call('clips.save', {}, by: user, id: 'press');
     await host.settle();
     expect(host.registry.lastChange('clips.last')!.cause.conversation, 'press');

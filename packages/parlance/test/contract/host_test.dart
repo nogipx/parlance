@@ -47,11 +47,12 @@ void main() {
         addTearDown(host.dispose);
         final (g, h) = RpcChannelTransport.memoryPair();
         final atHost = RpcPeerEndpoint(transport: h);
-        final session = host.serve(
-          atHost,
-          const Principal('guest', 'echo'),
-          vocabularies: [WordSet.open('echo')],
-        );
+        final session = host
+            .participant(
+              const Principal('guest', 'echo'),
+              vocabularies: [WordSet.open('echo')],
+            )
+            .serve(atHost);
         atHost.start();
         expect(session.who, const Principal('guest', 'echo'));
 

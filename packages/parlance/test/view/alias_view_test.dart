@@ -2,6 +2,7 @@ import 'package:parlance/registry.dart';
 import 'package:parlance/testing.dart';
 import 'package:parlance/view.dart';
 import 'package:test/test.dart';
+import 'package:parlance/participant.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const owner = Principal('host', 'house');
@@ -33,7 +34,7 @@ void main() {
       host.registry.alias('a.told', 'a.said');
       final p = await host.join(const Principal('visitor', 'v'));
       final heard = <Object?>[];
-      p.facts('a.told').listen((f) => heard.add(f.payload));
+      p.raw.facts('a.told').listen((f) => heard.add(f.payload));
       await host.settle();
       said.emit(7);
       await host.settle();
