@@ -15,7 +15,7 @@ import 'dart:io';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_socket/rpc_dart_socket.dart';
 import 'package:parlance_mcp/parlance_mcp.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/tools.dart';
 
 const _usage = '''
 usage: parlance-mcp --connect <unix:/path | tcp://host:port> [options]

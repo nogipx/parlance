@@ -24,7 +24,7 @@ void main() {
       {
         ...parlance,
         'a|lib/words.dart': r"""
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/schema.dart';
 part 'words.g.dart';
 
@@ -61,7 +61,6 @@ two \$lines, \\ and\r\nthree''')
       {
         ...parlance,
         'a|lib/who.dart': '''
-import 'package:parlance/registry.dart';
 import 'package:parlance/schema.dart';
 const crew = Callers({'crew': Access.allow});
 abstract final class Who {

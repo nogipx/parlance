@@ -133,8 +133,9 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## View (§20)
 
-- **IRegistryView**: what a screen reads and calls: values now, told when the states it draws change (`changes`), facts said from now on, `recent`, calls on behalf of one principal, `synced`.
-- **LocalView**: a view of a registry in the same process, as one principal.
+- **IRegistryView** (`tools.dart`): what the client and tools read and call: values now, told when the states it draws change (`changes`), facts said from now on, `recent`, calls on behalf of one principal, `synced`.
+- **LocalView** (`tools.dart`): a view of a registry in the same process, as one principal.
+- **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords.of(participant)`; the generator's contract, not a way to write by hand.
 - **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
 - **`ProtocolMismatch`**, **`RegistryUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
 - **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, entities, calls in flight; on by default, `none` for a trusted part; past one, that op is refused (`resourceExhausted`).
@@ -147,7 +148,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`McpTool.typed`**: a host's own tool, its JSON Schema derived from a `RecordShape`.
 - **`McpSocketServer`**: agents on a Unix socket (`parlance_mcp/io.dart`); `toolsChanged()` reaches every session.
 - **`parlance-mcp`**: an agent's participant across a connection as a stdio server; the package `parlance_mcp`.
-- **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
+- **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`host.participant`), so the part never holds the registry.
 - **Participant rights** (§22.2): `define` (a further check on its words), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
 - **Part** (§4, §22.3): `principal.child(name)` (`house@heating`), an owner of a principal, and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no parts.

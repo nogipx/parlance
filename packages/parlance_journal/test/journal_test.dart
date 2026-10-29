@@ -1,8 +1,7 @@
 import 'dart:io';
 
 import 'package:clock/clock.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance_journal/parlance_journal.dart';
 import 'package:rpc_dart/logger.dart';
 import 'package:test/test.dart';

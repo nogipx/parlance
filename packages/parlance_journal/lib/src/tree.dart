@@ -1,4 +1,4 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 
 /// One message of a conversation in its tree: what it led to are its
 /// [children], each one whose cause's parent it is, in the order they

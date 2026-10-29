@@ -1,7 +1,5 @@
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/testing.dart';
-import 'package:parlance/view.dart';
 import 'package:test/test.dart';
 
 /// A word met at run time is held to the one code was built against

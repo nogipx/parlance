@@ -12,7 +12,7 @@ import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/app.dart';
-import 'package:parlance/registry.dart' show JournalEntry, JournalFact;
+import 'package:parlance/tools.dart' show JournalEntry, JournalFact;
 
 import 'house/house.dart';
 import 'house/visit.dart';

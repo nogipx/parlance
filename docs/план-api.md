@@ -91,3 +91,13 @@
 - `app.dart`: `Host` (final class: `participant`, `serve` → `IGuestSession`, `alias`, `registerType`, `dispose`, `registry` для инструментов), `HostBounds`, `Guest.join`/`Guest.over` → `IGuest`. Конкретные `Registry`, `LocalParticipant`, `RemoteParticipant`, `RemoteSession` ушли из замороженной части.
 - Правило: расти может то, что создаёт только библиотека (final-классы, интерфейсы, которые не реализуют приложения); не растёт то, что реализует приложение (`IOwner`, `IWord`).
 - Типы `rpc_dart` в сигнатурах `Host.serve` и `Guest` приняты как часть контракта.
+
+## Один путь (2026-10-30)
+
+У каждого дела один способ (философия, «Один путь»). Что делало то же другим путём, ушло в инструменты или удалено:
+
+- У `IParticipant` нет ни чтения и вызовов по имени, ни типизированных слов: часть пользуется клиентом `<Class>Client(participant)`, владелец — своей базой. Сгенерированный код обращается к словам через одну дверь, `GeneratedWords.of(participant)` в `schema.dart`.
+- Ручной `Owner` — только для тестов пакета, не экспортируется. `StateWordOf`/`FactWordOf` ушли из `schema.dart` в инструменты.
+- `host.serve` убран: участник всегда `host.participant(...)`, затем `.attach({...})` здесь или `.serve(endpoint)` через соединение. `TestHost` построен на `Host`, его гости входят через `Guest.join`.
+- `OwnerTools.guardAll(id, (command, by) => why)` — правило владельца на все команды его участника, без сырого `addGuard`.
+- Библиотеки: `schema.dart` и `app.dart` (заморожены), `testing.dart`, и одна незамороженная `tools.dart` вместо `registry`, `participant`, `remote` и `view`.

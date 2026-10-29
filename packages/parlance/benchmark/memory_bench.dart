@@ -6,7 +6,7 @@ library;
 
 import 'dart:io';
 
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const host = Principal('host', 'bench');

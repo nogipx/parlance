@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance_links/parlance_links.dart';
 import 'package:test/test.dart';
 

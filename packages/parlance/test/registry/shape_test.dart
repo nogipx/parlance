@@ -1,4 +1,4 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
 /// A shape holds a Dart value to the rule its type holds the value's JSON

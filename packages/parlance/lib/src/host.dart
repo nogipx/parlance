@@ -79,7 +79,7 @@ final class Host {
        );
 
   /// The registry underneath, for the library's tools: not frozen, what it
-  /// shows changes as the library does (`package:parlance/registry.dart`).
+  /// shows changes as the library does (`package:parlance/tools.dart`).
   final Registry registry;
 
   /// A participant of a part of the app, speaking as [who] (SPEC §22):

@@ -1,5 +1,4 @@
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/participant/owner.dart' show Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;

@@ -1,4 +1,4 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
 /// The rule a word is held to (SPEC §25.1), as the data goes: what code

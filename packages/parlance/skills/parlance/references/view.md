@@ -1,7 +1,8 @@
 # view (SPEC §20)
 
-What a screen reads and calls: one interface whether the registry is in
-this process or reached over remote, so the same widgets serve both.
+What the generated client and the library's tools read and call: one
+interface whether the registry is in this process or reached over
+remote (`tools.dart`). An app's screen takes a client (§23.5), not this.
 
 ## IRegistryView
 

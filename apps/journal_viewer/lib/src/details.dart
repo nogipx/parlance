@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 
 import 'look.dart';
 import 'viewer.dart';

@@ -2,7 +2,7 @@
 /// registry; the engine reads and calls through its participant.
 library;
 
-import 'package:parlance/registry.dart' show jsonAt, jsonEquals;
+import 'package:parlance/tools.dart' show jsonAt, jsonEquals;
 
 Never _bad(String what) => throw FormatException(what);
 

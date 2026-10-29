@@ -1,6 +1,4 @@
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/client.dart' show ParlanceClient;
 import 'package:parlance/src/remote/mirror.dart' show RegistryMirror;
 import 'package:rpc_dart/rpc_dart.dart';

@@ -1,4 +1,4 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/built.dart';
 import 'package:test/test.dart';
 

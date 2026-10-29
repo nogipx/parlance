@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance_journal/journal.dart';
 
 /// A journal file as loaded: its name and its lines.

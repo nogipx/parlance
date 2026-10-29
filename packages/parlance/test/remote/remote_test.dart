@@ -1,11 +1,9 @@
 import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/client.dart';
 import 'package:parlance/src/remote/mirror.dart';
-import 'package:parlance/src/remote/session.dart';
 import 'package:parlance/src/remote/contract.dart';
 import 'package:test/test.dart';
 

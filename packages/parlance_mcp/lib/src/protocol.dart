@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'schema.dart';
 
 /// What a tool gives back: text, and pictures (PNG, base64 in MCP).

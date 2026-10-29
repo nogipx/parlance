@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 
 import 'files.dart';
 

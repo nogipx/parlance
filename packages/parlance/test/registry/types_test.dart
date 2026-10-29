@@ -1,4 +1,4 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
 final class _Ctx implements ITypeContext {

@@ -1,6 +1,4 @@
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
-import 'package:parlance/remote.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/compat.dart'
     show schemaOfDescriptor, schemaOfWord;
 import 'package:parlance/testing.dart';

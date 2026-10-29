@@ -1,9 +1,9 @@
 /// What a developer of an app's words and owners works with, and what the
 /// generated code names: the annotations, the words, their shapes and
-/// types, the owner base, the participant and the view as interfaces, the
+/// types, the owner's tools, the participant as an interface and the one
+/// door generated code reaches the words by ([GeneratedWords]), the
 /// results of calls and statuses of words. Nothing else of the library:
-/// a host's `main` imports the libraries it needs besides
-/// (`registry.dart`, `participant.dart`, `remote.dart`).
+/// a host's `main` imports `app.dart` besides, a tool `tools.dart`.
 ///
 /// It is frozen (SPEC §23, docs/план-api.md): what it shows is never taken
 /// away, renamed or changed in meaning; it only grows. A published words

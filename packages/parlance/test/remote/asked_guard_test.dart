@@ -1,8 +1,7 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
-import 'package:parlance/participant.dart';
 
 /// A guard a part keeps across a connection judges the calls of its own
 /// commands only (SPEC §10): any other call is not held up asking it, so

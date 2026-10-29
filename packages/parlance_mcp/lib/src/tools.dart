@@ -1,5 +1,4 @@
-import 'package:parlance/registry.dart';
-import 'package:parlance/participant.dart';
+import 'package:parlance/tools.dart';
 import 'protocol.dart';
 import 'schema.dart';
 

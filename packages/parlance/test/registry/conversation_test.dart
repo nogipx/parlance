@@ -1,8 +1,7 @@
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/testing.dart';
 import 'package:rpc_dart/logger.dart';
 import 'package:test/test.dart';
-import 'package:parlance/participant.dart';
 
 import 'fixture.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;

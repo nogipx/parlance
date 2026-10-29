@@ -27,7 +27,7 @@ void main() {
         ...parlance,
         'a|lib/words.dart':
             '''
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/schema.dart';
 part 'words.g.dart';
 

@@ -1,9 +1,7 @@
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
 import 'package:parlance/testing.dart';
-import 'package:parlance/view.dart';
 import 'package:test/test.dart';
 
 /// What a newer parlance adds to the language (SPEC §14), met by an older

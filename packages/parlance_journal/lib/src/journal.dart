@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 
 import 'tree.dart';
 

@@ -9,8 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 
 Future<void> main(List<String> args) async {
   final out = File(args.isEmpty ? 'journal-sample.jsonl' : args.first);

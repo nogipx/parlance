@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:journal_viewer/main.dart';
 import 'package:journal_viewer/src/viewer.dart';
-import 'package:parlance/participant.dart';
-import 'package:parlance/registry.dart';
+import 'package:parlance/tools.dart';
 
 const studio = Principal('studio');
 const viewer = Principal('viewer', 'twitch.7');

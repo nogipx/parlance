@@ -1,9 +1,6 @@
 import 'dart:async';
 
-import 'package:parlance/participant.dart';
-import 'package:parlance/remote.dart';
-import 'package:parlance/registry.dart';
-import 'package:parlance/view.dart';
+import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/client.dart';
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
