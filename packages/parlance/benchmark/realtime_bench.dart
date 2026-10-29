@@ -1,4 +1,5 @@
-/// A big typed document and frequent small changes, on the registry.
+/// A big typed document and frequent small changes, on the registry. Its
+/// record shapes read fields by place (`get`), as the generator makes them.
 ///
 /// Run: `fvm dart compile exe benchmark/realtime_bench.dart -o .tmp/rt && .tmp/rt`.
 library;
@@ -32,7 +33,15 @@ const checkShape = RecordShape<Check>(
   },
   to: _checkTo,
   from: _checkFrom,
+  get: _checkAt,
 );
+Object? _checkAt(Check c, int i) => switch (i) {
+  0 => c.id,
+  1 => c.text,
+  2 => c.passed,
+  3 => c.note,
+  _ => c.tags,
+};
 Map<String, Object?> _checkTo(Check c) => {
   'id': c.id,
   'text': c.text,
@@ -52,7 +61,9 @@ const sectionShape = RecordShape<Section>(
   {'title': Part(Plain(TextType())), 'checks': Part(ListShape(checkShape))},
   to: _sectionTo,
   from: _sectionFrom,
+  get: _sectionAt,
 );
+Object? _sectionAt(Section s, int i) => i == 0 ? s.title : s.checks;
 Map<String, Object?> _sectionTo(Section s) => {
   'title': s.title,
   'checks': s.checks,
@@ -68,7 +79,13 @@ const taskShape = RecordShape<Task>(
   },
   to: _taskTo,
   from: _taskFrom,
+  get: _taskAt,
 );
+Object? _taskAt(Task t, int i) => switch (i) {
+  0 => t.id,
+  1 => t.version,
+  _ => t.sections,
+};
 Map<String, Object?> _taskTo(Task t) => {
   'id': t.id,
   'version': t.version,
@@ -85,7 +102,9 @@ const cursorShape = RecordShape<Cursor>(
   {'x': Part(Plain(NumType())), 'y': Part(Plain(NumType()))},
   to: _cursorTo,
   from: _cursorFrom,
+  get: _cursorAt,
 );
+Object? _cursorAt(Cursor c, int i) => i == 0 ? c.x : c.y;
 Map<String, Object?> _cursorTo(Cursor c) => {'x': c.x, 'y': c.y};
 Cursor _cursorFrom(Map<String, Object?> m) =>
     (x: (m['x']! as num).toDouble(), y: (m['y']! as num).toDouble());
