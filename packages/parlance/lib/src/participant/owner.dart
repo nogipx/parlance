@@ -291,6 +291,23 @@ extension OwnerTools on IOwner {
     );
   }
 
+  /// Guards every command its participant serves, its own and those of
+  /// the owners beside it (SPEC §10): [check] answers why a call of
+  /// [command] on behalf of [by] may not run, or null. A rule of the whole
+  /// participant, made by one owner: who may call what, beyond a word's
+  /// callers. [id] names it in refusals and records.
+  void guardAll(
+    String id,
+    String? Function(String command, Principal by) check,
+  ) {
+    final c = _Core.of(this);
+    c.whenAttached(
+      (p) => c.handles.keep(
+        p.raw.whole.addGuard(id, (call) => check(call.command.name, call.by)),
+      ),
+    );
+  }
+
   /// The time now, by its registry's clock once it is attached (a test's
   /// clock, when it gives one).
   DateTime get now =>

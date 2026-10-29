@@ -10,6 +10,9 @@ final class _Part implements IRawParticipant {
   final Principal who;
 
   @override
+  IRawParticipant get whole => _root;
+
+  @override
   Set<String> get vocabularies => _root.vocabularies;
 
   @override

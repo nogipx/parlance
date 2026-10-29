@@ -257,6 +257,9 @@ final class LocalParticipant implements IRawParticipant {
   /// defines and does is told as its own, and its guards judge its own
   /// commands. One part per name; it goes with this one.
   @override
+  IRawParticipant get whole => parent ?? this;
+
+  @override
   LocalParticipant child(String name) {
     _live();
     return _children[name] ??= LocalParticipant._(

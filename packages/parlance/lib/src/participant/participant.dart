@@ -247,6 +247,10 @@ abstract interface class IRawParticipant
 
   @override
   IRawParticipant child(String name);
+
+  /// The participant this is a part of, or itself when it is no part: what
+  /// a guard of every command it serves is added on.
+  IRawParticipant get whole;
 }
 
 /// [answer], as a handler served by [part] gave it; its owner told once

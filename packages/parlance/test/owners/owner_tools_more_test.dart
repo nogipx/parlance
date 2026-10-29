@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:parlance/app.dart';
 import 'package:test/test.dart';
 import 'package:parlance/registry.dart' show StateWordOf;
+import 'package:parlance/testing.dart';
 
 /// What an owner says with the tools beside its words (SPEC §19): a guard
 /// of its own command by its params, the time by the registry's clock,
@@ -58,6 +59,17 @@ final class _Dial implements IOwner {
           callers: const Callers({'*': Access.allow}),
           available: () => on ? null : 'it is off',
         );
+  }
+}
+
+/// An owner of no words: a rule of the whole participant.
+final class _NoAgents implements IOwner {
+  _NoAgents() {
+    IOwner.made(this, define: (_) {});
+    guardAll(
+      'no-agents',
+      (command, by) => by.kind == 'agent' ? 'no agent calls $command' : null,
+    );
   }
 }
 
@@ -238,6 +250,39 @@ void main() {
       await GeneratedWords.of(admin).command(_Command.set).call((to: 30)),
       isA<CallDone<void>>(),
     );
+  });
+
+  test('a guard of all the commands of its participant judges those of '
+      'the owners beside it too, here and on a guest', () async {
+    for (final across in [false, true]) {
+      final host = TestHost();
+      addTearDown(host.dispose);
+      final IParticipant dial = across
+          ? await host.join(
+              const Principal('dial'),
+              vocabularies: [WordSet.open('dial')],
+            )
+          : host.participant(
+              const Principal('dial'),
+              vocabularies: [WordSet.open('dial')],
+            );
+      await dial.attach({
+        'it': _Dial(const Stream.empty()),
+        'rules': _NoAgents(),
+      });
+      await host.settle();
+      final agent = host.participant(const Principal('agent', 'a'));
+      final ann = host.participant(const Principal('user', 'ann'));
+      final refused = await GeneratedWords.of(
+        agent,
+      ).command(_Command.set).call((to: 3));
+      expect(refused, isA<CallRefused>(), reason: 'across: $across');
+      expect(refused.whyNot, contains('no agent calls dial.set'));
+      expect(
+        await GeneratedWords.of(ann).command(_Command.set).call((to: 3)),
+        isA<CallDone<void>>(),
+      );
+    }
   });
 
   test('what it heard moves its command\'s status, unasked', () async {

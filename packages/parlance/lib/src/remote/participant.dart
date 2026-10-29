@@ -1017,6 +1017,9 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
   @override
   IRawParticipant child(String name) => _partOf(who.child(name));
 
+  @override
+  IRawParticipant get whole => this;
+
   _Part _partOf(Principal p) {
     _live();
     return _parts[p] ??= _Part(this, p);
