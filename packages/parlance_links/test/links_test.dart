@@ -627,4 +627,127 @@ void main() {
     final why = await b.links.press('two');
     expect(why, startsWith('step 2 of 2 (st.note), after step 1 done: '));
   });
+  group('when the world fails', () {
+    test('a link that stops ends a run waiting on a call that does not '
+        'answer', () async {
+      final b = Bench();
+      addTearDown(b.dispose);
+      final never = Completer<void>();
+      b.s.defineCommand(
+        CommandDescriptor(
+          'st.hang',
+          callers: Callers({'plugin': Access.allow}),
+          deadline: const Duration(hours: 1),
+        ),
+        (_) => never.future,
+      );
+      await b.links.load([
+        {
+          'id': 'hang',
+          'when': [
+            {
+              'button': {'label': 'Hang'},
+            },
+          ],
+          'do': [
+            {'call': 'st.hang'},
+            {'call': 'st.note'},
+          ],
+        },
+      ]);
+      final pressed = b.links.press('hang');
+      await pump();
+      await b.links.dispose();
+      expect(await pressed.timeout(const Duration(seconds: 1)), 'stopped');
+      never.complete();
+      await pump();
+      expect(b.notes, isEmpty, reason: 'no step after it');
+    });
+
+    test(
+      "an extension's accept that throws is told; the other links run",
+      () async {
+        final b = Bench();
+        addTearDown(b.dispose);
+        final errors = <Object>[];
+        final links = Links(
+          b.p,
+          vocabulary: 'plug',
+          onError: (e, _) => errors.add(e),
+          extensions: [
+            TriggerExtension(
+              'says',
+              translate: (o) => const FactTrigger('st.said', Filter({})),
+              accept: (data, o) => throw StateError('accept'),
+            ),
+          ],
+        );
+        addTearDown(links.dispose);
+        await links.load([
+          {
+            'id': 'odd',
+            'when': [
+              {'says': 'ann'},
+            ],
+            'do': [
+              {'call': 'st.note'},
+            ],
+          },
+          {
+            'id': 'plain',
+            'when': [
+              {'fact': 'st.said'},
+            ],
+            'do': [
+              {'call': 'st.note'},
+            ],
+          },
+        ]);
+        b.said.emit({});
+        await pump();
+        expect(b.notes, hasLength(1));
+        expect(errors, [isA<StateError>()]);
+      },
+    );
+
+    test(
+      "an extension's translate that throws makes its link a problem",
+      () async {
+        final b = Bench();
+        addTearDown(b.dispose);
+        final links = Links(
+          b.p,
+          vocabulary: 'plug',
+          extensions: [
+            TriggerExtension(
+              'says',
+              translate: (o) => throw StateError('translate'),
+            ),
+          ],
+        );
+        addTearDown(links.dispose);
+        await links.load([
+          {
+            'id': 'odd',
+            'when': [
+              {'says': 'ann'},
+            ],
+          },
+          {
+            'id': 'plain',
+            'when': [
+              {'fact': 'st.said'},
+            ],
+            'do': [
+              {'call': 'st.note'},
+            ],
+          },
+        ]);
+        expect([for (final x in links.problems) x.link], ['odd']);
+        b.said.emit({});
+        await pump();
+        expect(b.notes, hasLength(1));
+      },
+    );
+  });
 }

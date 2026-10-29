@@ -114,7 +114,16 @@ final class Links {
         final link = Link.parse(j);
         if (!ids.add(link.id)) throw FormatException('id ${link.id} twice');
         for (final t in link.triggers) {
-          if (t is ExtensionTrigger) _resolve(t);
+          if (t is ExtensionTrigger) {
+            try {
+              _resolve(t);
+            } on FormatException {
+              rethrow;
+            } on Object catch (e) {
+              // The owner's translate failing is this link's problem only.
+              throw FormatException('${t.raw.keys.join(', ')}: $e');
+            }
+          }
         }
         links.add(link);
       } on FormatException catch (e) {
@@ -353,7 +362,14 @@ final class _Active {
     Object? Function(Object? data)? accept,
   }) {
     void fireWith(Object? data, {Cause? cause, String? id}) {
-      final d = accept == null ? data : accept(data);
+      final Object? d;
+      try {
+        d = accept == null ? data : accept(data);
+      } on Object catch (e, st) {
+        // The owner's to hear; what fired is let go.
+        links._err(e, st);
+        return;
+      }
       if (d == null) return;
       unawaited(fire(t, d, cause: cause, id: id, throttles: as));
     }
@@ -542,11 +558,13 @@ final class _Active {
           _timers.remove(timer);
           if (_stopped) return 'stopped';
         case CallStep(:final command, :final params, :final orContinue):
-          final r = await _p.call(
-            command,
-            _resolve(params, data),
-            cause: cause,
-          );
+          // Stopping ends the wait for an answer too: the call goes on
+          // as the registry has it, the run does not.
+          final r = await Future.any([
+            _p.call(command, _resolve(params, data), cause: cause),
+            _halt.future.then((_) => null),
+          ]);
+          if (r == null || _stopped) return 'stopped';
           if (r is CallDone || orContinue) continue;
           final whyNot = r.whyNot ?? '$r';
           return calls == 1
