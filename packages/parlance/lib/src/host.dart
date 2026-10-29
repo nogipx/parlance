@@ -23,6 +23,15 @@ final class HostBounds {
     this.usersPerWord = 64,
   });
 
+  /// A host that keeps nothing past what is now: no trail for `explain`,
+  /// no `recent` facts, and a feed that fell behind takes a snapshot. What
+  /// it does is the same; a retry of a call still gets its first answer.
+  static const light = HostBounds(
+    retainTicks: 0,
+    retainBytes: 0,
+    recentPerFact: 0,
+  );
+
   /// How long, and how many, calls' answers are kept for a retry of the
   /// same id to get the first answer.
   final Duration dedupWindow;

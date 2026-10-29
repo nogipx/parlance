@@ -7,7 +7,7 @@
 /// what it shows is never taken away, renamed or changed in meaning; it
 /// only grows. What it shows is interfaces and final classes only the
 /// library makes. The rest of the library (`registry.dart`,
-/// `participant.dart`, `remote.dart`, `core.dart`) is there for tools and
+/// `participant.dart`, `remote.dart`, `view.dart`) is there for tools and
 /// tests, and promises less.
 library;
 

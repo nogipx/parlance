@@ -36,35 +36,43 @@ final class _Echo implements IOwner {
 }
 
 void main() {
-  test('a host serves a guest; the session ends with its connection', () async {
-    final host = Host();
-    addTearDown(host.dispose);
-    final (g, h) = RpcChannelTransport.memoryPair();
-    final atHost = RpcPeerEndpoint(transport: h);
-    final session = host.serve(
-      atHost,
-      const Principal('guest', 'echo'),
-      vocabularies: [WordSet.open('echo')],
+  for (final (name, bounds) in [
+    ('a host', const HostBounds()),
+    ('a light host', HostBounds.light),
+  ]) {
+    test(
+      '$name serves a guest; the session ends with its connection',
+      () async {
+        final host = Host(bounds: bounds);
+        addTearDown(host.dispose);
+        final (g, h) = RpcChannelTransport.memoryPair();
+        final atHost = RpcPeerEndpoint(transport: h);
+        final session = host.serve(
+          atHost,
+          const Principal('guest', 'echo'),
+          vocabularies: [WordSet.open('echo')],
+        );
+        atHost.start();
+        expect(session.who, const Principal('guest', 'echo'));
+
+        final atGuest = RpcPeerEndpoint(transport: g)..start();
+        final guest = await Guest.over(atGuest);
+        await guest.attach({'it': _Echo()});
+
+        final user = host.participant(const Principal('user', 'ann'));
+        await user.settle();
+        final r = await user.command(_Command.ping).call(());
+        expect((r as CallDone<String>).value, 'pong to user');
+
+        var ended = false;
+        session.ended.then((_) => ended = true);
+        await atGuest.close();
+        await session.ended.timeout(const Duration(seconds: 2));
+        expect(ended, isTrue);
+        expect(user.status('echo.ping'), isA<WordMissing>());
+        guest.dispose();
+        await atHost.close();
+      },
     );
-    atHost.start();
-    expect(session.who, const Principal('guest', 'echo'));
-
-    final atGuest = RpcPeerEndpoint(transport: g)..start();
-    final guest = await Guest.over(atGuest);
-    await guest.attach({'it': _Echo()});
-
-    final user = host.participant(const Principal('user', 'ann'));
-    await user.settle();
-    final r = await user.command(_Command.ping).call(());
-    expect((r as CallDone<String>).value, 'pong to user');
-
-    var ended = false;
-    session.ended.then((_) => ended = true);
-    await atGuest.close();
-    await session.ended.timeout(const Duration(seconds: 2));
-    expect(ended, isTrue);
-    expect(user.status('echo.ping'), isA<WordMissing>());
-    guest.dispose();
-    await atHost.close();
-  });
+  }
 }

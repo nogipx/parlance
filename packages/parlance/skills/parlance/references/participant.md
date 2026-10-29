@@ -64,11 +64,6 @@ A participant **holds its owners** (§19): an `Owner` is code that owns words; i
 - **It goes with its session**, or by `close()`, which withdraws its owners (as a local participant's go with it), its words, guards and kinds and closes its endpoint; the connection stays the caller's to dispose.
 - A fact's `true` does not say the host took it: a repeat of an id is dropped there.
 
-### 22.5 A local registry
+### 22.5 A light host
 
-`LocalRegistry` (`package:parlance/participant.dart`) is the light way in: the words of an app in one process, keeping nothing past what is now. It makes participants as a `Registry` does, with the same `participant(who, vocabularies:, rights:, access:)`, `alias` and `registerType`, and they are the same `LocalParticipant`s held to the same rules: vocabularies, callers and readers, types (§2, §18: a typed word is kept as its Dart value here as there), availability, guards, causes and conversations, ticks, status, scopes. The owners, the words, the generated owner bases and clients and the parts that use them run on it unchanged.
-
-- **It remembers nothing.** No ticks are retained, no call records, no recent facts: `recent` is empty, `explain` tells the value and no trail, `conversation` finds nothing. The journal (§9.3) is the registry's and not offered here.
-- **Its commands are anyone's to call** unless a word or a participant's `access` says otherwise; a `Registry` refuses a command with no callers at all (§22.2).
-- **Its participants are not served across a connection** (`serve` is refused, `StateError`): what goes across needs a feed to resume, and so a `Registry`.
-- **Moving to a `Registry`** is `LocalRegistry()` made `Registry()`, and who may call the commands said where nothing says it; nothing else changes. `test/participant/levels_test.dart` holds both to the same promises.
+A small app is the same `Host` with `HostBounds.light`: it keeps nothing past what is now. No ticks are retained, no call records, no recent facts: `recent` is empty, `explain` tells the value and no trail, a feed that fell behind takes a snapshot. Everything else is the same: the participants, the rules, causes, guards, guests across a connection, a retry of a call answered once. Growing is changing the bounds; there is no second registry.

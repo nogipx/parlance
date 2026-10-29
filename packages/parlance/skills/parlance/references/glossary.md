@@ -15,7 +15,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Core
 
-- **Core** (§21): the level everything stands on: local states, facts and commands, typed, and the local hub that commits them; no names, no JSON, no principals. `package:parlance/core.dart`.
+- **Core** (§21): the level everything stands on: local states, facts and commands, typed, and the local hub that commits them; no names, no JSON, no principals. Inside the package, not a library of its own.
 - **Local hub** (§21.1, `LocalHub`): commits the writes and emits of its states and facts in ticks (`LocalTick`), numbers them with seq; `batch`, `onCommit`, `ticks`.
 - **Tag** (§21.1): what a writer gives with a write or an emit, carried unread into the tick; the registry carries causes in it.
 - **Local state**, **local keyed state** (§21.2, `LocalState`, `LocalKeyedState`): one value, or one value per key, with one writer (`claim`), `watch` from the value now.
@@ -28,7 +28,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **WordBreak** (§25.1): one place a word met breaks what code was built against: `path`, `kind` (`BreakKind`: `word`, `type`, `bound`, `field`, `value`), `was`, `now`, `certain` (every use meets it, or only some values). `entryBreaks(built, live)` judges two schema entries as the data goes; `keepsPromises` is it empty.
 - **Fingerprint** (§25.4): the SHA-256 of a schema's canonical form (`canonicalSchema`: keys in order, descriptions out; `fingerprintOf`). A part across a connection tells words by it first; the registry keeps schemas by it (`knownSchema`).
 - **breaksSince** (§25.3): `schemaBreaks` of the words now against each release still in use, or the latest only.
-- **LocalRegistry** (§22.5): a registry of one process that keeps no history: the same participants and rules as a `Registry`, its commands anyone's unless said, not served across a connection. Moving to a `Registry` changes `main` only.
+- **Light host** (§22.5, `HostBounds.light`): the same `Host` keeping nothing past what is now.
 - **Interfaces** (§21.6): `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`: what both the core's handles and the registry's typed handles are, so code on them moves from one to the other unchanged.
 
 ## Who and why

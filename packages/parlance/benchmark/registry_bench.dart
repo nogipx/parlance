@@ -26,7 +26,7 @@
 ///     read                       core   0.005 us  registry     0.045 us
 library;
 
-import 'package:parlance/core.dart';
+import 'package:parlance/src/core/core.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 

@@ -38,22 +38,20 @@ Around the words:
 - **Why it is so.** Every change carries its cause: who acted and the call it answered. The same causes make the traces: with a log, every call is a span, the calls it led to its children, across the network too. `explain('audio.muted')` answers *"the mixer wrote it, answering `audio.mute` that a viewer called"*.
 - **Words are a public API.** Plugins, agents and the calls a host stores name them, so a renamed word keeps its old name as an alias and nothing that named it breaks.
 
-## Small and large, one language
+## One way, small or large
 
-| Level | Library | What you get |
+| Piece | Library | What it is |
 | --- | --- | --- |
-| core | `core.dart` | States, commands and facts without names: a `LocalState` holds a state, a `LocalCommand` serves a command, a `LocalFact` carries a fact, all committed by a `LocalHub`. One writer per state, the value replayed to every new listener, changes committed together in ticks. Typed, in one process, no dependencies. For two parts of an app that need to talk. |
-| registry | `registry.dart` | The named vocabulary built on the core: a catalog, typed words, who may call what, causes, guards, and a feed of every change. |
-| participants | `participant.dart` | A part of the app sees the registry only as one principal and defines words only in its vocabularies; `main` hands each its participant, so who may call and read what holds in the process too. `LocalRegistry` is the light way in: the same participants and rules in one process, no history; moving to a `Registry` changes `main` only. |
-| over the network | `remote.dart`, `view.dart` | The same vocabulary over rpc_dart: a remote part reads, calls and even owns words, and sees only what its rights allow. |
+| words | `schema.dart` | A vocabulary written once as an abstract class (`@Vocabulary`); the generator makes its typed words, the base of its owner and its client. What an owner and a part that uses the words see. |
+| a host | `app.dart` | What `main` does: a `Host` makes the participants of the app's parts and serves guests across connections; a `Guest` joins one. A small app is the same `Host` with `HostBounds.light`, keeping nothing past what is now. |
+| tools | `registry.dart`, `participant.dart`, `remote.dart`, `view.dart` | The registry underneath, for tools: a journal, an inspector, a screen that reads by name. Not frozen. |
 | agents | the package `parlance_mcp` and its binary `parlance-mcp` | Curated MCP tools, so an AI agent speaks the vocabulary too. |
 
-What a part does with the words is the same five interfaces at every level: `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`. Code written on them moves from the core to the registry unchanged; only the place where things are made changes.
+An owner and the parts that use its words do not know where they run: in the host's process and across a connection they are given the same `IParticipant`.
 
 ## In short
 
 One way for every part to say what it has, what it can be asked and what happened to it, whether it sits in the same process, across the network or in an agent, and one record of who asked, whether they were allowed, and why the world is as it is now.
 
-- Every level in a few lines, one domain throughout: [`example/levels/`](example/levels/).
 - A whole host in miniature: [`example/`](example/) (`dart run example/main.dart`).
 - The contract the code follows, section by section: [`skills/parlance/references/`](skills/parlance/references/).

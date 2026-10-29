@@ -1,4 +1,4 @@
-import 'package:parlance/core.dart';
+import 'package:parlance/src/core/core.dart';
 import 'package:test/test.dart';
 
 void main() {

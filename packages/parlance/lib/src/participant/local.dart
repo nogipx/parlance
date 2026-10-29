@@ -126,10 +126,6 @@ void builtAgainstSchemas(
 /// a connection it stands for went, though its session stays.
 void forgetBuiltAgainst(LocalParticipant p) => p._forgetBuilt();
 
-/// The registries a [LocalRegistry] keeps its words in: they keep no
-/// history and serve no connection. Not exported.
-final Expando<bool> keepsNothing = Expando('keeps nothing');
-
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
@@ -138,11 +134,6 @@ final Expando<bool> keepsNothing = Expando('keeps nothing');
 /// ([Participants.participant]). Not exported.
 void takeForServing(LocalParticipant p, {required void Function() end}) {
   p._live();
-  if (keepsNothing[p._r] == true) {
-    throw StateError(
-      '${p.who} is a LocalRegistry\'s: across a connection, use a Registry',
-    );
-  }
   if (p._served) throw StateError('${p.who} is served already');
   if (p._handles.isNotEmpty ||
       p._children.isNotEmpty ||

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:parlance/core.dart';
+import 'package:parlance/src/core/core.dart';
 import 'package:test/test.dart';
 
 /// The core (SPEC §21): local states, facts, commands and the hub.

@@ -1,16 +1,3 @@
-# Examples
-
-## Level by level
-
-One small domain, a player's volume, on every level. `levels/player.dart` holds its words, the `Player` owner the levels with a registry start (`startPlayer`), and a `Knob`: a part of the app that knows only the five interfaces and so runs on every level unchanged, in the host's process and across a connection.
-
-| Run | What it shows |
-|---|---|
-| `dart run example/levels/level0_local.dart` | A local registry: the `Player` owner and the knob on a `LocalRegistry`, in one process, keeping nothing past what is now. The rules hold (the player's vocabulary is its own, a value out of range is refused), anyone may call its commands, a late listener still sees the value now. |
-| `dart run example/levels/level1_registry.dart` | The registry: the same code, `main` making a `Registry` and saying who may call the player's commands. The player is an `Owner` on a participant `main` makes (its vocabulary, who calls its commands); the knob reads and calls through a listener's participant. A guest sees the command `notPermitted` before calling and is refused, may not define in the player's vocabulary, a value out of range is refused, `explain` tells who called and which part wrote. |
-| `dart run example/levels/level3_remote.dart` | Over the network: the phone joins as a `RemoteParticipant` over an `RpcClientConnection`, acting as the principal the host gave it, and the same knob runs on it unchanged: it calls, hears the fact, and reads the state it watches. |
-| `dart run example/levels/core.dart` | The bare core under both: a `LocalState`, a `LocalCommand` and a `LocalFact`, no names. The knob runs on it too, as it knows only the interfaces. |
-
 # A house on parlance
 
 A small host from start to end: a house with rooms, lights, heating, a door and a doorbell. Run it:
