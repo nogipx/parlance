@@ -1001,8 +1001,59 @@ final class RemoteParticipant implements IParticipant {
     }
   }
 
+  /// What each batch running now changed of its own states, as each was
+  /// before it: undone if the batch throws. The innermost last.
+  final List<Map<(String, String?), (bool, Object?)>> _undo = [];
+
+  /// [state]'s value of [key] is about to change: kept as it was, for a
+  /// batch running now to undo.
+  void _changing(String state, String? key) {
+    if (_undo.isEmpty) return;
+    final values = _own[state];
+    _undo.last.putIfAbsent((
+      state,
+      key,
+    ), () => (values?.containsKey(key) ?? false, values?[key]));
+  }
+
+  /// Runs [writes], what it writes and says sent as one tick (SPEC §7).
+  /// Whole or nothing, as in the host's process: when [writes] throws,
+  /// nothing it wrote or said is sent, and its own states are as they were
+  /// (an outer batch that catches it keeps what it wrote itself). What it
+  /// defined stays defined, as there; what a call inside it sent is sent.
   @override
-  void batch(void Function() writes) => writes();
+  void batch(void Function() writes) {
+    _live();
+    final before = Set<Map<String, Object?>>.identity()
+      ..addAll(_queue)
+      ..addAll(_away);
+    _undo.add({});
+    try {
+      writes();
+    } catch (_) {
+      bool undone(Map<String, Object?> op) =>
+          !before.contains(op) &&
+          (op['op'] == 'set' || op['op'] == 'remove' || op['op'] == 'emit');
+      _queue.removeWhere(undone);
+      _away.removeWhere(undone);
+      for (final MapEntry(key: (state, key), value: (had, was))
+          in _undo.removeLast().entries) {
+        if (had) {
+          (_own[state] ??= {})[key] = was;
+        } else {
+          _own[state]?.remove(key);
+        }
+      }
+      rethrow;
+    }
+    // An outer batch undoes what this one did too, if it throws.
+    final done = _undo.removeLast();
+    if (_undo.isNotEmpty) {
+      for (final e in done.entries) {
+        _undo.last.putIfAbsent(e.key, () => e.value);
+      }
+    }
+  }
 
   late final OwnerGroup _group = OwnerGroup(this);
 

@@ -44,6 +44,7 @@ final class _State implements IStateHandle {
       ...RemoteParticipant._causeOf(c),
       ...RemoteParticipant._asOf(_by),
     });
+    _p._changing(descriptor.name, key);
     (_p._own[descriptor.name] ??= {})[key] = v;
   }
 
@@ -58,6 +59,7 @@ final class _State implements IStateHandle {
       ...RemoteParticipant._causeOf(c),
       ...RemoteParticipant._asOf(_by),
     });
+    _p._changing(descriptor.name, key);
     _p._own[descriptor.name]?.remove(key);
   }
 
