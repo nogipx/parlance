@@ -24,21 +24,24 @@ enum Level<T> implements IStateWord<T> {
 final class Dials extends Owner {
   final Map<String, num> dials = {'a': 1, 'b': 2};
   late final IStateWriterOf<num> _level;
-  late final TrackedKind _kind;
+  final Set<String> _written = {};
   var synced = 0;
 
   @override
   void define(IRawParticipant p) {
-    _kind = trackKind('dial', () => [for (final d in dials.keys) EntityRef(d)]);
+    choices('dial', () => [for (final d in dials.keys) Choice(d)]);
     _level = keep(p.state(Level.of).define());
   }
 
   @override
   void sync() {
     synced++;
-    for (final gone in _kind.sync()) {
+    for (final gone in _written.difference(dials.keys.toSet())) {
       _level.remove(key: gone);
     }
+    _written
+      ..clear()
+      ..addAll(dials.keys);
     for (final MapEntry(:key, :value) in dials.entries) {
       _level.set(value, key: key);
     }

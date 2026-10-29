@@ -39,7 +39,10 @@ void main() {
   test('refs need a registered kind and an entity in it', () {
     expect(ok(const RefType('scene'), 'main'), 'main');
     expect(() => ok(const RefType('scene'), 'gone'), fails('no scene gone'));
-    expect(() => ok(const RefType('room'), 'x'), fails('no entity kind'));
+    expect(
+      () => ok(const RefType('room'), 'x'),
+      fails('no one gives the choices of room'),
+    );
   });
 
   test('objects fill defaults and refuse unknown and missing fields', () {

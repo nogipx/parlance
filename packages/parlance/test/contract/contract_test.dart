@@ -46,14 +46,12 @@ final class _Deck implements IOwner {
   var served = 0;
 
   void _define(IParticipant p) {
-    level = keep(p.state(_State.level).define());
-    keep(
-      p.command(_Command.set).serve((x) {
-        served++;
-        level.set(x.to);
-        return x.to;
-      }, callers: const Callers({'user': Access.allow})),
-    );
+    level = p.state(_State.level).define();
+    p.command(_Command.set).serve((x) {
+      served++;
+      level.set(x.to);
+      return x.to;
+    }, callers: const Callers({'user': Access.allow}));
   }
 }
 

@@ -198,31 +198,24 @@ abstract class HouseOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    Keyed.attach(light, keep(p.state(HouseState.light).define()));
-    _$heat = keep(p.state(HouseState.heat).define());
-    _$mode = keep(p.state(HouseState.mode).define());
-    _$locked = keep(p.state(HouseState.locked).define());
-    _$rang = keep(p.fact(HouseFact.rang).define());
-    _$motion = keep(p.fact(HouseFact.motion).define());
-    keep(
-      p
-          .command(HouseCommand.setLight)
-          .serve(
-            (x) => setLight(room: x.room, on: x.on),
-            callers: Who.anyone,
-          ),
-    );
-    keep(
-      p.command(HouseCommand.setHeat).serve((x) => setHeat(target: x.target)),
-    );
-    keep(p.command(HouseCommand.setMode).serve((x) => setMode(mode: x.mode)));
-    keep(
-      p
-          .command(HouseCommand.lock)
-          .serve((x) => lock(on: x.on), available: whyNotLock),
-    );
-    keep(p.query(HouseQuery.rooms).serve((x) => rooms(lit: x.lit)));
+    Keyed.attach(light, p.state(HouseState.light).define());
+    _$heat = p.state(HouseState.heat).define();
+    _$mode = p.state(HouseState.mode).define();
+    _$locked = p.state(HouseState.locked).define();
+    _$rang = p.fact(HouseFact.rang).define();
+    _$motion = p.fact(HouseFact.motion).define();
+    p
+        .command(HouseCommand.setLight)
+        .serve(
+          (x) => setLight(room: x.room, on: x.on),
+          callers: Who.anyone,
+        );
+    p.command(HouseCommand.setHeat).serve((x) => setHeat(target: x.target));
+    p.command(HouseCommand.setMode).serve((x) => setMode(mode: x.mode));
+    p
+        .command(HouseCommand.lock)
+        .serve((x) => lock(on: x.on), available: whyNotLock);
+    p.query(HouseQuery.rooms).serve((x) => rooms(lit: x.lit));
   }
 
   /// What it set before it was attached, written once it is.
@@ -573,9 +566,8 @@ abstract class VisitOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    _$guests = keep(p.state(VisitState.guests).define());
-    keep(p.command(VisitCommand.leave).serve((x) => leave(who: x.who)));
+    _$guests = p.state(VisitState.guests).define();
+    p.command(VisitCommand.leave).serve((x) => leave(who: x.who));
   }
 
   /// What it set before it was attached, written once it is.

@@ -6,7 +6,7 @@ import 'package:clock/clock.dart' as clock_;
 import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart' show Fact, ICommandWord;
+import '../registry/words.dart' show Fact, ICommandWord, Keyed;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
@@ -50,9 +50,10 @@ final class Handles implements IHandle {
 /// implements it, and the owner extends that base.
 abstract interface class IOwner {
   /// Called by an owner in its constructor (a base the generator made
-  /// does it): [define] defines its words once it is attached, keeping
-  /// each handle with [OwnerTools.keep]; [write], when given, writes what
-  /// it set before it was attached, first of each sync.
+  /// does it): [define] defines its words once it is attached, through the
+  /// participant it is given, and they go when the owner goes; [write],
+  /// when given, writes what it set before it was attached, first of each
+  /// sync.
   static void made(
     IOwner owner, {
     required void Function(IParticipant p) define,
@@ -72,6 +73,9 @@ final class _Core {
   static final Expando<_Core> _all = Expando('owner');
   static _Core of(IOwner o) => _all[o] ??= _Core(o.runtimeType);
 
+  /// The owner of each part attached: told when a handler there answered.
+  static final Expando<_Core> _ofPart = Expando('owner of a part');
+
   final Type type;
   final Handles handles = Handles();
   IParticipant? participant;
@@ -79,6 +83,10 @@ final class _Core {
   void Function(IParticipant p)? define;
   void Function()? write;
   final List<void Function()> follows = [];
+  final List<_Choices> choices = [];
+
+  /// Its keyed states, by the kind of their keys.
+  final Map<String, List<Keyed<Object?>>> keyed = {};
 
   /// What waits for it to be attached, in order; null once it is.
   List<void Function(IParticipant p)>? _due = [];
@@ -98,7 +106,17 @@ final class _Core {
     if (participant != null) throw StateError('$type is attached');
     participant = p;
     this.group = group;
-    define?.call(p);
+    _ofPart[p] = this;
+    runZoned(
+      () => define?.call(p),
+      zoneValues: {
+        keyedDefined: (String kind, Keyed<Object?> k) =>
+            (keyed[kind] ??= []).add(k),
+      },
+    );
+    for (final c in choices) {
+      c.attach(p, this);
+    }
     final due = _due!;
     _due = null;
     for (final f in due) {
@@ -118,21 +136,37 @@ final class _Core {
       f();
     }
     synced = true;
-    recheck();
+    _relist();
+    moved();
   }
 
-  bool _recheckDue = false;
+  /// Lists its choices again: those that changed are told, and what went
+  /// of them goes of its keyed states keyed by their kind.
+  void _relist() {
+    for (final c in choices) {
+      for (final id in c.relist()) {
+        for (final k in keyed[c.kind] ?? const <Keyed<Object?>>[]) {
+          if (k.keys.contains(id)) k.remove(id);
+        }
+      }
+    }
+  }
 
-  /// What its commands' checks read may have moved (its model, a device,
-  /// what it heard): they are asked again, once in a turn, and a status
-  /// told where it changed. No owner says so itself.
-  void recheck() {
-    if (_recheckDue || participant == null) return;
-    _recheckDue = true;
+  bool _movedDue = false;
+
+  /// What it keeps elsewhere may have moved (a handler answered, it heard
+  /// something, it followed its model): its choices are listed again and
+  /// its commands' checks asked again, once in a turn, and what changed
+  /// told. No owner says so itself.
+  void moved() {
+    if (_movedDue || participant == null) return;
+    _movedDue = true;
     scheduleMicrotask(() {
-      _recheckDue = false;
-      if (group == null) return;
-      participant?.raw.availabilityMayHaveChanged();
+      _movedDue = false;
+      final p = participant;
+      if (group == null || p == null) return;
+      if (choices.isNotEmpty) p.batch(_relist);
+      p.raw.availabilityMayHaveChanged();
     });
   }
 
@@ -140,6 +174,11 @@ final class _Core {
     handles.dispose();
     group?._left(this);
     group = null;
+    // What it defined through its part goes with it.
+    if (participant case final p?) {
+      _ofPart[p] = null;
+      p.dispose();
+    }
   }
 }
 
@@ -154,12 +193,10 @@ extension OwnerTools on IOwner {
       _Core.of(this).participant ??
       (throw StateError('$runtimeType is not attached'));
 
-  /// Keeps [h] to withdraw when the owner goes, and gives it back.
-  H keep<H extends IHandle>(H h) => _Core.of(this).handles.keep(h);
-
   /// Runs [f] when the owner goes: what it holds of its own (a timer, a
-  /// device), let go.
-  void onDispose(void Function() f) => keep(_Done(f));
+  /// device), let go. What it defined through its participant goes by
+  /// itself.
+  void onDispose(void Function() f) => _Core.of(this).handles.keep(_Done(f));
 
   /// Runs [f] with its participant once it is attached, after its words
   /// are defined; at once, when it is: what [OwnerTools] does not say
@@ -189,7 +226,7 @@ extension OwnerTools on IOwner {
         _Listening(
           stream.listen((x) {
             onData(x);
-            c.recheck();
+            c.moved();
           }),
         ),
       ),
@@ -261,16 +298,17 @@ extension OwnerTools on IOwner {
   DateTime get now =>
       (_Core.of(this).participant?.raw.clock ?? clock_.clock).now();
 
-  /// Registers a kind of entities it keeps, [list] the ones there are
-  /// now; told to the registry once it is attached.
-  TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {
-    final kind = TrackedKind._(name, list);
+  /// Tells whoever asks the registry (an agent, an editor, a plugin)
+  /// which [kind] there are now, to choose from: [list] gives them, with
+  /// their labels. What a param of `@Ref(kind)` names is held to them.
+  /// They are listed again on their own: when it is attached, after it
+  /// followed its model, heard something or answered a call; what went
+  /// goes of its keyed states keyed by [kind] too.
+  void choices(String kind, Iterable<Choice> Function() list) {
     final c = _Core.of(this);
-    c.whenAttached((p) {
-      kind._attach(p);
-      c.handles.keep(p.raw.registerKind(EntityKind(name, list: list)));
-    });
-    return kind;
+    final ch = _Choices(kind, list);
+    c.choices.add(ch);
+    if (c.participant case final p? when c.group != null) ch.attach(p, c);
   }
 }
 
@@ -302,38 +340,57 @@ abstract base class Owner implements IOwner, IHandle {
   /// owner's in one batch, so a change is seen whole.
   void sync() {}
 
+  /// Keeps [h] to withdraw when the owner goes, and gives it back.
+  H keep<H extends IHandle>(H h) => _Core.of(this).handles.keep(h);
+
   /// Withdraws its words, and leaves the participant it was attached to:
   /// its `sync` is not asked again. An owner that overrides it calls it.
   @override
   void dispose() => _Core.of(this).dispose();
 }
 
-/// A kind of entities an owner keeps: it tells the registry when the
-/// entities changed, and which ones went.
-final class TrackedKind {
-  TrackedKind._(this.name, this._list);
+/// One of what an owner gives to choose from ([OwnerTools.choices]): its
+/// [id], what people see of it ([label], else the id), and what else a
+/// chooser needs ([meta], JSON: the type of the value it takes...).
+final class Choice {
+  const Choice(this.id, {this.label, this.meta = const {}});
 
+  final String id;
+  final String? label;
+  final Map<String, Object?> meta;
+}
+
+/// The choices of one kind an owner gives, as the registry was last told.
+final class _Choices {
+  _Choices(this.kind, this._list);
+
+  final String kind;
+  final Iterable<Choice> Function() _list;
   IParticipant? _participant;
-  final String name;
-  final Iterable<EntityRef> Function() _list;
   List<(String, String)> _known = const [];
 
-  void _attach(IParticipant p) {
+  Iterable<EntityRef> _refs() => [
+    for (final c in _list()) EntityRef(c.id, c.label, c.meta),
+  ];
+
+  void attach(IParticipant p, _Core core) {
+    if (_participant != null) return;
     _participant = p;
-    _known = _ids(_list());
+    _known = _ids(_refs());
+    core.handles.keep(p.raw.registerKind(EntityKind(kind, list: _refs)));
   }
 
-  /// Each entity's id, and all it tells (its label, its meta).
+  /// Each choice's id, and all it tells (its label, its meta).
   static List<(String, String)> _ids(Iterable<EntityRef> refs) => [
     for (final e in refs) (e.id, jsonEncode(e.toJson())),
   ];
 
-  /// Compares the entities with the ones seen last: when they differ (an
-  /// entity came, went, was renamed or tells otherwise), announces it.
-  /// Answers the ids that went, for the owner to remove their keyed
-  /// states.
-  Set<String> sync() {
-    final now = _ids(_list());
+  /// Compares the choices with the ones told last: when they differ, the
+  /// registry is told. Answers the ids that went.
+  Set<String> relist() {
+    final p = _participant;
+    if (p == null) return const {};
+    final now = _ids(_refs());
     if (_same(now, _known)) return const {};
     final ids = {for (final (id, _) in now) id};
     final gone = {
@@ -341,7 +398,7 @@ final class TrackedKind {
         if (!ids.contains(id)) id,
     };
     _known = now;
-    _participant?.raw.entitiesChanged(name);
+    p.raw.entitiesChanged(kind);
     return gone;
   }
 
@@ -353,6 +410,10 @@ final class TrackedKind {
     return true;
   }
 }
+
+/// A handler of [part]'s answered: its owner lists its choices and asks
+/// its checks again.
+void ownerServed(IParticipant part) => _Core._ofPart[part]?.moved();
 
 /// The owners attached to one participant (SPEC §22.3): each to the part
 /// of its name, synced as one tick, withdrawn with the participant. A

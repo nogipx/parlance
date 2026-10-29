@@ -138,16 +138,13 @@ abstract class BoardOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    Keyed.attach(notes, keep(p.state(BoardState.notes).define()));
-    _$anything = keep(p.state(BoardState.anything).define());
-    _$seen = keep(p.fact(BoardFact.seen).define(open: true));
-    keep(p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note)));
-    keep(
-      p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms)),
-    );
-    keep(p.command(BoardCommand.pin).serve((x) => pin(ids: x.ids)));
-    keep(p.command(BoardCommand.count).serve((x) => count(readers: x.readers)));
+    Keyed.attach(notes, p.state(BoardState.notes).define());
+    _$anything = p.state(BoardState.anything).define();
+    _$seen = p.fact(BoardFact.seen).define(open: true);
+    p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note));
+    p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms));
+    p.command(BoardCommand.pin).serve((x) => pin(ids: x.ids));
+    p.command(BoardCommand.count).serve((x) => count(readers: x.readers));
   }
 
   /// What it set before it was attached, written once it is.

@@ -32,10 +32,7 @@ final class _Device {
 
 final class _Lamp implements IOwner {
   _Lamp(this.device) {
-    IOwner.made(
-      this,
-      define: (p) => _level = keep(p.state(_State.level).define()),
-    );
+    IOwner.made(this, define: (p) => _level = p.state(_State.level).define());
     follow(() {
       pulls++;
       _level.set(device.level);
@@ -43,12 +40,11 @@ final class _Lamp implements IOwner {
     listen(heard.stream, (_) => listened++);
     whenAttached((_) => order.add('attached'));
     onDispose(() => order.add('gone'));
-    kind = trackKind('bulb', () => [for (final b in bulbs) EntityRef(b)]);
+    choices('bulb', () => [for (final b in bulbs) Choice(b)]);
   }
 
   final _Device device;
   late IStateWriterOf<int> _level;
-  late final TrackedKind kind;
   final List<String> bulbs = ['a'];
   final StreamController<int> heard = StreamController();
   final List<String> order = [];

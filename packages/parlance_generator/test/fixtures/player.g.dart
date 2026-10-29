@@ -279,56 +279,42 @@ abstract class PlayerOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    _$volume = keep(
-      p
-          .state(PlayerState.volume)
-          .define(
-            meta: const {
-              'label': 'Volume',
-              'steps': [0, 50, 100],
-            },
-          ),
-    );
-    _$repeat = keep(p.state(PlayerState.repeat).define());
-    _$playing = keep(p.state(PlayerState.playing).define());
-    Keyed.attach(
-      speakerLevel,
-      keep(p.state(PlayerState.speakerLevel).define()),
-    );
-    _$clipped = keep(p.fact(PlayerFact.clipped).define());
-    _$finished = keep(p.fact(PlayerFact.finished).define());
-    keep(
-      p
-          .command(PlayerCommand.setVolume)
-          .serve((x) => setVolume(volume: x.volume)),
-    );
-    keep(
-      p
-          .command(PlayerCommand.play)
-          .serve(
-            (x) => play(track: x.track, repeat: x.repeat, on: x.on),
-            deadline: const Duration(microseconds: 5000000),
-            available: whyNotPlay,
-          ),
-    );
-    keep(p.command(PlayerCommand.skip).serve((x) => skip(count: x.count)));
-    keep(
-      p
-          .command(PlayerCommand.stop)
-          .serve(
-            (_) => stop(),
-            callers: const Callers({'listener': Access.allow}),
-          ),
-    );
-    keep(
-      p
-          .query(PlayerQuery.search)
-          .serve(
-            (x) => search(text: x.text, limit: x.limit),
-            askers: const Callers({'*': Access.allow}),
-          ),
-    );
+    _$volume = p
+        .state(PlayerState.volume)
+        .define(
+          meta: const {
+            'label': 'Volume',
+            'steps': [0, 50, 100],
+          },
+        );
+    _$repeat = p.state(PlayerState.repeat).define();
+    _$playing = p.state(PlayerState.playing).define();
+    Keyed.attach(speakerLevel, p.state(PlayerState.speakerLevel).define());
+    _$clipped = p.fact(PlayerFact.clipped).define();
+    _$finished = p.fact(PlayerFact.finished).define();
+    p
+        .command(PlayerCommand.setVolume)
+        .serve((x) => setVolume(volume: x.volume));
+    p
+        .command(PlayerCommand.play)
+        .serve(
+          (x) => play(track: x.track, repeat: x.repeat, on: x.on),
+          deadline: const Duration(microseconds: 5000000),
+          available: whyNotPlay,
+        );
+    p.command(PlayerCommand.skip).serve((x) => skip(count: x.count));
+    p
+        .command(PlayerCommand.stop)
+        .serve(
+          (_) => stop(),
+          callers: const Callers({'listener': Access.allow}),
+        );
+    p
+        .query(PlayerQuery.search)
+        .serve(
+          (x) => search(text: x.text, limit: x.limit),
+          askers: const Callers({'*': Access.allow}),
+        );
   }
 
   /// What it set before it was attached, written once it is.

@@ -10,7 +10,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
 - **Custom type** (§2): a host's own checker under a name; the package never reads it.
-- **Entity kind**, **entity** (§3): what keys and refs point at. The host registers a kind with a function listing its entities, each an `EntityRef(id, label, meta)`; it says `entitiesChanged` when the list changes.
+- **Entity kind**, **entity** (§3): what keys and refs point at, for whoever asks the registry to choose from. An owner gives them by `choices(kind, () => [Choice(id, label:, meta:)])`; underneath, a kind registered with a function listing `EntityRef`s, and `entitiesChanged` when the list changes (the raw API).
 - **`meta`** (§3, §6): what else the host tells of an entity or a word (a label, a unit, the type of value an entity takes), for editors and agents.
 
 ## Core
@@ -116,8 +116,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **IWord**: a word of any kind by its name; every typed word is one.
 - **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first words of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **Handles**: the set of handles an owner keeps, withdrawn together.
-- **`keep`**: keeps a handle and gives it back with its own type.
-- **`trackKind`**: registers a kind of entities the owner keeps; its sync announces `entitiesChanged` only when the list changed, and answers the ids that went, whose keyed values the owner removes.
+- **`keep`**: a hand-written `Owner`'s: keeps a handle and gives it back with its own type. An owner of a generated base keeps nothing: its words go with it.
+- **`choices`** (was `trackKind`): an owner tells which of a kind there are now, for agents and editors to choose from and `@Ref` to hold to; listed again on its own, and what went goes of its keyed states, whose keyed values the owner removes.
 - **`listen`**: a subscription that lives while the owner is attached, for what its work reports by itself.
 - **`failCall(why)`**: ends a call `failed` with the owner's reason; refusals with a code come only from the registry's stages.
 

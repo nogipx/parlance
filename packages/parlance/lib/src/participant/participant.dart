@@ -263,6 +263,16 @@ abstract interface class IRawParticipant implements IParticipant {
   IRawParticipant child(String name);
 }
 
+/// [answer], as a handler served by [part] gave it; its owner told once
+/// it is given.
+FutureOr<R> _served<R>(IParticipant part, FutureOr<R> answer) {
+  if (answer is Future<R>) {
+    return answer.whenComplete(() => ownerServed(part));
+  }
+  ownerServed(part);
+  return answer;
+}
+
 /// Every participant is raw underneath ([IRawParticipant]): the library's
 /// way in, and its tools'.
 extension IParticipantRaw on IParticipant {
@@ -299,7 +309,7 @@ final class ParticipantQueryOf<P, R> {
     Map<String, Object?> meta = const {},
     String? Function()? available,
   }) => define(
-    (a) => handler(a.params),
+    (a) => _served(participant, handler(a.params)),
     askers: askers,
     deadline: deadline,
     meta: meta,
@@ -399,7 +409,7 @@ final class ParticipantCommandOf<P, R> {
     Map<String, Object?> meta = const {},
     String? Function()? available,
   }) => define(
-    (c) => handler(c.params),
+    (c) => _served(participant, handler(c.params)),
     callers: callers,
     deadline: deadline,
     meta: meta,

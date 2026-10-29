@@ -101,10 +101,9 @@ abstract class NotesOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    _$all = keep(p.state(NotesState.all).define());
-    _$added = keep(p.fact(NotesFact.added).define());
-    keep(p.command(NotesCommand.add).serve((x) => add(text: x.text)));
+    _$all = p.state(NotesState.all).define();
+    _$added = p.fact(NotesFact.added).define();
+    p.command(NotesCommand.add).serve((x) => add(text: x.text));
   }
 
   /// What it set before it was attached, written once it is.

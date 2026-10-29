@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import '../participant/serving.dart' show droppedOnce, inReplyAs, onceId;
+import '../participant/serving.dart'
+    show droppedOnce, inReplyAs, keyedDefined, onceId;
 import 'cause.dart';
 import 'descriptors.dart';
 import 'ids.dart';
@@ -366,8 +367,13 @@ final class Keyed<T> {
 
   /// For the base the generator made: [k] writes through [writer] from
   /// now on.
-  static void attach<T>(Keyed<T> k, IStateWriterOf<T> writer) =>
-      k._writer = writer;
+  static void attach<T>(Keyed<T> k, IStateWriterOf<T> writer) {
+    k._writer = writer;
+    final kind = writer is StateWriterOf<T> ? writer.raw.descriptor.key : null;
+    if (kind == null) return;
+    (Zone.current[keyedDefined] as void Function(String, Keyed<Object?>)?)
+        ?.call(kind, k);
+  }
 
   /// For the base the generator made: writes what [k] was set before it
   /// was attached.

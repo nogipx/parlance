@@ -868,11 +868,9 @@ final class _Emitter {
     }
     out
       ..writeln()
-      ..writeln('  void _\$define(IParticipant p) {')
-      ..writeln('    final keep = OwnerTools(this).keep;');
+      ..writeln('  void _\$define(IParticipant p) {');
     for (final st in states) {
-      final define =
-          'keep(p.state(${_c}State.${st.member}).define(${opts(st)}))';
+      final define = 'p.state(${_c}State.${st.member}).define(${opts(st)})';
       out.writeln(
         st.key == null
             ? '    _\$${st.member} = $define;'
@@ -881,8 +879,8 @@ final class _Emitter {
     }
     for (final f in facts) {
       out.writeln(
-        '    _\$${f.member} = keep(p.fact(${_c}Fact.${f.member})'
-        '.define(${opts(f)}));',
+        '    _\$${f.member} = p.fact(${_c}Fact.${f.member})'
+        '.define(${opts(f)});',
       );
     }
     // Served by the params alone: the generated code holds no call.
@@ -892,14 +890,14 @@ final class _Emitter {
         : '(x) => ${c.member}(${args(c, 'x')})';
     for (final c in commands) {
       out.writeln(
-        '    keep(p.command(${_c}Command.${c.member})'
-        '.serve(${[serving(c), opts(c)].where((x) => x.isNotEmpty).join(', ')}));',
+        '    p.command(${_c}Command.${c.member})'
+        '.serve(${[serving(c), opts(c)].where((x) => x.isNotEmpty).join(', ')});',
       );
     }
     for (final q in queries) {
       out.writeln(
-        '    keep(p.query(${_c}Query.${q.member})'
-        '.serve(${[serving(q), opts(q)].where((x) => x.isNotEmpty).join(', ')}));',
+        '    p.query(${_c}Query.${q.member})'
+        '.serve(${[serving(q), opts(q)].where((x) => x.isNotEmpty).join(', ')});',
       );
     }
     out

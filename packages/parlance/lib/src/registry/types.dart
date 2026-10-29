@@ -213,7 +213,13 @@ final class RefType extends ValueType<String> {
     if (value is! String || value.isEmpty) {
       ValueType._fail(path, 'expected a $kind id');
     }
-    if (!ctx.hasKind(kind)) ValueType._fail(path, 'no entity kind $kind');
+    if (!ctx.hasKind(kind)) {
+      ValueType._fail(
+        path,
+        'no one gives the choices of $kind: its owner says them, '
+        "choices('$kind', ...)",
+      );
+    }
     if (!ctx.hasEntity(kind, value)) ValueType._fail(path, 'no $kind $value');
     return value;
   }

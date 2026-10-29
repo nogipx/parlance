@@ -12,7 +12,7 @@ const anyone = Callers({'*': Access.allow});
 
 final class Pinboard extends BoardOwnerBase {
   Pinboard() {
-    trackKind('note', () => [for (final id in up.keys) EntityRef(id)]);
+    choices('note', () => [for (final id in up.keys) Choice(id)]);
   }
 
   final Map<String, Note> up = {};

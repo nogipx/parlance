@@ -38,11 +38,10 @@ final class _Dial implements IOwner {
     );
     listen(power, (on) => this.on = on);
     whenAttached(
-      (p) => keep(
-        p
-            .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
-            .define(),
-      ).set(7),
+      (p) => p
+          .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
+          .define()
+          .set(7),
     );
   }
 
@@ -51,15 +50,13 @@ final class _Dial implements IOwner {
   int? at;
 
   void _define(IParticipant p) {
-    keep(
-      p
-          .command(_Command.set)
-          .serve(
-            (x) => at = x.to,
-            callers: const Callers({'*': Access.allow}),
-            available: () => on ? null : 'it is off',
-          ),
-    );
+    p
+        .command(_Command.set)
+        .serve(
+          (x) => at = x.to,
+          callers: const Callers({'*': Access.allow}),
+          available: () => on ? null : 'it is off',
+        );
   }
 }
 
@@ -75,7 +72,7 @@ enum _Fact<T> implements IFactWord<T> {
 
 final class _Bell implements IOwner {
   _Bell() {
-    IOwner.made(this, define: (p) => _rang = keep(p.fact(_Fact.rang).define()));
+    IOwner.made(this, define: (p) => _rang = p.fact(_Fact.rang).define());
   }
 
   late IFactEmitterOf<String> _rang;
@@ -84,7 +81,108 @@ final class _Bell implements IOwner {
   bool ring(String id, String who) => once(id, () => _rang.emit(who));
 }
 
+enum _Lit<T> implements IStateWord<T> {
+  of<bool>('lamps.lit', Plain(BoolType()));
+
+  const _Lit(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => 'bulb';
+}
+
+const _bulb = RecordShape<({String bulb})>(
+  {'bulb': Part(Plain(RefType('bulb')))},
+  to: _bulbJson,
+  from: _fromBulb,
+);
+Map<String, Object?> _bulbJson(({String bulb}) p) => {'bulb': p.bulb};
+({String bulb}) _fromBulb(Map<String, Object?> m) =>
+    (bulb: m['bulb']! as String);
+
+enum _Drop<P, R> implements ICommandWord<P, R> {
+  of<({String bulb}), void>('lamps.drop', _bulb, null);
+
+  const _Drop(this.name, this.params, this.returns);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  final Shape<R>? returns;
+}
+
+/// Lamps of bulbs: which are lit, by bulb; a bulb dropped goes of them by
+/// itself, as a choice and as a key.
+final class _Lamps implements IOwner {
+  _Lamps({this.listed = true}) {
+    IOwner.made(
+      this,
+      define: (p) {
+        Keyed.attach(lit, p.state(_Lit.of).define());
+        p
+            .command(_Drop.of)
+            .serve(
+              (x) => bulbs.remove(x.bulb),
+              callers: const Callers({'*': Access.allow}),
+            );
+      },
+    );
+    if (listed) choices('bulb', () => [for (final b in bulbs) Choice(b)]);
+    follow(() {
+      for (final b in bulbs) {
+        lit[b] = true;
+      }
+    });
+  }
+
+  final bool listed;
+  final List<String> bulbs = ['a', 'b'];
+  final Keyed<bool> lit = Keyed<bool>();
+}
+
 void main() {
+  test('a choice that went goes of the keyed states by its kind, with '
+      'no one removing it', () async {
+    final r = Host();
+    addTearDown(r.dispose);
+    final lamps = _Lamps();
+    await r
+        .participant(
+          const Principal('lamps'),
+          vocabularies: [WordSet.open('lamps')],
+        )
+        .attach({'it': lamps});
+    final ann = r.participant(const Principal('user', 'ann'));
+    expect(ann.state(_Lit.of).readAll().keys, {'a', 'b'});
+
+    expect(
+      await ann.command(_Drop.of).call((bulb: 'b')),
+      isA<CallDone<void>>(),
+    );
+    await ann.settle();
+    expect(ann.state(_Lit.of).readAll().keys, {'a'});
+    expect(lamps.lit.keys, ['a']);
+    final gone = await ann.command(_Drop.of).call((bulb: 'b'));
+    expect(gone.whyNot, contains('no bulb b'));
+  });
+
+  test('a ref to choices no one gives says so', () async {
+    final r = Host();
+    addTearDown(r.dispose);
+    await r
+        .participant(
+          const Principal('lamps'),
+          vocabularies: [WordSet.open('lamps')],
+        )
+        .attach({'it': _Lamps(listed: false)});
+    final ann = r.participant(const Principal('user', 'ann'));
+    final r1 = await ann.command(_Drop.of).call((bulb: 'a'));
+    expect(r1.whyNot, contains("choices('bulb', ...)"));
+  });
+
   test('a fact said once by its id is said once, however often it '
       'comes', () async {
     final r = Host();

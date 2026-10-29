@@ -37,10 +37,9 @@ final class Devices {
 /// sets follows from its call: no cause is written.
 final class Home extends HouseOwnerBase {
   Home(this.devices) {
-    _rooms = trackKind(
-      room,
-      () => [for (final id in devices.lights.keys) EntityRef(id)],
-    );
+    // The rooms there are, for an agent or an editor to choose from; one
+    // that goes, goes of the lights too.
+    choices(room, () => [for (final id in devices.lights.keys) Choice(id)]);
     // What the devices say now: the house's devices are its model, so it
     // follows them, as one tick with its group; when a device changed by
     // hand too, so nobody has to call `sync` on its participant.
@@ -57,7 +56,6 @@ final class Home extends HouseOwnerBase {
   }
 
   final Devices devices;
-  late final TrackedKind _rooms;
 
   @override
   void setLight({required String room, required bool on}) {
@@ -88,9 +86,6 @@ final class Home extends HouseOwnerBase {
   ];
 
   void _pull() {
-    for (final gone in _rooms.sync()) {
-      light.remove(gone);
-    }
     for (final MapEntry(:key, :value) in devices.lights.entries) {
       light[key] = value;
     }

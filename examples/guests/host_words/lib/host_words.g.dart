@@ -66,9 +66,8 @@ abstract class AppOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    _$dark = keep(p.state(AppState.dark).define());
-    keep(p.command(AppCommand.toast).serve((x) => toast(text: x.text)));
+    _$dark = p.state(AppState.dark).define();
+    p.command(AppCommand.toast).serve((x) => toast(text: x.text));
   }
 
   /// What it set before it was attached, written once it is.

@@ -34,8 +34,7 @@ abstract class DoorsOwnerBase implements IOwner {
   final Keyed<Room> room = Keyed<Room>();
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    Keyed.attach(room, keep(p.state(DoorsState.room).define()));
+    Keyed.attach(room, p.state(DoorsState.room).define());
   }
 
   /// What it set before it was attached, written once it is.
@@ -160,8 +159,7 @@ abstract class LightsOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant p) {
-    final keep = OwnerTools(this).keep;
-    keep(p.command(LightsCommand.on).serve((x) => on(room: x.room)));
+    p.command(LightsCommand.on).serve((x) => on(room: x.room));
   }
 
   /// What it set before it was attached, written once it is.

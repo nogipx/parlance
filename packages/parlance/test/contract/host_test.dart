@@ -25,14 +25,12 @@ final class _Echo implements IOwner {
   _Echo() {
     IOwner.made(
       this,
-      define: (p) => keep(
-        p
-            .command(_Command.ping)
-            .serve(
-              (_) => 'pong to ${caller!.kind}',
-              callers: const Callers({'user': Access.allow}),
-            ),
-      ),
+      define: (p) => p
+          .command(_Command.ping)
+          .serve(
+            (_) => 'pong to ${caller!.kind}',
+            callers: const Callers({'user': Access.allow}),
+          ),
     );
   }
 }
