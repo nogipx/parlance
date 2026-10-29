@@ -221,7 +221,7 @@ final class Phone {
   final RpcPeerEndpoint _host;
 
   Future<void> close() async {
-    await part.close();
+    part.dispose();
     await _connection.dispose();
     _session.close();
     await _host.close();

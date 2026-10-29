@@ -53,10 +53,6 @@ abstract interface class IRemoteParticipant implements IParticipant {
   /// What the host refused of what it asked, and words it was built
   /// against otherwise than the host has them (`mismatch`).
   Stream<ParticipantError> get errors;
-
-  /// Withdraws what it did, as `dispose` does, and closes its connection;
-  /// completes once it is closed.
-  Future<void> close();
 }
 
 final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
@@ -1180,8 +1176,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   void dispose() => unawaited(close());
 
   /// Withdraws its words, guards and kinds, stops its mirror and closes its
-  /// endpoint.
-  @override
+  /// endpoint; completes once it is closed. What `dispose` does, awaited:
+  /// the library's and its tools'.
   Future<void> close() async {
     if (_disposed) return;
     _retry?.cancel();

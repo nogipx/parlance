@@ -233,7 +233,7 @@ void main() {
     final owner = Ticking();
     p.attach({'tick': owner});
     expect(owner.changed.hasListener, isTrue);
-    await p.close();
+    p.dispose();
     expect(owner.changed.hasListener, isFalse);
   });
 }

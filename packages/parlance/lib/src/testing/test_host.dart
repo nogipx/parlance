@@ -185,7 +185,7 @@ final class TestHost {
   /// the stand-ins and the registry.
   Future<void> dispose() async {
     for (final p in _remotes) {
-      await p.close();
+      await (p as RemoteParticipant).close();
     }
     for (final c in _connections) {
       await c.dispose();
