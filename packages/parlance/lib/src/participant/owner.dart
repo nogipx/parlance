@@ -212,7 +212,11 @@ final class _Core {
 /// What an owner does with the library (SPEC §19, §23.4): written in it as
 /// its own, `listen(...)`, `caller`; a name the owner has of its own is
 /// its own, and one these tools have is reached as `OwnerTools(this).x`.
-extension OwnerTools on IOwner {
+/// An owner's participant itself, for tools (`tools.dart`): what an owner
+/// does by name or with words named at run time, through `p.raw`. An app's
+/// owner needs none of it: its base, its tools and the clients it makes
+/// (`HouseClient.of(this)`) reach the participant for it.
+extension OwnerParticipant on IOwner {
   /// The participant it speaks through: the part `main` named it by.
   /// Throws while it is not attached: what needs it waits in
   /// [whenAttached].
@@ -220,16 +224,17 @@ extension OwnerTools on IOwner {
       _Core.of(this).participant ??
       (throw StateError('$runtimeType is not attached'));
 
+  /// Runs [f] with its participant once it is attached, after its words
+  /// are defined; at once, when it is.
+  void whenAttached(void Function(IParticipant p) f) =>
+      _Core.of(this).whenAttached(f);
+}
+
+extension OwnerTools on IOwner {
   /// Runs [f] when the owner goes: what it holds of its own (a timer, a
   /// device), let go. What it defined through its participant goes by
   /// itself.
   void onDispose(void Function() f) => _Core.of(this).handles.keep(_Done(f));
-
-  /// Runs [f] with its participant once it is attached, after its words
-  /// are defined; at once, when it is: what [OwnerTools] does not say
-  /// (a guard, words named at run time).
-  void whenAttached(void Function(IParticipant p) f) =>
-      _Core.of(this).whenAttached(f);
 
   /// Writes its states from what it keeps elsewhere (a model, a device):
   /// [pull] runs when it is attached, whenever its participant's `sync` is

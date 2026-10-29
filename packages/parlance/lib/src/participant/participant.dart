@@ -291,7 +291,7 @@ final class GeneratedWords {
   /// before it is attached, a read or a call throws a [StateError]; a
   /// stream waits until it is listened to ([later]).
   static GeneratedWords ofOwner(IOwner owner) =>
-      GeneratedWords._(() => OwnerTools(owner).participant.raw, owner);
+      GeneratedWords._(() => OwnerParticipant(owner).participant.raw, owner);
 
   final IRawParticipant Function() _resolve;
   final IOwner? _owner;
@@ -313,7 +313,7 @@ final class GeneratedWords {
   /// an owner's client once the owner is attached.
   void builtAgainst(Iterable<IWord> words, {String? from}) {
     if (_owner case final o?) {
-      OwnerTools(o).whenAttached((p) => p.raw.builtAgainst(words, from: from));
+      OwnerParticipant(o).whenAttached((p) => p.raw.builtAgainst(words, from: from));
     } else {
       _resolve().builtAgainst(words, from: from);
     }

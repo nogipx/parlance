@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:parlance/app.dart';
+import 'package:parlance/tools.dart' show OwnerParticipant;
 import 'package:test/test.dart';
 
 /// An owner has no members of the library's (SPEC §23.4): what it does

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:parlance/app.dart';
 import 'package:test/test.dart';
-import 'package:parlance/tools.dart' show StateWordOf;
+import 'package:parlance/tools.dart' show OwnerParticipant, StateWordOf;
 import 'package:parlance/testing.dart';
 
 /// What an owner says with the tools beside its words (SPEC §19): a guard
