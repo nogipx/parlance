@@ -9,6 +9,7 @@ part of 'registry.dart';
 extension RawRegistry on Registry {
   /// [command]'s availability may have changed without a tick (SPEC §6.5).
   void availabilityChanged(String command) {
+    _availabilityMoved++;
     if (!_availability.isClosed) _availability.add(canonical(command));
   }
 
@@ -97,6 +98,22 @@ extension RawRegistry on Registry {
   Map<String, String> get unavailable => {
     for (final name in _commands.keys) name: ?whyUnavailable(name),
   };
+
+  /// [unavailable] as it is after the last tick: what every session's
+  /// feed tells after a tick, the checks asked once for all of them until
+  /// the next tick, a catalog change or an owner's word moves them.
+  Map<String, String> get unavailableAfterTick {
+    if (_unavailableNow case (
+      :final seq,
+      :final moved,
+      :final why,
+    ) when seq == this.seq && moved == _availabilityMoved) {
+      return why;
+    }
+    final why = Map<String, String>.unmodifiable(unavailable);
+    _unavailableNow = (seq: seq, moved: _availabilityMoved, why: why);
+    return why;
+  }
 
   /// Registers an entity kind (SPEC §3); withdraw it with the handle.
   IHandle registerKind(EntityKind kind) {

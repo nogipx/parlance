@@ -90,4 +90,41 @@ void main() {
       await mirror.dispose();
     },
   );
+
+  test(
+    'after a tick, a command\'s check is asked once for every feed',
+    () async {
+      final r = deckOf(['deck.s1']);
+      var asked = 0;
+      final deck = r.participant(
+        const Principal('lamp'),
+        vocabularies: [WordSet.open('lamp')],
+      );
+      deck.defineCommand(
+        CommandDescriptor('lamp.turn', callers: Callers.only(['widlet'])),
+        (_) {},
+        available: () {
+          asked++;
+          return null;
+        },
+      );
+      final light = deck.defineState(
+        StateDescriptor('lamp.on', type: const BoolType()),
+      );
+      final guests = [
+        for (final _ in [1, 2, 3]) await RemoteParticipant.over(serve(r)),
+      ];
+      for (final g in guests) {
+        await g.settle();
+      }
+      await pumpEventQueue();
+      final before = asked;
+      light.set(true);
+      await pumpEventQueue();
+      expect(asked - before, 1, reason: 'three feeds, one answer');
+      for (final g in guests) {
+        await g.close();
+      }
+    },
+  );
 }

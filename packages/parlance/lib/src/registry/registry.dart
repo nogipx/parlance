@@ -145,6 +145,7 @@ final class Registry implements ITypeContext {
   final StreamController<CatalogChange> _catalog = StreamController.broadcast();
 
   void _announce(CatalogChange c) {
+    _availabilityMoved++;
     switch (c) {
       case DescriptorAdded(:final descriptor):
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
@@ -173,6 +174,15 @@ final class Registry implements ITypeContext {
   Stream<CatalogChange> get catalogChanges => _catalog.stream;
 
   final StreamController<String> _availability = StreamController.broadcast();
+
+  /// Bumped whenever what the commands' checks answer may change but for
+  /// a tick: the catalog changed, or an owner said a check would answer
+  /// otherwise.
+  int _availabilityMoved = 0;
+
+  /// What `unavailable` answered, at which seq and move: every feed asks
+  /// it after every tick, and the checks are asked once for all of them.
+  ({int seq, int moved, Map<String, String> why})? _unavailableNow;
 
   /// Commands whose availability check would answer otherwise now, though
   /// no tick says so: an owner across a connection told it, or one whose

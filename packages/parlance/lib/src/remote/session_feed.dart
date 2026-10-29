@@ -136,7 +136,7 @@ final class _Feed {
   /// After a tick: whether a command came to run or stopped, told as the
   /// whole set when it moved.
   void _availability() {
-    final now = _registry.unavailable;
+    final now = _registry.unavailableAfterTick;
     if (_sameMap(now, _unavailable)) return;
     _unavailable = now;
     send(WireFeedItem('unavailable', {'unavailable': now}));
