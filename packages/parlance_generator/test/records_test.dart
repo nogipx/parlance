@@ -199,8 +199,7 @@ void main() {
     });
   });
 
-  test('an open fact is said by others too', () async {
-    expect(r.factDescriptor('note.seen')!.open, isTrue);
+  test('a fact of a record is said by its owner', () async {
     board.seen((
       level: Level.info,
       text: 'seen',

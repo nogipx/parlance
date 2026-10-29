@@ -52,7 +52,7 @@ abstract class Board {
   @CommandWord()
   void count({required int? readers});
 
-  /// Said by anyone: an open fact.
-  @FactWord(open: true)
+  /// A note someone looked at.
+  @FactWord()
   void seen(Note note);
 }

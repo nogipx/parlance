@@ -344,7 +344,6 @@ final class _Emitter {
         if (r.peek('readers')?.objectValue case final o?) {
           f.options.add('readers: ${_callers(o)}');
         }
-        if (r.peek('open')?.boolValue ?? false) f.options.add('open: true');
         _meta(f, r);
         named(f);
         facts.add(f);

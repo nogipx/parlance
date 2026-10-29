@@ -141,10 +141,6 @@ final class _Part implements IRawParticipant {
       _root._defineFact(d, who);
 
   @override
-  IFactHandle producer(String fact, {Shape<Object?>? shape}) =>
-      _root._producer(fact, who);
-
-  @override
   IHandle addGuard(String id, GuardCheck check, {bool overridable = true}) =>
       _root._addGuard(id, check, overridable, who);
 

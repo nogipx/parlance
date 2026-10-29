@@ -606,7 +606,6 @@ final class FactOf<T> {
   /// Defines it, with [by] its producer.
   FactEmitterOf<T> define({
     required Principal by,
-    bool open = false,
     Callers? readers,
     Map<String, Object?> meta = const {},
   }) => FactEmitterOf(
@@ -614,19 +613,12 @@ final class FactOf<T> {
       FactDescriptor(
         word.name,
         type: word.shape.type,
-        open: open,
         readers: readers,
         meta: meta,
       ),
       by: by,
       shape: word.shape,
     ),
-    word.shape,
-  );
-
-  /// Another producer of an open fact.
-  FactEmitterOf<T> producer({required Principal by}) => FactEmitterOf(
-    registry.producer(word.name, by: by, shape: word.shape),
     word.shape,
   );
 

@@ -968,29 +968,7 @@ final class RemoteParticipant implements IRawParticipant, IGuest {
     final d = access.fact(raw);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
     _facts[d.name] = (d: d, as: as);
-    return _Fact(this, d, own: true, as: as);
-  }
-
-  /// Another producer of an open [fact]; the host's rights decide, and a
-  /// refusal comes to [errors] with its first fact.
-  @override
-  IFactHandle producer(String fact, {Shape<Object?>? shape}) =>
-      _producer(fact, null);
-
-  IFactHandle _producer(String fact, Principal? as) {
-    _live();
-    // As in the host's process: a fact only its owner says is refused
-    // here, as its copy of the catalog knows it. One it does not know yet
-    // may be defined by now: the host says, on [errors].
-    if (_mirror.descriptorOf(fact) case FactDescriptor(open: false)) {
-      throw StateError('$fact is not open');
-    }
-    return _Fact(
-      this,
-      FactDescriptor(fact, type: const AnyType(), open: true),
-      own: false,
-      as: as,
-    );
+    return _Fact(this, d, as: as);
   }
 
   /// A guard on its own commands, asked by the host in its turn (§10); a

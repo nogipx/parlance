@@ -179,7 +179,6 @@ final class RemoteSession extends ParlanceContractPeer
   final Map<String, IStateHandle> _states = {};
   final Map<String, IFactHandle> _facts = {};
   final Map<String, IHandle> _commands = {};
-  final Map<String, IFactHandle> _producers = {};
 
   /// Why each of its commands cannot run now, as the participant told.
   final Map<String, String> _unavailable = {};
@@ -807,18 +806,14 @@ final class RemoteSession extends ParlanceContractPeer
     LocalParticipant? part,
   }) {
     final p = part ?? _p;
-    var e = _facts[fact];
-    if (e == null) {
-      final d = registry.factDescriptor(fact);
-      if (d == null) {
+    final emitter = _facts[fact];
+    if (emitter == null) {
+      if (registry.factDescriptor(fact) == null) {
         throw RpcStatusException(RpcStatus.notFound, 'no fact $fact');
       }
-      if (!d.open) _deny('$fact is not open');
-      e = _producers['${p.who.selector}|$fact'] ??= _permitted(
-        () => p.producer(fact),
-      );
+      // A fact has one owner (SPEC §6): another's is not said here.
+      _deny('$fact is not the session\'s own');
     }
-    final emitter = e;
     try {
       return _permitted(
         () => emitter.emit(
@@ -830,7 +825,6 @@ final class RemoteSession extends ParlanceContractPeer
     } on TypeMismatch catch (x) {
       throw RpcStatusException(RpcStatus.invalidArgument, '$x');
     } on StateError catch (x) {
-      _producers.remove('${p.who.selector}|$fact');
       throw RpcStatusException(RpcStatus.notFound, x.message);
     }
   }
@@ -972,7 +966,6 @@ final class RemoteSession extends ParlanceContractPeer
     _commands.clear();
     _facts.clear();
     _states.clear();
-    _producers.clear();
     _kinds.clear();
     _guards.clear();
     _unavailable.clear();

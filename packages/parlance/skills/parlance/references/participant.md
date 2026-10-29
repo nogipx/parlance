@@ -26,7 +26,6 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 - **Read, watch, hear, call, ask a word's status** (§6.5) as `who`, through `IRegistryView` (§20) and `watch(state, key:)` (`watchAs(state, shape)` as a shape has it, §18): a state `who` may not read is null and watches as null; a fact it may not hear never comes. Its calls are refused as anyone's are (§9).
 - **Define words in its vocabularies**: `defineState`, `defineCommand`, `defineFact` (each may take its values' shape, so the registry keeps them as their Dart values, §18; across a connection they go as JSON whatever the shape), or typed, `p.state(word).define()`, `p.command(word).define(handler, callers: ...)`, `p.fact(word).define()`; no `by`, it is `who`. A name in none of its vocabularies is refused (`StateError`). `rights.define(who, descriptor)` may refuse more (callers that name outsiders, a kind of word).
 - **Write and say as itself.** A write, a call or a fact takes no cause, or one whose `by` is `who`: its own act, or what follows from a call it serves (`call.causeFor(who)`, and so by itself, with none given, in the handler of a call it serves). Another principal's cause is refused, but for a fact `rights.speakFor(who, by, fact)` allows: the fact's cause is then theirs, and so are the rights of what follows (a platform says a chat line for its viewer).
-- **Say an open fact of another** (`producer(fact)`) only when `rights.produce(who, fact)` allows.
 - **Guards on its own commands** (`addGuard`): a guard it adds judges only calls of commands it or one of its parts (§22.3) defined, never another's. The registry knows it as `<principal>#<id>` (`studio@platform#viewers.reporters`), so two participants' guards of one id are two guards, and a refusal and a call record say whose guard it was.
 - **Entity kinds** (`registerKind`, §3) it keeps, and `entitiesChanged` of those only.
 - **`availabilityChanged(command)`**: a check of its own command that reads what the registry does not keep answers otherwise now; watchers of its status are told (§6.5).
@@ -41,7 +40,6 @@ The same interface serves a registry in this process (`LocalParticipant`, §22.1
 | Right | Null means |
 |---|---|
 | `define(who, d)` | every word in its vocabularies |
-| `produce(who, fact)` | no open fact of another |
 | `speakFor(who, by, fact)` | no one but itself |
 
 ### 22.3 Parts and owners

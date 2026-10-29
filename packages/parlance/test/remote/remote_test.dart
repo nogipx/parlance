@@ -570,10 +570,9 @@ void main() {
 
       group('a session that owns words', () {
         const plugin = Principal('plugin', 'kittens');
-        // The host's rights: words under its id, open facts it produces,
-        // a viewer it speaks for.
+        // The host's rights: words under its id, and a viewer it speaks
+        // for.
         final rights = ParticipantRights(
-          produce: (p, fact) => fact == 'platform.follow' ? null : 'not $fact',
           speakFor: (p, by, fact) => by.kind == 'viewer' ? null : 'not $by',
         );
         late Link k;
@@ -687,18 +686,11 @@ void main() {
           );
         });
 
-        test("it says its facts, an open one it produces, for a viewer the "
-            "host lets it speak for; a repeat of an id is dropped", () async {
+        test("it says its own facts, for a viewer the host lets it speak "
+            "for; a repeat of an id is dropped; another's fact it does not "
+            "say", () async {
           f.r.defineFact(
-            FactDescriptor(
-              'platform.follow',
-              type: const AnyType(),
-              open: true,
-            ),
-            by: owner,
-          );
-          f.r.defineFact(
-            FactDescriptor('platform.raid', type: const AnyType(), open: true),
+            FactDescriptor('platform.raid', type: const AnyType()),
             by: owner,
           );
           await k.client.define(
@@ -707,24 +699,24 @@ void main() {
           expect(await k.client.emit('kittens.adopted', {'name': 'Tom'}), true);
           expect(
             await k.client.emit(
-              'platform.follow',
-              {'viewer': 'Bo'},
+              'kittens.adopted',
+              {'name': 'Bo'},
               id: 'f1',
               by: viewer,
             ),
             true,
           );
           expect(
-            await k.client.emit('platform.follow', {}, id: 'f1', by: viewer),
+            await k.client.emit('kittens.adopted', {}, id: 'f1', by: viewer),
             false,
           );
-          expect(f.r.recent('platform.follow').single.cause.by, viewer);
+          expect(f.r.recent('kittens.adopted').last.cause.by, viewer);
           expect(
             await status(k.client.emit('platform.raid', {})),
             RpcStatus.permissionDenied,
           );
           expect(
-            await status(k.client.emit('platform.follow', {}, by: user)),
+            await status(k.client.emit('kittens.adopted', {}, by: user)),
             RpcStatus.permissionDenied,
           );
           expect(

@@ -223,7 +223,7 @@ extension RawRegistry on Registry {
     _checkKnown(d);
     final kept = shape != null && shape.keptAsIs ? shape : null;
     final keep = kept ?? JsonValue(d.type);
-    final local = LocalFact<Object?>(hub: _hub, open: d.open);
+    final local = LocalFact<Object?>(hub: _hub);
     _facts[d.name] = _FactEntry(d, local, keep);
     _names[local] = d.name;
     _shapeOf[local] = keep;
@@ -235,28 +235,6 @@ extension RawRegistry on Registry {
       local.claim(),
       definer: true,
       shape: kept,
-    );
-  }
-
-  /// Another emit handle of an open fact, for producer [by]. The host
-  /// decides who gets one. It takes Dart values when its [shape] is the
-  /// one the fact keeps its payloads by, else JSON.
-  RawFactEmitter producer(
-    String fact, {
-    required Principal by,
-    Shape<Object?>? shape,
-  }) {
-    final f = _facts[canonical(fact)];
-    if (f == null) throw StateError('no fact $fact');
-    final d = f.descriptor;
-    if (!d.open) throw StateError('$fact is not open');
-    return RawFactEmitter._(
-      this,
-      d,
-      by,
-      f.local.claim(),
-      definer: false,
-      shape: identical(shape, f.shape) ? shape : null,
     );
   }
 

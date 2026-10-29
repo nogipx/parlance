@@ -18,7 +18,6 @@ void main() {
           'from': Field(TextType()),
           'viewers': Field(IntType(min: 0)),
         }),
-        open: true,
       ),
       by: const Principal('plugin', 'twitch'),
     );
@@ -67,27 +66,6 @@ void main() {
 
     test('payloads are checked', () {
       expect(() => raid.emit({'from': 'a'}), throwsA(isA<TypeMismatch>()));
-    });
-
-    test('open facts take more producers; closed ones do not', () async {
-      final other = f.r.producer(
-        'platform.raid',
-        by: const Principal('plugin', 'yt'),
-      );
-      other.emit({'from': 'b', 'viewers': 1});
-      await pumpEventQueue();
-      expect(f.r.recent('platform.raid').single.cause.by.id, 'yt');
-      f.r.defineFact(
-        FactDescriptor('x.closed', type: const AnyType()),
-        by: owner,
-      );
-      expect(() => f.r.producer('x.closed', by: owner), throwsStateError);
-      other.dispose();
-      expect(
-        f.r.factDescriptor('platform.raid'),
-        isNotNull,
-        reason: 'only the definer removes it',
-      );
     });
 
     test('recent keeps the last ones per fact', () {

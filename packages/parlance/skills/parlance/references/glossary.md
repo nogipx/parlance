@@ -54,9 +54,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
 - **Availability** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyUnavailable(command)` asks without calling, so a button can be grey with the reason.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.
-- **Open fact** (§6.3): one the host lets several producers say (the chat of several platforms); more emit handles are handed out.
 - **Emit handle** (§6.3): what says a fact (`RawFactEmitter`, typed `FactEmitterOf<T>`).
-- **Producer** (§6.3, §14): who says a fact: its definer, or one handed an emit handle of an open fact.
+- **Producer** (§6.3, §14): who says a fact: its owner, the one that defined it.
 - **Dedup window** (§6.3, §9): how long an id answers its first message: a fact seen again is dropped, a call seen again answers the first result.
 - **Catalog** (§6.4): the descriptors and entity kinds there are now; changes at runtime (`catalogChanges`).
 - **`describe`**, **`describeFor`** (§6.4, §14): the catalog as JSON; for a principal, with what it may call (`access`), what cannot run now (`unavailable`) and what it may not read (`unreadable`).
@@ -151,7 +150,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`McpSocketServer`**: agents on a Unix socket (`mcp_io.dart`); `toolsChanged()` reaches every session.
 - **`parlance-mcp`**: an agent's participant across a connection as a stdio server; the package `parlance_mcp`.
 - **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`registry.participant`), so the part never holds the registry.
-- **Participant rights** (§22.2): `define` (a further check on its words), `produce` (open facts of others), `speakFor` (facts on someone's behalf).
+- **Participant rights** (§22.2): `define` (a further check on its words), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(read:, call:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
 - **Part** (§4, §22.3): `principal.child(name)` (`studio@sound`), an owner of a principal, and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no parts.
 - **Version** (§1): a word's breaking change beside the old one, the same name with `.v<N>` (N >= 2); the name alone is version 1. A version is a word of its own; `wordVersion(name)` parses one.

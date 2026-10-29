@@ -146,7 +146,7 @@ abstract class BoardOwnerBase implements IOwner {
   void _$define(IParticipant p) {
     Keyed.attach(notes, p.state(BoardState.notes).define());
     _$anything = p.state(BoardState.anything).define();
-    _$seen = p.fact(BoardFact.seen).define(open: true);
+    _$seen = p.fact(BoardFact.seen).define();
     p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note));
     p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms));
     p.command(BoardCommand.pin).serve((x) => pin(ids: x.ids));

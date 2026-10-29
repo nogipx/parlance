@@ -482,17 +482,6 @@ final class LocalParticipant implements IRawParticipant {
     );
   }
 
-  @override
-  IFactHandle producer(String fact, {Shape<Object?>? shape}) {
-    _live();
-    final check = rights.produce;
-    if ((check == null ? '$who may produce nothing' : check(who, fact))
-        case final why?) {
-      throw NotPermitted(why);
-    }
-    return _keep(_OwnFact(this, _r.producer(fact, by: who, shape: shape)));
-  }
-
   /// The id the registry knows its guard [id] by: `<who>#<id>`, so two
   /// participants' guards of one id are two guards, and a refusal says
   /// whose it was.

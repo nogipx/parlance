@@ -88,20 +88,12 @@ final class QueryWord {
 /// A fact: a method returning `void`, its named parameters the payload, or
 /// its one positional parameter the payload itself.
 final class FactWord {
-  const FactWord({
-    this.name,
-    this.readers,
-    this.open = false,
-    this.meta = const {},
-  });
+  const FactWord({this.name, this.readers, this.meta = const {}});
   final String? name;
   final Map<String, Object?> meta;
 
   /// Who may hear it, when not the participant's default (SPEC §22.2).
   final Callers? readers;
-
-  /// Whether others may say it too, beside its owner (SPEC §7).
-  final bool open;
 }
 
 /// The bounds of a number: on a state's getter, a parameter, a field.

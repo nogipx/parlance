@@ -20,14 +20,11 @@ final class NotPermitted extends StateError {
 /// What a participant may do beyond defining words in its vocabularies
 /// (SPEC §22.2). Each check answers why not, or null to allow.
 final class ParticipantRights {
-  const ParticipantRights({this.define, this.produce, this.speakFor});
+  const ParticipantRights({this.define, this.speakFor});
 
   /// Define [d], a word in its vocabularies: a further check (callers that
   /// name outsiders, a kind of word). Null: every word in its vocabularies.
   final String? Function(Principal who, Descriptor d)? define;
-
-  /// Say [fact], an open fact another defined. Null: none.
-  final String? Function(Principal who, String fact)? produce;
 
   /// Say [fact] on behalf of [by]: its cause is theirs, and so are the
   /// rights of what follows from it. Null: no one.
@@ -69,13 +66,7 @@ final class WordAccess {
   /// [d] with [read] as its readers when it names none.
   FactDescriptor fact(FactDescriptor d) => d.readers != null || read == null
       ? d
-      : FactDescriptor(
-          d.name,
-          type: d.type,
-          open: d.open,
-          readers: read,
-          meta: d.meta,
-        );
+      : FactDescriptor(d.name, type: d.type, readers: read, meta: d.meta);
 
   /// [callers], else [read], else everyone: who may ask a query, as who
   /// may read a state.
@@ -234,9 +225,6 @@ abstract interface class IRawParticipant implements IParticipant {
   /// [access] when [d] names none. Given its payloads' [shape], its handle
   /// takes Dart values when the registry keeps them so (SPEC §18).
   IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape});
-
-  /// Another producer of an open [fact], as far as [rights] let it.
-  IFactHandle producer(String fact, {Shape<Object?>? shape});
 
   /// A guard (SPEC §10) on calls of its own commands only: what it judges
   /// is its own, never another's command.
@@ -452,7 +440,6 @@ final class ParticipantFactOf<T> {
 
   /// Defines it as the participant's own.
   IFactEmitterOf<T> define({
-    bool open = false,
     Callers? readers,
     Map<String, Object?> meta = const {},
   }) => FactEmitterOf(
@@ -460,18 +447,11 @@ final class ParticipantFactOf<T> {
       FactDescriptor(
         word.name,
         type: word.shape.type,
-        open: open,
         readers: readers,
         meta: meta,
       ),
       shape: word.shape,
     ),
-    word.shape,
-  );
-
-  /// Another producer of it, an open fact.
-  IFactEmitterOf<T> producer() => FactEmitterOf(
-    participant.raw.producer(word.name, shape: word.shape),
     word.shape,
   );
 

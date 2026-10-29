@@ -209,25 +209,6 @@ void main() {
       expect(r.recent('orders.placed').single.cause.by, someone);
     });
 
-    test('says an open fact of another only when its rights let it', () {
-      r
-          .participant(orders, vocabularies: [WordSet.open('orders')])
-          .fact(OrderFact.placed)
-          .define(open: true);
-      expect(
-        () => r.participant(cart).fact(OrderFact.placed).producer(),
-        throwsA(isA<StateError>()),
-      );
-      final producer = r
-          .participant(
-            const Principal('module', 'sync'),
-            rights: ParticipantRights(produce: (_, _) => null),
-          )
-          .fact(OrderFact.placed)
-          .producer();
-      expect(producer.emit((id: 'o', status: 'synced')), isTrue);
-    });
-
     test('reads only what it may', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       p
