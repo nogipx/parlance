@@ -34,6 +34,15 @@ final class RemoteCatalog extends RemoteFeed {
   final Map<String, Object?> json;
 }
 
+/// The entities of one kind as they are now ([json]; null: the kind went),
+/// to a client that speaks the feature `kinds`: the rest of the catalog
+/// is as it was.
+final class RemoteKind extends RemoteFeed {
+  const RemoteKind(this.name, this.json);
+  final String name;
+  final Map<String, Object?>? json;
+}
+
 final class RemoteSnapshot extends RemoteFeed {
   const RemoteSnapshot(this.snapshot, {this.subscription = 0});
   final Snapshot snapshot;
@@ -103,12 +112,20 @@ final class ParlanceClient {
   Stream<RemoteFeed> feed({String? epoch, int? since, RpcContext? context}) =>
       _caller
           .feed(
-            WireFeedRequest(epoch: epoch, since: since),
+            WireFeedRequest(
+              epoch: epoch,
+              since: since,
+              features: parlanceFeatures,
+            ),
             context: context,
           )
           .map(
             (i) => switch (i.kind) {
               'catalog' => RemoteCatalog(i.json),
+              'kind' => RemoteKind(
+                i.json['name']! as String,
+                (i.json['kind'] as Map?)?.cast<String, Object?>(),
+              ),
               'snapshot' => RemoteSnapshot(
                 Snapshot.fromJson(i.json),
                 subscription: i.json['subscription'] as int? ?? 0,

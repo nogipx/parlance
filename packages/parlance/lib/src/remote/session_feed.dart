@@ -8,7 +8,10 @@ final class _Feed {
   _Feed(this._s, WireFeedRequest request)
     : _last = request.since,
       _sent = request.since,
-      _sentEpoch = request.epoch {
+      _sentEpoch = request.epoch,
+      _kinds =
+          _s.features.contains('kinds') &&
+          (request.features?.contains('kinds') ?? false) {
     out = StreamController<WireFeedItem>(
       onListen: _listen,
       onResume: _drain,
@@ -40,6 +43,10 @@ final class _Feed {
   /// The commands that could not run when the feed last told, and why.
   Map<String, String> _unavailable = const {};
 
+  /// Whether the entities of a kind that changed go as a `kind` item
+  /// (the feature `kinds`), not the whole catalog.
+  final bool _kinds;
+
   /// What waits while the connection is not taking more; ticks carry
   /// their seq.
   final List<(WireFeedItem, int?)> _held = [];
@@ -51,7 +58,12 @@ final class _Feed {
   void _listen() {
     listened = true;
     _describe();
-    _catalog = _registry.catalogChanges.listen((_) => _describe());
+    _catalog = _registry.catalogChanges.listen(
+      (c) => switch (c) {
+        KindChanged(:final kind) when _kinds => _kind(kind),
+        _ => _describe(),
+      },
+    );
     _follow();
   }
 
@@ -72,12 +84,17 @@ final class _Feed {
           i.$1.kind == 'tick' &&
           (i.$1.json['facts'] as List? ?? const []).isNotEmpty,
     );
-    // Of the catalog and of what cannot run, only the last told counts.
-    final lastOf = {
-      for (final i in _held)
-        if (i.$1.kind == 'catalog' || i.$1.kind == 'unavailable') i.$1.kind: i,
+    // Of the catalog, of each kind and of what cannot run, only the last
+    // told counts.
+    String? last((WireFeedItem, int?) i) => switch (i.$1.kind) {
+      'catalog' || 'unavailable' => i.$1.kind,
+      'kind' => 'kind ${i.$1.json['name']}',
+      _ => null,
     };
-    _held.retainWhere((i) => i.$1.kind == 'values' || lastOf[i.$1.kind] == i);
+    final lastOf = {for (final i in _held) ?last(i): i};
+    _held.retainWhere(
+      (i) => i.$1.kind == 'values' || (last(i) != null && lastOf[last(i)] == i),
+    );
     if (!_behind) {
       _behind = true;
       unawaited(_items?.cancel());
@@ -131,6 +148,14 @@ final class _Feed {
     final d = _registry.describeFor(_s.principal);
     _unavailable = d['unavailable']! as Map<String, String>;
     send(WireFeedItem('catalog', d));
+  }
+
+  /// The entities of [name] as they are now, none when the kind went;
+  /// then what cannot run, if that moved with them.
+  void _kind(String name) {
+    final kind = _registry.kinds.where((k) => k.name == name).firstOrNull;
+    send(WireFeedItem('kind', {'name': name, 'kind': ?kind?.toJson()}));
+    _availability();
   }
 
   /// After a tick: whether a command came to run or stopped, told as the

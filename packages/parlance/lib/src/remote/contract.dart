@@ -16,6 +16,9 @@ const parlanceFeatures = {
   // What a part was built against, by fingerprint (SPEC §6.9, §25.4):
   // the ops `built` and `unbuilt`.
   'built',
+  // A feed whose client speaks it tells the entities of a kind that
+  // changed as a `kind` item, not the whole catalog again.
+  'kinds',
 };
 
 Map<String, Object?> _obj(Object? v) =>
@@ -36,16 +39,30 @@ final class WireDescription implements IRpcSerializable {
 
 /// Asks for the feed, resuming after [since] of [epoch] when given.
 final class WireFeedRequest implements IRpcSerializable {
-  const WireFeedRequest({this.epoch, this.since});
+  const WireFeedRequest({this.epoch, this.since, this.features});
 
-  factory WireFeedRequest.fromJson(Map<String, dynamic> m) =>
-      WireFeedRequest(epoch: m['epoch'] as String?, since: m['since'] as int?);
+  factory WireFeedRequest.fromJson(Map<String, dynamic> m) => WireFeedRequest(
+    epoch: m['epoch'] as String?,
+    since: m['since'] as int?,
+    features: switch (m['features']) {
+      final List<Object?> l => {for (final f in l) '$f'},
+      _ => null,
+    },
+  );
 
   final String? epoch;
   final int? since;
 
+  /// The features the client speaks (SPEC §14), for the host to send it
+  /// what they make: a client of before them says none.
+  final Set<String>? features;
+
   @override
-  Map<String, dynamic> toJson() => {'epoch': ?epoch, 'since': ?since};
+  Map<String, dynamic> toJson() => {
+    'epoch': ?epoch,
+    'since': ?since,
+    if (features case final f?) 'features': [...f],
+  };
 }
 
 /// What a session's feeds carry: these states and facts, or all of them
