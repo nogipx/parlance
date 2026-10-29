@@ -6,7 +6,8 @@ import '../registry/messages.dart';
 import '../registry/shapes.dart';
 import '../registry/words.dart';
 import '../remote/built.dart';
-import '../remote/remote.dart';
+import '../remote/client.dart';
+import '../remote/mirror.dart';
 import 'view.dart';
 
 /// A view of a registry over remote: [mirror] follows its feed, [client]

@@ -11,4 +11,4 @@ export 'src/remote/participant.dart'
         ProtocolMismatch,
         RegistryUnreachable,
         RemoteParticipant;
-export 'src/remote/remote.dart' show RemoteSession, ServeParticipant;
+export 'src/remote/session.dart' show RemoteSession, ServeParticipant;

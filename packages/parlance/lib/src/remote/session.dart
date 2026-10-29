@@ -1,0 +1,1024 @@
+import 'dart:async';
+
+import 'package:rpc_dart/rpc_dart.dart';
+
+import '../participant/local.dart';
+import '../participant/participant.dart';
+import '../registry/cause.dart';
+import '../registry/descriptors.dart';
+import '../registry/ids.dart';
+import '../registry/messages.dart';
+import '../registry/registry.dart';
+import '../registry/types.dart';
+import 'contract.dart';
+
+/// A participant served across a connection (SPEC §14, §22): `main` makes
+/// it as it makes one for a module in this process (who it is, its
+/// vocabularies, its rights, its access by default), and [serve] gives it
+/// to the part at the other end of the endpoint, a `RemoteParticipant`
+/// there.
+extension ServeParticipant on LocalParticipant {
+  /// Serves this participant over [endpoint] (registering the session's
+  /// contract on it): the part across it reads, calls and owns words as
+  /// this participant, and nothing more. The participant is the session's
+  /// from then on: [RemoteSession.close] withdraws it, its words with it.
+  /// Only a new participant is served, and once: one served already, or
+  /// one that defined, attached or guarded anything here, is refused
+  /// ([StateError]). Its access by default is told to the part across, and
+  /// what of the protocol it speaks ([RemoteSession.features]).
+  RemoteSession serve(
+    RpcPeerEndpoint endpoint, {
+    String? session,
+    int feedBacklog = 256,
+    int maxSubscription = 4096,
+    LogScope? log,
+    Set<String>? features,
+  }) {
+    takeForServing(this);
+    final s = RemoteSession._(
+      endpoint,
+      this,
+      session: session,
+      feedBacklog: feedBacklog,
+      maxSubscription: maxSubscription,
+      log: log,
+      features: features,
+    );
+    endpoint.registerServiceContract(s);
+    return s;
+  }
+}
+
+/// One session of a participant served across a connection
+/// ([ServeParticipant.serve], SPEC §14, §22.4): the registry as the
+/// participant may see and use it; and, in its [vocabularies] and as far as
+/// [rights] let it, an owner of words of its own, whose commands it serves
+/// over the same connection. [close] it when the connection ends, so its
+/// words go.
+final class RemoteSession extends ParlanceContractPeer {
+  RemoteSession._(
+    super.endpoint,
+    LocalParticipant participant, {
+    String? session,
+    this.feedBacklog = 256,
+    this.maxSubscription = 4096,
+    LogScope? log,
+    Set<String>? features,
+  }) : features = features ?? parlanceFeatures,
+       session = session ?? newId(),
+       registry = registryOf(participant),
+       principal = participant.who,
+       _owner = ParlanceOwnerContractPeerCaller(endpoint),
+       _p = participant {
+    this.log = (log ?? registry.log.child('sessions')).withData({
+      'session': this.session,
+      'principal': principal.selector,
+    });
+    if (this.log.isEnabled(RpcLogLevel.info)) this.log.info('session opened');
+  }
+
+  /// Where the session logs: when it opens and ends, what it was denied;
+  /// the registry's `sessions` unless given.
+  late final LogScope log;
+
+  final Registry registry;
+
+  /// How many items a feed holds for a client slower than the registry
+  /// (SPEC §14): past it, the ticks held are dropped and the feed takes up
+  /// again from the last one sent, as the registry still has it, or from a
+  /// snapshot.
+  final int feedBacklog;
+
+  /// How long past its deadline a call of the session's own command waits
+  /// for the owner's late end (SPEC §9): after it, the call ends `failed`.
+  static const lateEnds = Duration(minutes: 5);
+
+  /// How many names one subscription may ask for, states and facts
+  /// together: a peer naming more is refused (`resourceExhausted`), so a
+  /// session holds no more for it than this.
+  final int maxSubscription;
+
+  /// What of the protocol it tells the part across it speaks (SPEC §14):
+  /// every feature of this build unless given; fewer stand in, in a test,
+  /// for a host built against an older parlance.
+  final Set<String> features;
+
+  /// Who the session acts for; fixed when the host accepted the connection.
+  final Principal principal;
+  final String session;
+
+  /// The session as a participant in this process: what it defines, writes
+  /// and says goes through it, in its vocabularies and with its rights.
+  final LocalParticipant _p;
+
+  Set<String> get vocabularies => _p.vocabularies;
+  ParticipantRights get rights => _p.rights;
+
+  /// The participant's side, serving the session's commands.
+  final ParlanceOwnerContractPeerCaller _owner;
+
+  final Map<String, IStateHandle> _states = {};
+  final Map<String, IFactHandle> _facts = {};
+  final Map<String, IHandle> _commands = {};
+  final Map<String, IFactHandle> _producers = {};
+
+  /// Why each of its commands cannot run now, as the participant told.
+  final Map<String, String> _unavailable = {};
+
+  /// Its entity kinds, with the entities it sent last.
+  final Map<
+    String,
+    ({IHandle handle, List<EntityRef> entities, LocalParticipant part})
+  >
+  _kinds = {};
+
+  /// Its guards, asked across the connection.
+  final Map<String, IHandle> _guards = {};
+
+  /// The calls of its commands it is serving now, by id.
+  final Map<String, CommandCall> _serving = {};
+  bool _closed = false;
+
+  void _open() {
+    if (_closed) {
+      throw RpcStatusException(RpcStatus.unavailable, 'the session ended');
+    }
+  }
+
+  Never _deny(String why) {
+    if (log.isEnabled(RpcLogLevel.info)) log.info('denied', data: {'why': why});
+    throw RpcStatusException(RpcStatus.permissionDenied, why);
+  }
+
+  /// The cause of what the session does: following from [parent] (a call
+  /// it serves, or a fact the registry still keeps), else a new chain.
+  Cause _cause({String? parent, Principal? by}) {
+    final who = by ?? principal;
+    if (parent != null) {
+      if (_serving[parent] case final c?) return c.causeFor(who);
+      if (registry.recentFact(parent) case final f? when _reads(f.fact)) {
+        return f.cause.child(f.id, by: who, word: f.fact);
+      }
+    }
+    return Cause(who);
+  }
+
+  @override
+  Future<WireDescription> onDescribe(
+    RpcNull request, {
+    RpcContext? context,
+  }) async {
+    _open();
+    // What this session may call: so its clients offer only that.
+    return WireDescription({
+      ...registry.describeFor(principal),
+      'protocol': parlanceProtocol,
+      'features': [...features],
+      'principal': principal.toJson(),
+      'vocabularies': [..._p.vocabularies],
+      // Who may read and call its words by default, as the host said: the
+      // part across fills its words' descriptors so.
+      'defaults': {
+        'read': ?_p.access.read?.toJson(),
+        'call': ?_p.access.call?.toJson(),
+      },
+    });
+  }
+
+  @override
+  Future<WireJson> onWhy(WireWhyRequest request, {RpcContext? context}) async {
+    _open();
+    if (registry.stateDescriptor(request.state) == null) {
+      throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
+    }
+    if (!_reads(request.state)) _deny(_unreadable(request.state));
+    registry.usedBy(request.state, principal);
+    return WireJson(registry.explain(request.state, key: request.key).toJson());
+  }
+
+  /// What the session's feeds carry ([onSubscribe]): these states and
+  /// facts; null for all of them.
+  Set<String>? _stateFilter;
+  Set<String>? _factFilter;
+
+  /// How many times the session subscribed; a feed's `values` item and its
+  /// snapshot carry the number it follows.
+  int _subscription = 0;
+
+  /// The facts the session read the recent of.
+  final Set<String> _read = {};
+
+  /// The feeds open now; a feed gets items and catch-ups once listened to.
+  final Set<_Feed> _feeds = {};
+
+  /// The highest seq a call of the session answered at: what its mirror
+  /// waits to reach before the call returns there.
+  int _owed = 0;
+
+  /// The states the session's feeds carry; null for all.
+  Set<String>? get states =>
+      _stateFilter == null ? null : Set.unmodifiable(_stateFilter!);
+
+  /// The facts the session's feeds carry; null for all.
+  Set<String>? get facts =>
+      _factFilter == null ? null : Set.unmodifiable(_factFilter!);
+
+  /// Whether the session hears a fact that [fact] matches: its feeds carry
+  /// it (without a subscription, every fact it may hear), or it read the
+  /// recent of it.
+  bool hears(bool Function(String fact) fact) =>
+      (_factFilter ??
+              [
+                for (final d in registry.catalog)
+                  if (d is FactDescriptor && _reads(d.name)) d.name,
+              ])
+          .any(fact) ||
+      _read.any(fact);
+
+  /// Whether the session may read state [name]'s values, or hear fact
+  /// [name] (its `readers`).
+  bool _reads(String name) => registry.mayRead(principal, name);
+
+  String _unreadable(String name) => '${principal.selector} may not read $name';
+
+  bool _carries(String state) =>
+      (_stateFilter?.contains(state) ?? true) && _reads(state);
+
+  @override
+  Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context}) {
+    _open();
+    final feed = _Feed(this, request);
+    _feeds.add(feed);
+    return feed.out.stream;
+  }
+
+  /// [t] as the session follows it, from [from]; null when it has nothing
+  /// the session follows.
+  Tick? _tickOf(Tick t, int from) {
+    final facts = _factFilter;
+    final changes = [
+      for (final c in t.changes)
+        if (_carries(c.state)) c,
+    ];
+    final said = [
+      for (final f in t.facts)
+        if ((facts?.contains(f.fact) ?? true) && _reads(f.fact)) f,
+    ];
+    if (changes.isEmpty && said.isEmpty) return null;
+    if (from == t.from &&
+        changes.length == t.changes.length &&
+        said.length == t.facts.length) {
+      return t;
+    }
+    return Tick(
+      epoch: t.epoch,
+      from: from,
+      to: t.to,
+      changes: changes,
+      facts: said,
+    );
+  }
+
+  @override
+  Future<WireJson> onSubscribe(
+    WireSubscribe request, {
+    RpcContext? context,
+  }) async {
+    _open();
+    final asked = (request.states?.length ?? 0) + (request.facts?.length ?? 0);
+    if (asked > maxSubscription) {
+      throw RpcStatusException(
+        RpcStatus.resourceExhausted,
+        'a subscription asks for at most $maxSubscription names, not $asked',
+      );
+    }
+    // A word it may not read is left out, not the whole subscription: one
+    // such word among what its listeners ask for would otherwise hold back
+    // every word added after it. Its status tells the participant why.
+    final states = request.states?.where(_reads).toSet();
+    final facts = request.facts?.where(_reads).toSet();
+    final n = ++_subscription;
+    _listenTo({...?states, ...?facts});
+    final before = _stateFilter;
+    // An old name of a word subscribes to the word (SPEC §6.4).
+    final now = states?.map(registry.canonical).toSet();
+    _stateFilter = now;
+    _factFilter = facts?.map(registry.canonical).toSet();
+    // The states the feeds carry now and did not: their values, so a copy
+    // has them from here on, as the ticks after keep them.
+    final added = before == null
+        ? const <String>[]
+        : [
+            for (final name in now ?? _stateNames())
+              if (!before.contains(name) &&
+                  registry.stateDescriptor(name) != null &&
+                  _reads(name))
+                name,
+          ];
+    final item = WireFeedItem('values', {
+      'subscription': n,
+      'states': {
+        for (final name in added)
+          name: [
+            for (final v in registry.readAll(name).entries)
+              {'key': ?v.key, 'value': v.value},
+          ],
+      },
+      'keep': ?now?.toList(),
+    });
+    for (final f in _feeds) {
+      if (f.listened) f.send(item);
+    }
+    return WireJson({
+      'subscription': n,
+      // What it asked for and may not read: left out.
+      'left': [
+        for (final name in [...?request.states, ...?request.facts])
+          if (!_reads(name)) name,
+      ],
+    });
+  }
+
+  /// What the session listens to, by the names it gave: counted as its use
+  /// of each word (SPEC §6.8), from one subscription to the next.
+  /// A name with no word yet is kept as null, and counted once its word
+  /// comes ([_catalogChanged]).
+  final Map<String, IHandle?> _listening = {};
+  StreamSubscription<CatalogChange>? _catalogUse;
+
+  void _listenTo(Set<String> names) {
+    for (final gone in [..._listening.keys.where((n) => !names.contains(n))]) {
+      _listening.remove(gone)?.dispose();
+    }
+    for (final name in names) {
+      _listening[name] ??= registry.listenedBy(name, principal);
+    }
+    final waiting = _listening.containsValue(null);
+    if (waiting && _catalogUse == null) {
+      _catalogUse = registry.catalogChanges.listen(_catalogChanged);
+    }
+  }
+
+  /// A word came, or an old name of one: the names it listens to that
+  /// were not words before count from now.
+  void _catalogChanged(CatalogChange c) {
+    if (c is! DescriptorAdded && c is! AliasChanged) return;
+    for (final name in [..._listening.keys]) {
+      _listening[name] ??= registry.listenedBy(name, principal);
+    }
+    if (!_listening.containsValue(null)) {
+      unawaited(_catalogUse?.cancel());
+      _catalogUse = null;
+    }
+  }
+
+  Iterable<String> _stateNames() => [
+    for (final d in registry.catalog)
+      if (d is StateDescriptor) d.name,
+  ];
+
+  @override
+  Future<WireCallReply> onInvoke(
+    WireCallRequest request, {
+    RpcContext? context,
+  }) async {
+    _open();
+    // Ids are the principal's own: another principal reusing one does not
+    // get this one's answer.
+    // A part of the session calls as itself (SPEC §22.3).
+    final by = _part(request.as).who;
+    final result = await registry.call(
+      request.command,
+      request.params,
+      by: by,
+      id: '${principal.selector}#${request.id}',
+      override: request.overriding,
+      cause: _cause(parent: request.parent, by: by),
+    );
+    final seq = registry.seq;
+    if (seq > _owed) _owed = seq;
+    for (final f in [..._feeds]) {
+      if (f.listened) f.catchUp(seq);
+    }
+    return WireCallReply(result.toJson(), epoch: registry.epoch, seq: seq);
+  }
+
+  @override
+  Future<WireJson> onRecent(
+    WireRecentRequest request, {
+    RpcContext? context,
+  }) async {
+    _open();
+    if (registry.factDescriptor(request.fact) == null) {
+      throw RpcStatusException(RpcStatus.notFound, 'no fact ${request.fact}');
+    }
+    if (!_reads(request.fact)) _deny(_unreadable(request.fact));
+    _read.add(request.fact);
+    registry.usedBy(request.fact, principal);
+    return WireJson({
+      'facts': [
+        for (final f in registry.recent(
+          request.fact,
+          request.count.clamp(0, registry.recentPerFact),
+        ))
+          f.toJson(),
+      ],
+    });
+  }
+
+  @override
+  Future<RpcNull> onDefine(WireDefine request, {RpcContext? context}) async {
+    _open();
+    _define(_descriptor(request.descriptor));
+    return const RpcNull();
+  }
+
+  @override
+  Future<RpcNull> onUndefine(WireName request, {RpcContext? context}) async {
+    _open();
+    _undefine(request.name);
+    return const RpcNull();
+  }
+
+  @override
+  Future<RpcNull> onWrite(WireSet request, {RpcContext? context}) async {
+    _open();
+    _write(
+      request.state,
+      key: request.key,
+      value: request.value,
+      remove: request.remove,
+      parent: request.parent,
+    );
+    return const RpcNull();
+  }
+
+  @override
+  Future<WireTaken> onEmit(WireEmit request, {RpcContext? context}) async {
+    _open();
+    return WireTaken(
+      _emit(
+        request.fact,
+        request.payload,
+        id: request.id,
+        by: request.by == null ? null : _principal(request.by),
+        parent: request.parent,
+      ),
+    );
+  }
+
+  /// What a remote participant asked, in its order, as one tick (SPEC
+  /// §22.4): each op answered on its own, a refusal of one not stopping
+  /// the others.
+  @override
+  Future<WireJson> onApply(WireJson request, {RpcContext? context}) async {
+    _open();
+    final results = <Map<String, Object?>>[];
+    registry.batch(() {
+      for (final op in request.json['ops'] as List? ?? const []) {
+        try {
+          results.add(_op((op as Map).cast<String, Object?>()));
+        } on RpcStatusException catch (e) {
+          results.add({'error': e.statusCode.name, 'message': e.message});
+        } on Object catch (e) {
+          // An op that is not one (a field of the wrong type, a name that
+          // is no name) is refused alone: the ops around it stand.
+          results.add({
+            'error': RpcStatus.invalidArgument.name,
+            'message': '$e',
+          });
+        }
+      }
+    });
+    return WireJson({'results': results});
+  }
+
+  /// The part of the session's principal [as] names (SPEC §22.3); the
+  /// session itself for none. Anything but a part of it is refused.
+  LocalParticipant _part(Object? as) {
+    if (as == null) return _p;
+    final who = _principal(as);
+    if (who == principal) return _p;
+    if (who.owner.isEmpty || who.parent != principal) {
+      _deny('$who is no part of $principal');
+    }
+    return _p.child(who.owner);
+  }
+
+  Map<String, Object?> _op(Map<String, Object?> m) {
+    final part = _part(m['as']);
+    switch (m['op']) {
+      case 'define':
+        _define(_descriptor(_obj(m['descriptor'])), part);
+      case 'undefine':
+        _undefine(m['name']! as String);
+      case 'set' || 'remove':
+        _write(
+          m['state']! as String,
+          key: m['key'] as String?,
+          value: m['value'],
+          remove: m['op'] == 'remove',
+          parent: m['parent'] as String?,
+          part: part,
+        );
+      case 'emit':
+        return {
+          'taken': _emit(
+            m['fact']! as String,
+            m['payload'],
+            id: m['id'] as String?,
+            by: m['by'] == null ? null : _principal(m['by']),
+            parent: m['parent'] as String?,
+            part: part,
+          ),
+        };
+      case 'available':
+        _available(m['command']! as String, m['why'] as String?);
+      case 'kind':
+        _kind(m['name']! as String, m['entities'] as List? ?? const [], part);
+      case 'unkind':
+        _kinds.remove(m['name'])?.handle.dispose();
+      case 'guard':
+        _guard(
+          m['id']! as String,
+          overridable: m['overridable'] != false,
+          part: part,
+        );
+      case 'unguard':
+        _guards.remove(part.guardId('${m['id']}'))?.dispose();
+      case 'built':
+        // Told by fingerprint first (SPEC §25.4): the schemas it knows it
+        // takes as told, and answers which it does not.
+        final schemas = {..._obj(m['words'])};
+        final unknown = <String>[];
+        for (final MapEntry(key: word, value: print) in _obj(
+          m['prints'],
+        ).entries) {
+          if (registry.knownSchema('$print') case final schema?) {
+            schemas[word] = schema;
+          } else {
+            unknown.add(word);
+          }
+        }
+        builtAgainstSchemas(part, schemas, from: m['from'] as String?);
+        if (unknown.isNotEmpty) return {'unknown': unknown};
+      case 'unbuilt':
+        forgetBuiltAgainst(part);
+      default:
+        throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
+    }
+    return const {};
+  }
+
+  /// The principal a peer named in [json], or `invalidArgument`.
+  static Principal _principal(Object? json) {
+    try {
+      return Principal.fromJson(json);
+    } on Object catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, 'no principal: $e');
+    }
+  }
+
+  static Map<String, Object?> _obj(Object? v) =>
+      (v as Map? ?? const {}).cast<String, Object?>();
+
+  static Descriptor _descriptor(Map<String, Object?> json) {
+    try {
+      return Descriptor.fromJson(json);
+    } on Object catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
+    }
+  }
+
+  /// [f], with a participant's refusal as `permissionDenied`.
+  T _permitted<T>(T Function() f) {
+    try {
+      return f();
+    } on NotPermitted catch (e) {
+      _deny(e.message);
+    }
+  }
+
+  void _define(Descriptor d, [LocalParticipant? part]) {
+    final p = part ?? _p;
+    try {
+      _permitted(() {
+        switch (d) {
+          case StateDescriptor():
+            _states[d.name] = p.defineState(d);
+          case FactDescriptor():
+            _facts[d.name] = p.defineFact(d);
+          case CommandDescriptor():
+            _commands[d.name] = p.defineCommand(
+              d,
+              _serve,
+              available: () => _unavailable[d.name],
+            );
+          case QueryDescriptor():
+            _commands[d.name] = p.defineQuery(
+              d,
+              _serve,
+              available: () => _unavailable[d.name],
+            );
+        }
+      });
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
+    }
+  }
+
+  void _undefine(String name) {
+    final h =
+        _states.remove(name) ?? _facts.remove(name) ?? _commands.remove(name);
+    if (h == null) {
+      throw RpcStatusException(
+        RpcStatus.notFound,
+        'the session defined no $name',
+      );
+    }
+    _unavailable.remove(name);
+    h.dispose();
+  }
+
+  void _write(
+    String state, {
+    String? key,
+    Object? value,
+    bool remove = false,
+    String? parent,
+    LocalParticipant? part,
+  }) {
+    final w = _states[state];
+    if (w == null) {
+      if (registry.stateDescriptor(state) == null) {
+        throw RpcStatusException(RpcStatus.notFound, 'no state $state');
+      }
+      _deny('$state is not the session\'s own');
+    }
+    final cause = _cause(parent: parent, by: (part ?? _p).who);
+    try {
+      remove
+          ? w.remove(key: key, cause: cause)
+          : w.set(value, key: key, cause: cause);
+    } on TypeMismatch catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$e');
+    } on ArgumentError catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
+    }
+  }
+
+  bool _emit(
+    String fact,
+    Object? payload, {
+    String? id,
+    Principal? by,
+    String? parent,
+    LocalParticipant? part,
+  }) {
+    final p = part ?? _p;
+    var e = _facts[fact];
+    if (e == null) {
+      final d = registry.factDescriptor(fact);
+      if (d == null) {
+        throw RpcStatusException(RpcStatus.notFound, 'no fact $fact');
+      }
+      if (!d.open) _deny('$fact is not open');
+      e = _producers['${p.who.selector}|$fact'] ??= _permitted(
+        () => p.producer(fact),
+      );
+    }
+    final emitter = e;
+    try {
+      return _permitted(
+        () => emitter.emit(
+          payload,
+          id: id == null ? null : '${principal.selector}#$id',
+          cause: _cause(parent: parent, by: by ?? p.who),
+        ),
+      );
+    } on TypeMismatch catch (x) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '$x');
+    } on StateError catch (x) {
+      _producers.remove('${p.who.selector}|$fact');
+      throw RpcStatusException(RpcStatus.notFound, x.message);
+    }
+  }
+
+  void _available(String command, String? why) {
+    if (!_commands.containsKey(command)) {
+      _deny('$command is not the session\'s own');
+    }
+    if (_unavailable[command] == why) return;
+    why == null ? _unavailable.remove(command) : _unavailable[command] = why;
+    registry.availabilityChanged(command);
+  }
+
+  void _kind(String name, List<Object?> entities, [LocalParticipant? part]) {
+    final list = [
+      for (final e in entities.cast<Map<Object?, Object?>>())
+        EntityRef(e['id']! as String, e['label'] as String?, _obj(e['meta'])),
+    ];
+    if (_kinds[name] case final k?) {
+      _kinds[name] = (handle: k.handle, entities: list, part: k.part);
+      _permitted(() => k.part.entitiesChanged(name));
+      return;
+    }
+    final p = part ?? _p;
+    try {
+      final handle = p.registerKind(
+        EntityKind(name, list: () => _kinds[name]?.entities ?? const []),
+      );
+      _kinds[name] = (handle: handle, entities: list, part: p);
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
+    }
+  }
+
+  /// A guard of the session's or a part's, on its commands only, asked in
+  /// its turn: the participant judges the call. Known as `<speaker>/<id>`.
+  void _guard(String id, {required bool overridable, LocalParticipant? part}) {
+    final p = part ?? _p;
+    final full = p.guardId(id);
+    try {
+      _guards[full] = p.addAskedGuard(id, (c) async {
+        final r = await _owner.judge(
+          WireJson({
+            'guard': full,
+            'id': c.id,
+            'command': c.command.name,
+            'params': c.params,
+            'cause': c.cause.toJson(),
+          }),
+        );
+        return r.json['why'] as String?;
+      }, overridable: overridable);
+    } on StateError catch (e) {
+      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
+    }
+  }
+
+  /// Serves a call of a command of the session's: the participant does.
+  Future<Object?> _serve(CommandCall c) async {
+    _serving[c.id] = c;
+    try {
+      final deadline = registry.callableDescriptor(c.command)?.deadline;
+      final served = await _owner.serve(
+        WireServe(
+          id: c.id,
+          command: c.command,
+          params: c.params,
+          cause: c.cause.toJson(),
+          traceparent: c.span.traceparent,
+        ),
+        // The registry bounds the call by its deadline and answers
+        // `timedOut`; the owner's late end is still waited for, and
+        // recorded late, as a handler's in this process is, up to a while
+        // past it (a peer cannot hold a call open for good).
+        context: RpcContext.empty().withTimeout(
+          (deadline ?? const Duration(seconds: 30)) + lateEnds,
+        ),
+      );
+      if (served.error case final why?) throw _Failed(why);
+      return served.value;
+    } on RpcStatusException catch (e) {
+      throw _Failed('its owner did not answer: ${e.message}');
+    } finally {
+      _serving.remove(c.id);
+    }
+  }
+
+  /// Ends the session: its words go, its calls are refused.
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
+    unawaited(_catalogUse?.cancel());
+    for (final h in [
+      ..._commands.values,
+      ..._facts.values,
+      ..._states.values,
+    ]) {
+      h.dispose();
+    }
+    _commands.clear();
+    _facts.clear();
+    _states.clear();
+    _producers.clear();
+    _kinds.clear();
+    _guards.clear();
+    _unavailable.clear();
+    _listenTo(const {});
+    _p.dispose();
+    // Its feeds end: nothing more goes to a session that ended.
+    for (final f in [..._feeds]) {
+      unawaited(f.end());
+    }
+    _feeds.clear();
+  }
+}
+
+/// One feed of a session ([RemoteSession.onFeed]): the registry's feed as
+/// the session follows it, handed to the connection as fast as it takes it.
+/// It applies backpressure, so a slow client pauses it: what waits is held,
+/// and ticks held past the session's `feedBacklog` are dropped.
+final class _Feed {
+  _Feed(this._s, WireFeedRequest request)
+    : _last = request.since,
+      _sent = request.since,
+      _sentEpoch = request.epoch {
+    out = StreamController<WireFeedItem>(
+      onListen: _listen,
+      onResume: _drain,
+      onCancel: _stop,
+    );
+  }
+
+  final RemoteSession _s;
+  late final StreamController<WireFeedItem> out;
+  StreamSubscription<FeedItem>? _items;
+  StreamSubscription<CatalogChange>? _catalog;
+
+  /// Whether the connection listens: until then it gets no items nor
+  /// catch-ups from the session.
+  bool listened = false;
+
+  /// The last seq the feed took: a tick it takes starts after it, so a
+  /// tick left out (nothing in it the session follows) leaves no gap.
+  int? _last;
+
+  /// The last seq it handed to the connection, and of which epoch: the
+  /// client's until the feed hands it one of this registry's.
+  int? _sent;
+  String? _sentEpoch;
+
+  /// The last seq of a tick it saw, sent or left out.
+  int? _seen;
+
+  /// The commands that could not run when the feed last told, and why.
+  Map<String, String> _unavailable = const {};
+
+  /// What waits while the connection is not taking more; ticks carry
+  /// their seq.
+  final List<(WireFeedItem, int?)> _held = [];
+  bool _behind = false;
+  bool _factsDropped = false;
+
+  Registry get _registry => _s.registry;
+
+  void _listen() {
+    listened = true;
+    _describe();
+    _catalog = _registry.catalogChanges.listen((_) => _describe());
+    _follow();
+  }
+
+  void _hand((WireFeedItem, int?) i) {
+    out.add(i.$1);
+    if (i.$2 case final seq?) {
+      _sent = seq;
+      _sentEpoch = _registry.epoch;
+    }
+  }
+
+  /// Too far behind: what it holds of ticks goes, the rest stays (the
+  /// catalog last told, a subscription's values), and the feed follows
+  /// again from the last seq sent once the client takes more.
+  void _drop() {
+    _factsDropped |= _held.any(
+      (i) =>
+          i.$1.kind == 'tick' &&
+          (i.$1.json['facts'] as List? ?? const []).isNotEmpty,
+    );
+    // Of the catalog and of what cannot run, only the last told counts.
+    final lastOf = {
+      for (final i in _held)
+        if (i.$1.kind == 'catalog' || i.$1.kind == 'unavailable') i.$1.kind: i,
+    };
+    _held.retainWhere((i) => i.$1.kind == 'values' || lastOf[i.$1.kind] == i);
+    if (!_behind) {
+      _behind = true;
+      unawaited(_items?.cancel());
+      _items = null;
+    }
+  }
+
+  void send(WireFeedItem item, [int? seq]) {
+    if (!out.isPaused && _held.isEmpty) return _hand((item, seq));
+    _held.add((item, seq));
+    if (_held.length > _s.feedBacklog) _drop();
+  }
+
+  /// Tells the client, by an empty tick, that the ticks it was not sent
+  /// went by up to [seq]: a call answered there returns at once rather
+  /// than wait for a tick that never comes.
+  void catchUp(int seq) {
+    final through = _seen;
+    final from = _last;
+    if (through == null || from == null || from >= seq) return;
+    final to = through < seq ? through : seq;
+    if (to <= from) return;
+    _last = to;
+    send(
+      WireFeedItem(
+        'tick',
+        Tick(
+          epoch: _registry.epoch,
+          from: from + 1,
+          to: to,
+          changes: const [],
+          facts: const [],
+        ).toJson(),
+      ),
+      to,
+    );
+  }
+
+  void _drain() {
+    while (_held.isNotEmpty && !out.isPaused) {
+      _hand(_held.removeAt(0));
+    }
+    if (_held.isEmpty && _behind && !out.isPaused) {
+      _behind = false;
+      _last = _sent;
+      _follow();
+    }
+  }
+
+  void _describe() {
+    final d = _registry.describeFor(_s.principal);
+    _unavailable = d['unavailable']! as Map<String, String>;
+    send(WireFeedItem('catalog', d));
+  }
+
+  /// After a tick: whether a command came to run or stopped, told as the
+  /// whole set when it moved.
+  void _availability() {
+    final now = _registry.unavailable;
+    if (_sameMap(now, _unavailable)) return;
+    _unavailable = now;
+    send(WireFeedItem('unavailable', {'unavailable': now}));
+  }
+
+  void _follow() {
+    _items = _registry.feed(epoch: _sentEpoch, since: _sent).listen((i) {
+      switch (i) {
+        case Snapshot():
+          _last = i.seq;
+          send(
+            WireFeedItem('snapshot', {
+              ...Snapshot(
+                epoch: i.epoch,
+                seq: i.seq,
+                states: {
+                  for (final e in i.states.entries)
+                    if (_s._carries(e.key)) e.key: e.value,
+                },
+                factsLost: i.factsLost || _factsDropped,
+              ).toJson(),
+              'subscription': _s._subscription,
+            }),
+            i.seq,
+          );
+          _factsDropped = false;
+        case Tick():
+          _seen = i.to;
+          final t = _s._tickOf(i, _last == null ? i.from : _last! + 1);
+          if (t != null) {
+            _last = i.to;
+            send(WireFeedItem('tick', t.toJson()), i.to);
+          } else if (i.to <= _s._owed) {
+            // Nothing in it the session follows, but a call of its
+            // waits for this seq: told it went by, empty.
+            catchUp(i.to);
+          }
+          _availability();
+      }
+    });
+  }
+
+  /// The connection stopped listening.
+  Future<void> _stop() async {
+    _s._feeds.remove(this);
+    _held.clear();
+    await _items?.cancel();
+    await _catalog?.cancel();
+  }
+
+  /// The session ended: nothing more goes to it.
+  Future<void> end() async {
+    await _stop();
+    await out.close();
+  }
+}
+
+/// Why a remote owner's command failed, in its words.
+final class _Failed implements Exception {
+  const _Failed(this.why);
+  final String why;
+
+  @override
+  String toString() => why;
+}
+
+bool _sameMap(Map<String, String> a, Map<String, String> b) =>
+    a.length == b.length && a.entries.every((e) => b[e.key] == e.value);

@@ -20,7 +20,8 @@ import '../registry/words.dart';
 import '../view/mirror_view.dart';
 import 'built.dart';
 import 'contract.dart';
-import 'remote.dart';
+import 'client.dart';
+import 'mirror.dart';
 
 /// The host cannot be asked now: the connection is down, or the session
 /// ended. What the participant read before may be old.

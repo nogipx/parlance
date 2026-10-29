@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
-import 'package:parlance/src/remote/remote.dart';
+import 'package:parlance/src/remote/session.dart';
 import 'package:parlance/src/remote/contract.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';

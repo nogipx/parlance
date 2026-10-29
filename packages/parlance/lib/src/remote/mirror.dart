@@ -1,0 +1,255 @@
+import 'dart:async';
+
+import '../registry/descriptors.dart';
+import '../registry/messages.dart';
+import 'client.dart';
+
+/// A remote participant's copy of the registry's states, kept by a feed and
+/// resumed after a lost connection without gaps or repeats (SPEC §12).
+final class RegistryMirror {
+  String? _epoch;
+  int _seq = 0;
+
+  /// The session's subscription the copy follows, and what it asked for.
+  int _subscription = 0;
+  ({Set<String>? states, Set<String>? facts})? _wanted;
+  Map<String, Object?> _catalog = const {};
+  final Map<String, Map<String?, Object?>> _states = {};
+  ParlanceClient? _client;
+  StreamSubscription<RemoteFeed>? _sub;
+  bool _synced = false;
+  final StreamController<Tick> _ticks = StreamController.broadcast();
+  final StreamController<void> _changes = StreamController.broadcast();
+  final StreamController<void> _catalogChanges = StreamController.broadcast();
+  final StreamController<void> _statusChanges = StreamController.broadcast();
+
+  /// From the catalog: each word's kind by name, the words the session's
+  /// principal may not read or call, the commands that cannot run now.
+  Map<String, String> _words = const {};
+  Set<String> _closed = const {};
+  Map<String, String> _unavailable = const {};
+
+  String? get epoch => _epoch;
+  int get seq => _seq;
+
+  /// The catalog as the session's principal sees it (`describeFor`).
+  Map<String, Object?> get catalog => _catalog;
+
+  /// Whether the session's principal can use the word [name] now (SPEC
+  /// §6.5), as the catalog and the availability the feed brought last say.
+  WordStatus statusOf(String name) {
+    final n = canonical(name);
+    final kind = _words[n];
+    if (kind == null) return const WordMissing();
+    if (_closed.contains(n)) return const WordNotPermitted();
+    if (kind == 'command' || kind == 'query') {
+      if (_unavailable[n] case final why?) return WordUnavailable(why);
+    }
+    return const WordReady();
+  }
+
+  /// The catalog came, or a command came to run or stopped: a word's
+  /// [statusOf] may have changed.
+  Stream<void> get statusChanges => _statusChanges.stream;
+
+  /// Whether the copy follows the registry now.
+  bool get synced => _synced;
+
+  /// The ticks applied, in order.
+  Stream<Tick> get ticks => _ticks.stream;
+
+  /// Something changed: a snapshot, a tick, the catalog, the connection.
+  Stream<void> get changes => _changes.stream;
+
+  /// The catalog came: first after following, and on every change of it
+  /// (descriptors or entities).
+  Stream<void> get catalogChanges => _catalogChanges.stream;
+
+  Object? read(String state, {String? key}) => _states[canonical(state)]?[key];
+
+  /// The name [name] stands for, as the catalog's `aliases` say.
+  String canonical(String name) => switch (_catalog['aliases']) {
+    final Map<Object?, Object?> a when a[name] is String => a[name]! as String,
+    _ => name,
+  };
+
+  /// Completes when the copy has the seq [seq] of [epoch] (what a call
+  /// answered at it wrote), or after [timeout]; answers whether it got
+  /// there. With a subscription the copy's seq moves only with the ticks
+  /// its feed carries: a write to a state it does not keep is not waited
+  /// for.
+  Future<bool> reach(
+    String epoch,
+    int seq, {
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    bool there() => _synced && _epoch == epoch && _seq >= seq;
+    if (there()) return true;
+    try {
+      await changes.firstWhere((_) => there()).timeout(timeout);
+      return true;
+    } on TimeoutException {
+      return false;
+    } on StateError {
+      return false;
+    }
+  }
+
+  Map<String?, Object?> readAll(String state) =>
+      Map.unmodifiable(_states[canonical(state)] ?? const {});
+
+  /// The states the copy keeps, and the facts its ticks carry; null for
+  /// all.
+  Set<String>? get states => _wanted?.states;
+  Set<String>? get facts => _wanted?.facts;
+
+  /// Keeps only [states] and hears only [facts] (null: all of them);
+  /// completes when the copy has the values of the states it keeps now, or
+  /// after [timeout]. Kept over a new connection ([follow]).
+  Future<void> subscribe({
+    Set<String>? states,
+    Set<String>? facts,
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    _wanted = (states: states, facts: facts);
+    final client = _client;
+    if (client == null) return;
+    final n = await client.subscribe(states: states, facts: facts);
+    if (_subscription >= n || _client != client) return;
+    try {
+      await changes
+          .firstWhere((_) => _subscription >= n || _client != client)
+          .timeout(timeout);
+    } on TimeoutException {
+      return;
+    } on StateError {
+      return;
+    }
+  }
+
+  /// Follows [client]'s feed, resuming after what the copy already has.
+  /// Call again with a new client after the connection was lost.
+  void follow(ParlanceClient client) {
+    _client = client;
+    _subscription = 0;
+    if (_wanted case (:final states, :final facts)) {
+      // A new session carries everything until it subscribes: before the
+      // feed, so its snapshot has only what the copy keeps.
+      unawaited(
+        client
+            .subscribe(states: states, facts: facts)
+            .then((_) {}, onError: (Object _) {}),
+      );
+    }
+    unawaited(_sub?.cancel());
+    _sub = client
+        .feed(epoch: _epoch, since: _epoch == null ? null : _seq)
+        .listen(
+          _apply,
+          onError: (Object _) => _lost(),
+          onDone: _lost,
+          cancelOnError: true,
+        );
+  }
+
+  void _lost() {
+    _synced = false;
+    _changes.add(null);
+  }
+
+  /// The descriptors the catalog told, made of its JSON when asked.
+  Map<String, Object?> _descriptorJson = const {};
+  final Map<String, Descriptor> _descriptors = {};
+
+  /// The word named [name] as the catalog last told it; null when it told
+  /// none.
+  Descriptor? descriptorOf(String name) {
+    final n = canonical(name);
+    if (_descriptors[n] case final d?) return d;
+    final json = _descriptorJson[n];
+    return json == null ? null : _descriptors[n] = Descriptor.fromJson(json);
+  }
+
+  /// Takes [json], the catalog as the session's principal sees it
+  /// (`describe` answers it too), as the one it has now.
+  void takeCatalog(Map<String, Object?> json) {
+    _catalog = json;
+    _descriptorJson = {
+      for (final d in json['descriptors'] as List? ?? const [])
+        (d as Map)['name'] as String: d,
+    };
+    _descriptors.clear();
+    _words = {
+      for (final d in json['descriptors'] as List? ?? const [])
+        (d as Map)['name'] as String: d['is'] as String,
+    };
+    _closed = {
+      ...?(json['unreadable'] as List?)?.cast<String>(),
+      for (final e in (json['access'] as Map? ?? const {}).entries)
+        if (e.value == Access.deny.name) e.key as String,
+    };
+    _unavailable = (json['unavailable'] as Map? ?? const {}).cast();
+    // The values of a state that left the catalog go with it, though no
+    // tick removed them.
+    _states.removeWhere((name, _) => _words[name] != 'state');
+    _catalogChanges.add(null);
+    _statusChanges.add(null);
+  }
+
+  void _apply(RemoteFeed item) {
+    switch (item) {
+      case RemoteCatalog(:final json):
+        takeCatalog(json);
+        // A feed resumed in the same epoch carries on from the copy's seq:
+        // the copy follows again from its first item, though nothing may
+        // have happened since to send.
+        if (_epoch != null && json['epoch'] == _epoch) _synced = true;
+      case RemoteSnapshot(:final snapshot, :final subscription):
+        _subscription = subscription;
+        _epoch = snapshot.epoch;
+        _seq = snapshot.seq;
+        _states
+          ..clear()
+          ..addAll({
+            for (final e in snapshot.states.entries) e.key: {...e.value},
+          });
+        _synced = true;
+      case RemoteTick(:final tick):
+        if (tick.epoch != _epoch || tick.from != _seq + 1) {
+          // A gap: start over from a snapshot.
+          _epoch = null;
+          if (_client case final c?) follow(c);
+          return;
+        }
+        for (final c in tick.changes) {
+          if (c.removed) {
+            _states[c.state]?.remove(c.key);
+          } else {
+            (_states[c.state] ??= {})[c.key] = c.value;
+          }
+        }
+        _seq = tick.to;
+        _synced = true;
+        _ticks.add(tick);
+      case RemoteUnavailable(:final unavailable):
+        _unavailable = unavailable;
+        _statusChanges.add(null);
+        return;
+      case RemoteValues(:final subscription, :final states, :final keep):
+        _subscription = subscription;
+        if (keep != null) _states.removeWhere((k, _) => !keep.contains(k));
+        for (final e in states.entries) {
+          _states[e.key] = {...e.value};
+        }
+    }
+    _changes.add(null);
+  }
+
+  Future<void> dispose() async {
+    await _sub?.cancel();
+    await _ticks.close();
+    await _changes.close();
+    await _catalogChanges.close();
+    await _statusChanges.close();
+  }
+}

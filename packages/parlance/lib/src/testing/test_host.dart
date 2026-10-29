@@ -11,7 +11,7 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart';
 import '../remote/participant.dart';
-import '../remote/remote.dart';
+import '../remote/session.dart';
 
 /// A registry for a test, what happened in it, and stand-ins for the
 /// modules the test leaves out (SPEC §24).

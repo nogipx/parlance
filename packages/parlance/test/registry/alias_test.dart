@@ -1,5 +1,5 @@
 import 'package:parlance/registry.dart';
-import 'package:parlance/src/remote/remote.dart';
+import 'package:parlance/src/remote/mirror.dart';
 import 'package:test/test.dart';
 
 import '../remote/remote_test.dart' show Link, settle;
