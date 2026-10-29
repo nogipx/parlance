@@ -1098,8 +1098,25 @@ final class Registry implements ITypeContext {
 
   // --- Lifetime --------------------------------------------------------------
 
-  /// Closes the streams and stops the timers.
+  /// What goes before the registry does, the last given first: its
+  /// participants and their sessions ([RawRegistry.beforeDispose]).
+  final List<void Function()> _beforeDispose = [];
+  bool _disposing = false;
+
+  /// Ends every participant and session of it, the last made first, so
+  /// their words, owners and connections go with it; then closes the
+  /// streams and stops the timers.
   Future<void> dispose() async {
+    if (_disposing) return;
+    _disposing = true;
+    for (final f in _beforeDispose.reversed) {
+      try {
+        f();
+      } on Object catch (e, st) {
+        _onError(e, st);
+      }
+    }
+    _beforeDispose.clear();
     await Future.wait([
       _ticks.close(),
       _availability.close(),

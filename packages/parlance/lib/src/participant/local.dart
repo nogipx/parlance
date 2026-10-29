@@ -82,9 +82,24 @@ extension Participants on Registry {
     for (final ns in names) {
       taken[ns] = p;
     }
+    _aliveIn(this).add(p);
     return p;
   }
 }
+
+/// The participants of each registry not disposed yet, in the order they
+/// were made: what its `dispose` ends first, a served one by its session.
+final Expando<Set<LocalParticipant>> _alive = Expando('alive');
+
+Set<LocalParticipant> _aliveIn(Registry r) => _alive[r] ??= () {
+  final alive = <LocalParticipant>{};
+  r.beforeDispose(() {
+    for (final p in [...alive].reversed) {
+      (p._end ?? p.dispose)();
+    }
+  });
+  return alive;
+}();
 
 /// The vocabularies taken, by name, and whose they are.
 final Expando<Map<String, LocalParticipant>> _taken = Expando();
@@ -583,6 +598,7 @@ final class LocalParticipant implements IParticipant {
     }
     final taken = _taken[_r];
     taken?.removeWhere((_, p) => p == this);
+    _alive[_r]?.remove(this);
   }
 }
 
@@ -598,13 +614,19 @@ final class _OwnState implements IStateHandle {
   @override
   Shape<Object?>? get shape => _raw.shape;
 
+  // What a participant gone writes is not written: code still running
+  // when it went (an await answered after) is let go quietly.
   @override
-  void set(Object? value, {String? key, Cause? cause}) =>
-      _raw.set(value, key: key, cause: _p._as(cause));
+  void set(Object? value, {String? key, Cause? cause}) {
+    if (_p._disposed) return;
+    _raw.set(value, key: key, cause: _p._as(cause));
+  }
 
   @override
-  void remove({String? key, Cause? cause}) =>
-      _raw.remove(key: key, cause: _p._as(cause));
+  void remove({String? key, Cause? cause}) {
+    if (_p._disposed) return;
+    _raw.remove(key: key, cause: _p._as(cause));
+  }
 
   @override
   void dispose() {
@@ -629,6 +651,7 @@ final class _OwnFact implements IFactHandle {
   @override
   bool emit(Object? payload, {String? id, Cause? cause}) {
     final p = _p;
+    if (p._disposed) return false;
     if (cause != null && cause.by != p.who && !p._wholeOf(cause.by)) {
       final check = p.rights.speakFor;
       if ((check == null

@@ -32,6 +32,9 @@ final class _State implements IStateHandle {
 
   @override
   void set(Object? value, {String? key, Cause? cause}) {
+    // What a participant gone writes is not written: code still running
+    // when it closed is let go quietly.
+    if (_p._disposed) return;
     final c = _p._as(cause, _by);
     _checkKey(key);
     // Refused here, as in the host's process, not later in errors.
@@ -50,6 +53,7 @@ final class _State implements IStateHandle {
 
   @override
   void remove({String? key, Cause? cause}) {
+    if (_p._disposed) return;
     final c = _p._as(cause, _by);
     _checkKey(key);
     _p._ask({
@@ -102,6 +106,7 @@ final class _Fact implements IFactHandle {
   /// is dropped there) is not known when it is said.
   @override
   bool emit(Object? payload, {String? id, Cause? cause}) {
+    if (_p._disposed) return false;
     final speaker = _by ?? _p.who;
     cause ??= inReplyAs(speaker);
     final by = cause != null && !_p._ownAct(cause.by, speaker)

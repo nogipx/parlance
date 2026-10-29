@@ -249,8 +249,11 @@ void main() {
     expect(r.state(Level.of).readAll(), isEmpty);
     expect(r.hasKind('dial'), isFalse);
     expect(statuses.last, const WordMissing());
+    // What it writes after it went (code still running then) is not
+    // written, and throws nothing.
     dials.dials['a'] = 9;
-    expect(dials.sync, throwsStateError, reason: 'withdrawn');
+    dials.sync();
+    expect(r.state(Level.of).readAll(), isEmpty, reason: 'withdrawn');
     module().attach({'dials': Dials()});
     expect(r.state(Level.of).read(key: 'a'), 1, reason: 'the next session');
   });

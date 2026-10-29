@@ -7,6 +7,10 @@ part of 'registry.dart';
 /// exported, so a host's code reaches the registry through participants
 /// only, as the one each part is.
 extension RawRegistry on Registry {
+  /// Runs [f] when the registry is disposed, before it closes: what holds
+  /// it (its participants) goes first.
+  void beforeDispose(void Function() f) => _beforeDispose.add(f);
+
   /// [command]'s availability may have changed without a tick (SPEC §6.5).
   void availabilityChanged(String command) {
     _availabilityMoved++;

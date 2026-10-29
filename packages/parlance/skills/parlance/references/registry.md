@@ -82,7 +82,7 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 
 - A state has exactly one writer: whoever defined it holds the only write handle.
 - A state that goes (its handle disposed, its participant gone) takes its values with it as removals, committed in one tick whoever follows them is told: inside a batch they commit with it, and what the batch wrote of the state goes uncommitted. Its name is free at once.
-- `dispose()` ends what follows the registry: its watches, status streams and feeds are done.
+- `dispose()` ends what holds the registry first, the last made first: its participants (their owners and parts with them) and the sessions it serves, so nothing is closed by hand before it; then what follows it: its watches, status streams and feeds are done.
 - `readers` say who may read its values over remote and to agents, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.

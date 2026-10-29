@@ -38,16 +38,17 @@ final class AppHost extends AppOwner {
 /// The app's registry and its words.
 final class Host {
   Host() {
-    _app = registry.participant(
-      Who.app,
-      vocabularies: [appWords],
-      access: const WordAccess(call: Who.callers),
-    )..attach({'shell': app});
+    registry
+        .participant(
+          Who.app,
+          vocabularies: [appWords],
+          access: const WordAccess(call: Who.callers),
+        )
+        .attach({'shell': app});
   }
 
   final Registry registry = Registry();
   final AppHost app = AppHost();
-  late final LocalParticipant _app;
   final Map<String, RemoteSession> _guests = {};
 
   /// Serves the guest [id] over [endpoint]: a participant of its own, its
@@ -68,11 +69,7 @@ final class Host {
   /// Unloads the guest [id]: its session ends, and its words go with it.
   void unload(String id) => _guests.remove(id)?.close();
 
-  Future<void> dispose() async {
-    for (final s in _guests.values) {
-      s.close();
-    }
-    _app.dispose();
-    await registry.dispose();
-  }
+  /// Ends it all: the registry takes its participants and the guests'
+  /// sessions with it.
+  Future<void> dispose() => registry.dispose();
 }
