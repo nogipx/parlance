@@ -367,6 +367,11 @@ final class Registry implements ITypeContext {
   // --- Ticks -----------------------------------------------------------------
 
   final StreamController<Tick> _ticks = StreamController.broadcast();
+
+  /// The weight of each value held now, by its state and key: what the
+  /// change that replaces it weighed when it came.
+  final Map<(Object, Object?), int> _heldWeights = {};
+
   final ListQueue<Tick> _retained = ListQueue();
   final ListQueue<int> _retainedWeights = ListQueue();
   int _retainedBytes = 0;
@@ -511,7 +516,12 @@ final class Registry implements ITypeContext {
       if (state != null && identical(state.local, c.state)) {
         state._json.remove(c.key);
       }
-      weight += weigh(c.state, c.value) + weigh(c.state, c.previous);
+      // The value before was weighed when it came: not again.
+      final at = (c.state, c.key);
+      final before = _heldWeights.remove(at) ?? weigh(c.state, c.previous);
+      final now = weigh(c.state, c.value);
+      if (!c.removed) _heldWeights[at] = now;
+      weight += now + before;
     }
     for (final e in t.facts) {
       if (e.tag is! (String, Cause)) continue;

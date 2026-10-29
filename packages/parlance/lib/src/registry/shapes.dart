@@ -125,11 +125,14 @@ final class Plain<T> extends Shape<T> {
   @override
   T fromJson(Object? json) => json as T;
 
+  /// One equal to the value kept before is that one: what holds it
+  /// passes as the same, and an equality asked of it is answered at once.
   @override
-  T check(T value, ITypeContext ctx, {T? was}) =>
-      was != null && identical(value, was) && checkedAlone
-      ? value
-      : _keepJson(type.check(value, ctx)) as T;
+  T check(T value, ITypeContext ctx, {T? was}) {
+    if (was != null && identical(value, was) && checkedAlone) return value;
+    final c = _keepJson(type.check(value, ctx)) as T;
+    return was != null && c == was ? was : c;
+  }
 
   @override
   bool equals(T a, T b) => jsonEquals(a, b);
@@ -282,19 +285,25 @@ final class ListShape<T> extends Shape<List<T>> {
         : null;
     var weight = before == null ? null : _weights[before];
     var same = _kept[value] == true;
-    final out = List<T>.of(value, growable: false);
+    // Whether every item is the one kept in its place before: then the
+    // list is that one, and nothing new is made.
+    var asBefore = before != null && before.length == value.length;
+    // Copied only once an item checked is another than it was.
+    List<T>? out;
     var i = 0;
     try {
-      for (; i < out.length; i++) {
-        final v = out[i];
+      for (; i < value.length; i++) {
+        final v = value[i];
         final had = before != null && i < before.length;
         if (had && identical(v, before[i])) continue;
         final c = item.check(v, ctx, was: had ? before[i] : null);
+        final kept = had && identical(c, before[i]);
+        if (asBefore && !kept) asBefore = false;
         if (!identical(c, v)) {
-          out[i] = c;
+          (out ??= List<T>.of(value, growable: false))[i] = c;
           same = false;
         }
-        if (weight != null) {
+        if (weight != null && !kept) {
           weight += item.weigh(c) - (had ? item.weigh(before[i]) : 0);
         }
       }
@@ -303,13 +312,16 @@ final class ListShape<T> extends Shape<List<T>> {
     }
     if (weight != null) {
       var w = weight;
-      for (var j = out.length; j < before!.length; j++) {
+      for (var j = value.length; j < before!.length; j++) {
         w -= item.weigh(before[j]);
       }
       weight = w;
     }
+    if (asBefore) return before!;
     if (same) return value;
-    final kept = UnmodifiableListView(out);
+    final kept = UnmodifiableListView(
+      out ?? List<T>.of(value, growable: false),
+    );
     _kept[kept] = true;
     if (weight != null) _weights[kept] = weight;
     return kept;
@@ -410,6 +422,7 @@ final class MapShape<T> extends Shape<Map<String, T>> {
         ? was
         : null;
     var same = _kept[v] == true;
+    var asBefore = before != null && before.length == v.length;
     final out = <String, T>{};
     for (final MapEntry(:key, value: e) in v.entries) {
       final had = before != null && before.containsKey(key);
@@ -423,9 +436,11 @@ final class MapShape<T> extends Shape<Map<String, T>> {
       } on TypeMismatch catch (x) {
         throw _within(key, x);
       }
+      if (asBefore && !(had && identical(c, before[key]))) asBefore = false;
       if (same && !identical(c, e)) same = false;
       out[key] = c;
     }
+    if (asBefore) return before!;
     if (same) return v;
     final kept = UnmodifiableMapView(out);
     _kept[kept] = true;
@@ -570,6 +585,8 @@ final class RecordShape<T> extends Shape<T> {
     final before = was == null || get != null ? null : to(was);
     final parts = _parts;
     Map<String, Object?>? changed;
+    // Whether every field is the one [was] has: then the value is [was].
+    var asWas = was != null;
     for (var i = 0; i < parts.length; i++) {
       final (key, p) = parts[i];
       final v = dart == null ? get!(value, i) : dart[key];
@@ -591,6 +608,7 @@ final class RecordShape<T> extends Shape<T> {
       } on TypeMismatch catch (e) {
         throw _within(key, e);
       }
+      if (asWas && !identical(c, w)) asWas = false;
       if (!identical(c, v)) {
         (changed ??= dart != null
                 ? Map.of(dart)
@@ -601,6 +619,7 @@ final class RecordShape<T> extends Shape<T> {
             c;
       }
     }
+    if (asWas) return was as T;
     if (changed == null) return value;
     return from({
       for (final MapEntry(:key, :value) in changed.entries) key: ?value,

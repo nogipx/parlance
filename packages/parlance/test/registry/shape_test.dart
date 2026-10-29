@@ -312,6 +312,36 @@ void main() {
     );
   });
 
+  test('what equals the value kept before is that value: nothing new made, '
+      'an equality asked at once', () {
+    const songs = ListShape(track);
+    for (final s in [track, trackByPlace]) {
+      final before = s.check(t('song', tags: ['a', 'b']), ctx);
+      // Equal, every part of it another instance.
+      final again = s.check(
+        t(String.fromCharCodes('song'.codeUnits), tags: ['a', 'b']),
+        ctx,
+        was: before,
+      );
+      expect(identical(again, before), isTrue);
+      final other = s.check(t('song', tags: ['a', 'c']), ctx, was: before);
+      expect(identical(other, before), isFalse);
+      expect(other.tags, ['a', 'c']);
+    }
+    final list = songs.check([t('a'), t('b')], ctx);
+    expect(
+      identical(songs.check([t('a'), t('b')], ctx, was: list), list),
+      isTrue,
+    );
+    final more = songs.check([t('a'), t('b'), t('c')], ctx, was: list);
+    expect(identical(more, list), isFalse);
+    expect(identical(more[0], list[0]), isTrue, reason: 'an equal item kept');
+    const byName = MapShape(Plain(IntType()));
+    final m = byName.check({'a': 1, 'b': 2}, ctx);
+    expect(identical(byName.check({'a': 1, 'b': 2}, ctx, was: m), m), isTrue);
+    expect(byName.check({'a': 1}, ctx, was: m), {'a': 1});
+  });
+
   test('what asks the registry is asked again, the same or not', () {
     const cues = ListShape(cue);
     final known = _Known({'main'});
