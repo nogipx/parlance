@@ -197,7 +197,7 @@ abstract interface class IBoardClient {
   Note? notesOf(String note);
 
   /// note of every note, by key.
-  Map<String?, Note> get notesAll;
+  Map<String, Note> get notesAll;
 
   /// note of [note] now, then on every change.
   Stream<Note?> notesChanges(String note);
@@ -239,7 +239,11 @@ final class BoardClient implements IBoardClient {
   Note? notesOf(String note) => view.state(BoardState.notes).read(key: note);
 
   @override
-  Map<String?, Note> get notesAll => view.state(BoardState.notes).readAll();
+  Map<String, Note> get notesAll => {
+    for (final MapEntry(:key, :value)
+        in view.state(BoardState.notes).readAll().entries)
+      ?key: value,
+  };
 
   @override
   Stream<Note?> notesChanges(String note) =>

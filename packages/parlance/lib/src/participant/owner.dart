@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart' show Fact;
 import 'serving.dart';
+import 'serving.dart' as serving_ show apart;
 import 'participant.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
@@ -112,9 +114,27 @@ abstract base class Owner implements IHandle {
         facts,
         (f) => following(
           (by) => f.cause.child(f.message.id, by: by, word: f.message.fact),
+          f.cause.by,
           () => onData(f.payload),
         ),
       );
+
+  /// Who it answers where this runs: on whose behalf the call its handler
+  /// serves came, or the fact it [hear]s; null where it answers nothing.
+  Principal? get caller => answering;
+
+  /// Runs [act] as the owner's own act, not an answer: what it writes,
+  /// says and calls there, and in a timer it starts there, follows from
+  /// nothing it was answering (a timer set in a handler, to act later on
+  /// its own).
+  R apart<R>(R Function() act) => serving_.apart(act);
+
+  /// Runs [writes] as one tick, as a handler's or `sync`'s are: seen
+  /// whole, or not at all when it throws. Not attached, it just runs them.
+  void together(void Function() writes) {
+    final p = _participant;
+    p == null ? writes() : p.batch(writes);
+  }
 
   /// Registers a kind of entities it keeps, [list] the ones there are now.
   TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {

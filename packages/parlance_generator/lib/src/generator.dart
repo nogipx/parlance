@@ -615,8 +615,10 @@ final class _Emitter {
           ))
           ..add((
             docs: ['${st.name} of every ${st.key}, by key.'],
-            signature: 'Map<String?, ${st.type}> get ${st.member}All',
-            body: '=> view.state($word).readAll();',
+            signature: 'Map<String, ${st.type}> get ${st.member}All',
+            body:
+                '=> {for (final MapEntry(:key, :value) in '
+                'view.state($word).readAll().entries) ?key: value};',
           ))
           ..add((
             docs: ['${st.name} of [$key] now, then on every change.'],
@@ -733,6 +735,10 @@ final class _Emitter {
     'define',
     'made',
     'said',
+    'caller',
+    'apart',
+    'together',
+    'hear',
     'defineMore',
     'sync',
     'keep',

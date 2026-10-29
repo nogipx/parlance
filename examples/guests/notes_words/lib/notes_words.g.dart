@@ -90,11 +90,13 @@ abstract base class NotesOwner extends Owner {
   /// each fact's name and payload, in order.
   final List<(String, Object?)> said = [];
 
-  void _say<T>(String fact, FactEmitterOf<T>? e, T payload) {
+  void _say<T>(String fact, FactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       said.add((fact, payload));
-    } else {
+    } else if (by == null) {
       e.emit(payload);
+    } else {
+      e.emitFor(payload, by);
     }
   }
 
@@ -113,9 +115,9 @@ abstract base class NotesOwner extends Owner {
     if (_allSet) _all!.set(_allNow as List<Note>);
   }
 
-  /// Says notes.added.
-  void added({required String id, required String text}) =>
-      _say('notes.added', _added, (id: id, text: text));
+  /// Says notes.added; on behalf of [by], when given.
+  void added({required String id, required String text, Principal? by}) =>
+      _say('notes.added', _added, (id: id, text: text), by);
 
   /// What [Notes] does not say: kinds, guards, words named at
   /// run time. After its words are defined.

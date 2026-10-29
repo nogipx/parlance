@@ -281,7 +281,7 @@ abstract interface class IHouseClient {
   bool? lightOf(String room);
 
   /// house.light.on of every room, by key.
-  Map<String?, bool> get lightAll;
+  Map<String, bool> get lightAll;
 
   /// house.light.on of [room] now, then on every change.
   Stream<bool?> lightChanges(String room);
@@ -341,7 +341,11 @@ final class HouseClient implements IHouseClient {
   bool? lightOf(String room) => view.state(HouseState.light).read(key: room);
 
   @override
-  Map<String?, bool> get lightAll => view.state(HouseState.light).readAll();
+  Map<String, bool> get lightAll => {
+    for (final MapEntry(:key, :value)
+        in view.state(HouseState.light).readAll().entries)
+      ?key: value,
+  };
 
   @override
   Stream<bool?> lightChanges(String room) =>

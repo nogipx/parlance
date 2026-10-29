@@ -409,7 +409,7 @@ abstract interface class IPlayerClient {
   num? speakerLevelOf(String speaker);
 
   /// player.speaker.level of every speaker, by key.
-  Map<String?, num> get speakerLevelAll;
+  Map<String, num> get speakerLevelAll;
 
   /// player.speaker.level of [speaker] now, then on every change.
   Stream<num?> speakerLevelChanges(String speaker);
@@ -474,8 +474,11 @@ final class PlayerClient implements IPlayerClient {
       view.state(PlayerState.speakerLevel).read(key: speaker);
 
   @override
-  Map<String?, num> get speakerLevelAll =>
-      view.state(PlayerState.speakerLevel).readAll();
+  Map<String, num> get speakerLevelAll => {
+    for (final MapEntry(:key, :value)
+        in view.state(PlayerState.speakerLevel).readAll().entries)
+      ?key: value,
+  };
 
   @override
   Stream<num?> speakerLevelChanges(String speaker) =>

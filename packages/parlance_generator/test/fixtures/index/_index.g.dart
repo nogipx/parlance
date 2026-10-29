@@ -59,7 +59,7 @@ abstract interface class IDoorsClient {
   Room? roomOf(String door);
 
   /// door.room of every door, by key.
-  Map<String?, Room> get roomAll;
+  Map<String, Room> get roomAll;
 
   /// door.room of [door] now, then on every change.
   Stream<Room?> roomChanges(String door);
@@ -80,7 +80,11 @@ final class DoorsClient implements IDoorsClient {
   Room? roomOf(String door) => view.state(DoorsState.room).read(key: door);
 
   @override
-  Map<String?, Room> get roomAll => view.state(DoorsState.room).readAll();
+  Map<String, Room> get roomAll => {
+    for (final MapEntry(:key, :value)
+        in view.state(DoorsState.room).readAll().entries)
+      ?key: value,
+  };
 
   @override
   Stream<Room?> roomChanges(String door) =>
