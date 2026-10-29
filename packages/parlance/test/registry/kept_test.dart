@@ -73,8 +73,8 @@ void main() {
     final started = owner.fact(DeckFact.started).define();
     owner.command(DeckCommand.play).define((c) {
       sent.add(c.params);
-      playing.set(c.params, cause: c.inReply);
-      started.emit(c.params, cause: c.inReply);
+      playing.set(c.params);
+      started.emit(c.params);
       return c.params;
     }, callers: const Callers({'*': Access.allow}));
   });

@@ -156,7 +156,7 @@ void takeForServing(LocalParticipant p, {required void Function() end}) {
   p._end = end;
 }
 
-final class LocalParticipant implements IParticipant {
+final class LocalParticipant implements IRawParticipant {
   LocalParticipant._(
     this._r,
     this.who,
@@ -192,6 +192,9 @@ final class LocalParticipant implements IParticipant {
 
   /// The commands it defined: its guards judge their calls only.
   final Set<String> _commands = {};
+
+  /// Its commands and queries with an availability check.
+  final Set<String> _checked = {};
 
   /// The kinds it registered.
   final Set<String> _kinds = {};
@@ -438,8 +441,10 @@ final class LocalParticipant implements IParticipant {
       returns: returns,
     );
     _commands.add(d.name);
+    if (available != null) _checked.add(d.name);
     return _keepDoing(() {
       _commands.remove(d.name);
+      _checked.remove(d.name);
       h.dispose();
     });
   }
@@ -461,8 +466,10 @@ final class LocalParticipant implements IParticipant {
       returns: returns,
     );
     _commands.add(d.name);
+    if (available != null) _checked.add(d.name);
     return _keepDoing(() {
       _commands.remove(d.name);
+      _checked.remove(d.name);
       h.dispose();
     });
   }
@@ -540,6 +547,14 @@ final class LocalParticipant implements IParticipant {
       throw NotPermitted('$command is not $who\'s command');
     }
     _r.availabilityChanged(command);
+  }
+
+  @override
+  void availabilityMayHaveChanged() {
+    if (_disposed) return;
+    for (final c in _checked) {
+      _r.availabilityChanged(c);
+    }
   }
 
   @override

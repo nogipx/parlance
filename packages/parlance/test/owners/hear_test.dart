@@ -29,10 +29,10 @@ enum _State<T> implements IStateWord<T> {
 }
 
 final class _Book extends Owner {
-  late final StateWriterOf<String> _last;
+  late final IStateWriterOf<String> _last;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     _last = keep(p.state(_State.last).define());
     hear(p.fact(_Fact.rang).stream, _last.set);
   }

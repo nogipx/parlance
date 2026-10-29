@@ -74,18 +74,18 @@ final class _Seen extends RpcCallObserverInterceptor<String> {
 /// across a connection.
 final class Lamps extends Owner {
   bool lit = false;
-  late final StateWriterOf<bool> _on;
-  late final FactEmitterOf<Turn> _purred;
+  late final IStateWriterOf<bool> _on;
+  late final IFactEmitterOf<Turn> _purred;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     _on = keep(p.state(Lamp.on).define());
     _purred = keep(p.fact(Purr.purred).define());
     keep(
       p.command(LampCommand.turn).define((c) {
         lit = c.params.on;
-        _on.set(lit, cause: c.causeFor(kittens));
-        _purred.emit(c.params, cause: c.causeFor(kittens));
+        _on.set(lit);
+        _purred.emit(c.params);
       }, callers: Callers.only(['user'])),
     );
   }
@@ -396,7 +396,7 @@ void main() {
     );
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
-    final purred = p.fact(Purr.purred).define();
+    final purred = p.fact(Purr.purred).define() as FactEmitterOf<({bool on})>;
     purred.emit((on: true), cause: const Cause(someone));
     purred.emit((on: false), cause: const Cause(crew));
     await p.flush();
@@ -509,11 +509,11 @@ void main() {
     final here = r.participant(kittens.child('here'));
     final there = await join();
     for (final p in <IParticipant>[here, there]) {
-      final none = await p.explain('studio.nothing');
+      final none = await p.raw.explain('studio.nothing');
       expect((none.value, none.change), (null, null));
       expect(none.trail, isEmpty);
       await expectLater(
-        p.explain('studio.secret'),
+        p.raw.explain('studio.secret'),
         throwsA(isA<NotPermitted>()),
       );
       expect(await p.recent('studio.whisper', 5), isEmpty);

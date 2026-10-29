@@ -31,19 +31,19 @@ void main() {
 
       test('a word defined again is refused, and keeps what it had', () async {
         final p = await owner();
-        final lamp = p.defineState(
+        final lamp = p.raw.defineState(
           StateDescriptor('deck.lamp', type: const BoolType()),
         );
         lamp.set(true);
         await settled(p);
         expect(
-          () => p.defineState(
+          () => p.raw.defineState(
             StateDescriptor('deck.lamp', type: const BoolType()),
           ),
           throwsStateError,
         );
         expect(
-          () => p.defineCommand(
+          () => p.raw.defineCommand(
             CommandDescriptor('deck.lamp', callers: Callers.only(['user'])),
             (_) {},
           ),
@@ -59,28 +59,30 @@ void main() {
         'a guard or a kind added again is refused, the first kept',
         () async {
           final p = await owner();
-          final guard = p.addGuard('quiet', (_) => null);
-          expect(() => p.addGuard('quiet', (_) => 'no'), throwsStateError);
-          final kind = p.registerKind(EntityKind('deck.slot', list: () => []));
+          final guard = p.raw.addGuard('quiet', (_) => null);
+          expect(() => p.raw.addGuard('quiet', (_) => 'no'), throwsStateError);
+          final kind = p.raw.registerKind(
+            EntityKind('deck.slot', list: () => []),
+          );
           expect(
-            () => p.registerKind(EntityKind('deck.slot', list: () => [])),
+            () => p.raw.registerKind(EntityKind('deck.slot', list: () => [])),
             throwsStateError,
           );
           guard.dispose();
           kind.dispose();
           p
-            ..addGuard('quiet', (_) => null)
-            ..registerKind(EntityKind('deck.slot', list: () => []));
+            ..raw.addGuard('quiet', (_) => null)
+            ..raw.registerKind(EntityKind('deck.slot', list: () => []));
         },
       );
 
       test('a word let go frees its name', () async {
         final p = await owner();
-        p.defineState(StateDescriptor('deck.lamp', type: const BoolType()))
+        p.raw.defineState(StateDescriptor('deck.lamp', type: const BoolType()))
           ..set(true)
           ..dispose();
         await settled(p);
-        p
+        p.raw
             .defineState(StateDescriptor('deck.lamp', type: const BoolType()))
             .set(false);
         await settled(p);

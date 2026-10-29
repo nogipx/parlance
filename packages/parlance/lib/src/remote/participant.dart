@@ -46,7 +46,7 @@ part 'participant_part.dart';
 /// connection that does not come back (a wasm module's to its host, one in
 /// memory) is one whose factory gives the same transport and that does not
 /// reconnect (`shouldReconnect: (_) => false`).
-final class RemoteParticipant implements IParticipant {
+final class RemoteParticipant implements IRawParticipant {
   RemoteParticipant._(
     this.endpoint,
     this._client,
@@ -1038,7 +1038,7 @@ final class RemoteParticipant implements IParticipant {
   /// A part of it (SPEC §22.3): its words, writes, calls and facts go as
   /// the part's, and the host holds them to the part.
   @override
-  IParticipant child(String name) => _partOf(who.child(name));
+  IRawParticipant child(String name) => _partOf(who.child(name));
 
   _Part _partOf(Principal p) {
     _live();
@@ -1084,6 +1084,9 @@ final class RemoteParticipant implements IParticipant {
     }
     _checkAvailability();
   }
+
+  @override
+  void availabilityMayHaveChanged() => _checkAvailability();
 
   /// Tells the host what its commands' checks say now, where it changed.
   void _checkAvailability() {

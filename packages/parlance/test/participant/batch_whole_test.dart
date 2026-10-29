@@ -35,10 +35,10 @@ void main() {
 
       test('a batch that throws commits nothing it wrote or said', () async {
         final p = await owner();
-        final volume = p.defineState(
+        final volume = p.raw.defineState(
           StateDescriptor('deck.volume', type: const IntType()),
         );
-        final said = p.defineFact(
+        final said = p.raw.defineFact(
           FactDescriptor('deck.said', type: const IntType()),
         );
         volume.set(1);
@@ -65,10 +65,10 @@ void main() {
         'an outer batch that catches an inner one keeps what it wrote',
         () async {
           final p = await owner();
-          final a = p.defineState(
+          final a = p.raw.defineState(
             StateDescriptor('deck.a', type: const IntType()),
           );
-          final b = p.defineState(
+          final b = p.raw.defineState(
             StateDescriptor('deck.b', type: const IntType()),
           );
           p.batch(() {

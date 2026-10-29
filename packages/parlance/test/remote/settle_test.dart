@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 /// are as the host is.
 final class _Lamp extends Owner {
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     keep(
       p.defineState(StateDescriptor('lamp.on', type: const BoolType())),
     ).set(true);

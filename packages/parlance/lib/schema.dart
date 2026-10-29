@@ -13,7 +13,8 @@
 library;
 
 export 'src/core/core.dart' show IHandle;
-export 'src/participant/owner.dart' show IOwner, OwnerTools, TrackedKind;
+export 'src/participant/owner.dart'
+    show IOwner, OwnerTools, TrackedKind, failCall, CallFailure;
 export 'src/participant/participant.dart' show IParticipant, TypedParticipant;
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
@@ -76,6 +77,8 @@ export 'src/registry/words.dart'
         Fact,
         IStateWriterOf,
         IFactEmitterOf,
+        StateWordOf,
+        FactWordOf,
         Keyed,
         CallNotDone;
 export 'src/schema/annotations.dart';

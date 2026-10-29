@@ -54,17 +54,18 @@ final class LinkRun {
 /// and the command `<vocabulary>.links.press`, which [pressers] may call.
 final class Links {
   Links(
-    this.participant, {
+    IParticipant participant, {
     required this.vocabulary,
     Callers? pressers,
     List<TriggerExtension> extensions = const [],
     this.onError,
     this.onRun,
     this.conversationLimit = 16,
-  }) : pressers = pressers ?? Callers({'*': Access.allow}),
+  }) : participant = participant.raw,
+       pressers = pressers ?? Callers({'*': Access.allow}),
        _extensions = {for (final e in extensions) e.name: e};
 
-  final IParticipant participant;
+  final IRawParticipant participant;
   final String vocabulary;
   final Callers pressers;
   final Map<String, TriggerExtension> _extensions;
@@ -338,7 +339,7 @@ final class _Active {
   /// Completes when the link stops: a run waiting in a step ends then.
   final Completer<void> _halt = Completer();
 
-  IParticipant get _p => links.participant;
+  IRawParticipant get _p => links.participant;
 
   void start() {
     for (final t in link.triggers) {

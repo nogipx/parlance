@@ -46,17 +46,13 @@ final class Home extends HouseOwnerBase {
     // hand too, so nobody has to call `sync` on its participant.
     follow(_pull, on: devices.changed);
     // The door stays locked at night, unless a resident says so
-    // (override). It judges the house's commands only.
-    whenAttached(
-      (p) => keep(
-        p.addGuard('night-door', (call) {
-          if (call.command.name != HouseCommand.lock.name) return null;
-          final unlock = call.params['on'] == false;
-          return unlock && mode == Mode.night
-              ? 'the door stays locked at night'
-              : null;
-        }),
-      ),
+    // (override). It judges the lock's calls only.
+    guard(
+      HouseCommand.lock,
+      'night-door',
+      (lock, _) => !lock.on && mode == Mode.night
+          ? 'the door stays locked at night'
+          : null,
     );
   }
 

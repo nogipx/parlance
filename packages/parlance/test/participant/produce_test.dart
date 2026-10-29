@@ -35,12 +35,12 @@ void main() {
 
       test('a fact only its owner says is refused at once', () async {
         final p = await producer();
-        expect(() => p.producer('deck.own'), throwsStateError);
+        expect(() => p.raw.producer('deck.own'), throwsStateError);
       });
 
       test('a payload of the wrong type is refused at once', () async {
         final p = await producer();
-        final said = p.producer('deck.said');
+        final said = p.raw.producer('deck.said');
         expect(() => said.emit('loud'), throwsA(isA<TypeMismatch>()));
         expect(said.emit(3), isTrue);
       });

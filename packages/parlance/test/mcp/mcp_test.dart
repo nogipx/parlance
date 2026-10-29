@@ -37,7 +37,7 @@ final class Client {
       output: (line) => _out.add(jsonDecode(line) as Map<String, Object?>),
       tools: () {
         toolsMade++;
-        return parlanceTools(agent, commandTools: commandTools);
+        return parlanceTools(agent.raw, commandTools: commandTools);
       },
       instructions: parlanceInstructions,
     );

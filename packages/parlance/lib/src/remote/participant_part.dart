@@ -2,7 +2,7 @@ part of 'participant.dart';
 
 /// A part of a remote participant (SPEC §22.3): the participant's own
 /// machinery, each thing it asks told as the part's (`as`).
-final class _Part implements IParticipant {
+final class _Part implements IRawParticipant {
   _Part(this._root, this.who);
   final RemoteParticipant _root;
 
@@ -159,6 +159,9 @@ final class _Part implements IParticipant {
       _root.availabilityChanged(command);
 
   @override
+  void availabilityMayHaveChanged() => _root._checkAvailability();
+
+  @override
   void batch(void Function() writes) => _root.batch(writes);
 
   @override
@@ -176,7 +179,7 @@ final class _Part implements IParticipant {
   void sync() => _group.sync();
 
   @override
-  IParticipant child(String name) => _root._partOf(who.child(name));
+  IRawParticipant child(String name) => _root._partOf(who.child(name));
 
   @override
   void dispose() {

@@ -16,7 +16,7 @@ final class Level extends Owner {
   late final IStateHandle _state;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     _state = keep(p.defineState(StateDescriptor(name, type: const IntType())));
     if (defineFails) throw StateError('cannot define');
   }

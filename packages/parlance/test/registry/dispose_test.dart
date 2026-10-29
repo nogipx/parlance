@@ -9,11 +9,11 @@ import 'package:test/test.dart';
 /// participants, their owners and parts, and the sessions it serves.
 /// Nothing is closed by hand before it.
 final class _Lamp extends Owner {
-  late final StateWriterOf<bool> on;
+  late final IStateWriterOf<bool> on;
   var gone = false;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     on = keep(p.state(_On.on).define());
   }
 

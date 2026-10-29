@@ -66,8 +66,8 @@ void main() {
     final last = p.state(OrderState.last).define();
     final placed = p.fact(OrderFact.placed).define();
     p.command(OrderCommand.place).define((c) {
-      last.set(c.params, cause: c.causeFor(orders));
-      placed.emit(c.params, cause: c.causeFor(orders));
+      last.set(c.params);
+      placed.emit(c.params);
       return c.params.id;
     }, callers: Callers.only(['module/cart']));
     return p;
@@ -173,7 +173,10 @@ void main() {
       final q = r.participant(cart, vocabularies: [WordSet.open('cart')]);
       final flag = q.state(_Other.flag).define();
       expect(
-        () => flag.set(true, cause: const Cause(someone)),
+        () => (flag as StateWriterOf<bool>).set(
+          true,
+          cause: const Cause(someone),
+        ),
         throwsA(isA<StateError>()),
       );
     });
@@ -185,7 +188,10 @@ void main() {
       );
       final a = mute.fact(OrderFact.placed).define();
       expect(
-        () => a.emit((id: 'o', status: 'new'), cause: const Cause(someone)),
+        () => (a as FactEmitterOf<Order>).emit((
+          id: 'o',
+          status: 'new',
+        ), cause: const Cause(someone)),
         throwsA(isA<StateError>()),
       );
       mute.dispose();
@@ -196,7 +202,7 @@ void main() {
           speakFor: (_, by, _) => by.kind == 'viewer' ? null : 'viewers only',
         ),
       );
-      voice.fact(OrderFact.placed).define().emit((
+      (voice.fact(OrderFact.placed).define() as FactEmitterOf<Order>).emit((
         id: 'o',
         status: 'new',
       ), cause: const Cause(someone));
@@ -323,7 +329,7 @@ void main() {
       final ui = c.child('ui');
       final flag = ui.state(_Other.flag).define()..set(true);
       expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
-      flag.set(false, cause: const Cause(cart));
+      (flag as StateWriterOf<bool>).set(false, cause: const Cause(cart));
       expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
       expect(
         () => flag.set(true, cause: Cause(cart.child('sync'))),

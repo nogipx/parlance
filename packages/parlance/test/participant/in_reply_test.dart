@@ -37,21 +37,21 @@ void main() {
       test('a write, a fact and a call, before an await and after, follow '
           'from the call served', () async {
         final p = await owner();
-        final before = p.defineState(
+        final before = p.raw.defineState(
           StateDescriptor('deck.before', type: const IntType()),
         );
-        final after = p.defineState(
+        final after = p.raw.defineState(
           StateDescriptor('deck.after', type: const IntType()),
         );
-        final said = p.defineFact(
+        final said = p.raw.defineFact(
           FactDescriptor('deck.said', type: const IntType()),
         );
         String? innerParent;
-        p.defineCommand(
+        p.raw.defineCommand(
           CommandDescriptor('deck.inner', callers: Callers.only(['deck'])),
           (c) => innerParent = c.cause.parent,
         );
-        p.defineCommand(
+        p.raw.defineCommand(
           CommandDescriptor('deck.go', callers: Callers.only(['user'])),
           (c) async {
             before.set(1);
@@ -78,7 +78,7 @@ void main() {
 
       test('outside a handler, what it does is its own act', () async {
         final p = await owner();
-        final level = p.defineState(
+        final level = p.raw.defineState(
           StateDescriptor('deck.level', type: const IntType()),
         );
         level.set(1);

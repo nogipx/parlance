@@ -110,10 +110,10 @@ abstract final class Who {
 /// its command. Who it is and what it may, main says.
 final class Player extends Owner {
   int _volume = 50;
-  late final StateWriterOf<int> _level;
+  late final IStateWriterOf<int> _level;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     _level = keep(p.state(PlayerState.volume).define());
     final clipped = keep(p.fact(PlayerFact.clipped).define());
     keep(

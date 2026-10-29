@@ -94,14 +94,62 @@ final class WordAccess {
 
 /// A part of the app as it speaks (SPEC §22): it sees the registry only
 /// through this, as one principal, [who]. It reads, watches, hears and
-/// calls what [who] may; it defines words only in its [vocabularies], and
-/// writes and says them as [who]. The same whether the registry is in this
-/// process ([LocalParticipant]) or across a connection.
+/// calls what [who] may (as the view it is, [IRegistryView]); it defines
+/// words only in its vocabularies, through typed words
+/// ([TypedParticipant]), and writes and says them as [who]. The same
+/// whether the registry is in this process or across a connection.
 ///
 /// `main` makes one per part and hands it over; the part never gets the
 /// registry itself, so what its words' callers and readers say holds for
-/// it.
+/// it. Frozen (`schema.dart`): what it shows is never taken away; only the
+/// library makes one, so it may grow. Not to be implemented: a test gives
+/// a stand-in of a client (`I<Class>Client`), not of this.
 abstract interface class IParticipant implements IRegistryView, IHandle {
+  /// Who it speaks as.
+  Principal get who;
+
+  /// Runs [writes], its writes and facts committed as one tick.
+  void batch(void Function() writes);
+
+  /// Completes when the registry has done all it asked so far, what it
+  /// sees of the catalog (so [status] too) and of the states is as of
+  /// then, and its listeners were told: what a test waits for after it
+  /// acted, in place of a delay. In this process after a turn of the event
+  /// loop, across a connection once its copy reached the host.
+  Future<void> settle();
+
+  /// Attaches [owners] (SPEC §22.3), each to the part of its name
+  /// (`child(name)`), so causes, records and `explain` tell which owner did
+  /// what; then writes what they have now, as one tick. The names are
+  /// `main`'s; two owners of one name are refused. They go with it.
+  /// Completes when the registry has their words and what they set:
+  /// at once in the host's process, across a connection when the host
+  /// answered (what it refused told to its errors by then).
+  Future<void> attach(Map<String, IOwner> owners);
+
+  /// Writes what every owner attached to it has now (what each
+  /// `follow`s), as one tick.
+  void sync();
+
+  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
+  /// (`studio@screen`), in the same vocabularies with the same rights, so
+  /// what each part does is told as that part's in causes, records and
+  /// `explain`. A part has no parts (`StateError`).
+  IParticipant child(String name);
+
+  /// Withdraws its owners, the last attached first, then everything it
+  /// defined, registered and added, and its parts: a scope (a user's
+  /// session, a feature) leaves nothing of itself, and its vocabularies are
+  /// free again.
+  @override
+  void dispose();
+}
+
+/// A participant as the library and its tools have it: all it does by
+/// name and descriptor, beside its typed words. Every participant the
+/// library makes is one ([IParticipantRaw.raw]). Not frozen: it changes
+/// as the library does.
+abstract interface class IRawParticipant implements IParticipant {
   /// The catalog as it sees it (SPEC §22): the words, what it may call and
   /// read, what cannot run now; what an agent or an editor shows of it.
   Future<Map<String, Object?>> describe();
@@ -114,9 +162,6 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// Told when the catalog it sees changes: a word came or went, a kind's
   /// entities changed.
   Stream<void> get catalogChanges;
-
-  /// Who it speaks as.
-  Principal get who;
 
   /// The first words of the names it may define: `orders` for
   /// `orders.cancel` and `orders.list.page`.
@@ -210,42 +255,18 @@ abstract interface class IParticipant implements IRegistryView, IHandle {
   /// now, though no tick says so: it reads what the registry does not keep.
   void availabilityChanged(String command);
 
-  /// Runs [writes], its writes and facts committed as one tick.
-  void batch(void Function() writes);
+  /// The availability checks of all its commands may answer otherwise
+  /// now: each is asked again, and a status told where it changed.
+  void availabilityMayHaveChanged();
 
-  /// Completes when the registry has done all it asked so far, what it
-  /// sees of the catalog (so [status] too) and of the states is as of
-  /// then, and its listeners were told: what a test waits for after it
-  /// acted, in place of a delay. In this process after a turn of the event
-  /// loop, across a connection once its copy reached the host.
-  Future<void> settle();
-
-  /// Attaches [owners] (SPEC §22.3), each to the part of its name
-  /// (`child(name)`), so causes, records and `explain` tell which owner did
-  /// what; then writes what they have now, as one tick. The names are
-  /// `main`'s; two owners of one name are refused. They go with it.
-  /// Completes when the registry has their words and what they set:
-  /// at once in the host's process, across a connection when the host
-  /// answered (what it refused told to `errors` by then).
-  Future<void> attach(Map<String, IOwner> owners);
-
-  /// Writes what every owner attached to it has now (what each
-  /// `follow`s), as one tick.
-  void sync();
-
-  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
-  /// (`studio@screen`), in the same vocabularies with the same rights, so
-  /// what each part does is told as that part's in causes, records and
-  /// `explain`. Its guards judge its own commands; a cause of this one
-  /// passed to it is taken as its own. A part has no parts (`StateError`).
-  IParticipant child(String name);
-
-  /// Withdraws its owners, the last attached first, then everything it
-  /// defined, registered and added, and its parts: a scope (a user's
-  /// session, a feature) leaves nothing of itself, and its vocabularies are
-  /// free again.
   @override
-  void dispose();
+  IRawParticipant child(String name);
+}
+
+/// Every participant is raw underneath ([IRawParticipant]): the library's
+/// way in, and its tools'.
+extension IParticipantRaw on IParticipant {
+  IRawParticipant get raw => this as IRawParticipant;
 }
 
 /// A participant through typed words (SPEC §18): the word fixes the types.
@@ -267,34 +288,16 @@ final class ParticipantQueryOf<P, R> {
   final IParticipant participant;
   final IQueryWord<P, R> word;
 
-  /// Defines it as the participant's own, served by [handler]; [askers],
-  /// else who may read its words (`access.read`), else everyone.
-  IHandle define(
-    FutureOr<R> Function(QueryAsk<P> ask) handler, {
-    Callers? askers,
-    Duration deadline = const Duration(seconds: 30),
-    Map<String, Object?> meta = const {},
-    Availability? available,
-  }) => participant.defineQuery(
-    word.describeWith(
-      askers: participant.access.askersOf(askers),
-      deadline: deadline,
-      meta: meta,
-    ),
-    word.serve(handler),
-    available: available,
-    params: word.params,
-    returns: word.returns,
-  );
-
-  /// Defines it as [define] does, answered by [handler] of its params
-  /// alone: what a base the generator made gives it (SPEC §23.4).
+  /// Defines it as the participant's own, answered by [handler] of its
+  /// params (SPEC §23.4); [askers], else who may read its words
+  /// (`access.read`), else everyone. [available] says why it cannot be
+  /// asked now, or null.
   IHandle serve(
     FutureOr<R> Function(P params) handler, {
     Callers? askers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-    Availability? available,
+    String? Function()? available,
   }) => define(
     (a) => handler(a.params),
     askers: askers,
@@ -304,9 +307,7 @@ final class ParticipantQueryOf<P, R> {
   );
 
   /// Asks it as the participant; asking again asks again.
-  Future<CallResult<R>> ask(P params, {Cause? cause}) async => word.answer(
-    await participant.callAs(word.name, params, word.params, cause: cause),
-  );
+  Future<CallResult<R>> ask(P params) => askFrom(params);
 
   /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
   WordStatus get status => wordStatus(participant, word);
@@ -321,11 +322,11 @@ final class ParticipantStateOf<T> {
   final IStateWord<T> word;
 
   /// Defines it as the participant's own.
-  StateWriterOf<T> define({
+  IStateWriterOf<T> define({
     Callers? readers,
     Map<String, Object?> meta = const {},
   }) => StateWriterOf(
-    participant.defineState(
+    participant.raw.defineState(
       StateDescriptor(
         word.name,
         type: word.shape.type,
@@ -349,7 +350,7 @@ final class ParticipantStateOf<T> {
 
   /// Its value now, then on every change.
   Stream<T?> watch({String? key}) =>
-      participant.watchAs(word.name, word.shape, key: key);
+      participant.raw.watchAs(word.name, word.shape, key: key);
 
   /// Its value (of [key]) as the core reads a cell (SPEC §21.6), here or
   /// across a connection; over one, another's state is there while it is
@@ -386,39 +387,17 @@ final class ParticipantCommandOf<P, R> {
   final IParticipant participant;
   final ICommandWord<P, R> word;
 
-  /// Defines it as the participant's own, served by [handler] (SPEC §6.2);
-  /// [callers], else the participant's default (`access.call`). A word
-  /// that only answers is a query ([IQueryWord]), not a command.
-  IHandle define(
-    FutureOr<R> Function(CommandCallOf<P> call) handler, {
-    Callers? callers,
-    Duration deadline = const Duration(seconds: 30),
-    Map<String, Object?> meta = const {},
-    Availability? available,
-  }) => participant.defineCommand(
-    CommandDescriptor(
-      word.name,
-      params: word.params.type,
-      returns: word.returns?.type,
-      callers: participant.access.callersOf(word.name, callers),
-      deadline: deadline,
-      meta: meta,
-    ),
-    word.serve(handler, servedBy: participant.who),
-    available: available,
-    params: word.params,
-    returns: word.returns,
-  );
-
-  /// Defines it as [define] does, served by [handler] of its params
-  /// alone: what a base the generator made gives it (SPEC §23.4), with no
-  /// call object; what the handler does follows from the call anyway.
+  /// Defines it as the participant's own (SPEC §6.2), served by [handler]
+  /// of its params (SPEC §23.4): what the handler does follows from the
+  /// call. [callers], else the participant's default (`access.call`);
+  /// [available] says why it cannot run now, or null. A word that only
+  /// answers is a query ([IQueryWord]), not a command.
   IHandle serve(
     FutureOr<R> Function(P params) handler, {
     Callers? callers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-    Availability? available,
+    String? Function()? available,
   }) => define(
     (c) => handler(c.params),
     callers: callers,
@@ -427,23 +406,11 @@ final class ParticipantCommandOf<P, R> {
     available: available,
   );
 
-  /// Calls it with [params] as the participant; [override] as
-  /// [IParticipant.call] says.
-  Future<CallResult<R>> call(
-    P params, {
-    String? id,
-    Cause? cause,
-    bool override = false,
-  }) async => word.answer(
-    await participant.callAs(
-      word.name,
-      params,
-      word.params,
-      id: id,
-      cause: cause,
-      override: override,
-    ),
-  );
+  /// Calls it with [params] as the participant, under [id] when given (a
+  /// retry with the same id runs once). [override] passes a guard's
+  /// overridable denial, when its kind is one of the overriders (SPEC §10).
+  Future<CallResult<R>> call(P params, {String? id, bool override = false}) =>
+      callFrom(params, id: id, override: override);
 
   /// Calls as the core asks a port (SPEC §21.6): the answer of a done
   /// call, else [CallNotDone] with how it ended.
@@ -474,12 +441,12 @@ final class ParticipantFactOf<T> {
   final IFactWord<T> word;
 
   /// Defines it as the participant's own.
-  FactEmitterOf<T> define({
+  IFactEmitterOf<T> define({
     bool open = false,
     Callers? readers,
     Map<String, Object?> meta = const {},
   }) => FactEmitterOf(
-    participant.defineFact(
+    participant.raw.defineFact(
       FactDescriptor(
         word.name,
         type: word.shape.type,
@@ -493,8 +460,8 @@ final class ParticipantFactOf<T> {
   );
 
   /// Another producer of it, an open fact.
-  FactEmitterOf<T> producer() => FactEmitterOf(
-    participant.producer(word.name, shape: word.shape),
+  IFactEmitterOf<T> producer() => FactEmitterOf(
+    participant.raw.producer(word.name, shape: word.shape),
     word.shape,
   );
 
@@ -523,4 +490,80 @@ final class _ParticipantListener<T> implements IFactListener<T> {
 
   @override
   Stream<T> get stream => _fact.stream.map((f) => f.payload);
+}
+
+/// What the library and its tests do with a query by its ask: not frozen.
+extension RawQueryOf<P, R> on ParticipantQueryOf<P, R> {
+  /// Defines it, served by [handler] of its ask (its params, who asks).
+  IHandle define(
+    FutureOr<R> Function(QueryAsk<P> ask) handler, {
+    Callers? askers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+    Availability? available,
+  }) {
+    final p = participant.raw;
+    return p.defineQuery(
+      word.describeWith(
+        askers: p.access.askersOf(askers),
+        deadline: deadline,
+        meta: meta,
+      ),
+      word.serve(handler),
+      available: available,
+      params: word.params,
+      returns: word.returns,
+    );
+  }
+
+  /// Asks it, following from [cause] when given.
+  Future<CallResult<R>> askFrom(P params, {Cause? cause}) async => word.answer(
+    await participant.raw.callAs(word.name, params, word.params, cause: cause),
+  );
+}
+
+/// What the library and its tests do with a command by its call: not
+/// frozen.
+extension RawCommandOf<P, R> on ParticipantCommandOf<P, R> {
+  /// Defines it, served by [handler] of its call (its params, its cause).
+  IHandle define(
+    FutureOr<R> Function(CommandCallOf<P> call) handler, {
+    Callers? callers,
+    Duration deadline = const Duration(seconds: 30),
+    Map<String, Object?> meta = const {},
+    Availability? available,
+  }) {
+    final p = participant.raw;
+    return p.defineCommand(
+      CommandDescriptor(
+        word.name,
+        params: word.params.type,
+        returns: word.returns?.type,
+        callers: p.access.callersOf(word.name, callers),
+        deadline: deadline,
+        meta: meta,
+      ),
+      word.serve(handler, servedBy: p.who),
+      available: available,
+      params: word.params,
+      returns: word.returns,
+    );
+  }
+
+  /// Calls it, following from [cause] when given.
+  Future<CallResult<R>> callFrom(
+    P params, {
+    String? id,
+    Cause? cause,
+    bool override = false,
+  }) async => word.answer(
+    await participant.raw.callAs(
+      word.name,
+      params,
+      word.params,
+      id: id,
+      cause: cause,
+      override: override,
+    ),
+  );
 }

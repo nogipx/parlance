@@ -34,13 +34,13 @@ enum _Command<P, R> implements ICommandWord<P, R> {
 }
 
 final class _Room extends Owner {
-  late final StateWriterOf<int> heat;
-  late final StateWriterOf<bool> lamp;
+  late final IStateWriterOf<int> heat;
+  late final IStateWriterOf<bool> lamp;
   Principal? warmedBy;
   final cooled = Completer<void>();
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     heat = keep(p.state(_State.heat).define());
     lamp = keep(p.state(_State.lamp).define());
     keep(

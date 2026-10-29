@@ -100,7 +100,7 @@ void main() {
   test('commands take their params, defaults filled and bounds held', () async {
     final played = <PlayerPlay>[];
     p.state(PlayerState.volume).define();
-    p.registerKind(EntityKind('speaker', list: () => [EntityRef('left')]));
+    p.raw.registerKind(EntityKind('speaker', list: () => [EntityRef('left')]));
     p.command(PlayerCommand.play).define((c) => played.add(c.params));
     p.command(PlayerCommand.skip).define((c) => c.params.count * 2);
     p.command(PlayerCommand.setVolume).define((_) {});
@@ -206,7 +206,7 @@ void main() {
   test('a client made tells the registry what it was built against', () {
     PlayerClient(asAnn);
     expect(r.mismatches, isEmpty, reason: 'nothing there yet');
-    p.defineState(StateDescriptor('player.volume', type: const TextType()));
+    p.raw.defineState(StateDescriptor('player.volume', type: const TextType()));
     expect(r.mismatches.map((m) => (m.by, m.word)), [(ann, 'player.volume')]);
   });
 
@@ -324,7 +324,7 @@ void main() {
       expect((await asAnn.command(PlayerCommand.stop).call(())).ok, isTrue);
       expect(deck.stopped, 1);
       deck.library.clear();
-      p.child('deck').availabilityChanged('player.play');
+      p.child('deck').raw.availabilityChanged('player.play');
       final play = await asAnn.command(PlayerCommand.play).call((
         track: const Track(title: 'A'),
         repeat: Repeat.off,

@@ -60,11 +60,11 @@ enum Target<T> implements IStateWord<T> {
 /// The module under test: it heats when it is cold outside, through the
 /// heater's command, and says so.
 final class Thermostat extends Owner {
-  late final StateWriterOf<bool> _heating;
-  late final FactEmitterOf<Power> _adjusted;
+  late final IStateWriterOf<bool> _heating;
+  late final IFactEmitterOf<Power> _adjusted;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     _heating = keep(p.state(Target.heating).define());
     _adjusted = keep(p.fact(Adjusted.adjusted).define());
     listen(p.state(Outside.temperature).watch(), (t) async {

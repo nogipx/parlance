@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart' as clock_;
+
 import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart' show Fact;
+import '../registry/words.dart' show Fact, ICommandWord;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart;
 import 'participant.dart';
@@ -116,6 +118,22 @@ final class _Core {
       f();
     }
     synced = true;
+    recheck();
+  }
+
+  bool _recheckDue = false;
+
+  /// What its commands' checks read may have moved (its model, a device,
+  /// what it heard): they are asked again, once in a turn, and a status
+  /// told where it changed. No owner says so itself.
+  void recheck() {
+    if (_recheckDue || participant == null) return;
+    _recheckDue = true;
+    scheduleMicrotask(() {
+      _recheckDue = false;
+      if (group == null) return;
+      participant?.raw.availabilityMayHaveChanged();
+    });
   }
 
   void dispose() {
@@ -166,7 +184,16 @@ extension OwnerTools on IOwner {
   /// write or say.
   void listen<T>(Stream<T> stream, void Function(T) onData) {
     final c = _Core.of(this);
-    c.whenAttached((_) => c.handles.keep(_Listening(stream.listen(onData))));
+    c.whenAttached(
+      (_) => c.handles.keep(
+        _Listening(
+          stream.listen((x) {
+            onData(x);
+            c.recheck();
+          }),
+        ),
+      ),
+    );
   }
 
   /// Hears [facts] while it is attached (another's, through its client's
@@ -199,6 +226,35 @@ extension OwnerTools on IOwner {
     p == null ? writes() : p.batch(writes);
   }
 
+  /// Guards its command [word] (SPEC §10): [check] answers why a call of
+  /// [params] on behalf of [by] may not run, or null; asked before the
+  /// handler, once it is attached. [id] names it in refusals and records.
+  /// An overrider may pass it ([overridable]).
+  void guard<P, R>(
+    ICommandWord<P, R> word,
+    String id,
+    String? Function(P params, Principal by) check, {
+    bool overridable = true,
+  }) {
+    final c = _Core.of(this);
+    c.whenAttached(
+      (p) => c.handles.keep(
+        p.raw.addGuard(
+          id,
+          (call) => call.command.name == word.name
+              ? check(word.params.fromJson(call.params), call.by)
+              : null,
+          overridable: overridable,
+        ),
+      ),
+    );
+  }
+
+  /// The time now, by its registry's clock once it is attached (a test's
+  /// clock, when it gives one).
+  DateTime get now =>
+      (_Core.of(this).participant?.raw.clock ?? clock_.clock).now();
+
   /// Registers a kind of entities it keeps, [list] the ones there are
   /// now; told to the registry once it is attached.
   TrackedKind trackKind(String name, Iterable<EntityRef> Function() list) {
@@ -206,7 +262,7 @@ extension OwnerTools on IOwner {
     final c = _Core.of(this);
     c.whenAttached((p) {
       kind._attach(p);
-      c.handles.keep(p.registerKind(EntityKind(name, list: list)));
+      c.handles.keep(p.raw.registerKind(EntityKind(name, list: list)));
     });
     return kind;
   }
@@ -222,7 +278,7 @@ abstract base class Owner implements IOwner, IHandle {
     IOwner.made(
       this,
       define: (p) {
-        define(p);
+        define(p.raw);
         if (changes case final s?) c.syncOn(s);
       },
     );
@@ -234,7 +290,7 @@ abstract base class Owner implements IOwner, IHandle {
   Stream<void>? get changes => null;
 
   /// Defines its words through [p]; keep what each returns with `keep`.
-  void define(IParticipant p) {}
+  void define(IRawParticipant p) {}
 
   /// Writes its states as they are now. `IParticipant.sync` calls every
   /// owner's in one batch, so a change is seen whole.
@@ -279,7 +335,7 @@ final class TrackedKind {
         if (!ids.contains(id)) id,
     };
     _known = now;
-    _participant?.entitiesChanged(name);
+    _participant?.raw.entitiesChanged(name);
     return gone;
   }
 

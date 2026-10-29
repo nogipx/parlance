@@ -32,7 +32,7 @@ final class Ticking extends Owner {
   Stream<void> get changes => changed.stream;
 
   @override
-  void define(IParticipant p) {}
+  void define(IRawParticipant p) {}
 }
 
 void main() {

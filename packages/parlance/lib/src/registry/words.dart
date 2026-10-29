@@ -104,6 +104,29 @@ abstract interface class IFactWord<T> implements IWord {
   Shape<T> get shape;
 }
 
+/// A state word named at run time (a device found, a plugin loaded), not
+/// by a vocabulary class: `p.state(StateWordOf('sensor.$id', shape))`.
+final class StateWordOf<T> implements IStateWord<T> {
+  const StateWordOf(this.name, this.shape, {this.key});
+
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  final String? key;
+}
+
+/// A fact word named at run time, as [StateWordOf] is.
+final class FactWordOf<T> implements IFactWord<T> {
+  const FactWordOf(this.name, this.shape);
+
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+}
+
 /// A state's value from its JSON, wherever it was read (a registry, a
 /// mirror).
 extension StateValues<T> on IStateWord<T> {
@@ -263,18 +286,21 @@ final class _StateReaderOf<T> implements IStateReader<T> {
 /// part of the generator's contract, which a published words package's
 /// `.g.dart` holds to, so it stays as it is; the participant's handles,
 /// in this process and across a connection, are it.
-abstract interface class IStateWriterOf<T> implements IHandle {
+abstract interface class IStateWriterOf<T> implements IHandle, IStateWriter<T> {
   /// Writes [value], of [key] for a keyed state.
+  @override
   void set(T value, {String? key});
 
   /// Removes the value, of [key] for a keyed state.
+  @override
   void remove({String? key});
 }
 
 /// What a base the generator made says a fact through (SPEC §23.4): the
 /// generator's contract, as [IStateWriterOf] is.
-abstract interface class IFactEmitterOf<T> implements IHandle {
+abstract interface class IFactEmitterOf<T> implements IHandle, IFactEmitter<T> {
   /// Says [payload]; false when the registry dropped it as said before.
+  @override
   bool emit(T payload);
 
   /// Says [payload] on behalf of [by], as far as the rights let it.

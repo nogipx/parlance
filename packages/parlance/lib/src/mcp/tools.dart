@@ -34,7 +34,7 @@ String commandToolName(String command) =>
 /// [commandTools], each command it may call is a tool of its own as well,
 /// made from its description.
 Future<List<McpTool>> parlanceTools(
-  IParticipant p, {
+  IRawParticipant p, {
   bool commandTools = false,
 }) async {
   final d = await p.describe();
@@ -370,7 +370,7 @@ const _offline =
 /// across a connection, a look at many ([keep] false) is not, so a read
 /// of everything leaves no follower behind.
 Future<Object?> _values(
-  IParticipant p,
+  IRawParticipant p,
   String state,
   List<Map<String, Object?>> states, {
   bool keep = true,

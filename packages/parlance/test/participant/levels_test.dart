@@ -86,7 +86,7 @@ final class Deck extends Owner {
   bool loaded = true;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     final playing = keep(p.state(DeckState.playing).define());
     final started = keep(p.fact(DeckFact.started).define());
     keep(
@@ -94,8 +94,8 @@ final class Deck extends Owner {
           .command(DeckCommand.play)
           .define(
             (c) {
-              playing.set(c.params, cause: c.inReply);
-              started.emit(c.params, cause: c.inReply);
+              playing.set(c.params);
+              started.emit(c.params);
             },
             callers: listeners,
             available: () => loaded ? null : 'nothing is loaded',
@@ -216,7 +216,7 @@ void main() {
           ));
           expect(loud.whyNot, 'volume: above 100');
           d.loaded = false;
-          d.participant.availabilityChanged('deck.play');
+          d.participant.raw.availabilityChanged('deck.play');
           expect(
             listener.status('deck.play'),
             isA<WordUnavailable>().having(

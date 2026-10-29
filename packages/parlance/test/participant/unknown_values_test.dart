@@ -235,7 +235,9 @@ void main() {
         final b = await asGuest();
         if (b is RemoteParticipant) b.errors.listen(errors.add);
         final seen = <Mode?>[];
-        final sub = b.watchAs('deck.mode', builtMode.shape).listen(seen.add);
+        final sub = b.raw
+            .watchAs('deck.mode', builtMode.shape)
+            .listen(seen.add);
         await b.fetch('deck.mode');
         await pumpEventQueue();
         expect(b.readAs('deck.mode', builtMode.shape), isNull);

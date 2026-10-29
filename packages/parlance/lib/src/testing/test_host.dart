@@ -124,7 +124,7 @@ final class TestHost {
 
   /// A stand-in owner of another module's state [word], holding [value];
   /// write it again through what it answers.
-  StateWriterOf<T> stateOf<T>(IStateWord<T> word, T value, {String? key}) {
+  IStateWriterOf<T> stateOf<T>(IStateWord<T> word, T value, {String? key}) {
     final writer = _standInFor(word.name).state(word).define();
     writer.set(value, key: key);
     return writer;
@@ -148,7 +148,7 @@ final class TestHost {
   }
 
   /// A stand-in speaker of another module's fact [word].
-  FactEmitterOf<T> factOf<T>(IFactWord<T> word) =>
+  IFactEmitterOf<T> factOf<T>(IFactWord<T> word) =>
       _standInFor(word.name).fact(word).define();
 
   /// The values [word] (of [key]) was given, in order, as committed: null

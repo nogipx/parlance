@@ -23,12 +23,12 @@ enum Level<T> implements IStateWord<T> {
 /// Dials and their levels: one keyed state, a kind it keeps.
 final class Dials extends Owner {
   final Map<String, num> dials = {'a': 1, 'b': 2};
-  late final StateWriterOf<num> _level;
+  late final IStateWriterOf<num> _level;
   late final TrackedKind _kind;
   var synced = 0;
 
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     _kind = trackKind('dial', () => [for (final d in dials.keys) EntityRef(d)]);
     _level = keep(p.state(Level.of).define());
   }
@@ -52,12 +52,12 @@ final class Knob extends Owner {
   final List<num> heard = [];
 
   @override
-  void define(IParticipant p) => listen(turns, heard.add);
+  void define(IRawParticipant p) => listen(turns, heard.add);
 }
 
 final class Other extends Owner {
   @override
-  void define(IParticipant p) {
+  void define(IRawParticipant p) {
     keep(p.state(_Flag.on).define());
   }
 }
@@ -74,13 +74,13 @@ final class Watched extends Dials {
 final class Flagged extends Owner {
   bool on = false;
   final StreamController<void> moved = StreamController.broadcast();
-  late final StateWriterOf<bool> _on;
+  late final IStateWriterOf<bool> _on;
 
   @override
   Stream<void> get changes => moved.stream;
 
   @override
-  void define(IParticipant p) => _on = keep(p.state(_Flag.on).define());
+  void define(IRawParticipant p) => _on = keep(p.state(_Flag.on).define());
 
   @override
   void sync() => _on.set(on);
