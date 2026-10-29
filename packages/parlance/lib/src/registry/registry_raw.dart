@@ -346,13 +346,13 @@ extension RawRegistry on Registry {
     V? Function() now,
     V? Function(StateChange c) of,
   ) {
-    state = canonical(state);
     final at = (state, key);
     late StreamController<V?> out;
     out = StreamController<V?>(
       onListen: () {
         out.add(now());
         _tell[out] = of;
+        _readNow[out] = now;
         // Ticks committed before it read are on their way to the others'
         // listener still: what it read is newer than they are.
         (_watchers[at] ??= {})[out] = seq;
@@ -360,6 +360,7 @@ extension RawRegistry on Registry {
       },
       onCancel: () {
         _tell.remove(out);
+        _readNow.remove(out);
         final set = _watchers[at];
         if (set == null) return;
         set.remove(out);
@@ -373,7 +374,6 @@ extension RawRegistry on Registry {
     return out.stream;
   }
 
-  /// The facts of [fact] as [shape] has their payloads (SPEC §18).
   /// [facts] as [shape] has them (SPEC §18); one whose payload [shape]
   /// cannot read is not heard (SPEC §25.2).
   Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
@@ -387,10 +387,13 @@ extension RawRegistry on Registry {
 
   /// Facts as they are committed, of [fact] only when given.
   Stream<FactMessage> facts({String? fact}) {
-    final name = fact == null ? null : canonical(fact);
-    return ticks.expand(
-      (t) => name == null ? t.facts : t.facts.where((f) => f.fact == name),
-    );
+    if (fact == null) return ticks.expand((t) => t.facts);
+    // What [fact] stands for at each tick: an old name hears the word it
+    // stands for now, renamed while it listens (SPEC §6.4).
+    return ticks.expand((t) {
+      final name = canonical(fact);
+      return t.facts.where((f) => f.fact == name);
+    });
   }
 
   /// The last [n] facts of [fact], oldest first.

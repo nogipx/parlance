@@ -78,6 +78,11 @@ final class RemoteSession extends ParlanceContractPeer {
       'principal': principal.selector,
     });
     if (this.log.isEnabled(RpcLogLevel.info)) this.log.info('session opened');
+    _renames = registry.catalogChanges.listen((c) {
+      if (c is AliasChanged || c is DescriptorAdded || c is DescriptorRemoved) {
+        if (_askedStates != null || _askedFacts != null) _carry(_subscription);
+      }
+    });
   }
 
   /// Where the session logs: when it opens and ends, what it was denied;
@@ -295,18 +300,47 @@ final class RemoteSession extends ParlanceContractPeer {
         'a subscription asks for at most $maxSubscription names, not $asked',
       );
     }
+    _askedStates = request.states?.toSet();
+    _askedFacts = request.facts?.toSet();
+    final n = ++_subscription;
+    _carry(n, told: true);
+    return WireJson({
+      'subscription': n,
+      // What it asked for and may not read: left out.
+      'left': [
+        for (final name in [...?request.states, ...?request.facts])
+          if (!_reads(name)) name,
+      ],
+    });
+  }
+
+  /// What the session subscribed to, by the names it gave: what its feeds
+  /// carry follows what they stand for as the catalog changes, so an old
+  /// name of a word renamed while it follows it goes on reaching the word
+  /// (SPEC §6.4). Null: everything.
+  Set<String>? _askedStates;
+  Set<String>? _askedFacts;
+  StreamSubscription<CatalogChange>? _renames;
+
+  /// Sets what the feeds carry from the names subscribed to, as the
+  /// catalog has them now, and sends the values of the states they carry
+  /// now and did not. [told]: for a subscription, which says its number
+  /// even when nothing changed; else only a change is sent.
+  void _carry(int subscription, {bool told = false}) {
     // A word it may not read is left out, not the whole subscription: one
     // such word among what its listeners ask for would otherwise hold back
     // every word added after it. Its status tells the participant why.
-    final states = request.states?.where(_reads).toSet();
-    final facts = request.facts?.where(_reads).toSet();
-    final n = ++_subscription;
+    final states = _askedStates?.where(_reads).toSet();
+    final facts = _askedFacts?.where(_reads).toSet();
     _listenTo({...?states, ...?facts});
     final before = _stateFilter;
     // An old name of a word subscribes to the word (SPEC §6.4).
     final now = states?.map(registry.canonical).toSet();
+    final heard = facts?.map(registry.canonical).toSet();
+    final same = _sameSet(before, now) && _sameSet(_factFilter, heard);
     _stateFilter = now;
-    _factFilter = facts?.map(registry.canonical).toSet();
+    _factFilter = heard;
+    if (!told && same) return;
     // The states the feeds carry now and did not: their values, so a copy
     // has them from here on, as the ticks after keep them.
     final added = before == null
@@ -319,7 +353,7 @@ final class RemoteSession extends ParlanceContractPeer {
                 name,
           ];
     final item = WireFeedItem('values', {
-      'subscription': n,
+      'subscription': subscription,
       'states': {
         for (final name in added)
           name: [
@@ -332,15 +366,11 @@ final class RemoteSession extends ParlanceContractPeer {
     for (final f in _feeds) {
       if (f.listened) f.send(item);
     }
-    return WireJson({
-      'subscription': n,
-      // What it asked for and may not read: left out.
-      'left': [
-        for (final name in [...?request.states, ...?request.facts])
-          if (!_reads(name)) name,
-      ],
-    });
   }
+
+  static bool _sameSet(Set<String>? a, Set<String>? b) => a == null
+      ? b == null
+      : b != null && a.length == b.length && a.containsAll(b);
 
   /// What the session listens to, by the names it gave: counted as its use
   /// of each word (SPEC §6.8), from one subscription to the next.
@@ -805,6 +835,7 @@ final class RemoteSession extends ParlanceContractPeer {
     _closed = true;
     if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
     unawaited(_catalogUse?.cancel());
+    unawaited(_renames?.cancel());
     for (final h in [
       ..._commands.values,
       ..._facts.values,

@@ -162,6 +162,7 @@ final class Registry implements ITypeContext {
           _catalogLog.info('alias changed', data: {'alias': alias});
         }
         _builtAgainst.aliasChanged(alias);
+        _aliasWatchers(alias);
       case KindChanged(:final kind):
         if (_catalogLog.isDebug) {
           _catalogLog.debug('kind changed', data: {'kind': kind});
@@ -545,7 +546,9 @@ final class Registry implements ITypeContext {
 
   /// Who watches which state (of which key), each with the seq it read
   /// at: a change reaches only its own watchers, however many watch other
-  /// states, and only those that read before it.
+  /// states, and only those that read before it. By the name each gave:
+  /// an old name follows the word it stands for now (SPEC §6.4), as the
+  /// word is renamed while it watches.
   final Map<(String, String?), Map<StreamController<Object?>, int>> _watchers =
       {};
   StreamSubscription<Tick>? _watching;
@@ -553,6 +556,11 @@ final class Registry implements ITypeContext {
   /// What each watcher is told of a change it follows: its JSON, or the
   /// value as the watcher's shape has it.
   final Map<StreamController<Object?>, Object? Function(StateChange)> _tell =
+      Map.identity();
+
+  /// What each watcher reads now: told when the name it gave comes to
+  /// stand for another word.
+  final Map<StreamController<Object?>, Object? Function()> _readNow =
       Map.identity();
 
   /// The registry was disposed: every watch ends.
@@ -564,15 +572,35 @@ final class Registry implements ITypeContext {
     }
     _watchers.clear();
     _tell.clear();
+    _readNow.clear();
     _watching = null;
   }
 
   void _toWatchers(Tick t) {
+    // The old names of each word, for watchers that gave one.
+    final olds = <String, List<String>>{};
+    for (final MapEntry(key: old, value: word) in _aliases.entries) {
+      (olds[word] ??= []).add(old);
+    }
     for (final c in t.changes) {
-      final set = _watchers[(c.state, c.key)];
-      if (set == null) continue;
-      for (final e in [...set.entries]) {
-        if (c.seq > e.value) e.key.add(_tell[e.key]!(c));
+      for (final name in [c.state, ...?olds[c.state]]) {
+        final set = _watchers[(name, c.key)];
+        if (set == null) continue;
+        for (final e in [...set.entries]) {
+          if (c.seq > e.value) e.key.add(_tell[e.key]!(c));
+        }
+      }
+    }
+  }
+
+  /// [alias] stands for another word, or none: its watchers read what it
+  /// stands for now.
+  void _aliasWatchers(String alias) {
+    for (final MapEntry(key: (name, _), value: set) in _watchers.entries) {
+      if (name != alias) continue;
+      for (final out in [...set.keys]) {
+        set[out] = seq;
+        out.add(_readNow[out]!());
       }
     }
   }
