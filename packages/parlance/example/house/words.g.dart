@@ -137,7 +137,7 @@ abstract final class HouseChoices {
 /// says and calls follows from the call it serves.
 abstract class HouseOwnerBase implements IOwner {
   HouseOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: houseWords);
   }
 
   /// house.light.on, by room: what this owner set of each,
@@ -456,12 +456,17 @@ final class HouseClient implements IHouseClient {
 /// The vocabulary of [House]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const houseWords = WordSet('house', [
-  ...HouseState.values,
-  ...HouseCommand.values,
-  ...HouseQuery.values,
-  ...HouseFact.values,
-], from: 'parlance');
+const houseWords = WordSet(
+  'house',
+  [
+    ...HouseState.values,
+    ...HouseCommand.values,
+    ...HouseQuery.values,
+    ...HouseFact.values,
+  ],
+  from: 'parlance',
+  dartName: 'houseWords',
+);
 
 typedef HouseSetLight = ({String room, bool on});
 
@@ -571,7 +576,7 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class VisitOwnerBase implements IOwner {
   VisitOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: visitWords);
   }
 
   IStateWriterOf<List<String>>? _$guests;
@@ -673,10 +678,12 @@ final class VisitClient implements IVisitClient {
 /// The vocabulary of [Visit]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const visitWords = WordSet('visit', [
-  ...VisitState.values,
-  ...VisitCommand.values,
-], from: 'parlance');
+const visitWords = WordSet(
+  'visit',
+  [...VisitState.values, ...VisitCommand.values],
+  from: 'parlance',
+  dartName: 'visitWords',
+);
 
 typedef VisitLeave = ({String who});
 

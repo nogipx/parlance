@@ -6,7 +6,7 @@ import 'package:clock/clock.dart' as clock_;
 import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart' show Fact, ICommandWord, Keyed;
+import '../registry/words.dart' show Fact, ICommandWord, Keyed, WordSet;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
@@ -58,10 +58,12 @@ abstract interface class IOwner {
     IOwner owner, {
     required void Function(IParticipant p) define,
     void Function()? write,
+    WordSet? words,
   }) {
     final c = _Core.of(owner);
     c.define = define;
     c.write = write;
+    c.words = words;
   }
 }
 
@@ -77,6 +79,10 @@ final class _Core {
   static final Expando<_Core> _ofPart = Expando('owner of a part');
 
   final Type type;
+
+  /// The vocabulary its words are in, when its base said it: held to the
+  /// participant's before anything is defined.
+  WordSet? words;
   final Handles handles = Handles();
   IParticipant? participant;
   OwnerGroup? group;
@@ -104,6 +110,7 @@ final class _Core {
 
   void attach(IParticipant p, OwnerGroup group) {
     if (participant != null) throw StateError('$type is attached');
+    _mayOwn(p);
     participant = p;
     this.group = group;
     _ofPart[p] = this;
@@ -122,6 +129,26 @@ final class _Core {
     for (final f in due) {
       f(p);
     }
+  }
+
+  /// Refuses [p] when its vocabularies leave out the one its words are
+  /// in, saying what to give and where: a vocabulary is a right, given
+  /// where the participant is made, never taken by attaching an owner.
+  void _mayOwn(IParticipant p) {
+    final w = words;
+    if (w == null) return;
+    final raw = p.raw;
+    final given = raw.vocabularies;
+    if (given.any((ns) => w.name == ns || w.name.startsWith('$ns.'))) return;
+    final whole = raw.whole.who;
+    throw NotPermitted(
+      '$type, attached as ${p.who}, owns the words of the vocabulary '
+      '${w.name}, but its participant $whole was not given that '
+      'vocabulary (it has ${given.isEmpty ? 'none' : given.join(', ')}). '
+      'A vocabulary is given where the participant is made: '
+      'host.participant($whole, vocabularies: '
+      '[${w.dartName ?? 'the WordSet of ${w.name}'}])',
+    );
   }
 
   /// [signal] tells it to be synced, once for all told in one turn.

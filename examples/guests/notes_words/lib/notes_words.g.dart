@@ -67,7 +67,7 @@ enum NotesFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class NotesOwnerBase implements IOwner {
   NotesOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: notesWords);
   }
 
   IStateWriterOf<List<Note>>? _$all;
@@ -203,11 +203,12 @@ final class NotesClient implements INotesClient {
 /// The vocabulary of [Notes]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const notesWords = WordSet('notes', [
-  ...NotesState.values,
-  ...NotesCommand.values,
-  ...NotesFact.values,
-], from: 'notes_words 1.0.0');
+const notesWords = WordSet(
+  'notes',
+  [...NotesState.values, ...NotesCommand.values, ...NotesFact.values],
+  from: 'notes_words 1.0.0',
+  dartName: 'notesWords',
+);
 
 const _$NoteShape = RecordShape<Note>(
   {'id': Part(Plain(TextType())), 'text': Part(Plain(TextType()))},

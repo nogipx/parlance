@@ -388,7 +388,7 @@ final class _Emitter {
           if (facts.isNotEmpty) '...${_c}Fact.values',
         ].join(', '),
       )
-      ..writeln('], from: ${_quote(from)});')
+      ..writeln('], from: ${_quote(from)}, dartName: ${_quote(_words)});')
       ..write(_helpers);
     return out.toString();
   }
@@ -851,7 +851,10 @@ final class _Emitter {
       ..writeln('/// says and calls follows from the call it serves.')
       ..writeln('abstract class ${_c}OwnerBase implements IOwner {')
       ..writeln('  ${_c}OwnerBase() {')
-      ..writeln('    IOwner.made(this, define: _\$define, write: _\$write);')
+      ..writeln(
+        '    IOwner.made(this, define: _\$define, write: _\$write, '
+        'words: $_words);',
+      )
       ..writeln('  }')
       ..writeln();
     for (final st in states) {

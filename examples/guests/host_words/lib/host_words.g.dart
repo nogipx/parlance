@@ -48,7 +48,7 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class AppOwnerBase implements IOwner {
   AppOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: appWords);
   }
 
   IStateWriterOf<bool>? _$dark;
@@ -150,10 +150,12 @@ final class AppClient implements IAppClient {
 /// The vocabulary of [App]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const appWords = WordSet('app', [
-  ...AppState.values,
-  ...AppCommand.values,
-], from: 'host_words 1.0.0');
+const appWords = WordSet(
+  'app',
+  [...AppState.values, ...AppCommand.values],
+  from: 'host_words 1.0.0',
+  dartName: 'appWords',
+);
 
 typedef AppToast = ({String text});
 

@@ -48,7 +48,7 @@ enum NotesCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class NotesOwnerBase implements IOwner {
   NotesOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: notesWords);
   }
 
   IStateWriterOf<int>? _$count;
@@ -155,10 +155,12 @@ final class NotesClient implements INotesClient {
 /// The vocabulary of [Notes]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const notesWords = WordSet('notes', [
-  ...NotesState.values,
-  ...NotesCommand.values,
-], from: 'parlance_mcp');
+const notesWords = WordSet(
+  'notes',
+  [...NotesState.values, ...NotesCommand.values],
+  from: 'parlance_mcp',
+  dartName: 'notesWords',
+);
 
 typedef NotesAdd = ({String text});
 

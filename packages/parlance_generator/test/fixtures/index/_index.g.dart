@@ -32,7 +32,7 @@ abstract final class DoorsChoices {
 /// says and calls follows from the call it serves.
 abstract class DoorsOwnerBase implements IOwner {
   DoorsOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: doorsWords);
   }
 
   /// door.room, by door: what this owner set of each,
@@ -117,9 +117,12 @@ final class DoorsClient implements IDoorsClient {
 /// The vocabulary of [Doors]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const doorsWords = WordSet('door', [
-  ...DoorsState.values,
-], from: 'parlance_generator');
+const doorsWords = WordSet(
+  'door',
+  [...DoorsState.values],
+  from: 'parlance_generator',
+  dartName: 'doorsWords',
+);
 
 const _$RoomShape = RecordShape<Room>(
   {
@@ -170,7 +173,7 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class LightsOwnerBase implements IOwner {
   LightsOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: lightsWords);
   }
 
   void _$define(IParticipant participant) {
@@ -240,9 +243,12 @@ final class LightsClient implements ILightsClient {
 /// The vocabulary of [Lights]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const lightsWords = WordSet('light', [
-  ...LightsCommand.values,
-], from: 'parlance_generator');
+const lightsWords = WordSet(
+  'light',
+  [...LightsCommand.values],
+  from: 'parlance_generator',
+  dartName: 'lightsWords',
+);
 
 typedef LightsOn = ({Room room});
 

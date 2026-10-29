@@ -218,7 +218,7 @@ abstract final class PlayerChoices {
 /// says and calls follows from the call it serves.
 abstract class PlayerOwnerBase implements IOwner {
   PlayerOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: playerWords);
   }
 
   IStateWriterOf<int>? _$volume;
@@ -570,12 +570,17 @@ final class PlayerClient implements IPlayerClient {
 /// The vocabulary of [Player]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const playerWords = WordSet('player', [
-  ...PlayerState.values,
-  ...PlayerCommand.values,
-  ...PlayerQuery.values,
-  ...PlayerFact.values,
-], from: 'parlance_generator');
+const playerWords = WordSet(
+  'player',
+  [
+    ...PlayerState.values,
+    ...PlayerCommand.values,
+    ...PlayerQuery.values,
+    ...PlayerFact.values,
+  ],
+  from: 'parlance_generator',
+  dartName: 'playerWords',
+);
 
 Map<String, Object?> _$PlayerTrackToJson(Track v) => v.toJson();
 

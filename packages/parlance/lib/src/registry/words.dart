@@ -25,12 +25,17 @@ abstract interface class IWord {
 /// once, where the words are. The generator makes one per `@Vocabulary`
 /// class; one of hand-written enums is `WordSet('house', [...])`.
 final class WordSet {
-  const WordSet(this.name, this.words, {this.from}) : open = false;
+  const WordSet(this.name, this.words, {this.from, this.dartName})
+    : open = false;
 
   /// A vocabulary whose words are not known before they come: a plugin's,
   /// a guest's in another language, a module's named at run time. Said
   /// so, never a vocabulary left out by mistake.
-  const WordSet.open(this.name) : words = const [], open = true, from = null;
+  const WordSet.open(this.name)
+    : words = const [],
+      open = true,
+      from = null,
+      dartName = null;
 
   final String name;
   final List<IWord> words;
@@ -39,6 +44,10 @@ final class WordSet {
   /// 1.2.0`), as the generator read them: what a client tells it was built
   /// against (SPEC §6.9).
   final String? from;
+
+  /// The name of the constant the generator made of it (`houseWords`),
+  /// for what a message tells to give.
+  final String? dartName;
 
   /// Whether its words come at run time ([WordSet.open]).
   final bool open;

@@ -52,6 +52,35 @@ void main() {
     });
   }
 
+  for (final across in [false, true]) {
+    test('an owner where its vocabulary was not given is refused, told '
+        'what to give and where (${across ? 'on a guest' : 'here'})', () async {
+      final host = TestHost();
+      addTearDown(host.dispose);
+      const who = Principal('player');
+      final side = across ? await host.join(who) : host.participant(who);
+      expect(
+        () => side.attach({'deck': Deck()}),
+        throwsA(
+          isA<NotPermitted>().having(
+            (e) => '$e',
+            'message',
+            allOf(
+              contains(
+                'Deck, attached as player@deck, owns the words of '
+                'the vocabulary player',
+              ),
+              contains(
+                'host.participant(player, '
+                'vocabularies: [playerWords])',
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
   test('its client used before it is attached says so', () {
     expect(() => Fan().player.volume, throwsStateError);
   });

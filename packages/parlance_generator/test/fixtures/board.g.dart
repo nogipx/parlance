@@ -106,7 +106,7 @@ abstract final class BoardChoices {
 /// says and calls follows from the call it serves.
 abstract class BoardOwnerBase implements IOwner {
   BoardOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write);
+    IOwner.made(this, define: _$define, write: _$write, words: boardWords);
   }
 
   /// note, by note: what this owner set of each,
@@ -314,11 +314,12 @@ final class BoardClient implements IBoardClient {
 /// The vocabulary of [Board]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const boardWords = WordSet('note', [
-  ...BoardState.values,
-  ...BoardCommand.values,
-  ...BoardFact.values,
-], from: 'parlance_generator');
+const boardWords = WordSet(
+  'note',
+  [...BoardState.values, ...BoardCommand.values, ...BoardFact.values],
+  from: 'parlance_generator',
+  dartName: 'boardWords',
+);
 
 const _$ActionShape = RecordShape<Action>(
   {

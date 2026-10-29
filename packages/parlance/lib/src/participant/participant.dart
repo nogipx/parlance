@@ -16,6 +16,9 @@ import 'owner.dart';
 /// vocabularies, a right it lacks, an act as someone else (SPEC §22.2).
 final class NotPermitted extends StateError {
   NotPermitted(super.message);
+
+  @override
+  String toString() => 'NotPermitted: $message';
 }
 
 /// What a participant may do beyond defining words in its vocabularies
