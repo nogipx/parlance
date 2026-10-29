@@ -138,8 +138,11 @@ final class PendingCall {
 }
 
 final class _Guard {
-  _Guard(this.id, this.check, this.overridable) : ask = null, timeout = null;
-  _Guard.asked(this.id, this.ask, this.overridable, this.timeout)
+  _Guard(this.id, this.check, this.overridable)
+    : ask = null,
+      timeout = null,
+      judges = null;
+  _Guard.asked(this.id, this.ask, this.overridable, this.timeout, this.judges)
     : check = null;
   final String id;
   final GuardCheck? check;
@@ -148,6 +151,10 @@ final class _Guard {
   final Future<String?> Function(PendingCall call)? ask;
   final Duration? timeout;
   final bool overridable;
+
+  /// Whether it judges calls of a command, known at once: one it does not
+  /// is not asked, so the call waits for nothing.
+  final bool Function(String command)? judges;
 }
 
 /// A call id seen within the dedup window, and the call it was given for.

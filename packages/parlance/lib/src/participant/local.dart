@@ -507,9 +507,10 @@ final class LocalParticipant implements IParticipant {
       _r
           .addAskedGuard(
             guardId(id),
-            (c) async => _judges(c.command.name) ? ask(c) : null,
+            ask,
             overridable: overridable,
             timeout: timeout,
+            judges: _judges,
           )
           .dispose,
     );

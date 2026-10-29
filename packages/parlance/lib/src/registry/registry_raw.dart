@@ -570,9 +570,10 @@ extension RawRegistry on Registry {
     Future<String?> Function(PendingCall call) ask, {
     bool overridable = true,
     Duration timeout = const Duration(seconds: 2),
+    bool Function(String command)? judges,
   }) {
     if (_guards.containsKey(id)) throw StateError('guard $id exists');
-    final g = _Guard.asked(id, ask, overridable, timeout);
+    final g = _Guard.asked(id, ask, overridable, timeout, judges);
     _guards[id] = g;
     return Disposer(() {
       if (_guards[id] == g) _guards.remove(id);

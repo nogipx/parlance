@@ -927,6 +927,9 @@ final class Registry implements ITypeContext {
     var asked = false;
     for (final g in [..._guards.values]) {
       String? why;
+      // One that judges no call of this command is not asked: nothing to
+      // wait for, and the handler still begins as the call is made.
+      if (g.judges case final j? when !j(command)) continue;
       if (g.ask case final ask?) {
         asked = true;
         // Asked across a connection: no answer in time, or none at all,
