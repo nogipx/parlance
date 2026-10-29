@@ -55,6 +55,25 @@ void main() {
         expect(host.registry.read('deck.lamp'), true);
       });
 
+      test(
+        'a guard or a kind added again is refused, the first kept',
+        () async {
+          final p = await owner();
+          final guard = p.addGuard('quiet', (_) => null);
+          expect(() => p.addGuard('quiet', (_) => 'no'), throwsStateError);
+          final kind = p.registerKind(EntityKind('deck.slot', list: () => []));
+          expect(
+            () => p.registerKind(EntityKind('deck.slot', list: () => [])),
+            throwsStateError,
+          );
+          guard.dispose();
+          kind.dispose();
+          p
+            ..addGuard('quiet', (_) => null)
+            ..registerKind(EntityKind('deck.slot', list: () => []));
+        },
+      );
+
       test('a word let go frees its name', () async {
         final p = await owner();
         p.defineState(StateDescriptor('deck.lamp', type: const BoolType()))

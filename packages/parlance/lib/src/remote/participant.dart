@@ -913,6 +913,9 @@ final class RemoteParticipant implements IParticipant {
     _live();
     // The host knows it by its speaker and its id, as it registers it.
     final full = '${(as ?? who).selector}#$id';
+    // Taken, as in the host's process: added again, it would take the
+    // place of its own guard here while the host keeps the first.
+    if (_guards.containsKey(full)) throw StateError('guard $id exists');
     _guards[full] = (id: id, check: check, overridable: overridable, as: as);
     _ask({'op': 'guard', 'id': id, 'overridable': overridable, ..._asOf(as)});
     return Disposer(() {
@@ -926,6 +929,9 @@ final class RemoteParticipant implements IParticipant {
 
   IHandle _registerKind(EntityKind kind, Principal? as) {
     _live();
+    if (_kinds.containsKey(kind.name)) {
+      throw StateError('kind ${kind.name} exists');
+    }
     _kinds[kind.name] = (kind: kind, as: as);
     _ask(_kindOp(kind, as));
     return Disposer(() {
