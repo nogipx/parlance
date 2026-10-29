@@ -273,6 +273,46 @@ void main() {
     });
   });
 
+  test('a throttle per viewer holds back each it let through, however many '
+      'viewers came', () {
+    fakeAsync((async) {
+      final b = Bench();
+      unawaited(
+        b.links.load([
+          {
+            'id': 'note',
+            'when': [
+              {
+                'fact': 'st.said',
+                'throttle': {'every': '1m', 'per': r'$trigger.viewer'},
+              },
+            ],
+            'do': [
+              {
+                'call': 'st.note',
+                'params': {'viewer': r'$trigger.viewer'},
+              },
+            ],
+          },
+        ]),
+      );
+      async.flushMicrotasks();
+      for (var i = 0; i < 300; i++) {
+        b.said.emit({'viewer': 'v$i'});
+        async.flushMicrotasks();
+      }
+      b.said.emit({'viewer': 'v0'});
+      async.flushMicrotasks();
+      expect(b.notes, hasLength(300), reason: 'v0 is held back still');
+      async.elapse(const Duration(minutes: 2));
+      b.said.emit({'viewer': 'v1'});
+      async.flushMicrotasks();
+      expect(b.notes, hasLength(301));
+      unawaited(b.dispose());
+      async.flushMicrotasks();
+    });
+  });
+
   test('a button is shown under the owner, lit and pressed as it', () async {
     final b = Bench();
     addTearDown(b.dispose);

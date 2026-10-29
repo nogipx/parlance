@@ -310,7 +310,11 @@ final class _Active {
   final Link link;
   final List<StreamSubscription<Object?>> _subs = [];
   final Set<Timer> _timers = {};
-  final Map<String, DateTime> _throttled = {};
+
+  /// When each throttle key last let a run go, and for how long it holds
+  /// the next back: one past its hold is forgotten, so a throttle per
+  /// viewer keeps only the viewers it holds back now.
+  final Map<String, ({DateTime at, Duration every})> _throttled = {};
 
   /// The runs waiting their turn, each with what tells its end.
   final List<(void Function(), Completer<String?>)> _queue = [];
@@ -445,7 +449,7 @@ final class _Active {
     final keys = <String>[];
     for (final (i, th) in (throttles ?? t.throttles).indexed) {
       final key = '$i:${th.per == null ? '' : jsonAt(data, th.per!)}';
-      final last = _throttled[key];
+      final last = _throttled[key]?.at;
       if (last != null && now.difference(last) < th.every) {
         return 'not again so soon';
       }
@@ -468,8 +472,12 @@ final class _Active {
       if (link.mode == RunMode.single) return 'already running';
       if (_queue.length >= link.queueLimit) return 'its queue is full';
     }
-    for (final k in keys) {
-      _throttled[k] = now;
+    final held = throttles ?? t.throttles;
+    for (final (i, k) in keys.indexed) {
+      _throttled[k] = (at: now, every: held[i].every);
+    }
+    if (_throttled.length > 256) {
+      _throttled.removeWhere((_, v) => now.difference(v.at) >= v.every);
     }
     final done = Completer<String?>();
     void go() => unawaited(_run(data, id, conversation, done));
