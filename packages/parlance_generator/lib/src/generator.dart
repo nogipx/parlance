@@ -80,11 +80,6 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
       vocabulary,
       owner: annotation.peek('owner')?.boolValue ?? true,
       client: annotation.peek('client')?.boolValue ?? true,
-      kinds: [
-        for (final k
-            in annotation.peek('kinds')?.listValue ?? const <DartObject>[])
-          k.toStringValue()!,
-      ],
       recordFields: await _recordFields(element, buildStep.resolver),
       shared: shared,
       from: await _from(buildStep),
@@ -233,7 +228,6 @@ final class _Emitter {
     this.vocabulary, {
     required this.owner,
     required this.client,
-    required this.kinds,
     required this.recordFields,
     required this.shared,
     required this.from,
@@ -255,12 +249,11 @@ final class _Emitter {
   final bool owner;
   final bool client;
 
-  /// The kinds of choices it speaks of (`@Vocabulary(kinds:)`), and where
-  /// its words first name each.
-  final List<String> kinds;
+  /// The kinds of choices its words speak of (a keyed state's keys, what
+  /// a `@ChoiceOf` names), and where they first name each, in order.
   final Map<String, Element> _kindsNamed = {};
 
-  /// [kind], named by [on] as a key or a ref: one of [kinds].
+  /// [kind], named by [on] as a key or a ref.
   void _named(String kind, Element on) =>
       _kindsNamed.putIfAbsent(kind, () => on);
 
@@ -380,7 +373,7 @@ final class _Emitter {
       if (s.key case final k?) _named(k, s.element);
     }
     _checkKinds();
-    if (kinds.isNotEmpty) out.write(_kindsOf());
+    if (_kindsNamed.isNotEmpty) out.write(_kindsOf());
     if (owner) out.write(_ownerBase(states, commands, queries, facts));
     if (client) out.write(_clientOf(states, commands, queries, facts));
     out
@@ -751,42 +744,27 @@ final class _Emitter {
     return parts.first + parts.skip(1).map(_pascal).join();
   }
 
-  /// Every kind its words name is one it says, each said once and a name.
+  /// Every kind its words name is a name of one word.
   void _checkKinds() {
-    final said = <String>{};
-    for (final k in kinds) {
-      if (!isValidName(k) || k.contains('.')) {
-        throw InvalidGenerationSourceError(
-          '@Vocabulary: kind "$k" is no name: one word, $_nameRule',
-          element: cls,
-        );
-      }
-      if (!said.add(k)) {
-        throw InvalidGenerationSourceError(
-          '@Vocabulary: kind $k is said twice',
-          element: cls,
-        );
-      }
-    }
     for (final MapEntry(key: k, value: on) in _kindsNamed.entries) {
-      if (said.contains(k)) continue;
+      if (isValidName(k) && !k.contains('.')) continue;
       throw InvalidGenerationSourceError(
-        '${on.displayName} names the kind $k, which $_c does not say: '
-        "@Vocabulary('$vocabulary', kinds: [${[...kinds, k].map((x) => "'$x'").join(', ')}])",
+        '${on.displayName}: choices "$k" is no name: one word, $_nameRule',
         element: on,
       );
     }
   }
 
-  /// `<Class>Kind`: a constant of each kind it says, for the owner that
-  /// gives its choices.
+  /// `<Class>Choices`: a constant of each name of choices its words name,
+  /// for the owner that gives them.
   String _kindsOf() {
+    final kinds = [..._kindsNamed.keys];
     final out = StringBuffer()
       ..writeln(
         '/// The kinds of choices [$_c] speaks of: what an owner gives by',
       )
-      ..writeln('/// `choices(${_c}Kind.${_keyParam(kinds.first)}, ...)`.')
-      ..writeln('abstract final class ${_c}Kind {');
+      ..writeln('/// `choices(${_c}Choices.${_keyParam(kinds.first)}, ...)`.')
+      ..writeln('abstract final class ${_c}Choices {');
     for (final k in kinds) {
       out.writeln('  static const String ${_keyParam(k)} = ${_quote(k)};');
     }
@@ -1283,7 +1261,7 @@ final class _Emitter {
     if (t.isDartCoreNum) return 'Plain(${bounds('NumType')})';
     if (t.isDartCoreString) {
       if (ref != null) {
-        final kind = ConstantReader(ref).read('kind');
+        final kind = ConstantReader(ref).read('of');
         _named(kind.stringValue, on);
         return 'Plain(ChoiceType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
       }

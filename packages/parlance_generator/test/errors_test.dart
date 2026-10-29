@@ -113,32 +113,11 @@ $body
     });
   }
 
-  test('it refuses a kind its vocabulary does not say, saying how', () async {
+  test('it refuses a kind that is no name', () async {
     final logs = await errorsOf(
-      "@CommandWord() void go({@ChoiceOf('room') required String room});",
+      "@CommandWord() void go({@ChoiceOf('a.b') required String room});",
     );
-    expect(
-      logs.join('\n'),
-      contains(
-        "room names the kind room, which Orders does not say: "
-        "@Vocabulary('orders', kinds: ['room'])",
-      ),
-    );
-  });
-
-  test('it refuses a kind said twice, or no name', () async {
-    final twice = await errorsOf(
-      '@StateWord() int get total;',
-      '',
-      "@Vocabulary('orders', kinds: ['room', 'room'])",
-    );
-    expect(twice.join('\n'), contains('kind room is said twice'));
-    final bad = await errorsOf(
-      '@StateWord() int get total;',
-      '',
-      "@Vocabulary('orders', kinds: ['a.b'])",
-    );
-    expect(bad.join('\n'), contains('kind "a.b" is no name'));
+    expect(logs.join('\n'), contains('choices "a.b" is no name'));
   });
 
   test('it refuses an enum with two fallbacks', () async {

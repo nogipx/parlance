@@ -206,8 +206,8 @@ enum PlayerFact<T> implements IFactWord<T> {
 }
 
 /// The kinds of choices [Player] speaks of: what an owner gives by
-/// `choices(PlayerKind.speaker, ...)`.
-abstract final class PlayerKind {
+/// `choices(PlayerChoices.speaker, ...)`.
+abstract final class PlayerChoices {
   static const String speaker = 'speaker';
 }
 

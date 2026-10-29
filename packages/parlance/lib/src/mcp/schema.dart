@@ -26,10 +26,10 @@ Map<String, Object?> jsonSchema(
     'maximum': ?max,
     'description': 'milliseconds',
   },
-  ChoiceType(:final kind) => {
+  ChoiceType(:final of) => {
     'type': 'string',
-    'description': 'a $kind',
-    if (kinds[kind] case final e? when e.isNotEmpty)
+    'description': 'a $of',
+    if (kinds[of] case final e? when e.isNotEmpty)
       'enum': [for (final x in e) x['id']],
   },
   ListType(:final item, :final maxItems) => {

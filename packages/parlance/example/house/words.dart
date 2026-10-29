@@ -46,7 +46,7 @@ enum Mode { home, away, night }
 
 /// The house's words, in its one vocabulary; its rooms are what it
 /// speaks of, keys and refs, for an agent or an editor to choose from.
-@Vocabulary('house', kinds: ['room'])
+@Vocabulary('house')
 abstract class House {
   /// Whether a room's light is on, by room.
   @StateWord(name: 'light.on', key: 'room')

@@ -299,14 +299,14 @@ extension OwnerTools on IOwner {
       (_Core.of(this).participant?.raw.clock ?? clock_.clock).now();
 
   /// Tells whoever asks the registry (an agent, an editor, a plugin)
-  /// which [kind] there are now, to choose from: [list] gives them, with
-  /// their labels. What a param of `@ChoiceOf(kind)` names is held to them.
-  /// They are listed again on their own: when it is attached, after it
-  /// followed its model, heard something or answered a call; what went
-  /// goes of its keyed states keyed by [kind] too.
-  void choices(String kind, Iterable<Choice> Function() list) {
+  /// the choices of [name] there are now (rooms: `HouseChoices.room`):
+  /// [list] gives them, with their labels. What a `@ChoiceOf(name)` names
+  /// is held to them. They are listed again on their own: when it is
+  /// attached, after it followed its model, heard something or answered a
+  /// call; what went goes of its keyed states keyed by [name] too.
+  void choices(String name, Iterable<Choice> Function() list) {
     final c = _Core.of(this);
-    final ch = _Choices(kind, list);
+    final ch = _Choices(name, list);
     c.choices.add(ch);
     if (c.participant case final p? when c.group != null) ch.attach(p, c);
   }

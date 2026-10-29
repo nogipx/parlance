@@ -40,7 +40,7 @@ final class Home extends HouseBase {
     // The rooms there are, for an agent or an editor to choose from; one
     // that goes, goes of the lights too.
     choices(
-      HouseKind.room,
+      HouseChoices.room,
       () => [for (final id in devices.lights.keys) Choice(id)],
     );
     // What the devices say now: the house's devices are its model, so it

@@ -317,6 +317,10 @@ void main() {
       expect(asAnn.state(PlayerState.volume).read(), 7);
     });
 
+    test('the choices its words name are constants, for an owner', () {
+      expect(PlayerChoices.speaker, 'speaker');
+    });
+
     test('keyed states, set and removed by key', () async {
       deck.speakerLevel['left'] = 0.5;
       deck.speakerLevel['right'] = 1;

@@ -202,30 +202,31 @@ final class DurationType extends ValueType<int> {
   Map<String, Object?> toJson() => {'type': 'duration', 'max': ?max};
 }
 
-/// The id of an entity of [kind], which must exist when checked.
+/// One of the choices of [of] (`room`), as its owner gives them: which
+/// must be there when checked. Told as `ref` on the wire.
 final class ChoiceType extends ValueType<String> {
-  const ChoiceType(this.kind);
+  const ChoiceType(this.of);
 
-  final String kind;
+  final String of;
 
   @override
   Object? check(Object? value, ITypeContext ctx, [String path = '']) {
     if (value is! String || value.isEmpty) {
-      ValueType._fail(path, 'expected a $kind id');
+      ValueType._fail(path, 'expected a $of id');
     }
-    if (!ctx.hasKind(kind)) {
+    if (!ctx.hasKind(of)) {
       ValueType._fail(
         path,
-        'no one gives the choices of $kind: its owner says them, '
-        "choices('$kind', ...)",
+        'no one gives the choices of $of: its owner says them, '
+        "choices('$of', ...)",
       );
     }
-    if (!ctx.hasEntity(kind, value)) ValueType._fail(path, 'no $kind $value');
+    if (!ctx.hasEntity(of, value)) ValueType._fail(path, 'no $of $value');
     return value;
   }
 
   @override
-  Map<String, Object?> toJson() => {'type': 'ref', 'kind': kind};
+  Map<String, Object?> toJson() => {'type': 'ref', 'kind': of};
 }
 
 final class ListType extends ValueType<List<Object?>> {

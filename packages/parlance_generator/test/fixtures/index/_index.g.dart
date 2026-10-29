@@ -20,8 +20,8 @@ enum DoorsState<T> implements IStateWord<T> {
 }
 
 /// The kinds of choices [Doors] speaks of: what an owner gives by
-/// `choices(DoorsKind.door, ...)`.
-abstract final class DoorsKind {
+/// `choices(DoorsChoices.door, ...)`.
+abstract final class DoorsChoices {
   static const String door = 'door';
 }
 

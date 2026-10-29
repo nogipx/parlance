@@ -36,7 +36,7 @@ final class Artist {
 }
 
 /// A player's words, written once.
-@Vocabulary('player', kinds: ['speaker'])
+@Vocabulary('player')
 abstract class Player {
   @StateWord(
     meta: {

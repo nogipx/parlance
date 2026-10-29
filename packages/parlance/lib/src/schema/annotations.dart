@@ -9,12 +9,7 @@ import '../registry/descriptors.dart';
 /// [CommandWord], [QueryWord] or [FactWord] is one, named
 /// `<vocabulary>.<name>`.
 final class Vocabulary {
-  const Vocabulary(
-    this.name, {
-    this.owner = true,
-    this.client = true,
-    this.kinds = const [],
-  });
+  const Vocabulary(this.name, {this.owner = true, this.client = true});
 
   /// The first words of every name: `orders` for `orders.cancel`.
   final String name;
@@ -26,13 +21,6 @@ final class Vocabulary {
   /// Whether to make `<Class>Client` too (SPEC §23.5): the module's words
   /// as a consumer uses them, over any view, here or across a connection.
   final bool client;
-
-  /// The kinds of choices its words speak of (SPEC §3): what a keyed
-  /// state's keys are (`@StateWord(key: 'room')`) and what a `@ChoiceOf` names.
-  /// Each named there is one of these, or the generator says so; it makes
-  /// `<Class>Kind`, a constant of each (`HouseKind.room`), for the owner
-  /// that gives them (`choices(HouseKind.room, ...)`).
-  final List<String> kinds;
 }
 
 /// A state: a getter, its type the value's (`int get volume;`).
@@ -134,8 +122,8 @@ final class Length {
 /// refused before its handler, and an agent or an editor offers them. On
 /// a list, of its items.
 final class ChoiceOf {
-  const ChoiceOf(this.kind);
-  final String kind;
+  const ChoiceOf(this.of);
+  final String of;
 }
 
 /// What a parameter or a field of a record is, for people and agents: the

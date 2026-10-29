@@ -94,8 +94,8 @@ enum BoardFact<T> implements IFactWord<T> {
 }
 
 /// The kinds of choices [Board] speaks of: what an owner gives by
-/// `choices(BoardKind.note, ...)`.
-abstract final class BoardKind {
+/// `choices(BoardChoices.note, ...)`.
+abstract final class BoardChoices {
   static const String note = 'note';
 }
 
