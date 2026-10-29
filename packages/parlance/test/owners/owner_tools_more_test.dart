@@ -34,8 +34,8 @@ final class _Dial implements IOwner {
   _Dial(Stream<bool> power) {
     IOwner.made(this, define: _define);
     guard(
-      _Command.set,
       'gentle',
+      _Command.set,
       (p, by) => p.to > 10 && by.kind != 'admin' ? 'too far for $by' : null,
     );
     listen(power, (on) => this.on = on);

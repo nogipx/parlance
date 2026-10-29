@@ -296,13 +296,13 @@ extension OwnerTools on IOwner {
     p == null ? writes() : p.batch(writes);
   }
 
-  /// Guards its command [word] (SPEC §10): [check] answers why a call of
-  /// [params] on behalf of [by] may not run, or null; asked before the
-  /// handler, once it is attached. [id] names it in refusals and records.
+  /// Guards its command [word] (SPEC §10), named [id] in refusals and
+  /// records: [check] answers why a call of [params] on behalf of [by] may
+  /// not run, or null; asked before the handler, once it is attached.
   /// Who passes it is [check]'s to say: the rule is the owner's.
   void guard<P, R>(
-    ICommandWord<P, R> word,
     String id,
+    ICommandWord<P, R> word,
     String? Function(P params, Principal by) check,
   ) {
     final c = _Core.of(this);

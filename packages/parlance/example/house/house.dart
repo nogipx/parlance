@@ -50,8 +50,8 @@ final class Home extends HouseOwnerBase {
     // At night only a resident unlocks the door: not a phone, not an
     // agent. The rule is the house's, and so is who passes it.
     guard(
-      HouseCommand.lock,
       'night-door',
+      HouseCommand.lock,
       (lock, by) => !lock.on && mode.value == Mode.night && by.kind != 'resident'
           ? 'at night only a resident unlocks the door'
           : null,
