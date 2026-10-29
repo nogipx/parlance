@@ -4,9 +4,9 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 
 ## 16. Agents
 
-`mcp` serves the registry to agents over MCP (JSON-RPC 2.0, one message a line: stdio, or a socket carrying it so).
+The package `parlance_mcp` serves the registry to agents over MCP (a consumer of the words, not a part of their language) (JSON-RPC 2.0, one message a line: stdio, or a socket carrying it so).
 
-**An agent is a participant** (§22): the tools work on its `IParticipant`, `parlanceTools(p)`, made by `main` in the host's process (`registry.participant(agent)`) or joined across a connection (`RemoteParticipant.join`, where the host's session decides the principal). The tools are curated, not one per command:
+**An agent is a participant** (§22): the tools work on its `IParticipant`, `parlanceTools(p)`, made by `main` in the host's process (`host.participant(agent)`) or joined across a connection (`Guest.join`, where the host's session decides the principal). The tools are curated, not one per command:
 
 | Tool | Does |
 |---|---|
@@ -28,9 +28,9 @@ They answer the same here and across a connection, and say so where they cannot:
 
 The session asks for the tools once and again after `toolsChanged()` (or when asking failed), and answers each message when it is done: a long call holds no other back.
 
-`parlance-mcp --connect unix:/path | tcp://host/port [--command-tools]` (the package `parlance_mcp`, which alone takes `rpc_dart_socket`) is an agent's participant across a connection as a stdio server: it joins the host, and joins again after a drop. Started before the host, it lists no tools, and tells the agent they changed once it joins; after a drop it keeps the tools it listed, and what they do answers that the host is not reachable now.
+`parlance-mcp --connect unix:/path | tcp://host/port [--command-tools]` (the package's binary, which alone takes `rpc_dart_socket`) is an agent's participant across a connection as a stdio server: it joins the host, and joins again after a drop. Started before the host, it lists no tools, and tells the agent they changed once it joins; after a drop it keeps the tools it listed, and what they do answers that the host is not reachable now.
 
-**On this machine.** `package:parlance/mcp_io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone (`start` fails rather than serve one it could not make so), opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `mcp.dart` because it needs `dart:io`.
+**On this machine.** `package:parlance_mcp/io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone (`start` fails rather than serve one it could not make so), opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `parlance_mcp.dart` because it needs `dart:io`.
 
 **A host's own tools.** `McpTool.typed(name:, description:, params: RecordShape<P>, run:)` derives the tool's JSON Schema from the shape (§18): field types, `description`s, defaults, `oneOf` for a `UnionShape` with each variant's description, `additionalProperties: false`. `run` gets the arguments checked and typed; what does not pass is the agent's error, by path (`ops.2.frame: missing`). The description says only what a schema cannot: one undo step, how refs work. `jsonSchema(type)` is the same conversion on its own.
 

@@ -41,14 +41,6 @@ void main() {
     }
   });
 
-  test('mcp does not import rpc_dart', () {
-    for (final f in dartIn('lib/src/mcp')) {
-      for (final i in importsOf(f)) {
-        expect(i, isNot(startsWith('package:rpc_dart')), reason: f.path);
-      }
-    }
-  });
-
   test('view uses the registry and remote, and Dart', () {
     for (final f in dartIn('lib/src/view')) {
       for (final i in importsOf(f)) {

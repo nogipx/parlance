@@ -1,4 +1,4 @@
-import 'package:parlance/mcp.dart';
+import 'package:parlance_mcp/parlance_mcp.dart';
 import 'package:parlance/registry.dart';
 import 'package:test/test.dart';
 

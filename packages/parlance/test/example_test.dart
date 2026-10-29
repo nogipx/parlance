@@ -38,7 +38,6 @@ void main() {
       'the phone sees: 22 °C, mode home',
       'the phone sets 40 °C: target: above 28',
       'rings it can see: [bob]',
-      'the agent turns the hall light off: Done.',
       'fact house.doorbell.rang by guest/bob, '
           'started by house.doorbell.rang by guest/bob\n'
           '  write visit.guests by module/visit@book, '

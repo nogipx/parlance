@@ -1,6 +1,6 @@
 ---
 name: parlance
-description: Write, change, review and test code that uses or extends the parlance package (package:parlance; libraries registry, participant, remote, mcp, schema): defining states, commands and facts with their callers, owners that write their states, passing causes, who may call what and why a call was refused, remote sessions and MCP tools. Use whenever code imports package:parlance, touches packages/parlance, or a task asks why a command was refused, who wrote a state, or how to add something to the registry.
+description: Write, change, review and test code that uses or extends the parlance package (package:parlance; libraries schema, app, registry, participant, remote; agents in parlance_mcp): defining states, commands and facts with their callers, owners that write their states, passing causes, who may call what and why a call was refused, remote sessions and MCP tools. Use whenever code imports package:parlance, touches packages/parlance, or a task asks why a command was refused, who wrote a state, or how to add something to the registry.
 ---
 
 # parlance
@@ -20,7 +20,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | `testing` | `TestHost`: a registry for a test, stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`), the module here or across a connection in memory (`join`), and what happened read back (`written`, `said`, `callsOf`, `errors`) | [references/testing.md](references/testing.md): §24 |
 | compatibility | how a module built apart is held to the words it meets: one rule, what may change and how, the baseline before release, the part's and the host's view at run time, the protocol; what each check is and when it runs | [references/compatibility.md](references/compatibility.md): §25 |
 | glossary | every term of the package in a line, with its section | [references/glossary.md](references/glossary.md) |
-| `mcp` | curated agent tools on an agent's participant (here or across a connection); `mcp_io`: the server on a Unix socket; the binary `parlance-mcp`, in the package `parlance_mcp` | [references/mcp.md](references/mcp.md): §16 |
+| `parlance_mcp` (a package of its own) | curated agent tools on an agent's participant (here or across a connection); `parlance_mcp/io.dart`: the server on a Unix socket; the binary `parlance-mcp` | [references/mcp.md](references/mcp.md): §16 |
 
 ## Adding to the registry
 

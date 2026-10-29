@@ -2,6 +2,6 @@
 /// on a participant, here or across a connection (`parlanceTools`).
 library;
 
-export 'src/mcp/protocol.dart';
-export 'src/mcp/schema.dart';
-export 'src/mcp/tools.dart';
+export 'src/protocol.dart';
+export 'src/schema.dart';
+export 'src/tools.dart';

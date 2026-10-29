@@ -2,9 +2,8 @@
 /// whether a word is there for them, why a state is as it is and which
 /// part did it, a guard, a question that changes nothing, a device changed
 /// by hand, modules that say what they need and a visit that comes and
-/// goes as a scope, a phone that joins over remote, an agent over MCP, and
-/// the journal of it all: who did what, following what, and who set it
-/// going.
+/// goes as a scope, a phone that joins over remote, and the journal of it
+/// all: who did what, following what, and who set it going.
 ///
 /// Run: `dart run example/main.dart`.
 library;
@@ -13,7 +12,6 @@ import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/app.dart';
-import 'package:parlance/mcp.dart';
 import 'package:parlance/registry.dart' show JournalEntry, JournalFact;
 
 import 'house/house.dart';
@@ -193,22 +191,7 @@ Future<void> main() async {
   await modes.cancel();
   await phone.close();
 
-  // --- 7. An agent over MCP -------------------------------------------------
-
-  section('An agent over MCP');
-  final tools = await parlanceTools(
-    host.participant(Who.agent('demo')),
-    commandTools: true,
-  );
-  print('  its tools: ${[for (final t in tools) t.name].join(', ')}');
-  final call = tools.firstWhere((t) => t.name == 'call');
-  final answer = await call.run({
-    'command': HouseCommand.setLight.name,
-    'params': HouseCommand.setLight.params.toJson((room: 'hall', on: false)),
-  });
-  print('  the agent turns the hall light off: ${answer.text.trim()}');
-
-  // --- 8. The journal -------------------------------------------------------
+  // --- 7. The journal -------------------------------------------------------
 
   section('The journal');
   // The ring's conversation, as it happened: what it led to, by whom, and

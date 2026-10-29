@@ -1,7 +1,5 @@
-import '../registry/ids.dart';
-import '../registry/messages.dart';
-import '../registry/types.dart';
-import '../participant/participant.dart';
+import 'package:parlance/registry.dart';
+import 'package:parlance/participant.dart';
 import 'protocol.dart';
 import 'schema.dart';
 

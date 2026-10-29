@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:rpc_dart/rpc_dart.dart';
-import 'package:parlance/mcp.dart';
+import 'package:parlance_mcp/parlance_mcp.dart';
 import 'package:parlance/participant.dart';
 import 'package:parlance/registry.dart';
 import 'package:parlance/remote.dart';
 import 'package:test/test.dart';
 
-import '../registry/fixture.dart';
+import 'fixture.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// The registry fixture with a fact to hear.

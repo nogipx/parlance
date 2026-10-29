@@ -1,4 +1,4 @@
-import '../registry/types.dart';
+import 'package:parlance/registry.dart';
 
 /// [t] as JSON Schema, for an agent's tool (SPEC §16). [kinds] are the
 /// entities by kind, as `describe` lists them: a ref to a kind with any

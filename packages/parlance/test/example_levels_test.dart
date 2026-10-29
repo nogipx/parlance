@@ -6,7 +6,6 @@ import '../example/levels/core.dart' as core;
 import '../example/levels/level0_local.dart' as local;
 import '../example/levels/level1_registry.dart' as registry;
 import '../example/levels/level3_remote.dart' as remote;
-import '../example/levels/level4_agent.dart' as agent;
 
 /// Every level of the example runs and shows what it says it shows.
 void main() {
@@ -62,16 +61,6 @@ void main() {
         'knob hears: clipped at 96',
         'knob shows: 96',
         'the host sees: 96',
-      ],
-    ),
-    'agent': (
-      agent.main,
-      [
-        'player_volume_set: player.volume.set',
-        "{volume: {type: integer, minimum: 0, maximum: 100}}",
-        'the agent turns it to 20: Done.',
-        "a guest's tools: describe, read, call, recent_facts, why\n",
-        'the volume: 20',
       ],
     ),
   };

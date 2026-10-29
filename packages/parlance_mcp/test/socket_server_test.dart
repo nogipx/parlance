@@ -5,8 +5,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:parlance/mcp.dart';
-import 'package:parlance/mcp_io.dart';
+import 'package:parlance_mcp/parlance_mcp.dart';
+import 'package:parlance_mcp/io.dart';
 import 'package:test/test.dart';
 
 /// An agent on the other end of the socket.

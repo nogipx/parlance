@@ -46,7 +46,7 @@ Around the words:
 | registry | `registry.dart` | The named vocabulary built on the core: a catalog, typed words, who may call what, causes, guards, and a feed of every change. |
 | participants | `participant.dart` | A part of the app sees the registry only as one principal and defines words only in its vocabularies; `main` hands each its participant, so who may call and read what holds in the process too. `LocalRegistry` is the light way in: the same participants and rules in one process, no history; moving to a `Registry` changes `main` only. |
 | over the network | `remote.dart`, `view.dart` | The same vocabulary over rpc_dart: a remote part reads, calls and even owns words, and sees only what its rights allow. |
-| agents | `mcp.dart`; the binary `parlance-mcp` in `parlance_mcp` | Curated MCP tools, so an AI agent speaks the vocabulary too. |
+| agents | the package `parlance_mcp` and its binary `parlance-mcp` | Curated MCP tools, so an AI agent speaks the vocabulary too. |
 
 What a part does with the words is the same five interfaces at every level: `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`. Code written on them moves from the core to the registry unchanged; only the place where things are made changes.
 
