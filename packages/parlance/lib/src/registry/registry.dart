@@ -1254,6 +1254,10 @@ final class Registry implements ITypeContext {
     if (entry.available?.call() case final why?) {
       return finish(CallRefused(Refusal.unavailable, why));
     }
+    // The guards are judged here, not in a method of their own: with none
+    // asked, nothing is awaited before the handler runs, and an await of
+    // even a method with nothing to wait for would let other work in first
+    // (the journal's order would show it).
     final pending = PendingCall._kept(id, d, params, cause);
     var asked = false;
     for (final g in [..._guards.values]) {
