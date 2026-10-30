@@ -119,14 +119,6 @@ abstract class BoardOwnerBase implements IOwner {
 
   IFactSayerOf<Note>? _$seen;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     Keyed.attach(notes, p.state(BoardState.notes).define());
@@ -171,8 +163,8 @@ final class BoardSeenFact {
   final BoardOwnerBase _base;
 
   /// Says note.seen; on behalf of [by], when given.
-  void say(Note note, {Principal? by}) =>
-      _base._$say('note.seen', _base._$seen, note, by);
+  /// Said while its owner is not attached, no one hears it.
+  void say(Note note, {Principal? by}) => _base._$seen?.say(note, by: by);
 }
 
 /// The words of [Board] as a consumer uses them: what a part

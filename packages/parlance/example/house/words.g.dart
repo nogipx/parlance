@@ -162,14 +162,6 @@ abstract class HouseOwnerBase implements IOwner {
   IFactSayerOf<HouseRang>? _$rang;
   IFactSayerOf<HouseMotion>? _$motion;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     Keyed.attach(light, p.state(HouseState.light).define());
@@ -234,8 +226,9 @@ final class HouseRangFact {
   final HouseOwnerBase _base;
 
   /// Says house.rang; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required String who, Principal? by}) =>
-      _base._$say('house.rang', _base._$rang, (who: who), by);
+      _base._$rang?.say((who: who), by: by);
 }
 
 /// house.motion, as [HouseOwnerBase] says it.
@@ -244,8 +237,9 @@ final class HouseMotionFact {
   final HouseOwnerBase _base;
 
   /// Says house.motion; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required String room, Principal? by}) =>
-      _base._$say('house.motion', _base._$motion, (room: room), by);
+      _base._$motion?.say((room: room), by: by);
 }
 
 /// The words of [House] as a consumer uses them: what a part

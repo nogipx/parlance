@@ -245,14 +245,6 @@ abstract class PlayerOwnerBase implements IOwner {
   IFactSayerOf<PlayerClipped>? _$clipped;
   IFactSayerOf<Track>? _$finished;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     Single.attach(
@@ -342,8 +334,9 @@ final class PlayerClippedFact {
   final PlayerOwnerBase _base;
 
   /// Says player.clipped; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required int volume, Principal? by}) =>
-      _base._$say('player.clipped', _base._$clipped, (volume: volume), by);
+      _base._$clipped?.say((volume: volume), by: by);
 }
 
 /// player.finished, as [PlayerOwnerBase] says it.
@@ -352,8 +345,9 @@ final class PlayerFinishedFact {
   final PlayerOwnerBase _base;
 
   /// Says player.finished; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say(Track track, {Principal? by}) =>
-      _base._$say('player.finished', _base._$finished, track, by);
+      _base._$finished?.say(track, by: by);
 }
 
 /// The words of [Player] as a consumer uses them: what a part

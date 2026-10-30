@@ -81,14 +81,6 @@ abstract class KittensOwnerBase implements IOwner {
 
   IFactSayerOf<KittensPurred>? _$purred;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     Single.attach(lamp, p.state(KittensState.lamp).define());
@@ -122,8 +114,9 @@ final class KittensPurredFact {
   final KittensOwnerBase _base;
 
   /// Says kittens.purred; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required bool on, Principal? by}) =>
-      _base._$say('kittens.purred', _base._$purred, (on: on), by);
+      _base._$purred?.say((on: on), by: by);
 }
 
 /// The words of [Kittens] as a consumer uses them: what a part

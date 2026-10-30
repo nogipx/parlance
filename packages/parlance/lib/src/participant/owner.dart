@@ -69,12 +69,6 @@ abstract interface class IOwner {
     c.write = write;
     c.words = vocabulary;
   }
-
-  /// Called by a base the generator made: [owner] said [fact] with
-  /// [payload] while it was not attached, kept for a test to read
-  /// (`saidBy` of `testing.dart`), in order.
-  static void said(IOwner owner, String fact, Object? payload) =>
-      _Core.of(owner).said.add((fact, payload));
 }
 
 /// What the library keeps of an owner, beside it: an owner holds none of
@@ -102,9 +96,6 @@ final class _Core {
   void Function()? write;
   final List<void Function()> follows = [];
   final List<_Listing> choices = [];
-
-  /// What it said while not attached: each fact's name and payload.
-  final List<(String, Object?)> said = [];
 
   /// Its keyed states, by the choices their keys are of.
   final Map<String, List<Keyed<Object?>>> keyed = {};
@@ -452,11 +443,6 @@ final class _Listing {
     return true;
   }
 }
-
-/// What [o] said while not attached, each fact's name and payload, in
-/// order: what `saidBy` of `testing.dart` reads.
-List<(String, Object?)> saidApart(IOwner o) =>
-    List.unmodifiable(_Core.of(o).said);
 
 /// The vocabulary [o]'s words are in, as its base said it; null for an
 /// owner that never said it.

@@ -162,14 +162,14 @@ final class TestHost {
   }
 
   /// A stand-in serving another module's command [word]: every call's
-  /// params are kept in [CommandStub.params]; it answers what [answer] gives, or
+  /// params are kept in [CommandStandIn.params]; it answers what [answer] gives, or
   /// nothing. Anyone may call it, unless [callers] say otherwise.
-  CommandStub<P, R> standInCommand<P, R>(
+  CommandStandIn<P, R> standInCommand<P, R>(
     ICommandWord<P, R> word, {
     FutureOr<R> Function(P params)? answer,
     Callers callers = Callers.anyone,
   }) {
-    final stub = CommandStub<P, R>._();
+    final stub = CommandStandIn<P, R>._();
     GeneratedWords(_standInFor(word.name)).command(word).serve((params) {
       stub.params.add(params);
       if (answer != null) return answer(params);
@@ -180,9 +180,9 @@ final class TestHost {
 
   /// A stand-in giver of the choices of [name], as another module's owner
   /// gives them (`choices(name:, list:)`): what a `@ChoiceOf(name)` and a
-  /// state keyed by [name] are held to. [ChoicesStub.set] changes them.
-  ChoicesStub standInChoices(String name, Iterable<Choice> choices) {
-    final stub = ChoicesStub._([...choices]);
+  /// state keyed by [name] are held to. [ChoicesStandIn.set] changes them.
+  ChoicesStandIn standInChoices(String name, Iterable<Choice> choices) {
+    final stub = ChoicesStandIn._([...choices]);
     final p = _standInFor('$name.choices');
     p.addChoices(Choices(name, list: () => [...stub._now]));
     stub._changed = () => p.choicesChanged(name);
@@ -258,8 +258,8 @@ final class TestHost {
 }
 
 /// A stand-in for another module's choices ([TestHost.standInChoices]).
-final class ChoicesStub {
-  ChoicesStub._(this._now);
+final class ChoicesStandIn {
+  ChoicesStandIn._(this._now);
 
   List<Choice> _now;
   void Function()? _changed;
@@ -275,8 +275,8 @@ final class ChoicesStub {
 }
 
 /// A stand-in for another module's command ([TestHost.standInCommand]).
-final class CommandStub<P, R> {
-  CommandStub._();
+final class CommandStandIn<P, R> {
+  CommandStandIn._();
 
   /// The params of every call it served, in order.
   final List<P> params = [];

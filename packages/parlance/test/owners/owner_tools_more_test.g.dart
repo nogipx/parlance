@@ -258,14 +258,6 @@ abstract class BellOwnerBase implements IOwner {
 
   IFactSayerOf<BellRang>? _$rang;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     _$rang = p.fact(BellFact.rang).define();
@@ -288,8 +280,9 @@ final class BellRangFact {
   final BellOwnerBase _base;
 
   /// Says bell.rang; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required String who, Principal? by}) =>
-      _base._$say('bell.rang', _base._$rang, (who: who), by);
+      _base._$rang?.say((who: who), by: by);
 }
 
 /// The words of [Bell] as a consumer uses them: what a part

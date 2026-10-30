@@ -875,20 +875,6 @@ final class _Emitter {
       member(f.member, f);
       out.writeln('  IFactSayerOf<${f.type}>? _\$${f.member};');
     }
-    if (facts.isNotEmpty) {
-      out
-        ..writeln()
-        ..writeln(
-          '  void _\$say<T>(String fact, IFactSayerOf<T>? e, T payload, '
-          'Principal? by) {',
-        )
-        ..writeln('    if (e == null) {')
-        ..writeln('      IOwner.said(this, fact, payload);')
-        ..writeln('    } else {')
-        ..writeln('      e.say(payload, by: by);')
-        ..writeln('    }')
-        ..writeln('  }');
-    }
     out
       ..writeln()
       ..writeln('  void _\$define(IParticipant participant) {');
@@ -979,8 +965,10 @@ final class _Emitter {
         ..writeln()
         ..writeln('  /// Says ${f.name}; on behalf of [by], when given.')
         ..writeln(
-          "  void say($signature) => _base._\$say(${_quote(f.name)}, "
-          "_base._\$${f.member}, $payload, by);",
+          '  /// Said while its owner is not attached, no one hears it.',
+        )
+        ..writeln(
+          '  void say($signature) => _base._\$${f.member}?.say($payload, by: by);',
         )
         ..writeln('}')
         ..writeln();

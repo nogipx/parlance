@@ -58,7 +58,7 @@ final class Deck extends PlayerOwnerBase {
 Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `IPlayerClient.of(this)`, and hears it at once: `hear(fact: IPlayerClient.of(this).clipped, onData: ...)`.
 
 ```dart
-final IPlayerClient player = IPlayerClient(participant); // a test gives a stand-in
+final IPlayerClient player = IPlayerClient(participant); // a test: over a TestHost
 player.volume.changes.listen(show);   // player.volume.value now
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```

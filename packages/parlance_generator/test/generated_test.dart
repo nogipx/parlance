@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:parlance/tools.dart';
 import 'package:parlance/schema.dart';
-import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
 
 import 'fixtures/player.dart';
@@ -213,10 +212,9 @@ void main() {
     );
   });
 
-  test('a part takes the client\'s interface: a stand-in fits it', () async {
+  test('a part takes the client\'s interface', () async {
     int? shown(IPlayerClient player) => player.volume.value;
 
-    expect(shown(_StandIn()), 7);
     attach(Deck());
     expect(shown(IPlayerClient(asAnn)), 50);
     expect(
@@ -377,10 +375,10 @@ void main() {
     });
   });
 
-  test('an owner not attached keeps what it set and said, for a test', () {
+  test('an owner not attached keeps what it set; what it says no one '
+      'hears', () {
     final deck = Deck()..setVolume(volume: 95);
     expect(deck.volume.value, 95);
-    expect(saidBy(deck, PlayerFact.clipped), [(volume: 95)]);
     expect(deck.skip(count: 2), 2);
   });
 
@@ -464,14 +462,4 @@ void main() {
       );
     });
   });
-}
-
-/// What a test gives a part in place of the player, as mocktail makes one,
-/// its state a stub of the library's.
-final class _StandIn implements IPlayerClient {
-  @override
-  final IStateOf<int> volume = StateStub(7);
-
-  @override
-  Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

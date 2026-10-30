@@ -79,14 +79,6 @@ abstract class NotesOwnerBase implements IOwner {
 
   IFactSayerOf<NotesAdded>? _$added;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     Single.attach(all, p.state(NotesState.all).define());
@@ -115,8 +107,9 @@ final class NotesAddedFact {
   final NotesOwnerBase _base;
 
   /// Says notes.added; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required String id, required String text, Principal? by}) =>
-      _base._$say('notes.added', _base._$added, (id: id, text: text), by);
+      _base._$added?.say((id: id, text: text), by: by);
 }
 
 /// The words of [Notes] as a consumer uses them: what a part

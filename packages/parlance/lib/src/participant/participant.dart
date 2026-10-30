@@ -173,8 +173,8 @@ extension WordAccessOf on WordAccess {
 /// `main` makes one per part and hands it over; the part never gets the
 /// registry itself, so what its words' callers and readers say holds for
 /// it. Frozen (`schema.dart`): what it shows is never taken away; only the
-/// library makes one, so it may grow. Not to be implemented: a test gives
-/// a stand-in of a client (`I<Class>Client`), not of this.
+/// library makes one, so it may grow. Not to be implemented: a test makes
+/// one of a `TestHost`.
 abstract interface class IParticipant implements IHandle {
   /// Who it speaks as.
   Principal get who;

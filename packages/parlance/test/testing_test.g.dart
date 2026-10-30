@@ -309,14 +309,6 @@ abstract class ThermostatOwnerBase implements IOwner {
 
   IFactSayerOf<ThermostatAdjusted>? _$adjusted;
 
-  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
-    if (e == null) {
-      IOwner.said(this, fact, payload);
-    } else {
-      e.say(payload, by: by);
-    }
-  }
-
   void _$define(IParticipant participant) {
     final p = GeneratedWords(participant);
     Single.attach(heating, p.state(ThermostatState.heating).define());
@@ -341,8 +333,9 @@ final class ThermostatAdjustedFact {
   final ThermostatOwnerBase _base;
 
   /// Says thermostat.adjusted; on behalf of [by], when given.
+  /// Said while its owner is not attached, no one hears it.
   void say({required bool on, Principal? by}) =>
-      _base._$say('thermostat.adjusted', _base._$adjusted, (on: on), by);
+      _base._$adjusted?.say((on: on), by: by);
 }
 
 /// The words of [Thermostat] as a consumer uses them: what a part
