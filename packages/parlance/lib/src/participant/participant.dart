@@ -169,6 +169,12 @@ abstract interface class IParticipant implements IHandle {
   /// loop, across a connection once its copy reached the host.
   Future<void> settle();
 
+  /// Writes what every owner attached to it has now (what each
+  /// `follow`s), as one tick: for a host whose model tells it changed
+  /// (`controller.addListener(p.sync)`) where an owner's `follow(on:)`
+  /// cannot hear it.
+  void sync();
+
   /// Withdraws its owners, the last attached first, then everything it
   /// defined, registered and added, and its parts: a scope (a user's
   /// session, a feature) leaves nothing of itself, and its vocabularies are
@@ -284,11 +290,6 @@ abstract interface class IRawParticipant
   /// The availability checks of all its commands may answer otherwise
   /// now: each is asked again, and a status told where it changed.
   void availabilityMayHaveChanged();
-
-  /// Writes what every owner attached to it has now (what each
-  /// `follow`s), as one tick: what an owner's `follow(on:)` does by
-  /// itself.
-  void sync();
 
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
   /// (`home@house`), in the same vocabularies with the same rights, so
