@@ -10,11 +10,21 @@ import 'tree.dart';
 /// Reads what a [JournalWriter] wrote in [dir], in the order it happened,
 /// the days asked for only: each question is a [Journal]'s, over the
 /// files, read again for each one. A line that is no entry (one cut short
-/// when the app stopped) is skipped, and a day it cannot read.
+/// when the app stopped) is skipped, and a day it cannot read; a line of
+/// an entry kind this build does not know (a journal of a newer parlance)
+/// is skipped too, and told to [onUnknown], or, without it, once per kind
+/// in the developer log.
 final class JournalReader {
-  JournalReader(this.dir);
+  JournalReader(this.dir, {this.onUnknown});
 
   final Directory dir;
+
+  /// What a line of an entry kind this build does not know is told to.
+  final UnknownJournalLine? onUnknown;
+
+  /// What unknown kinds are told to, with no [onUnknown]: once per kind
+  /// for the life of this reader.
+  late final UnknownJournalLine _tell = onUnknown ?? tellUnknownKindsOnce();
 
   /// Its files, the oldest day first.
   List<File> get files => [for (final (_, f) in journalFiles(dir)) f];
@@ -35,14 +45,10 @@ final class JournalReader {
         // over, as a line that is no entry is: the other days are read.
         continue;
       }
-      for (final line in _lines(bytes)) {
-        if (line.isEmpty) continue;
-        try {
-          yield JournalEntry.fromJson(jsonDecode(line));
-        } on Object {
-          continue;
-        }
-      }
+      yield* parseJournal(
+        utf8.decode(bytes, allowMalformed: true),
+        onUnknown: _tell,
+      );
     }
   }
 

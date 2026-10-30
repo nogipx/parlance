@@ -514,4 +514,73 @@ call intercom.say by visitor/gate.7 -> done
       expect(await JournalReader(dir).export(out), 7);
     });
   });
+
+  test('a conversation in brief counts cancelled and lost among how its '
+      'calls ended', () async {
+    final host = Host();
+    final r = host.registry;
+    host
+        .participant(house, vocabularies: [const WordSet.open('x')])
+        .raw
+        .defineCommand(
+          CommandDescriptor('x.slow', callers: Callers.only(['user'])),
+          (_) {},
+        );
+    final w = JournalWriter(r.journal, dir: dir);
+    final token = CancellationToken();
+    final call = host.participant(user).raw.call(
+      'x.slow',
+      const {},
+      cancel: token,
+    );
+    token.cancel();
+    await call;
+    await pumpEventQueue();
+    await w.close();
+    await host.dispose();
+    // One whose answer was lost on the way, as a newer build writes it: a
+    // start and an end it did not get an answer to.
+    JournalReader(dir).files.last.writeAsStringSync(
+      '{"epoch":"e1","n":1,"kind":"start","id":"w1","command":"x.slow",'
+      '"params":{},"cause":{"by":{"kind":"user","id":"local"}},'
+      '"started":"2026-10-31T00:00:00.000Z"}\n'
+      '{"epoch":"e1","n":2,"kind":"end","id":"w1","command":"x.slow",'
+      '"params":{},"cause":{"by":{"kind":"user","id":"local"}},'
+      '"result":{"lost":"w1","reason":"the way broke"},'
+      '"started":"2026-10-31T00:00:00.000Z",'
+      '"finished":"2026-10-31T00:00:01.000Z"}\n',
+      mode: FileMode.append,
+    );
+    final talks = JournalReader(dir).days().conversations();
+    final cancelled = talks.singleWhere(
+      (JournalConversation c) => c.cancelled == 1,
+    );
+    expect(cancelled.failed, 0, reason: 'not a failure');
+    final lost = talks.singleWhere((JournalConversation c) => c.lost == 1);
+    expect((lost.calls, lost.failed), (1, 0));
+  });
+
+  test('a line of a kind this build does not know is skipped, and told',
+      () async {
+    final s = House();
+    final w = JournalWriter(s.r.journal, dir: dir);
+    await s.intercom('irc:1');
+    await w.close();
+    await s.r.dispose();
+    final today = JournalReader(dir).files.last;
+    today.writeAsStringSync(
+      '{"epoch":"e","n":99,"kind":"wave","what":1}\n',
+      mode: FileMode.append,
+    );
+    final told = <String>[];
+    final read = JournalReader(dir, onUnknown: (kind, _) => told.add(kind));
+    expect(read.conversation('irc:1'), hasLength(7));
+    expect(told, ['wave']);
+    final j = Journal.parse(
+      today.readAsStringSync(),
+      onUnknown: (kind, _) => told.add(kind),
+    );
+    expect(j.entries, hasLength(7));
+    expect(told, ['wave', 'wave'], reason: 'every one, to the callback');
+  });
 }

@@ -1,19 +1,56 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:parlance/tools.dart';
 
 import 'tree.dart';
 
+/// What is told of a line that is an entry of a kind this build does not
+/// know (a journal of a newer parlance): [kind] is the kind the line
+/// names; [line] is the line itself. The line is skipped either way; this
+/// says why.
+typedef UnknownJournalLine = void Function(String kind, String line);
+
+/// What unknown kinds are told to with no [UnknownJournalLine] given: the
+/// first line of each kind, in the developer log (warning,
+/// `parlance.journal`), so reading a newer journal is not silent; once per
+/// kind, so a newer journal cannot flood it.
+UnknownJournalLine tellUnknownKindsOnce() {
+  final told = <String>{};
+  return (kind, line) {
+    if (told.add(kind)) {
+      developer.log(
+        'a journal entry of kind "$kind" was skipped: '
+        'this build does not know it',
+        name: 'parlance.journal',
+        level: 900,
+      );
+    }
+  };
+}
+
 /// The entries of JSON lines, as a [JournalWriter] writes them: one a
 /// line, in order. A line that is no entry (one cut short when the app
-/// stopped) is skipped.
-Iterable<JournalEntry> parseJournal(String lines) sync* {
+/// stopped) is skipped; a line of a kind this build does not know (a
+/// journal of a newer parlance) is skipped too, and told to [onUnknown],
+/// or, without it, once per kind in the developer log.
+Iterable<JournalEntry> parseJournal(
+  String lines, {
+  UnknownJournalLine? onUnknown,
+}) sync* {
+  final tell = onUnknown ?? tellUnknownKindsOnce();
   for (final line in const LineSplitter().convert(lines)) {
     if (line.trim().isEmpty) continue;
     try {
       yield JournalEntry.fromJson(jsonDecode(line));
-    } on Object {
-      continue;
+    } on Object catch (e) {
+      if (e case FormatException(
+        :final message,
+      ) when message.startsWith('no journal entry of kind ')) {
+        tell(message.substring('no journal entry of kind '.length), line);
+      }
+      // What is no entry at all (a cut-short line) or no entry for this
+      // build goes by; the difference is only whether it is told.
     }
   }
 }
@@ -30,7 +67,8 @@ final class Journal {
   const Journal(this.entries);
 
   /// The entries of JSON lines ([parseJournal]).
-  factory Journal.parse(String lines) => Journal(parseJournal(lines).toList());
+  factory Journal.parse(String lines, {UnknownJournalLine? onUnknown}) =>
+      Journal(parseJournal(lines, onUnknown: onUnknown).toList());
 
   final Iterable<JournalEntry> entries;
 
@@ -204,6 +242,13 @@ final class JournalConversation {
   int get timedOut => _timedOut;
   int _timedOut = 0;
 
+  /// How many of its calls were cancelled by their caller and how many
+  /// went lost on the way: not failures, and not ends to read as peaceful.
+  int get cancelled => _cancelled;
+  int _cancelled = 0;
+  int get lost => _lost;
+  int _lost = 0;
+
   Duration get duration => _last.difference(started);
 
   void _add(JournalEntry e) {
@@ -221,7 +266,12 @@ final class JournalConversation {
             _failed++;
           case CallTimedOut():
             _timedOut++;
-          case _:
+          case CallCancelled():
+            _cancelled++;
+          case CallLost():
+            _lost++;
+          case CallDone():
+            break;
         }
       case _:
     }
