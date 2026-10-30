@@ -61,7 +61,7 @@ final class Links {
     this.onRun,
     this.conversationLimit = 16,
   }) : participant = participant.raw,
-       pressers = pressers ?? Callers({'*': Access.allow}),
+       pressers = pressers ?? Callers.anyone,
        _extensions = {for (final e in extensions) e.name: e};
 
   final IRawParticipant participant;

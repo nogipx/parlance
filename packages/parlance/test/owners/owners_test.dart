@@ -59,7 +59,7 @@ final class Knob extends Owner {
   final List<num> heard = [];
 
   @override
-  void define(IRawParticipant p) => listen(stream: turns, onData: heard.add);
+  void define(IRawParticipant p) => listen(on: turns, onData: heard.add);
 }
 
 final class Other extends Owner {

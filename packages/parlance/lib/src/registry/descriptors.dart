@@ -68,6 +68,9 @@ final class Callers {
       e.key as String: Access.values.asNameMap()[e.value] ?? Access.deny,
   });
 
+  /// Anyone may.
+  static const anyone = Callers({'*': Access.allow});
+
   /// Every principal kind in [kinds] allowed.
   Callers.only(Iterable<String> kinds)
     : rules = {for (final k in kinds) k: Access.allow};

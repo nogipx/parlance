@@ -48,7 +48,7 @@ enum NotesCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class NotesOwnerBase implements IOwner {
   NotesOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: notesWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: notesWords);
   }
 
   /// notes.count: what this owner set last, read by `value`,

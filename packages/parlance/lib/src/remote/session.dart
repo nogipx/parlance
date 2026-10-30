@@ -171,7 +171,7 @@ final class RemoteSession extends ParlanceContractPeer
   /// and says goes through it, in its vocabularies and with its rights.
   final LocalParticipant _p;
 
-  Set<String> get vocabularies => _p.vocabularies;
+  Set<String> get vocabularies => _p.vocabularyNames;
   ParticipantRights get rights => _p.rights;
 
   /// The participant's side, serving the session's commands.
@@ -241,7 +241,7 @@ final class RemoteSession extends ParlanceContractPeer
       'protocol': parlanceProtocol,
       'features': [...features],
       'principal': principal.toJson(),
-      'vocabularies': [..._p.vocabularies],
+      'vocabularies': [..._p.vocabularyNames],
       // Who may read and call its words by default, as the host said: the
       // part across fills its words' descriptors so.
       'defaults': {

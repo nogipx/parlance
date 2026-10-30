@@ -218,7 +218,12 @@ abstract final class PlayerChoices {
 /// says and calls follows from the call it serves.
 abstract class PlayerOwnerBase implements IOwner {
   PlayerOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: playerWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: playerWords,
+    );
   }
 
   /// player.volume: what this owner set last, read by `value`,
@@ -240,13 +245,9 @@ abstract class PlayerOwnerBase implements IOwner {
   IFactEmitterOf<PlayerClipped>? _$clipped;
   IFactEmitterOf<Track>? _$finished;
 
-  /// What it said while not attached, for a test to read:
-  /// each fact's name and payload, in order.
-  final List<(String, Object?)> said = [];
-
   void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
-      said.add((fact, payload));
+      IOwner.said(this, fact, payload);
     } else if (by == null) {
       e.emit(payload);
     } else {
@@ -293,7 +294,7 @@ abstract class PlayerOwnerBase implements IOwner {
         .query(PlayerQuery.search)
         .serve(
           (x) => search(text: x.text, limit: x.limit),
-          askers: const Callers({'*': Access.allow}),
+          askers: Callers.anyone,
         );
   }
 

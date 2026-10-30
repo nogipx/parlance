@@ -2,12 +2,12 @@ part of 'participant.dart';
 
 /// The host cannot be asked now: the connection is down, or the session
 /// ended. What the participant read before may be old.
-final class RegistryUnreachable implements Exception {
-  const RegistryUnreachable(this.reason);
-  final String reason;
+final class HostUnreachable implements Exception {
+  const HostUnreachable(this.why);
+  final String why;
 
   @override
-  String toString() => 'the registry cannot be reached now: $reason';
+  String toString() => 'the registry cannot be reached now: $why';
 }
 
 /// What of the protocol the host speaks, as its `describe` told it (SPEC
@@ -66,7 +66,7 @@ final class ProtocolMismatch implements Exception {
 /// over a connection the answer is not there when the participant asks
 /// (SPEC §22.4).
 final class ParticipantError {
-  const ParticipantError(this.op, this.code, this.message);
+  const ParticipantError(this.op, this.code, this.why);
 
   /// What it asked, as it was sent (`{op: define, descriptor: ...}`).
   final Map<String, Object?> op;
@@ -80,8 +80,8 @@ final class ParticipantError {
   /// `mismatch` when a word its code was built against is there otherwise
   /// (`{op: built, word}`), every break in the message (SPEC §6.9).
   final String code;
-  final String message;
+  final String why;
 
   @override
-  String toString() => '${op['op']}: $code: $message';
+  String toString() => '${op['op']}: $code: $why';
 }

@@ -28,7 +28,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **WordBreak** (§25.1): one place a word met breaks what code was built against: `path`, `kind` (`BreakKind`: `word`, `type`, `bound`, `field`, `value`), `was`, `now`, `certain` (every use meets it, or only some values). `entryBreaks(built, live)` judges two schema entries as the data goes; `keepsPromises` is it empty.
 - **Fingerprint** (§25.4): the SHA-256 of a schema's canonical form (`canonicalSchema`: keys in order, descriptions out; `fingerprintOf`). A part across a connection tells words by it first; the registry keeps schemas by it (`knownSchema`).
 - **breaksSince** (§25.3): `schemaBreaks` of the words now against each release still in use, or the latest only.
-- **Light host** (§22.5, `HostBounds.light`): the same `Host` keeping nothing past what is now.
+- **Light host** (§22.5, `HostLimits.light`): the same `Host` keeping nothing past what is now.
 
 ## Who and why
 
@@ -137,7 +137,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **LocalView** (`tools.dart`): a view of a registry in the same process, as one principal.
 - **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords(participant)` (`GeneratedWords.of(owner)` for an owner's client); the generator's contract, not a way to write by hand.
 - **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
-- **`ProtocolMismatch`**, **`RegistryUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
+- **`ProtocolMismatch`**, **`HostUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
 - **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, choices, calls in flight; on by default, `unbounded` for a trusted part; past one, that op is refused (`resourceExhausted`).
 - **Protocol feature** (§14): a name the host lists in `describe` for what it speaks beyond the major (`parlanceFeatures`: `built`, `kinds`; a client tells the host those it speaks in its `feed` request); a participant uses one only when listed, and `requires` the ones it cannot do without. A name never changes its meaning.
 

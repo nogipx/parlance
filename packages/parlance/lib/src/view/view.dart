@@ -222,7 +222,7 @@ final class ViewFactOf<T> {
   ];
 
   /// Those said from now on.
-  Stream<Fact<T>> get stream =>
+  Stream<Fact<T>> get facts =>
       view.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
   /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.

@@ -44,14 +44,10 @@ export 'src/registry/words.dart'
     hide TypedRegistry, StateOf, CommandOf, QueryOf, FactOf;
 export 'src/participant/local.dart'
     hide registryOf, takeForServing, builtAgainstSchemas, forgetBuiltAgainst;
-export 'src/participant/owner.dart' hide OwnerGroup, Owner;
+export 'src/participant/owner.dart' hide OwnerGroup, Owner, saidApart;
 export 'src/participant/participant.dart';
 export 'src/remote/participant.dart'
-    show
-        ParticipantError,
-        ProtocolMismatch,
-        RegistryUnreachable,
-        RemoteParticipant;
+    show ParticipantError, ProtocolMismatch, HostUnreachable, RemoteParticipant;
 export 'src/remote/session.dart'
     show RemoteSession, ServeParticipant, SessionLimits;
 export 'src/view/view.dart';

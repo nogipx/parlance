@@ -20,10 +20,12 @@ abstract interface class IWord {
 }
 
 /// A vocabulary: a module's words, all in its one [name] (SPEC §22.1,
-/// §23). It is the only way a participant gets one: `main` grants
-/// it (`participant(who, vocabularies:)`), so its name is written
-/// once, where the words are. The generator makes one per `@Vocabulary`
-/// class; one of hand-written enums is `WordSet('house', [...])`.
+/// §23). It is the only way a participant gets one: its owner brings it
+/// (`participant(who, owners: [...])`), or `main` grants it for owners at
+/// the other end or words named at run time (`vocabularies:`), so its
+/// name is written once, where the words are. The generator makes one per
+/// `@Vocabulary` class; one of hand-written enums is
+/// `WordSet('house', [...])`.
 final class WordSet {
   const WordSet(this.name, this.words, {this.from, this.dartName})
     : open = false;
@@ -52,7 +54,6 @@ final class WordSet {
   /// Whether its words come at run time ([WordSet.open]).
   final bool open;
 
-  /// Throws when a word lies outside [name].
   /// Throws when its name or a word's name is no name (SPEC §1), or a
   /// word is not named in it: told when the vocabulary is granted,
   /// at the start, for every word at once, not when one is defined.
@@ -269,7 +270,6 @@ final class StateOf<T> {
   /// Its value now, then on every change.
   Stream<T?> watch({String? key}) =>
       registry.watchAs(word.name, word.shape, key: key);
-
 }
 
 /// The only write handle of a typed state.
@@ -296,8 +296,7 @@ abstract interface class IFactEmitterOf<T> implements IHandle {
   bool emitFor(T payload, Principal by);
 }
 
-final class StateWriterOf<T>
-    implements IStateWriterOf<T> {
+final class StateWriterOf<T> implements IStateWriterOf<T> {
   StateWriterOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.
@@ -397,11 +396,11 @@ abstract interface class IKeyedOf<T> {
 }
 
 /// A fact as a part that hears it (SPEC §23.5): what is said from now on,
-/// the payloads alone ([stream]) or with their messages ([facts]), to
+/// the payloads alone ([payloads]) or with their messages ([facts]), to
 /// follow from (`hear`).
 abstract interface class IFactOf<T> {
   /// What it says, as it is said from now on.
-  Stream<T> get stream;
+  Stream<T> get payloads;
 
   /// What it says and the message it came in: its id, its cause.
   Stream<Fact<T>> get facts;
@@ -578,7 +577,6 @@ final class CommandOf<P, R> {
 
   /// Why it cannot run now; null when it can.
   String? whyUnavailable() => registry.whyUnavailable(word.name);
-
 }
 
 /// A query, typed (SPEC §6.6): defined by its owner, asked by anyone its
@@ -599,7 +597,7 @@ final class QueryOf<P, R> {
     Availability? available,
   }) => registry.defineQuery(
     word.describeWith(
-      askers: askers ?? const Callers({'*': Access.allow}),
+      askers: askers ?? Callers.anyone,
       deadline: deadline,
       meta: meta,
     ),
@@ -668,19 +666,17 @@ final class FactOf<T> {
   Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
 
   /// Its facts as they are committed.
-  Stream<Fact<T>> get stream =>
+  Stream<Fact<T>> get facts =>
       registry.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
   /// The last [n], oldest first.
   List<Fact<T>> recent([int? n]) => [
     for (final m in registry.recent(word.name, n)) _decode(m),
   ];
-
 }
 
 /// An emit handle of a typed fact.
-final class FactEmitterOf<T>
-    implements IFactEmitterOf<T> {
+final class FactEmitterOf<T> implements IFactEmitterOf<T> {
   FactEmitterOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.

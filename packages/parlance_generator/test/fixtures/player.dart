@@ -77,7 +77,7 @@ abstract class Player {
   @CommandWord('stop', callers: Callers({'listener': Access.allow}))
   void stop();
 
-  @QueryWord('search', askers: Callers({'*': Access.allow}))
+  @QueryWord('search', askers: Callers.anyone)
   List<Track> search({@Length(max: 40) required String text, int? limit});
 
   @FactWord('clipped')

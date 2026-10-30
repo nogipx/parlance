@@ -67,7 +67,7 @@ enum NotesFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class NotesOwnerBase implements IOwner {
   NotesOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: notesWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: notesWords);
   }
 
   /// notes.all: what this owner set last, read by `value`,
@@ -76,13 +76,9 @@ abstract class NotesOwnerBase implements IOwner {
 
   IFactEmitterOf<NotesAdded>? _$added;
 
-  /// What it said while not attached, for a test to read:
-  /// each fact's name and payload, in order.
-  final List<(String, Object?)> said = [];
-
   void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
-      said.add((fact, payload));
+      IOwner.said(this, fact, payload);
     } else if (by == null) {
       e.emit(payload);
     } else {

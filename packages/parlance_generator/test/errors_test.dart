@@ -105,10 +105,6 @@ $body
           '@CommandWord("why_not_go") void whyNotGo();',
       'whyNotGo is had twice by OrdersOwnerBase',
     ),
-    'a word named as what the owner base keeps it said': (
-      '@StateWord("said") int get said;',
-      'said is a name every owner base has',
-    ),
     'a word named as what every client has': (
       '@StateWord("status") int get status;',
       'status is had twice by OrdersClient',

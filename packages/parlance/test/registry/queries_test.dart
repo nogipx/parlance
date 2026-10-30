@@ -36,20 +36,19 @@ void main() {
   tearDown(() => r.dispose());
 
   var asked = 0;
-  IHandle define({Callers askers = const Callers({'*': Access.allow})}) =>
-      r.defineQuery(
-        QueryDescriptor(
-          'orders.page',
-          params: const ObjectType({'from': Field(IntType())}),
-          returns: const ListType(TextType()),
-          askers: askers,
-        ),
-        (c) {
-          asked++;
-          final from = c.params['from']! as int;
-          return [for (var i = from; i < from + 2; i++) 'o$i'];
-        },
-      );
+  IHandle define({Callers askers = Callers.anyone}) => r.defineQuery(
+    QueryDescriptor(
+      'orders.page',
+      params: const ObjectType({'from': Field(IntType())}),
+      returns: const ListType(TextType()),
+      askers: askers,
+    ),
+    (c) {
+      asked++;
+      final from = c.params['from']! as int;
+      return [for (var i = from; i < from + 2; i++) 'o$i'];
+    },
+  );
 
   setUp(() => asked = 0);
 
@@ -133,10 +132,7 @@ void main() {
       note = r.state(_Note.text).define(by: owner)..set('before');
       said = r.fact(_Said.it).define(by: owner);
       r.defineCommand(
-        CommandDescriptor(
-          'orders.touch',
-          callers: const Callers({'*': Access.allow}),
-        ),
+        CommandDescriptor('orders.touch', callers: Callers.anyone),
         (_) {},
       );
     });
@@ -184,17 +180,14 @@ void main() {
         r.dispose();
         r = Registry();
         r.defineCommand(
-          CommandDescriptor(
-            'orders.touch',
-            callers: const Callers({'*': Access.allow}),
-          ),
+          CommandDescriptor('orders.touch', callers: Callers.anyone),
           (_) {},
         );
         r.defineQuery(
           QueryDescriptor(
             'orders.count',
             returns: const IntType(),
-            askers: const Callers({'*': Access.allow}),
+            askers: Callers.anyone,
           ),
           (_) => 3,
         );

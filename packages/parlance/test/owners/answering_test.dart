@@ -45,7 +45,7 @@ final class _Room extends Owner {
     lamp = keep(p.state(_State.lamp).define());
     keep(
       p.command(_Command.warm).define((_) {
-        warmedBy = caller;
+        warmedBy = by;
         heat.set(25);
         // Cools on its own later: not in answer to the call.
         apart(
@@ -73,7 +73,7 @@ void main() {
         vocabularies: [WordSet.open('room')],
         owners: [room],
       );
-      expect(room.caller, isNull, reason: 'outside a handler');
+      expect(room.by, isNull, reason: 'outside a handler');
       await r.participant(user).call('room.warm', {}, id: 'w1');
       expect(room.warmedBy, user);
       expect(r.explain('room.heat').change!.cause.parent, 'w1');

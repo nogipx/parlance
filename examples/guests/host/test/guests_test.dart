@@ -33,7 +33,7 @@ void main() {
     (e) => startBoard(
       e,
       onError: (x) {
-        if (x.code == 'mismatch') mismatches['${x.op['word']}'] = x.message;
+        if (x.code == 'mismatch') mismatches['${x.op['word']}'] = x.why;
       },
     ),
   );
@@ -41,7 +41,7 @@ void main() {
   test('a guest uses another guest\'s words and the host\'s, typed', () async {
     await loadInMemory(host, 'notes', startNotes);
     final (p, b) = await board();
-    final heard = b.notes.added.stream.first;
+    final heard = b.notes.added.payloads.first;
     await b.pin('buy milk');
     await p.settle();
     expect(b.shown.single.text, 'buy milk');

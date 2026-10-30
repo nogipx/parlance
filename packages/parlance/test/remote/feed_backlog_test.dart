@@ -45,14 +45,14 @@ void main() {
       StateDescriptor(
         'count.at',
         type: const IntType(),
-        readers: const Callers({'*': Access.allow}),
+        readers: Callers.anyone,
       ),
     );
     final said = p.defineFact(
       FactDescriptor(
         'count.said',
         type: const IntType(),
-        readers: const Callers({'*': Access.allow}),
+        readers: Callers.anyone,
       ),
     );
     for (var i = 1; i <= n; i++) {

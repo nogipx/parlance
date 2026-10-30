@@ -137,7 +137,7 @@ abstract final class HouseChoices {
 /// says and calls follows from the call it serves.
 abstract class HouseOwnerBase implements IOwner {
   HouseOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: houseWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: houseWords);
   }
 
   /// house.light, by room: what this owner set of each,
@@ -159,13 +159,9 @@ abstract class HouseOwnerBase implements IOwner {
   IFactEmitterOf<HouseRang>? _$rang;
   IFactEmitterOf<HouseMotion>? _$motion;
 
-  /// What it said while not attached, for a test to read:
-  /// each fact's name and payload, in order.
-  final List<(String, Object?)> said = [];
-
   void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
-      said.add((fact, payload));
+      IOwner.said(this, fact, payload);
     } else if (by == null) {
       e.emit(payload);
     } else {
@@ -512,7 +508,7 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class VisitOwnerBase implements IOwner {
   VisitOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: visitWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: visitWords);
   }
 
   /// visit.guests: what this owner set last, read by `value`,

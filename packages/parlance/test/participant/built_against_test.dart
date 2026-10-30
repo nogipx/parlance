@@ -229,10 +229,7 @@ void main() {
       final heard = <int>[];
       owner()
           .command(NowCommand.turn)
-          .define(
-            (c) => heard.add(c.params.volume),
-            callers: const Callers({'*': Access.allow}),
-          );
+          .define((c) => heard.add(c.params.volume), callers: Callers.anyone);
       final b = across ? await host.join(guest) : host.participant(guest);
       if (b is RemoteParticipant) await b.settle();
       final before = await b.raw.command(BuiltCommand.turn).call((

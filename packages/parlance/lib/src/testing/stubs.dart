@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../participant/owner.dart' show IOwner, saidApart;
 import '../registry/cause.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
@@ -92,7 +93,7 @@ final class FactStub<T> implements IFactOf<T> {
   var _seq = 0;
 
   @override
-  Stream<T> get stream => _said.stream.map((f) => f.payload);
+  Stream<T> get payloads => _said.stream.map((f) => f.payload);
 
   @override
   Stream<Fact<T>> get facts => _said.stream;
@@ -120,3 +121,8 @@ final class FactStub<T> implements IFactOf<T> {
     _said.add(f);
   }
 }
+
+/// What [owner] said while it was not attached, each fact's name and
+/// payload, in order: an owner made in a test and never attached is its
+/// own test double (`expect(saidBy(deck), [('player.clipped', ...)])`).
+List<(String, Object?)> saidBy(IOwner owner) => saidApart(owner);

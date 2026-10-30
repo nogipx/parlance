@@ -13,7 +13,7 @@ final class Fan implements IOwner {
     IOwner.made(this, define: (_) {});
     // What it reads of another's it watches: across a connection a state
     // is kept only while watched.
-    listen(stream: player.volume.changes, onData: (v) => volume = v);
+    listen(on: player.volume.changes, onData: (v) => volume = v);
     hear(
       fact: player.clipped,
       onData: (c) => heard.add((c.volume, player.volume.value)),
@@ -37,7 +37,7 @@ void main() {
       host.participant(
         const Principal('player'),
         owners: [Deck()],
-        access: const WordAccess(callers: Callers({'*': Access.allow})),
+        access: const WordAccess(callers: Callers.anyone),
       );
       final fan = Fan();
       const listener = Principal('listener', 'ann');

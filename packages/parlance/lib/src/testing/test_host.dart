@@ -138,7 +138,7 @@ final class TestHost {
   CommandStub<P, R> standInCommand<P, R>(
     ICommandWord<P, R> word, {
     FutureOr<R> Function(P params)? answer,
-    Callers callers = const Callers({'*': Access.allow}),
+    Callers callers = Callers.anyone,
   }) {
     final stub = CommandStub<P, R>._();
     _standInFor(word.name).command(word).define((call) {

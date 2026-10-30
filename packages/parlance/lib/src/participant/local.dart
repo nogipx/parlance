@@ -164,7 +164,7 @@ final class LocalParticipant implements IRawParticipant {
   LocalParticipant._(
     this._r,
     this.who,
-    this.vocabularies,
+    this.vocabularyNames,
     this.rights,
     this.access, {
     this.parent,
@@ -185,7 +185,7 @@ final class LocalParticipant implements IRawParticipant {
   final Principal who;
 
   @override
-  final Set<String> vocabularies;
+  final Set<String> vocabularyNames;
 
   /// What it may do beyond defining in its vocabularies.
   final ParticipantRights rights;
@@ -232,13 +232,13 @@ final class LocalParticipant implements IRawParticipant {
 
   /// Whether [name] is in its vocabularies.
   bool owns(String name) =>
-      vocabularies.any((ns) => name == ns || name.startsWith('$ns.'));
+      vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
 
   void _mayDefine(Descriptor d) {
     _live();
     if (!owns(d.name)) {
       throw NotPermitted(
-        '$who defines in ${vocabularies.isEmpty ? 'no vocabulary' : vocabularies.join(', ')}, not ${d.name}',
+        '$who defines in ${vocabularyNames.isEmpty ? 'no vocabulary' : vocabularyNames.join(', ')}, not ${d.name}',
       );
     }
     if (rights.define?.call(who, d) case final why?) throw NotPermitted(why);
@@ -278,7 +278,7 @@ final class LocalParticipant implements IRawParticipant {
     return _children[name] ??= LocalParticipant._(
       _r,
       who.child(name),
-      vocabularies,
+      vocabularyNames,
       rights,
       access,
       parent: this,

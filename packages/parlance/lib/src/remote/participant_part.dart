@@ -13,7 +13,7 @@ final class _Part implements IRawParticipant {
   IRawParticipant get whole => _root;
 
   @override
-  Set<String> get vocabularies => _root.vocabularies;
+  Set<String> get vocabularyNames => _root.vocabularyNames;
 
   @override
   WordAccess get access => _root.access;

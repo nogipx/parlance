@@ -14,7 +14,7 @@ library;
 export 'package:rpc_dart/logger.dart' show LogScope;
 
 export 'schema.dart';
-export 'src/host.dart' show Host, HostBounds, ServeAcross;
+export 'src/host.dart' show Host, HostLimits, ServeAcross;
 export 'src/participant/participant.dart'
     show ParticipantRights, WordAccess, NotPermitted;
 export 'src/remote/participant.dart'
@@ -22,5 +22,5 @@ export 'src/remote/participant.dart'
         IRemoteParticipant,
         ParticipantError,
         ProtocolMismatch,
-        RegistryUnreachable;
+        HostUnreachable;
 export 'src/remote/session.dart' show IRemoteSession, SessionLimits;

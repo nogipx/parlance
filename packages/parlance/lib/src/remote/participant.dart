@@ -70,7 +70,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     this._client,
     this._mirror,
     this.who,
-    this.vocabularies,
+    this.vocabularyNames,
     this.access,
     this._onError,
     this.log,
@@ -107,7 +107,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// ([ProtocolMismatch]), on joining and on joining again.
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
-    void Function(ParticipantError error)? onError,
+    void Function(ParticipantError error)? onParticipantError,
     LogScope? log,
     int keepAway = 1000,
     Iterable<IRpcInterceptor> interceptors = const [],
@@ -128,7 +128,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     }
     final RemoteParticipant p;
     try {
-      p = await _start(endpoint, onError, log, keepAway, requires);
+      p = await _start(endpoint, onParticipantError, log, keepAway, requires);
     } on Object {
       await endpoint.close();
       rethrow;
@@ -144,12 +144,18 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// endpoint stays the caller's: [close] does not close it.
   static Future<RemoteParticipant> joinEndpoint(
     RpcPeerEndpoint endpoint, {
-    void Function(ParticipantError error)? onError,
+    void Function(ParticipantError error)? onParticipantError,
     LogScope? log,
     int keepAway = 1000,
     Set<String> requires = const {},
   }) async {
-    final p = await _start(endpoint, onError, log, keepAway, requires);
+    final p = await _start(
+      endpoint,
+      onParticipantError,
+      log,
+      keepAway,
+      requires,
+    );
     p._ownsEndpoint = false;
     return p;
   }
@@ -370,7 +376,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   final Principal who;
 
   @override
-  final Set<String> vocabularies;
+  final Set<String> vocabularyNames;
 
   // Told as each answer comes, so a refusal is heard before the flush it
   // came in completes.
@@ -410,13 +416,13 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   bool _owns(String name) =>
-      vocabularies.any((ns) => name == ns || name.startsWith('$ns.'));
+      vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
 
   void _mayDefine(Descriptor d) {
     _live();
     if (!_owns(d.name)) {
       throw NotPermitted(
-        '$who defines in ${vocabularies.isEmpty ? 'no vocabulary' : vocabularies.join(', ')}, not ${d.name}',
+        '$who defines in ${vocabularyNames.isEmpty ? 'no vocabulary' : vocabularyNames.join(', ')}, not ${d.name}',
       );
     }
     // A name it holds is taken, as in the host's process: defined again,
@@ -619,7 +625,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   /// [ask] of the host, its failures told as a participant's in this
   /// process would be: a refusal as [NotPermitted] (or [denied]), [missing]
-  /// for a word there is not, and no host to ask as [RegistryUnreachable].
+  /// for a word there is not, and no host to ask as [HostUnreachable].
   /// The wire's errors stay the package's.
   Future<T> _asked<T>(
     Future<T> Function() ask, {
@@ -636,11 +642,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       if (e.statusCode == RpcStatus.notFound && missing != null) {
         return missing();
       }
-      throw RegistryUnreachable(e.message);
+      throw HostUnreachable(e.message);
     } on NotPermitted {
       rethrow;
     } on Object catch (e) {
-      throw RegistryUnreachable('$e');
+      throw HostUnreachable('$e');
     }
   }
 

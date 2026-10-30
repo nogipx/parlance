@@ -118,7 +118,7 @@ List<String> said(WordStatus s) => [
 
 const deck = Principal('deck');
 const guest = Principal('widlet', 'b');
-const anyone = Callers({'*': Access.allow});
+const anyone = Callers.anyone;
 
 void main() {
   late TestHost host;

@@ -2,7 +2,7 @@
 
 Part of the contract the code and its tests follow; sections keep their numbers across these files (`SPEC §n` in the code), and SKILL.md maps them. Where code and contract disagree, the contract is fixed first.
 
-The core is what the registry stands on, inside the package: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. It is not a library of its own; an app takes words and a `Host` (a small one `HostBounds.light`). The registry (§1–12) is built on it, and remote and views on the registry. Nothing above writes a value, emits or serves a command any other way. Nothing of it is seen outside (§21.6).
+The core is what the registry stands on, inside the package: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. It is not a library of its own; an app takes words and a `Host` (a small one `HostLimits.light`). The registry (§1–12) is built on it, and remote and views on the registry. Nothing above writes a value, emits or serves a command any other way. Nothing of it is seen outside (§21.6).
 
 Its parts are the package's words, local: a `LocalState` is a state, a `LocalCommand` a command, a `LocalFact` a fact, the same as the registry's without names, principals or JSON.
 

@@ -48,7 +48,7 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class AppOwnerBase implements IOwner {
   AppOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: appWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: appWords);
   }
 
   /// app.dark: what this owner set last, read by `value`,

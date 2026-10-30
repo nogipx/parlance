@@ -144,7 +144,7 @@ void main() {
     () async {
       final p = await join();
       expect(p.who, kittens);
-      expect(p.vocabularies, {'kittens'});
+      expect(p.vocabularyNames, {'kittens'});
     },
   );
 
@@ -241,7 +241,7 @@ void main() {
       QueryDescriptor(
         'kittens.count',
         returns: const IntType(),
-        askers: const Callers({'*': Access.allow}),
+        askers: Callers.anyone,
       ),
       (_) {
         lamp.set(true);
@@ -291,7 +291,7 @@ void main() {
       p.fact(Purr.purred).define();
       await p.flush();
       expect(errors.single.code, 'permissionDenied');
-      expect(errors.single.message, 'no facts');
+      expect(errors.single.why, 'no facts');
       expect(r.factDescriptor('kittens.purred'), isNull);
     },
   );
@@ -403,7 +403,7 @@ void main() {
     await p.flush();
     await settle();
     expect(r.recent('kittens.purred').single.cause.by, someone);
-    expect(errors.single.message, 'visitors only');
+    expect(errors.single.why, 'visitors only');
   });
 
   test('a value its state or fact cannot hold is refused at once, as in '
@@ -527,7 +527,7 @@ void main() {
     session?.dispose();
     await host?.close();
     await settle();
-    await expectLater(p.describe(), throwsA(isA<RegistryUnreachable>()));
+    await expectLater(p.describe(), throwsA(isA<HostUnreachable>()));
   });
 
   test('a subscription naming more than the host takes is refused, and '
@@ -772,7 +772,7 @@ void main() {
       {'on': true},
     ], reason: 'the last two');
     expect(errors.single.code, 'dropped');
-    expect(errors.single.message, contains('1 facts'));
+    expect(errors.single.why, contains('1 facts'));
 
     await p.close();
     await connection.dispose();

@@ -54,20 +54,26 @@ abstract interface class IOwner {
   /// does it): [define] defines its words once it is attached, through the
   /// participant it is given, and they go when the owner goes; [write],
   /// when given, writes what it set before it was attached, first of each
-  /// sync. [words] is the vocabulary its words are in: it speaks as the
+  /// sync. [vocabulary] is the vocabulary its words are in: it speaks as the
   /// part of its name; without, it defines none and speaks as the
   /// participant.
   static void made(
     IOwner owner, {
     required void Function(IParticipant p) define,
     void Function()? write,
-    WordSet? words,
+    WordSet? vocabulary,
   }) {
     final c = _Core.of(owner);
     c.define = define;
     c.write = write;
-    c.words = words;
+    c.words = vocabulary;
   }
+
+  /// Called by a base the generator made: [owner] said [fact] with
+  /// [payload] while it was not attached, kept for a test to read
+  /// (`saidBy` of `testing.dart`), in order.
+  static void said(IOwner owner, String fact, Object? payload) =>
+      _Core.of(owner).said.add((fact, payload));
 }
 
 /// What the library keeps of an owner, beside it: an owner holds none of
@@ -95,6 +101,9 @@ final class _Core {
   void Function()? write;
   final List<void Function()> follows = [];
   final List<_Choices> choices = [];
+
+  /// What it said while not attached: each fact's name and payload.
+  final List<(String, Object?)> said = [];
 
   /// Its keyed states, by the kind of their keys.
   final Map<String, List<Keyed<Object?>>> keyed = {};
@@ -143,7 +152,7 @@ final class _Core {
     final w = words;
     if (w == null) return;
     final raw = p.raw;
-    final given = raw.vocabularies;
+    final given = raw.vocabularyNames;
     if (given.contains(w.name)) return;
     final whole = raw.whole.who;
     throw NotPermitted(
@@ -216,7 +225,7 @@ final class _Core {
 }
 
 /// What an owner does with the library (SPEC §19, §23.4): written in it as
-/// its own, `listen(...)`, `caller`; a name the owner has of its own is
+/// its own, `listen(...)`, `by`; a name the owner has of its own is
 /// its own, and one these tools have is reached as `OwnerTools(this).x`.
 /// An owner's participant itself, for tools (`tools.dart`): what an owner
 /// does by name or with words named at run time, through `p.raw`. An app's
@@ -254,18 +263,15 @@ extension OwnerTools on IOwner {
     if (c.synced) c.participant!.batch(pull);
   }
 
-  /// Listens to [stream] while it is attached: what its work reports on
-  /// its own (a switch flipped by hand, a message come in), for it to
-  /// write or say.
-  void listen<T>({
-    required Stream<T> stream,
-    required void Function(T) onData,
-  }) {
+  /// Listens to [on] while it is attached: what its work reports on its
+  /// own (a switch flipped by hand, a message come in), for it to write or
+  /// say.
+  void listen<T>({required Stream<T> on, required void Function(T) onData}) {
     final c = _Core.of(this);
     c.whenAttached(
       (_) => c.handles.keep(
         _Listening(
-          stream.listen((x) {
+          on.listen((x) {
             onData(x);
             c.moved();
           }),
@@ -282,7 +288,7 @@ extension OwnerTools on IOwner {
     required IFactOf<T> fact,
     required void Function(T payload) onData,
   }) => listen(
-    stream: fact.facts,
+    on: fact.facts,
     onData: (f) => following(
       (by) => f.cause.child(f.message.id, by: by, word: f.message.fact),
       f.cause.by,
@@ -292,7 +298,7 @@ extension OwnerTools on IOwner {
 
   /// Who it answers where this runs: on whose behalf the call its handler
   /// serves came, or the fact it [hear]s; null where it answers nothing.
-  Principal? get caller => answering;
+  Principal? get by => answering;
 
   /// Runs [act] as the owner's own act, not an answer: what it writes,
   /// says and calls there, and in a timer it starts there, follows from
@@ -398,7 +404,7 @@ abstract base class Owner implements IOwner, IHandle {
         define(p.raw);
         if (changes case final s?) c.syncOn(s);
       },
-      words: vocabulary == null ? null : WordSet.open(vocabulary),
+      vocabulary: vocabulary == null ? null : WordSet.open(vocabulary),
     );
     c.follows.add(sync);
   }
@@ -501,6 +507,11 @@ final class _Choices {
     return true;
   }
 }
+
+/// What [o] said while not attached, each fact's name and payload, in
+/// order: what `saidBy` of `testing.dart` reads.
+List<(String, Object?)> saidApart(IOwner o) =>
+    List.unmodifiable(_Core.of(o).said);
 
 /// The vocabulary [o]'s words are in, as its base said it; null for an
 /// owner of no words.

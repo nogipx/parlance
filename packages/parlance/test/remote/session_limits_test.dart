@@ -35,7 +35,10 @@ void main() {
     final own = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([host, own]);
     final errors = <ParticipantError>[];
-    final p = await RemoteParticipant.joinEndpoint(own, onError: errors.add);
+    final p = await RemoteParticipant.joinEndpoint(
+      own,
+      onParticipantError: errors.add,
+    );
     addTearDown(p.close);
     return (p, errors);
   }
@@ -80,7 +83,7 @@ void main() {
     p.addGuard('two', (_) => null);
     await p.flush();
     expect(errors.single.code, 'resourceExhausted');
-    expect(errors.single.message, contains('1 guards'));
+    expect(errors.single.why, contains('1 guards'));
   });
 
   test('so many entities in its kinds and no more', () async {

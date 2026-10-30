@@ -32,7 +32,7 @@ abstract final class DoorsChoices {
 /// says and calls follows from the call it serves.
 abstract class DoorsOwnerBase implements IOwner {
   DoorsOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: doorsWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: doorsWords);
   }
 
   /// door.room, by door: what this owner set of each,
@@ -165,7 +165,12 @@ enum LightsCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class LightsOwnerBase implements IOwner {
   LightsOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: lightsWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: lightsWords,
+    );
   }
 
   void _$define(IParticipant participant) {

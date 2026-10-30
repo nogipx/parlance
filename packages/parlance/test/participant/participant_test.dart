@@ -81,7 +81,7 @@ void main() {
         final heard = <Order>[];
         final sub = c
             .fact(OrderFact.placed)
-            .stream
+            .facts
             .listen((f) => heard.add(f.payload));
         final done = await c.command(OrderCommand.place).call((
           id: 'o1',
@@ -138,7 +138,7 @@ void main() {
       expect(
         r
             .participant(cart, vocabularies: [WordSet.open('orders')])
-            .vocabularies,
+            .vocabularyNames,
         {'orders'},
       );
     });
@@ -323,17 +323,11 @@ void main() {
       final a = p.child('a');
       final b = p.child('b');
       a.defineCommand(
-        CommandDescriptor(
-          'orders.a',
-          callers: const Callers({'*': Access.allow}),
-        ),
+        CommandDescriptor('orders.a', callers: Callers.anyone),
         (_) {},
       );
       b.defineCommand(
-        CommandDescriptor(
-          'orders.b',
-          callers: const Callers({'*': Access.allow}),
-        ),
+        CommandDescriptor('orders.b', callers: Callers.anyone),
         (_) {},
       );
       a.addGuard('orders.no', (_) => 'no');
@@ -346,10 +340,7 @@ void main() {
       p
           .child('a')
           .defineCommand(
-            CommandDescriptor(
-              'orders.a',
-              callers: const Callers({'*': Access.allow}),
-            ),
+            CommandDescriptor('orders.a', callers: Callers.anyone),
             (_) {},
           );
       p.addGuard('orders.no', (_) => 'no');
@@ -380,7 +371,7 @@ void main() {
       CommandDescriptor(
         'cart.add',
         params: ObjectType({'id': Field(TextType())}),
-        callers: Callers({'*': Access.allow}),
+        callers: Callers.anyone,
       ),
       (_) => flagged++,
     );
@@ -461,7 +452,7 @@ void main() {
               orders,
               vocabularies: [WordSet.open('orders'), WordSet.open('cart')],
             )
-            .vocabularies,
+            .vocabularyNames,
         {'orders', 'cart'},
       );
     },
@@ -471,7 +462,7 @@ void main() {
       'are', () {
     const ordersWords = WordSet('orders', [...OrderState.values]);
     final p = r.participant(orders, vocabularies: [ordersWords]);
-    expect(p.vocabularies, {'orders'});
+    expect(p.vocabularyNames, {'orders'});
     p.state(OrderState.last).define();
     expect(
       () => r.participant(cart, vocabularies: [ordersWords]),

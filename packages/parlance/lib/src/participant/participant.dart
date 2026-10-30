@@ -77,8 +77,7 @@ final class WordAccess {
 
   /// [callers], else [readers], else everyone: who may ask a query, as who
   /// may read a state.
-  Callers askersOf(Callers? callers) =>
-      callers ?? readers ?? const Callers({'*': Access.allow});
+  Callers askersOf(Callers? callers) => callers ?? readers ?? Callers.anyone;
 
   /// [callers], else [this.callers]; a command with neither is refused at once.
   Callers callersOf(String command, Callers? callers) =>
@@ -155,7 +154,7 @@ abstract interface class IRawParticipant
 
   /// Its vocabularies' names, the first word of the names it may define:
   /// `orders` for `orders.cancel`.
-  Set<String> get vocabularies;
+  Set<String> get vocabularyNames;
 
   /// Who may read and call its words when a word does not say.
   WordAccess get access;
@@ -388,11 +387,11 @@ final class _FactOf<T> implements IFactOf<T> {
   final IFactWord<T> _word;
 
   @override
-  Stream<T> get stream =>
-      _w.later(() => _w.fact(_word).stream.map((f) => f.payload));
+  Stream<T> get payloads =>
+      _w.later(() => _w.fact(_word).facts.map((f) => f.payload));
 
   @override
-  Stream<Fact<T>> get facts => _w.later(() => _w.fact(_word).stream);
+  Stream<Fact<T>> get facts => _w.later(() => _w.fact(_word).facts);
 
   @override
   Future<List<Fact<T>>> recent(int count) => _w.fact(_word).recent(count);
@@ -576,7 +575,7 @@ final class ParticipantFactOf<T> {
   Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
 
   /// Those said from now on.
-  Stream<Fact<T>> get stream =>
+  Stream<Fact<T>> get facts =>
       participant.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
   /// The last [count] the registry keeps, oldest first.

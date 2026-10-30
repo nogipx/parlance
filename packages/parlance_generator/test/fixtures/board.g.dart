@@ -106,7 +106,7 @@ abstract final class BoardChoices {
 /// says and calls follows from the call it serves.
 abstract class BoardOwnerBase implements IOwner {
   BoardOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, words: boardWords);
+    IOwner.made(this, define: _$define, write: _$write, vocabulary: boardWords);
   }
 
   /// note, by note: what this owner set of each,
@@ -119,13 +119,9 @@ abstract class BoardOwnerBase implements IOwner {
 
   IFactEmitterOf<Note>? _$seen;
 
-  /// What it said while not attached, for a test to read:
-  /// each fact's name and payload, in order.
-  final List<(String, Object?)> said = [];
-
   void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
-      said.add((fact, payload));
+      IOwner.said(this, fact, payload);
     } else if (by == null) {
       e.emit(payload);
     } else {

@@ -70,7 +70,7 @@ final class Thermostat extends Owner {
     _heating = keep(p.state(Target.heating).define());
     _adjusted = keep(p.fact(Adjusted.adjusted).define());
     listen(
-      stream: p.state(Outside.temperature).watch(),
+      on: p.state(Outside.temperature).watch(),
       onData: (t) async {
         final on = (t ?? 20) < 15;
         await p.command(Heater.power).call((on: on));

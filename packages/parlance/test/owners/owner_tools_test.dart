@@ -44,7 +44,7 @@ final class _Lamp implements IOwner {
       },
       on: device.changed,
     );
-    listen(stream: heard.stream, onData: (_) => listened++);
+    listen(on: heard.stream, onData: (_) => listened++);
     whenAttached((_) => order.add('attached'));
     onDispose(() => order.add('gone'));
     choices(name: 'bulb', list: () => [for (final b in bulbs) Choice(b)]);
@@ -132,6 +132,6 @@ void main() {
       'extension', () async {
     attach();
     expect(lamp.caller, 'its own caller');
-    expect(OwnerTools(lamp).caller, isNull);
+    expect(OwnerTools(lamp).by, isNull);
   });
 }

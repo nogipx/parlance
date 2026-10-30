@@ -28,7 +28,7 @@ final class _Echo implements IOwner {
       define: (p) => GeneratedWords(p)
           .command(_Command.ping)
           .serve(
-            (_) => 'pong to ${caller!.kind}',
+            (_) => 'pong to ${by!.kind}',
             callers: const Callers({'user': Access.allow}),
           ),
     );
@@ -37,8 +37,8 @@ final class _Echo implements IOwner {
 
 void main() {
   for (final (name, bounds) in [
-    ('a host', const HostBounds()),
-    ('a light host', HostBounds.light),
+    ('a host', const HostLimits()),
+    ('a light host', HostLimits.light),
   ]) {
     test(
       '$name serves a guest; the session ends with its connection',

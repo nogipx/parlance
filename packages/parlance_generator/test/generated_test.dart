@@ -10,7 +10,7 @@ import 'fixtures/player.dart';
 
 const me = Principal('player');
 const ann = Principal('listener', 'ann');
-const anyone = Callers({'*': Access.allow});
+const anyone = Callers.anyone;
 
 /// A player's owner: only its handlers, and what it sets; no cause, no
 /// handle, no copy of its states.
@@ -364,7 +364,7 @@ void main() {
   test('an owner not attached keeps what it set and said, for a test', () {
     final deck = Deck()..setVolume(volume: 95);
     expect(deck.volume.value, 95);
-    expect(deck.said, [('player.clipped', (volume: 95))]);
+    expect(saidBy(deck), [('player.clipped', (volume: 95))]);
     expect(deck.skip(count: 2), 2);
   });
 
@@ -402,7 +402,7 @@ void main() {
         final clipped = <Fact<PlayerClipped>>[];
         final heard = asAnn.clipped.facts.listen(clipped.add);
         final said = <({int volume})>[];
-        final payloads = asAnn.clipped.stream.listen(said.add);
+        final payloads = asAnn.clipped.payloads.listen(said.add);
         await asAnn.setVolume(volume: 95);
         await pumpEventQueue();
         expect(seen, [50, 95]);

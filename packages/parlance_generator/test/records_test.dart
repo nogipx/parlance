@@ -5,7 +5,7 @@ import 'fixtures/board.dart';
 
 const me = Principal('board');
 const ann = Principal('reader', 'ann');
-const anyone = Callers({'*': Access.allow});
+const anyone = Callers.anyone;
 
 final class Pinboard extends BoardOwnerBase {
   Pinboard() {

@@ -244,7 +244,7 @@ void main() {
         await sub.cancel();
         if (across) {
           expect(errors.single.code, 'unreadable', reason: 'told once');
-          expect(errors.single.message, contains('deck.mode'));
+          expect(errors.single.why, contains('deck.mode'));
         }
       });
 

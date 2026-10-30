@@ -780,9 +780,8 @@ final class _Emitter {
   }
 
   /// The names an owner base has besides its words: what every Dart
-  /// object has, and what it said while not attached.
+  /// object has.
   static const _ownerMembers = {
-    'said',
     'hashCode',
     'runtimeType',
     'toString',
@@ -844,7 +843,7 @@ final class _Emitter {
       ..writeln('  ${_c}OwnerBase() {')
       ..writeln(
         '    IOwner.made(this, define: _\$define, write: _\$write, '
-        'words: $_words);',
+        'vocabulary: $_words);',
       )
       ..writeln('  }')
       ..writeln();
@@ -876,16 +875,12 @@ final class _Emitter {
     if (facts.isNotEmpty) {
       out
         ..writeln()
-        ..writeln('  /// What it said while not attached, for a test to read:')
-        ..writeln('  /// each fact\'s name and payload, in order.')
-        ..writeln('  final List<(String, Object?)> said = [];')
-        ..writeln()
         ..writeln(
           '  void _\$say<T>(String fact, IFactEmitterOf<T>? e, T payload, '
           'Principal? by) {',
         )
         ..writeln('    if (e == null) {')
-        ..writeln('      said.add((fact, payload));')
+        ..writeln('      IOwner.said(this, fact, payload);')
         ..writeln('    } else if (by == null) {')
         ..writeln('      e.emit(payload);')
         ..writeln('    } else {')

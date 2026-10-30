@@ -14,8 +14,8 @@ import 'remote/session.dart';
 /// How much a host keeps of what passed (SPEC §14): what it still answers
 /// a retry, a feed catching up and `recent` from. The defaults suit an
 /// app; a phone may keep less.
-final class HostBounds {
-  const HostBounds({
+final class HostLimits {
+  const HostLimits({
     this.dedupWindow = const Duration(minutes: 10),
     this.dedupLimit = 10000,
     this.retainTicks = 1000,
@@ -27,7 +27,7 @@ final class HostBounds {
   /// A host that keeps nothing past what is now: no trail for `explain`,
   /// no `recent` facts, and a feed that fell behind takes a snapshot. What
   /// it does is the same; a retry of a call still gets its first answer.
-  static const light = HostBounds(
+  static const light = HostLimits(
     retainTicks: 0,
     retainBytes: 0,
     recentPerFact: 0,
@@ -66,7 +66,7 @@ final class Host {
     Clock? clock,
     LogScope? log,
     void Function(Object error, StackTrace stack)? onError,
-    HostBounds bounds = const HostBounds(),
+    HostLimits bounds = const HostLimits(),
   }) : registry = Registry(
          clock: clock,
          log: log,
@@ -108,9 +108,9 @@ final class Host {
     access: access,
   );
 
-  /// Says [old] is a name of the word [now] (SPEC §6.4): what asks by the
+  /// Says [old] is a name of the word [to] (SPEC §6.4): what asks by the
   /// old name gets the word, until the handle is disposed.
-  IHandle alias(String old, String now) => registry.alias(old, now);
+  IHandle alias(String old, String to) => registry.alias(old, to);
 
   /// Adds a type of values (SPEC §2) by [name]: [check] says why a value
   /// is not one, or null.
@@ -123,18 +123,18 @@ final class Host {
 
   /// Joins a host across [connection], from another process (SPEC §22.4):
   /// the participant the host serves there, the same as one in the host's
-  /// process ([IRemoteParticipant]), rejoining after a drop. [onError] is
+  /// process ([IRemoteParticipant]), rejoining after a drop. [onParticipantError] is
   /// told what the host refused, as [IRemoteParticipant.errors] is;
   /// [requires] names the protocol's features it cannot work without.
   static Future<IRemoteParticipant> join(
     RpcClientConnection connection, {
-    void Function(ParticipantError error)? onError,
+    void Function(ParticipantError error)? onParticipantError,
     LogScope? log,
     Set<String> requires = const {},
     Iterable<IRpcInterceptor> interceptors = const [],
   }) => RemoteParticipant.join(
     connection,
-    onError: onError,
+    onParticipantError: onParticipantError,
     log: log,
     requires: requires,
     interceptors: interceptors,
@@ -145,12 +145,12 @@ final class Host {
   /// runtime's.
   static Future<IRemoteParticipant> joinEndpoint(
     RpcPeerEndpoint endpoint, {
-    void Function(ParticipantError error)? onError,
+    void Function(ParticipantError error)? onParticipantError,
     LogScope? log,
     Set<String> requires = const {},
   }) => RemoteParticipant.joinEndpoint(
     endpoint,
-    onError: onError,
+    onParticipantError: onParticipantError,
     log: log,
     requires: requires,
   );

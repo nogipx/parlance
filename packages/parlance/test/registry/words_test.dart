@@ -183,7 +183,7 @@ void main() {
 
   test('states and facts read and stream typed', () async {
     final facts = <Fact<Tune>>[];
-    f.r.fact(TestFact.tuned).stream.listen(facts.add);
+    f.r.fact(TestFact.tuned).facts.listen(facts.add);
     final levels = <Level?>[];
     f.r.state(TestState.level).watch().listen(levels.add);
     await f.r.command(TestCommand.tune).call((

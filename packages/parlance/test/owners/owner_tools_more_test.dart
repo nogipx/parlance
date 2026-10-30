@@ -40,7 +40,7 @@ final class _Dial implements IOwner {
           ? 'too far for ${call.by}'
           : null,
     );
-    listen(stream: power, onData: (on) => this.on = on);
+    listen(on: power, onData: (on) => this.on = on);
     whenAttached(
       (p) => GeneratedWords(p)
           .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
@@ -58,7 +58,7 @@ final class _Dial implements IOwner {
         .command(_Command.set)
         .serve(
           (x) => at = x.to,
-          callers: const Callers({'*': Access.allow}),
+          callers: Callers.anyone,
           whyNot: () => on ? null : 'it is off',
         );
   }
@@ -143,10 +143,7 @@ final class _Lamps implements IOwner {
         Keyed.attach(lit, GeneratedWords(p).state(_Lit.of).define());
         GeneratedWords(p)
             .command(_Drop.of)
-            .serve(
-              (x) => bulbs.remove(x.bulb),
-              callers: const Callers({'*': Access.allow}),
-            );
+            .serve((x) => bulbs.remove(x.bulb), callers: Callers.anyone);
       },
     );
     if (listed) {
@@ -218,7 +215,7 @@ void main() {
     final ann = r.participant(const Principal('user', 'ann'));
     GeneratedWords(
       ann,
-    ).fact(_Fact.rang).stream.listen((f) => heard.add(f.payload));
+    ).fact(_Fact.rang).facts.listen((f) => heard.add(f.payload));
     expect(bell.ring('e1', 'bob'), isTrue);
     expect(bell.ring('e1', 'bob'), isFalse);
     expect(bell.ring('e2', 'cat'), isTrue);

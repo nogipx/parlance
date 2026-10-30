@@ -75,7 +75,7 @@ void main() {
       playing.set(c.params);
       started.emit(c.params);
       return c.params;
-    }, callers: const Callers({'*': Access.allow}));
+    }, callers: Callers.anyone);
   });
   tearDown(() async {
     sent.clear();
@@ -84,7 +84,7 @@ void main() {
 
   test('a call in this process sends and answers the value itself', () async {
     final song = (title: 'one', volume: 40);
-    final heard = listener.fact(DeckFact.started).stream.first;
+    final heard = listener.fact(DeckFact.started).facts.first;
     final done = await listener.command(DeckCommand.play).call(song);
     expect(identical(sent.single, song), isTrue, reason: 'no JSON between');
     expect(identical((done as CallDone<Song>).value, song), isTrue);
