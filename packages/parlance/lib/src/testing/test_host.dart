@@ -32,16 +32,16 @@ final class TestHost {
     );
   }
 
-  TestHost._(this.host, this.errors) {
+  TestHost._(this._host, this.errors) {
     _ticks = registry.ticks.listen(ticks.add);
     _calls = registry.calls.listen(calls.add);
   }
 
   /// The host the test runs, as `main` would make it.
-  final Host host;
+  final Host _host;
 
   /// Its registry, for what the test reads back.
-  Registry get registry => host.registry;
+  Registry get registry => _host.registry;
 
   /// Every tick committed, in order, once [settle] has let them come.
   final List<Tick> ticks = [];
@@ -72,7 +72,7 @@ final class TestHost {
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
   }) {
-    final p = host.participant(
+    final p = _host.participant(
       who,
       owners: owners,
       vocabularies: vocabularies,
@@ -253,7 +253,7 @@ final class TestHost {
     }
     await _ticks.cancel();
     await _calls.cancel();
-    await host.dispose();
+    await _host.dispose();
   }
 }
 

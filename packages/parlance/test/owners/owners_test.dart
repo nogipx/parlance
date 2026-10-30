@@ -115,21 +115,11 @@ void main() {
     },
   );
 
-  test('an owner attaches once; handles withdrawn take no more', () {
+  test('an owner attaches once', () {
     final o = Other();
     module([o]);
     expect(
       () => r.participant(const Principal('elsewhere'), owners: [o]),
-      throwsStateError,
-    );
-    final h = Handles()..dispose();
-    expect(
-      () => h.keep(
-        r.defineState(
-          StateDescriptor('flag.on', type: const BoolType()),
-          by: me,
-        ),
-      ),
       throwsStateError,
     );
     expect(r.stateDescriptor('flag.on'), isNotNull, reason: 'o still has it');

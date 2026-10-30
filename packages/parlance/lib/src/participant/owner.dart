@@ -13,7 +13,7 @@ import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
 
 /// Handles to withdraw together: what an owner put in a registry.
-final class Handles implements IHandle {
+final class _Handles implements IHandle {
   final List<IHandle> _all = [];
   bool _disposed = false;
 
@@ -95,7 +95,7 @@ final class _Core {
   /// held to the participant's before anything is defined, and the owner
   /// name it speaks as; null for an owner that never said it.
   WordSet? words;
-  final Handles handles = Handles();
+  final _Handles handles = _Handles();
   IParticipant? participant;
   OwnerGroup? group;
   void Function(IParticipant p)? define;
@@ -553,7 +553,7 @@ final class OwnerGroup {
   /// Withdraws [o].
   static void _end(IOwner o) => _Core.of(o).dispose();
 
-  /// [c] was disposed on its own: it is synced no more.
+  /// [c] went: it is synced no more.
   void _left(_Core c) {
     _cores.removeWhere((_, x) => identical(x, c));
     _dirty.remove(c);

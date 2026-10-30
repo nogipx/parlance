@@ -130,16 +130,6 @@ final class StateWordOf<T> implements IStateWord<T> {
   final String? key;
 }
 
-/// A fact word named at run time, as [StateWordOf] is.
-final class FactWordOf<T> implements IFactWord<T> {
-  const FactWordOf(this.name, this.shape);
-
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-}
-
 /// A done call's value decoded by [shape] (`failed` when it does not
 /// decode); any other end as it is.
 CallResult<R> _answer<R>(

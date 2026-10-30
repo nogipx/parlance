@@ -112,7 +112,6 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
 - **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first word of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
-- **Handles**: the set of handles an owner keeps, withdrawn together.
 - **`choices`** (was `trackKind`): an owner tells which of a kind there are now, for agents and editors to choose from and `@ChoiceOf` to hold to; listed again on its own, and what went goes of its keyed states, whose keyed values the owner removes.
 - **`listen`**: a subscription that lives while the owner is attached, for what its work reports by itself.
 - **`failCall(why)`**: ends a call `failed` with the owner's reason; refusals with a code come only from the registry's stages.
