@@ -27,12 +27,18 @@ import 'package:analyzer/dart/element/element.dart';
 import 'surface.dart';
 
 Future<void> main(List<String> args) async {
-  final repo = (Process.runSync('git', [
-    'rev-parse',
-    '--show-toplevel',
-  ]).stdout as String).trim();
+  final repo =
+      (Process.runSync('git', ['rev-parse', '--show-toplevel']).stdout
+              as String)
+          .trim();
   final root = '$repo/packages/parlance';
-  final collection = AnalysisContextCollection(includedPaths: [root]);
+  // The tests that touch the surface, by the label a file is shown with:
+  // the package's own, and the generator's (its fixtures use what the
+  // annotations promise).
+  final suites = {'': root, 'generator/': '$repo/packages/parlance_generator'};
+  final collection = AnalysisContextCollection(
+    includedPaths: [...suites.values],
+  );
   // Each once: what `app.dart` shows again of `schema.dart` is that one's,
   // a field's getter is the field, and what the language makes on its own
   // (an enum's `values`, a constructor no one wrote) is no promise. A
@@ -42,6 +48,7 @@ Future<void> main(List<String> args) async {
     for (final i in await surfaceOf(root, collection))
       if (!_implicit(i.element) &&
           (i.member == null || _ours(i.element)) &&
+          !_ofObject.contains(i.member) &&
           seen.add('${i.member == null ? 'name ' : ''}${_key(i.element)}'))
         i,
   ];
@@ -49,20 +56,24 @@ Future<void> main(List<String> args) async {
 
   // Which test files refer to each element, by its key.
   final usedBy = <String, Set<String>>{};
-  final tests = Directory('$root/test')
-      .listSync(recursive: true)
-      .whereType<File>()
-      .where((f) => f.path.endsWith('.dart'))
-      .toList();
-  for (final f in tests) {
-    final session = collection.contextFor(f.path).currentSession;
-    final unit = await session.getResolvedUnit(f.path);
-    if (unit is! ResolvedUnitResult) continue;
-    final refs = _Refs();
-    unit.unit.accept(refs);
-    final name = f.path.substring('$root/test/'.length);
-    for (final k in refs.keys) {
-      if (wanted.contains(k)) (usedBy[k] ??= {}).add(name);
+  for (final MapEntry(key: label, value: package) in suites.entries) {
+    final tests = Directory('$package/test')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        // What frozen.dart unpacks there for a moment is no test.
+        .where((f) => !f.path.contains('/_frozen_old/'))
+        .toList();
+    for (final f in tests) {
+      final session = collection.contextFor(f.path).currentSession;
+      final unit = await session.getResolvedUnit(f.path);
+      if (unit is! ResolvedUnitResult) continue;
+      final refs = _Refs();
+      unit.unit.accept(refs);
+      final name = '$label${f.path.substring('$package/test/'.length)}';
+      for (final k in refs.keys) {
+        if (wanted.contains(k)) (usedBy[k] ??= {}).add(name);
+      }
     }
   }
 
@@ -169,6 +180,10 @@ Element _standsFor(Element e) {
     }
   }
 }
+
+/// What every object has: no promise of the library's, and called
+/// unnamed (`expect`, a string's `\$x`), so no test would name it.
+const _ofObject = {'toString', '==', 'hashCode', 'noSuchMethod', 'runtimeType'};
 
 /// Whether the language made [e] on its own.
 bool _implicit(Element e) => switch (_standsFor(e)) {
