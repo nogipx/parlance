@@ -62,7 +62,7 @@ void main() {
     final s3 = p.watch('deck.s3').listen((_) {});
     expect(await p.fetch('deck.s3'), {null: 3}, reason: 'none left out');
     expect(p.read('deck.s2'), 2);
-    expect(errors.single.code, 'resourceExhausted');
+    expect(errors.single.code, ParticipantErrorCode.overLimit);
     expect(errors.single.op['op'], 'subscribe');
     await s2.cancel();
     await s3.cancel();

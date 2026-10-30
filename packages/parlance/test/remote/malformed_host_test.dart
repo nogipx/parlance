@@ -193,7 +193,7 @@ void main() {
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
     await until(() => errors.isNotEmpty);
-    expect(errors.single.code, 'malformed');
+    expect(errors.single.code, ParticipantErrorCode.malformed);
     expect(errors.single.op, {'op': 'feed'});
   });
 }

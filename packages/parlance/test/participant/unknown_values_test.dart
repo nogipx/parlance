@@ -243,7 +243,11 @@ void main() {
         expect(seen, [null]);
         await sub.cancel();
         if (across) {
-          expect(errors.single.code, 'unreadable', reason: 'told once');
+          expect(
+            errors.single.code,
+            ParticipantErrorCode.unreadable,
+            reason: 'told once',
+          );
           expect(errors.single.why, contains('deck.mode'));
         }
       });
@@ -267,7 +271,10 @@ void main() {
             [for (final e in errors) e.op['word']],
             ['deck.turn', 'deck.box'],
           );
-          expect({for (final e in errors) e.code}, {'unreadable'});
+          expect(
+            {for (final e in errors) e.code},
+            {ParticipantErrorCode.unreadable},
+          );
         }
       });
 

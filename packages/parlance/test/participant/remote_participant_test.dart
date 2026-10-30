@@ -290,7 +290,7 @@ void main() {
       p.errors.listen(errors.add);
       p.fact(Purr.purred).define();
       await p.flush();
-      expect(errors.single.code, 'permissionDenied');
+      expect(errors.single.code, ParticipantErrorCode.notPermitted);
       expect(errors.single.why, 'no facts');
       expect(r.factDescriptor('kittens.purred'), isNull);
     },
@@ -553,7 +553,7 @@ void main() {
       isNull,
       reason: 'refused: everything rather than some of it left out',
     );
-    expect(told.single.code, 'resourceExhausted');
+    expect(told.single.code, ParticipantErrorCode.overLimit);
     for (final w in watching) {
       await w.cancel();
     }
@@ -724,7 +724,9 @@ void main() {
     await host!.close();
     await gone;
     await settle();
-    expect(errors.map((e) => (e.op['op'], e.code)), [('join', 'lost')]);
+    expect(errors.map((e) => (e.op['op'], e.code)), [
+      ('join', ParticipantErrorCode.lost),
+    ]);
   });
 
   test('away, it keeps the last facts it said, as many as it may, and tells '
@@ -771,7 +773,7 @@ void main() {
       {'on': true},
       {'on': true},
     ], reason: 'the last two');
-    expect(errors.single.code, 'dropped');
+    expect(errors.single.code, ParticipantErrorCode.dropped);
     expect(errors.single.why, contains('1 facts'));
 
     await p.close();

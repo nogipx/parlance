@@ -47,7 +47,12 @@ export 'src/participant/local.dart'
 export 'src/participant/owner.dart' hide OwnerGroup, Owner, saidApart;
 export 'src/participant/participant.dart';
 export 'src/remote/participant.dart'
-    show ParticipantError, ProtocolMismatch, HostUnreachable, RemoteParticipant;
+    show
+        ParticipantError,
+        ParticipantErrorCode,
+        ProtocolMismatch,
+        HostUnreachable,
+        RemoteParticipant;
 export 'src/remote/session.dart'
     show RemoteSession, ServeParticipant, SessionLimits;
 export 'src/view/view.dart';

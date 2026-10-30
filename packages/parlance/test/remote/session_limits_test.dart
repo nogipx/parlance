@@ -56,7 +56,7 @@ void main() {
     final held = r.readAll('notes.seen');
     expect(held, isNotEmpty);
     expect(held.length, lessThan(20));
-    expect(errors.map((e) => e.code).toSet(), {'resourceExhausted'});
+    expect(errors.map((e) => e.code).toSet(), {ParticipantErrorCode.overLimit});
     seen.remove(key: 'v0');
     seen.set('x' * 20, key: 'new');
     await p.flush();
@@ -70,7 +70,7 @@ void main() {
     p.defineState(StateDescriptor('notes.c', type: const IntType()));
     await p.flush();
     expect(r.stateDescriptor('notes.c'), isNull);
-    expect(errors.single.code, 'resourceExhausted');
+    expect(errors.single.code, ParticipantErrorCode.overLimit);
     b.dispose();
     p.defineState(StateDescriptor('notes.d', type: const IntType()));
     await p.flush();
@@ -82,7 +82,7 @@ void main() {
     p.addGuard('one', (_) => null);
     p.addGuard('two', (_) => null);
     await p.flush();
-    expect(errors.single.code, 'resourceExhausted');
+    expect(errors.single.code, ParticipantErrorCode.overLimit);
     expect(errors.single.why, contains('1 guards'));
   });
 
@@ -95,7 +95,7 @@ void main() {
     await p.flush();
     expect(r.hasKind('note'), isTrue);
     expect(r.hasKind('tag'), isFalse);
-    expect(errors.single.code, 'resourceExhausted');
+    expect(errors.single.code, ParticipantErrorCode.overLimit);
   });
 
   test('a call past its calls in flight runs nowhere and says why; one '

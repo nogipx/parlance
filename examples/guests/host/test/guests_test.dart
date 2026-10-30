@@ -33,7 +33,8 @@ void main() {
     (e) => startBoard(
       e,
       onError: (x) {
-        if (x.code == 'mismatch') mismatches['${x.op['word']}'] = x.why;
+        if (x.code == ParticipantErrorCode.mismatch)
+          mismatches['${x.op['word']}'] = x.why;
       },
     ),
   );

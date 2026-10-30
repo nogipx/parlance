@@ -71,17 +71,71 @@ final class ParticipantError {
   /// What it asked, as it was sent (`{op: define, descriptor: ...}`).
   final Map<String, Object?> op;
 
-  /// The session's status: `permissionDenied`, `alreadyExists`,
-  /// `invalidArgument`, `notFound`; `lost` when the answer did not come;
-  /// `unreadable` when it read a value its code cannot read, built against
-  /// the word otherwise (SPEC §25.2); `malformed` when the host's feed
-  /// brought what is no item of the protocol (`{op: feed}`), a host's
-  /// defect: it follows again from a snapshot, or says it stopped;
-  /// `mismatch` when a word its code was built against is there otherwise
-  /// (`{op: built, word}`), every break in the message (SPEC §6.9).
-  final String code;
+  /// What kind of no it is.
+  final ParticipantErrorCode code;
+
+  /// What happened, for people.
   final String why;
 
   @override
-  String toString() => '${op['op']}: $code: $why';
+  String toString() => '${op['op']}: ${code.name}: $why';
+}
+
+/// What kind of no a [ParticipantError] tells, in the words a call's
+/// refusal and a word's status use.
+enum ParticipantErrorCode {
+  /// It may not: a word outside its vocabularies, a right it lacks, a new
+  /// session another's.
+  notPermitted,
+
+  /// What it defined is there already: a word, a guard, a kind.
+  exists,
+
+  /// What it sent is not what its word takes, or no op of the protocol.
+  invalid,
+
+  /// What it named is not there.
+  missing,
+
+  /// Past what its session lets it hold (`SessionLimits`), or what its
+  /// listeners ask for past what a session carries by name.
+  overLimit,
+
+  /// The host could not do it now.
+  unavailable,
+
+  /// No answer came: the connection broke, or gave up.
+  lost,
+
+  /// Facts said while away were dropped, past those it keeps.
+  dropped,
+
+  /// The host it joins again speaks another protocol (SPEC §14).
+  protocol,
+
+  /// It read a value its code cannot read, built against the word
+  /// otherwise (SPEC §25.2).
+  unreadable,
+
+  /// The host's feed brought what is no item of the protocol (`{op:
+  /// feed}`), a host's defect: it follows again from a snapshot, or says
+  /// it stopped.
+  malformed,
+
+  /// A word its code was built against is there otherwise (`{op: built,
+  /// word}`), every break in [ParticipantError.why] (SPEC §6.9).
+  mismatch,
+
+  /// What a newer host says this side does not know.
+  other;
+
+  /// The code a session or this side says it by.
+  static ParticipantErrorCode of(String code) => switch (code) {
+    'permissionDenied' => notPermitted,
+    'alreadyExists' => exists,
+    'invalidArgument' => invalid,
+    'notFound' => missing,
+    'resourceExhausted' => overLimit,
+    _ => values.asNameMap()[code] ?? other,
+  };
 }

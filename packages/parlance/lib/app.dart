@@ -21,6 +21,7 @@ export 'src/remote/participant.dart'
     show
         IRemoteParticipant,
         ParticipantError,
+        ParticipantErrorCode,
         ProtocolMismatch,
         HostUnreachable;
 export 'src/remote/session.dart' show IRemoteSession, SessionLimits;

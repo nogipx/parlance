@@ -582,7 +582,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   void _fail(Map<String, Object?> op, String code, String message) {
-    final e = ParticipantError(op, code, message);
+    final e = ParticipantError(op, ParticipantErrorCode.of(code), message);
     if (log.isEnabled(RpcLogLevel.warning)) {
       log.warning(
         'refused by the host',
@@ -745,7 +745,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     }
     final error = ParticipantError(
       {'op': 'read', 'word': word},
-      'unreadable',
+      ParticipantErrorCode.unreadable,
       '$word: $e',
     );
     if (log.isEnabled(RpcLogLevel.warning)) {
