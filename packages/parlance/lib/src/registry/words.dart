@@ -431,6 +431,11 @@ abstract interface class IFactOf<T> {
 
   /// What it says and the message it came in: its id, its cause.
   Stream<Fact<T>> get facts;
+
+  /// The last [count] said before now, the oldest first, as far as the
+  /// host keeps them (`HostBounds.recentPerFact`): what a screen opened
+  /// late shows first.
+  Future<List<Fact<T>>> recent(int count);
 }
 
 /// A state as its owner keeps it (SPEC §23.4): what it set last, read by

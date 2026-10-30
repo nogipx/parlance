@@ -85,9 +85,15 @@ final class FactStub<T> implements IFactOf<T> {
   @override
   Stream<Fact<T>> get facts => _said.stream;
 
+  final List<Fact<T>> _all = [];
+
+  @override
+  Future<List<Fact<T>>> recent(int count) async =>
+      _all.length <= count ? [..._all] : _all.sublist(_all.length - count);
+
   /// Says [payload]: who listens hears it.
-  void say(T payload) => _said.add(
-    Fact(
+  void say(T payload) {
+    final f = Fact(
       payload,
       FactMessage(
         seq: ++_seq,
@@ -97,6 +103,8 @@ final class FactStub<T> implements IFactOf<T> {
         cause: Cause(by),
         at: DateTime.now(),
       ),
-    ),
-  );
+    );
+    _all.add(f);
+    _said.add(f);
+  }
 }

@@ -386,7 +386,11 @@ void main() {
       deck.speakerLevel.remove('left');
       await pumpEventQueue();
       await sub.cancel();
-      expect(seen, [{}, {'left': 0.5}, {}]);
+      expect(seen, [
+        <String, num>{},
+        {'left': 0.5},
+        <String, num>{},
+      ]);
     });
 
     test(
@@ -413,6 +417,11 @@ void main() {
           clipped.single.message.cause.by,
           me.child('player'),
           reason: 'the message comes with it',
+        );
+        expect(
+          [for (final f in await asAnn.clipped.recent(5)) f.payload.volume],
+          [95],
+          reason: 'what was said before, for a screen opened late',
         );
         expect(await asAnn.skip(), 1, reason: 'its default');
         expect((await asAnn.search(text: 'A')).single.title, 'A');

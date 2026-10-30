@@ -392,6 +392,9 @@ final class _FactOf<T> implements IFactOf<T> {
   Stream<Fact<T>> get facts => _w.later(() => _w.fact(_word).stream);
 
   @override
+  Future<List<Fact<T>>> recent(int count) => _w.fact(_word).recent(count);
+
+  @override
   String toString() => _word.name;
 }
 
