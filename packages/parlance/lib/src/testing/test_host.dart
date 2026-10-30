@@ -20,7 +20,7 @@ import '../host.dart';
 ///
 /// The module under test gets a participant of its own ([participant], or
 /// [join] for one across a connection); the words of others it needs are
-/// stood in for by [stateOf], [commandOf], [factOf]; what it did is read
+/// stood in for by [standInState], [standInCommand], [standInFact]; what it did is read
 /// back by [written], [said] and [calls] after [settle].
 final class TestHost {
   factory TestHost({Clock? clock, LogScope? log}) {
@@ -122,21 +122,25 @@ final class TestHost {
 
   /// A stand-in owner of another module's state [word], holding [value];
   /// write it again through what it answers.
-  IStateWriterOf<T> stateOf<T>(IStateWord<T> word, T value, {String? key}) {
+  IStateWriterOf<T> standInState<T>(
+    IStateWord<T> word,
+    T value, {
+    String? key,
+  }) {
     final writer = _standInFor(word.name).state(word).define();
     writer.set(value, key: key);
     return writer;
   }
 
   /// A stand-in serving another module's command [word]: every call's
-  /// params are kept in [Stub.params]; it answers what [answer] gives, or
+  /// params are kept in [CommandStub.params]; it answers what [answer] gives, or
   /// nothing. Anyone may call it, unless [callers] say otherwise.
-  Stub<P, R> commandOf<P, R>(
+  CommandStub<P, R> standInCommand<P, R>(
     ICommandWord<P, R> word, {
     FutureOr<R> Function(P params)? answer,
     Callers callers = const Callers({'*': Access.allow}),
   }) {
-    final stub = Stub<P, R>._();
+    final stub = CommandStub<P, R>._();
     _standInFor(word.name).command(word).define((call) {
       stub.params.add(call.params);
       if (answer != null) return answer(call.params);
@@ -146,7 +150,7 @@ final class TestHost {
   }
 
   /// A stand-in speaker of another module's fact [word].
-  IFactEmitterOf<T> factOf<T>(IFactWord<T> word) =>
+  IFactEmitterOf<T> standInFact<T>(IFactWord<T> word) =>
       _standInFor(word.name).fact(word).define();
 
   /// The values [word] (of [key]) was given, in order, as committed: null
@@ -166,10 +170,11 @@ final class TestHost {
           word.shape.fromJson(f.payload),
   ];
 
-  /// The finished calls of [word], in order. Read after [settle].
-  List<CallRecord> callsOf(String word) => [
+  /// The finished calls of [word], a command or a query, in order. Read
+  /// after [settle].
+  List<CallRecord> callsOf(IWord word) => [
     for (final c in calls)
-      if (c.command == registry.canonical(word)) c,
+      if (c.command == registry.canonical(word.name)) c,
   ];
 
   /// Lets what is under way come: ticks and call records delivered,
@@ -207,9 +212,9 @@ final class TestHost {
   }
 }
 
-/// A stand-in for another module's command ([TestHost.commandOf]).
-final class Stub<P, R> {
-  Stub._();
+/// A stand-in for another module's command ([TestHost.standInCommand]).
+final class CommandStub<P, R> {
+  CommandStub._();
 
   /// The params of every call it served, in order.
   final List<P> params = [];

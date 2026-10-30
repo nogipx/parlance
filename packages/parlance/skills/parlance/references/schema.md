@@ -76,7 +76,7 @@ Unless `@Vocabulary(client: false)`, it makes `<Class>Client(participant)`: the 
 - In the interface too, `status(word)` and `statusChanges(word)` (§6.5), for a part that shows a word missing, not permitted or not as it was built against (`WordMismatch`), and `mismatches`: each word of the vocabulary there but not as built against, with where, for a check at start in development.
 - The interface `I<Class>Client` says Dart's types and the vocabulary's own only: no word, status, fact message or generated record's name (a payload is its record, `({int volume})`); a refusal is thrown as an `Exception` (`CallNotDone`), caught as one. So what takes it knows nothing of parlance.
 - A member named `of`, `status`, `statusChanges` or `mismatches`, which every client has, is refused.
-- A test's stand-in implements `I<Class>Client` with the stubs of `testing.dart`: `StateStub(7)`, `KeyedStub({'left': 0.5})`, `FactStub()`, each set or said by the test.
+- A test's stand-in implements `I<Class>Client` with the stubs of `testing.dart`: `StateStub(7)`, `KeyedStub({'left': 0.5})`, `FactStub()`, each set, removed (`remove()`, `remove(key)`) or said by the test, as an owner does its own.
 
 ### 23.3 The schema a module keeps
 

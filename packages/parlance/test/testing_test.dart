@@ -90,8 +90,8 @@ void main() {
 
   test('stand-ins answer for the modules a test leaves out; what the module '
       'did is read back', () async {
-    final outside = host.stateOf(Outside.temperature, 10);
-    final heater = host.commandOf(Heater.power);
+    final outside = host.standInState(Outside.temperature, 10);
+    final heater = host.standInCommand(Heater.power);
     host.participant(
       me,
       vocabularies: [WordSet.open('thermostat')],
@@ -104,7 +104,7 @@ void main() {
     expect(heater.params, [(on: true), (on: false)]);
     expect(host.written(Target.heating), [true, false]);
     expect(host.said(Adjusted.adjusted), [(on: true), (on: false)]);
-    expect(host.callsOf('heater.power.set').map((c) => c.cause.by), [
+    expect(host.callsOf(Heater.power).map((c) => c.cause.by), [
       me.child('thermostat'),
       me.child('thermostat'),
     ]);
@@ -112,8 +112,8 @@ void main() {
   });
 
   test('the same module across a connection, as a plugin or a phone', () async {
-    host.stateOf(Outside.temperature, 10);
-    final heater = host.commandOf(Heater.power);
+    host.standInState(Outside.temperature, 10);
+    final heater = host.standInCommand(Heater.power);
     final p = await host.join(me, vocabularies: [WordSet.open('thermostat')]);
     p.attach([Thermostat()]);
     await host.settle();
@@ -127,14 +127,17 @@ void main() {
 
   test('a stand-in takes only the vocabulary of its word', () async {
     host.participant(me, vocabularies: [WordSet.open('garden')]);
-    final outside = host.stateOf(Outside.temperature, 10);
+    final outside = host.standInState(Outside.temperature, 10);
     outside.set(12);
     await host.settle();
     expect(host.written(Outside.temperature), [10, 12]);
   });
 
   test('a stand-in command answers what it is told', () async {
-    host.commandOf(Heater.power, answer: (p) => throw StateError('broken'));
+    host.standInCommand(
+      Heater.power,
+      answer: (p) => throw StateError('broken'),
+    );
     final r = await host.participant(me).raw.command(Heater.power).call((
       on: true,
     ));

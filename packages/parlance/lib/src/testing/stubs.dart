@@ -23,10 +23,16 @@ final class StateStub<T> implements IStateOf<T> {
     c.onCancel = sub.cancel;
   });
 
-  /// Sets its value; null leaves it with none. Who listens is told.
-  void set(T? value) {
+  /// Sets its value, as its owner does. Who listens is told.
+  void set(T value) {
     _value = value;
     _changed.add(value);
+  }
+
+  /// Removes its value: it has none until set again. Who listens is told.
+  void remove() {
+    _value = null;
+    _changed.add(null);
   }
 }
 
@@ -59,9 +65,15 @@ final class KeyedStub<T> implements IKeyedOf<T> {
     c.onCancel = sub.cancel;
   });
 
-  /// Sets the value of [key]; null removes it. Who listens is told.
-  void set(String key, T? value) {
-    value == null ? _values.remove(key) : _values[key] = value;
+  /// Sets the value of [key], as its owner does. Who listens is told.
+  void set(String key, T value) {
+    _values[key] = value;
+    _changed.add(key);
+  }
+
+  /// Removes the value of [key]. Who listens is told.
+  void remove(String key) {
+    _values.remove(key);
     _changed.add(key);
   }
 }
