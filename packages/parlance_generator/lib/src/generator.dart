@@ -475,7 +475,7 @@ final class _Emitter {
   /// A command's or a query's deadline and availability.
   void _common(_Word w, ConstantReader r) {
     if (r.peek('deadline')?.objectValue case final o?) {
-      final us = o.getField('inMicroseconds')?.toIntValue();
+      final us = _micros(o);
       w.options.add('deadline: const Duration(microseconds: $us)');
     }
     w.available = r.peek('whyNot')?.boolValue ?? false;
@@ -1245,9 +1245,7 @@ final class _Emitter {
         t.element.name == 'Duration' &&
         t.element.library.isDartCore) {
       if (longest == null) return 'DurationShape()';
-      final us = ConstantReader(
-        longest,
-      ).read('max').objectValue.getField('inMicroseconds')?.toIntValue();
+      final us = _micros(ConstantReader(longest).read('max').objectValue);
       return 'DurationShape(max: Duration(microseconds: $us))';
     }
     if (longest != null) {
@@ -1337,9 +1335,9 @@ final class _Emitter {
     }
     throw InvalidGenerationSourceError(
       '$where: ${t.getDisplayString()} is no type a word can carry: a bool, '
-      'a number, a text, an enum, a list, a map by text, a record of named '
-      'fields, or a class with fromJson and toJson (json_serializable, '
-      'freezed)',
+      'a number, a text, a Duration, an enum, a list, a map by text, a '
+      'record of named fields, or a class with fromJson and toJson '
+      '(json_serializable, freezed)',
       element: on,
     );
   }
@@ -1629,3 +1627,9 @@ String _pascal(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 /// [s] as a Dart string literal of one line.
 String _quote(String s) =>
     "'${s.replaceAll(r'\', r'\\').replaceAll("'", r"\'").replaceAll(r'$', r'\$').replaceAll('\n', r'\n').replaceAll('\r', r'\r')}'";
+
+/// The microseconds of a constant `Duration`: its field, as each SDK's
+/// analyzer gives it (`_duration`; `inMicroseconds` on some).
+int _micros(DartObject d) =>
+    (d.getField('_duration') ?? d.getField('inMicroseconds'))?.toIntValue() ??
+    (throw StateError('a Duration the analyzer gives no microseconds of'));

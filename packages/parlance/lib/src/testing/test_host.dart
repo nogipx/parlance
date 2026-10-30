@@ -4,7 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../participant/local.dart';
-import '../participant/owner.dart' show IOwner;
+import '../participant/owner.dart' show Choice, IOwner;
 import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
@@ -167,6 +167,24 @@ final class TestHost {
     return stub;
   }
 
+  /// A stand-in giver of the choices of [name], as another module's owner
+  /// gives them (`choices(name:, list:)`): what a `@ChoiceOf(name)` and a
+  /// state keyed by [name] are held to. [ChoicesStub.set] changes them.
+  ChoicesStub standInChoices(String name, Iterable<Choice> choices) {
+    final stub = ChoicesStub._([...choices]);
+    final p = _standInFor('$name.choices');
+    p.registerKind(
+      EntityKind(
+        name,
+        list: () => [
+          for (final c in stub._now) EntityRef(c.id, c.label, c.meta),
+        ],
+      ),
+    );
+    stub._changed = () => p.entitiesChanged(name);
+    return stub;
+  }
+
   /// A stand-in speaker of another module's fact [word].
   IFactEmitterOf<T> standInFact<T>(IFactWord<T> word) =>
       _standInFor(word.name).fact(word).define();
@@ -227,6 +245,23 @@ final class TestHost {
     await _ticks.cancel();
     await _calls.cancel();
     await host.dispose();
+  }
+}
+
+/// A stand-in for another module's choices ([TestHost.standInChoices]).
+final class ChoicesStub {
+  ChoicesStub._(this._now);
+
+  List<Choice> _now;
+  void Function()? _changed;
+
+  /// The choices there are now.
+  List<Choice> get choices => List.unmodifiable(_now);
+
+  /// Makes [choices] the ones there are: who asks is told.
+  void set(Iterable<Choice> choices) {
+    _now = [...choices];
+    _changed?.call();
   }
 }
 
