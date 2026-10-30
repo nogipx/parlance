@@ -82,6 +82,11 @@ abstract class NotesOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [NotesClient] is them over a participant.
 abstract interface class INotesClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory INotesClient.of(IOwner owner) = NotesClient._of;
+
   /// notes.count: its value now, and its changes.
   IStateOf<int> get count;
 
@@ -111,10 +116,7 @@ final class NotesClient implements INotesClient {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  NotesClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  NotesClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 

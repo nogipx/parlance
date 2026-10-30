@@ -362,6 +362,11 @@ final class PlayerFinishedFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [PlayerClient] is them over a participant.
 abstract interface class IPlayerClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory IPlayerClient.of(IOwner owner) = PlayerClient._of;
+
   /// player.volume: its value now, and its changes.
   IStateOf<int> get volume;
 
@@ -422,10 +427,7 @@ final class PlayerClient implements IPlayerClient {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  PlayerClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  PlayerClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 

@@ -680,7 +680,16 @@ final class _Emitter {
       ..writeln('/// The words of [$_c] as a consumer uses them: what a part')
       ..writeln('/// that uses them takes, so a stand-in can be given in its')
       ..writeln('/// place. [${_c}Client] is them over a participant.')
-      ..writeln('abstract interface class I${_c}Client {');
+      ..writeln('abstract interface class I${_c}Client {')
+      ..writeln(
+        '  /// The words through the participant [owner] is attached to,',
+      )
+      ..writeln(
+        '  /// for an owner that uses them: made in its constructor, its',
+      )
+      ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
+      ..writeln('  factory I${_c}Client.of(IOwner owner) = ${_c}Client._of;')
+      ..writeln();
     for (final (i, m) in all.indexed) {
       if (i > 0) out.writeln();
       for (final d in m.docs) {
@@ -701,14 +710,7 @@ final class _Emitter {
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')
       ..writeln()
-      ..writeln(
-        '  /// The words through the participant [owner] is attached to,',
-      )
-      ..writeln(
-        '  /// for an owner that uses them: made in its constructor, its',
-      )
-      ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
-      ..writeln('  ${_c}Client.of(IOwner owner)')
+      ..writeln('  ${_c}Client._of(IOwner owner)')
       ..writeln('    : _\$words = GeneratedWords.of(owner) {')
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')

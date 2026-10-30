@@ -57,6 +57,11 @@ abstract class DoorsOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [DoorsClient] is them over a participant.
 abstract interface class IDoorsClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory IDoorsClient.of(IOwner owner) = DoorsClient._of;
+
   /// door.room, by door: each value, and its changes.
   IKeyedOf<Room> get room;
 
@@ -83,10 +88,7 @@ final class DoorsClient implements IDoorsClient {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  DoorsClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  DoorsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
@@ -193,6 +195,11 @@ abstract class LightsOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [LightsClient] is them over a participant.
 abstract interface class ILightsClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory ILightsClient.of(IOwner owner) = LightsClient._of;
+
   /// Calls light.on; a call not done throws [CallNotDone].
   Future<void> on({required Room room});
 
@@ -219,10 +226,7 @@ final class LightsClient implements ILightsClient {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  LightsClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  LightsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 

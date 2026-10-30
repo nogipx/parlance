@@ -181,6 +181,11 @@ final class BoardSeenFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [BoardClient] is them over a participant.
 abstract interface class IBoardClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory IBoardClient.of(IOwner owner) = BoardClient._of;
+
   /// note, by note: each value, and its changes.
   IKeyedOf<Note> get notes;
 
@@ -225,10 +230,7 @@ final class BoardClient implements IBoardClient {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  BoardClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  BoardClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 

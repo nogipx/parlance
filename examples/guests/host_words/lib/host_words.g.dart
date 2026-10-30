@@ -77,6 +77,11 @@ abstract class AppOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [AppClient] is them over a participant.
 abstract interface class IAppClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory IAppClient.of(IOwner owner) = AppClient._of;
+
   /// app.dark: its value now, and its changes.
   IStateOf<bool> get dark;
 
@@ -105,10 +110,7 @@ final class AppClient implements IAppClient {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  AppClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  AppClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 

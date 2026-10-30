@@ -6,7 +6,7 @@ import 'fixtures/player.dart';
 import 'generated_test.dart' show Deck;
 
 /// An owner that uses another's words through their client, made in its
-/// constructor (`PlayerClient.of(this)`): it hears and reads them once
+/// constructor (`IPlayerClient.of(this)`): it hears and reads them once
 /// it is attached, here and on a guest, with no participant in hand.
 final class Fan implements IOwner {
   Fan() {
@@ -22,7 +22,7 @@ final class Fan implements IOwner {
 
   int? volume;
 
-  late final PlayerClient player = PlayerClient.of(this);
+  late final IPlayerClient player = IPlayerClient.of(this);
 
   /// What it heard, and the volume it read then.
   final List<(int, int?)> heard = [];

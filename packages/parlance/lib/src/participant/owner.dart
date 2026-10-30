@@ -230,7 +230,7 @@ final class _Core {
 /// An owner's participant itself, for tools (`tools.dart`): what an owner
 /// does by name or with words named at run time, through `p.raw`. An app's
 /// owner needs none of it: its base, its tools and the clients it makes
-/// (`HouseClient.of(this)`) reach the participant for it.
+/// (`IHouseClient.of(this)`) reach the participant for it.
 extension OwnerParticipant on IOwner {
   /// The participant it speaks through: the part named by its vocabulary.
   /// Throws while it is not attached: what needs it waits in
@@ -281,7 +281,7 @@ extension OwnerTools on IOwner {
   }
 
   /// Hears [fact] while it is attached (another's, through its client:
-  /// `hear(HouseClient.of(this).rang, ...)`): what [onData] writes, says
+  /// `hear(IHouseClient.of(this).rang, ...)`): what [onData] writes, says
   /// and calls follows from the fact it hears, as a handler's follows from
   /// its call.
   void hear<T>({

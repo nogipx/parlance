@@ -254,6 +254,11 @@ final class HouseMotionFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [HouseClient] is them over a participant.
 abstract interface class IHouseClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory IHouseClient.of(IOwner owner) = HouseClient._of;
+
   /// house.light, by room: each value, and its changes.
   IKeyedOf<bool> get light;
 
@@ -310,10 +315,7 @@ final class HouseClient implements IHouseClient {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  HouseClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  HouseClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
@@ -540,6 +542,11 @@ abstract class VisitOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [VisitClient] is them over a participant.
 abstract interface class IVisitClient {
+  /// The words through the participant [owner] is attached to,
+  /// for an owner that uses them: made in its constructor, its
+  /// streams heard (`hear`, `listen`) once it is attached.
+  factory IVisitClient.of(IOwner owner) = VisitClient._of;
+
   /// visit.guests: its value now, and its changes.
   IStateOf<List<String>> get guests;
 
@@ -569,10 +576,7 @@ final class VisitClient implements IVisitClient {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
-  /// The words through the participant [owner] is attached to,
-  /// for an owner that uses them: made in its constructor, its
-  /// streams heard (`hear`, `listen`) once it is attached.
-  VisitClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  VisitClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
