@@ -31,9 +31,9 @@ final class ParticipantRights {
   /// its vocabularies.
   final String? Function(DefineCall call)? define;
 
-  /// Say [fact] on behalf of [by]: its cause is theirs, and so are the
-  /// rights of what follows from it. Null: no one.
-  final String? Function(Principal who, Principal by, String fact)? speakFor;
+  /// Say a fact on behalf of another ([SpeakForCall]): its cause is
+  /// theirs, and so are the rights of what follows from it. Null: no one.
+  final String? Function(SpeakForCall call)? speakFor;
 
   /// Defines in its vocabularies, and nothing more.
   static const none = ParticipantRights();
@@ -65,6 +65,26 @@ final class DefineCall {
   /// Who may call a command or ask a query; null for a state or a fact.
   final Callers? callers;
 }
+
+/// A fact a participant asks to say on behalf of another, as its rights
+/// judge it ([ParticipantRights.speakFor]). What a check is told may grow.
+final class SpeakForCall {
+  SpeakForCall._(this.speaker, this.by, this.fact);
+
+  /// The participant that says it.
+  final Principal speaker;
+
+  /// On whose behalf it is said, as `say(by:)` names them.
+  final Principal by;
+
+  /// The fact.
+  final String fact;
+}
+
+/// [speaker] saying [fact] on behalf of [by], as its rights judge it: the
+/// library's.
+SpeakForCall speakForCallOf(Principal speaker, Principal by, String fact) =>
+    SpeakForCall._(speaker, by, fact);
 
 /// [d] as [who]'s rights judge it: the library's.
 DefineCall defineCallOf(Principal who, Descriptor d) => switch (d) {
@@ -629,11 +649,11 @@ final class ParticipantFactOf<T> {
     word.shape,
   );
 
-  Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
+  Fact<T> _decode(FactMessage m) => factIn(word.shape.fromJson(m.payload), m);
 
   /// Those said from now on.
   Stream<Fact<T>> get facts =>
-      participant.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
+      participant.factsAs(word.name, word.shape).map((f) => factIn(f.$1, f.$2));
 
   /// The last [count] the registry keeps, oldest first.
   Future<List<Fact<T>>> recent(int count) async => [

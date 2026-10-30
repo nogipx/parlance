@@ -311,7 +311,7 @@ final class _Judge {
     if (rt != wt) {
       final promoted =
           (rt == 'num' && (wt == 'int' || wt == 'duration')) ||
-          (rt == 'int' && wt == 'duration');
+          (rt == 'int' && (wt == 'duration' || wt == 'datetime'));
       if (!promoted) return _add('$at.type', BreakKind.type, rt, wt);
     }
     switch (rt) {

@@ -150,8 +150,13 @@ final class PlainShape<T> extends Shape<T> {
 /// `explicitToJson: true`, or a nested object stays a Dart object and the
 /// write is refused.
 final class JsonShape<T> extends Shape<T> {
-  const JsonShape(this._from, this._to, {ValueType<Object?>? type})
-    : _type = type;
+  const JsonShape({
+    required T Function(Map<String, Object?> json) from,
+    required Map<String, Object?> Function(T value) to,
+    ValueType<Object?>? type,
+  }) : _from = from,
+       _to = to,
+       _type = type;
 
   final T Function(Map<String, Object?> json) _from;
   final Map<String, Object?> Function(T value) _to;
@@ -258,7 +263,7 @@ final class DurationShape extends Shape<Duration> {
   final Duration? max;
 
   @override
-  DurationType get type => DurationType(max: max?.inMilliseconds);
+  DurationType get type => DurationType(maxMillis: max?.inMilliseconds);
 
   @override
   Object? toJson(Duration value) => value.inMilliseconds;
@@ -277,6 +282,31 @@ final class DurationShape extends Shape<Duration> {
 
   @override
   int weigh(Duration value) => 8;
+}
+
+/// A Dart [DateTime], kept as its whole milliseconds since the epoch;
+/// read back in UTC.
+final class DateTimeShape extends Shape<DateTime> {
+  const DateTimeShape();
+
+  @override
+  DateTimeType get type => const DateTimeType();
+
+  @override
+  Object? toJson(DateTime value) => value.millisecondsSinceEpoch;
+
+  @override
+  DateTime fromJson(Object? json) =>
+      DateTime.fromMillisecondsSinceEpoch(json! as int, isUtc: true);
+
+  @override
+  DateTime check(DateTime value, ITypeContext ctx, {DateTime? was}) => value;
+
+  @override
+  bool equals(DateTime a, DateTime b) => a.isAtSameMomentAs(b);
+
+  @override
+  int weigh(DateTime value) => 8;
 }
 
 /// A list of [item]s.

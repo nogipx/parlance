@@ -558,7 +558,8 @@ void main() {
         // The host's rights: words under its id, and a visitor it speaks
         // for.
         final rights = ParticipantRights(
-          speakFor: (p, by, fact) => by.kind == 'visitor' ? null : 'not $by',
+          speakFor: (call) =>
+              call.by.kind == 'visitor' ? null : 'not ${call.by}',
         );
         late Link k;
         late RemoteOwner o;

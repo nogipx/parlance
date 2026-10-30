@@ -79,7 +79,7 @@ void main() {
       'room': Field(ChoiceType('room')),
       'n': Field(IntType(min: 1, max: 5), defaultValue: 2),
       'tags': Field(ListType(EnumType(['x', 'y']), maxItems: 3)),
-      'd': Field(DurationType(max: 1000), optional: true),
+      'd': Field(DurationType(maxMillis: 1000), optional: true),
       'c': Field(CustomType('color')),
       'any': Field(AnyType()),
       'maybe': Field(NullableType(ListType(TextType()))),

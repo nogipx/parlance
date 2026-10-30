@@ -17,7 +17,6 @@ export 'src/participant/owner.dart'
     show IOwner, OwnerTools, Choice, GuardCall, failCall, HandlerFailed;
 export 'src/participant/participant.dart' show IParticipant, GeneratedWords;
 export 'src/registry/cause.dart' show Principal;
-export 'src/registry/ids.dart' show newId;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
 export 'src/registry/descriptors.dart' show Callers, Access;
 export 'src/registry/messages.dart'
@@ -46,11 +45,13 @@ export 'src/registry/shapes.dart'
         Part,
         EnumShape,
         DurationShape,
+        DateTimeShape,
         JsonShape,
         UnionShape,
         UnknownValue;
 export 'src/registry/types.dart'
     show
+        ITypeContext,
         ValueType,
         BoolType,
         IntType,
@@ -58,6 +59,7 @@ export 'src/registry/types.dart'
         TextType,
         EnumType,
         DurationType,
+        DateTimeType,
         ChoiceType,
         ListType,
         RecordType,

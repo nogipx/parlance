@@ -1242,6 +1242,11 @@ final class _Emitter {
 
     if (t.isDartCoreBool) return 'PlainShape(BoolType())';
     if (t is InterfaceType &&
+        t.element.name == 'DateTime' &&
+        t.element.library.isDartCore) {
+      return 'DateTimeShape()';
+    }
+    if (t is InterfaceType &&
         t.element.name == 'Duration' &&
         t.element.library.isDartCore) {
       if (longest == null) return 'DurationShape()';
@@ -1330,12 +1335,12 @@ final class _Emitter {
           ..writeln()
           ..writeln('Map<String, Object?> $helper($named v) => v.toJson();');
       }
-      return 'JsonShape<$named>($named.fromJson, $helper, '
+      return 'JsonShape<$named>(from: $named.fromJson, to: $helper, '
           'type: ${_valueType(t, {})})';
     }
     throw InvalidGenerationSourceError(
       '$where: ${t.getDisplayString()} is no type a word can carry: a bool, '
-      'a number, a text, a Duration, an enum, a list, a map by text, a '
+      'a number, a text, a Duration, a DateTime, an enum, a list, a map by text, a '
       'record of named fields, or a class with fromJson and toJson '
       '(json_serializable, freezed)',
       element: on,

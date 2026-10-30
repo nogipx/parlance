@@ -44,9 +44,9 @@ const _orderType = RecordType({
 enum Orders<T> implements IStateWord<T> {
   last<Order>(
     'orders.last',
-    JsonShape(Order.fromJson, _toJson, type: _orderType),
+    JsonShape(from: Order.fromJson, to: _toJson, type: _orderType),
   ),
-  loose<Order>('orders.loose', JsonShape(Order.fromJson, _toJson));
+  loose<Order>('orders.loose', JsonShape(from: Order.fromJson, to: _toJson));
 
   const Orders(this.name, this.shape);
   @override
@@ -98,7 +98,7 @@ void main() {
         .define(by: owner)
         .set(const Order('o3', Address('Pori')));
     expect(r.state(Orders.loose).read()!.to.city, 'Pori');
-    const list = ListShape(JsonShape(Order.fromJson, _toJson));
+    const list = ListShape(JsonShape(from: Order.fromJson, to: _toJson));
     final json = list.toJson(const [Order('a', Address('x'))]);
     expect(list.fromJson(json), const [Order('a', Address('x'))]);
   });

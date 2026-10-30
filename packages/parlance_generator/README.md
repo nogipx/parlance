@@ -10,6 +10,14 @@ dev_dependencies:
   parlance_generator: any
 ```
 
+Until parlance is published, a package outside this repository takes both by path and overrides parlance with the same path, since the generator asks for parlance as a hosted package:
+
+```yaml
+dependency_overrides:
+  parlance:
+    path: ../parlance/packages/parlance
+```
+
 ```dart
 import 'package:parlance/schema.dart';
 

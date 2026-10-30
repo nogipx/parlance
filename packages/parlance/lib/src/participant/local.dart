@@ -644,7 +644,7 @@ final class _OwnFact implements IFactHandle {
       final check = p.rights.speakFor;
       if ((check == null
               ? '${p.who} may speak for no one'
-              : check(p.who, cause.by, descriptor.name))
+              : check(speakForCallOf(p.who, cause.by, descriptor.name)))
           case final why?) {
         throw NotPermitted(why);
       }

@@ -628,14 +628,29 @@ final class QueryOf<P, R> {
 
 /// A committed fact, its payload typed.
 final class Fact<T> {
-  const Fact(this.payload, this.message);
+  const Fact._(this.payload, this._message);
 
   final T payload;
+  final FactMessage _message;
 
-  /// The fact as the registry has it: id, cause, time.
-  final FactMessage message;
+  /// Its id: said again under it, it is dropped.
+  String get id => _message.id;
 
-  Cause get cause => message.cause;
+  /// On whose behalf it was said.
+  Principal get by => _message.cause.by;
+
+  /// When it was said.
+  DateTime get at => _message.at;
+}
+
+/// [payload], said in [message]: the library's.
+Fact<T> factIn<T>(T payload, FactMessage message) => Fact._(payload, message);
+
+/// A fact as the library and its tools have it: the message it came in,
+/// its cause.
+extension RawFact<T> on Fact<T> {
+  FactMessage get message => _message;
+  Cause get cause => _message.cause;
 }
 
 /// A fact, typed.
@@ -664,11 +679,11 @@ final class FactOf<T> {
     word.shape,
   );
 
-  Fact<T> _decode(FactMessage m) => Fact(word.shape.fromJson(m.payload), m);
+  Fact<T> _decode(FactMessage m) => factIn(word.shape.fromJson(m.payload), m);
 
   /// Its facts as they are committed.
   Stream<Fact<T>> get facts =>
-      registry.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
+      registry.factsAs(word.name, word.shape).map((f) => factIn(f.$1, f.$2));
 
   /// The last [n], oldest first.
   List<Fact<T>> recent([int? n]) => [

@@ -97,8 +97,8 @@ final class Box {
 final builtBox = S(
   'deck.box',
   JsonShape<Box>(
-    Box.fromJson,
-    (b) => b.toJson(),
+    from: Box.fromJson,
+    to: (b) => b.toJson(),
     type: const RecordType({'n': Field(IntType())}),
   ),
 );

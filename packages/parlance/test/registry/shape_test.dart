@@ -361,8 +361,8 @@ void main() {
 
   test('a class that serializes itself is kept as its JSON only', () {
     final shape = JsonShape<({String id})>(
-      (m) => (id: m['id']! as String),
-      (v) => {'id': v.id},
+      from: (m) => (id: m['id']! as String),
+      to: (v) => {'id': v.id},
       type: const RecordType({'id': Field(TextType())}),
     );
     expect(shape.keptAsIs, isFalse);

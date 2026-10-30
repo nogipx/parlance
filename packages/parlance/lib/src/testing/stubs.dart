@@ -108,16 +108,17 @@ final class FactStub<T> implements IFactOf<T> {
   Future<List<Fact<T>>> recent(int count) async =>
       _all.length <= count ? [..._all] : _all.sublist(_all.length - count);
 
-  /// Says [payload]: who listens hears it.
-  void say(T payload) {
-    final f = Fact(
+  /// Says [payload], on behalf of [by] when given, else of the stub's:
+  /// who listens hears it.
+  void say(T payload, {Principal? by}) {
+    final f = factIn(
       payload,
       FactMessage(
         seq: ++_seq,
         id: newId(),
         fact: name,
         payload: payload,
-        cause: Cause(by),
+        cause: Cause(by ?? this.by),
         at: DateTime.now(),
       ),
     );

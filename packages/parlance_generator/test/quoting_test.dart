@@ -185,7 +185,7 @@ abstract class Orders {
         expect(helpers.values, unorderedEquals(['a.Point', 'b.Point']));
         final flat = made!.replaceAll(RegExp(r'\s+'), ' ');
         for (final MapEntry(key: helper, value: type) in helpers.entries) {
-          expect(flat, contains('$type.fromJson, $helper,'));
+          expect(flat, contains('from: $type.fromJson, to: $helper,'));
         }
       },
     );

@@ -582,7 +582,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   void _fail(Map<String, Object?> op, String code, String message) {
-    final e = ParticipantError(op, ParticipantErrorCode.of(code), message);
+    final e = ParticipantError(op, participantErrorCodeOf(code), message);
     if (log.isEnabled(RpcLogLevel.warning)) {
       log.warning(
         'refused by the host',

@@ -127,15 +127,17 @@ enum ParticipantErrorCode {
   mismatch,
 
   /// What a newer host says this side does not know.
-  other;
-
-  /// The code a session or this side says it by.
-  static ParticipantErrorCode of(String code) => switch (code) {
-    'permissionDenied' => notPermitted,
-    'alreadyExists' => exists,
-    'invalidArgument' => invalid,
-    'notFound' => missing,
-    'resourceExhausted' => overLimit,
-    _ => values.asNameMap()[code] ?? other,
-  };
+  other,
 }
+
+/// The code a session or this side says it by, as a [ParticipantErrorCode]:
+/// the library's.
+ParticipantErrorCode participantErrorCodeOf(String code) => switch (code) {
+  'permissionDenied' => ParticipantErrorCode.notPermitted,
+  'alreadyExists' => ParticipantErrorCode.exists,
+  'invalidArgument' => ParticipantErrorCode.invalid,
+  'notFound' => ParticipantErrorCode.missing,
+  'resourceExhausted' => ParticipantErrorCode.overLimit,
+  _ =>
+    ParticipantErrorCode.values.asNameMap()[code] ?? ParticipantErrorCode.other,
+};

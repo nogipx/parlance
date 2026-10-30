@@ -16,7 +16,13 @@ export 'package:rpc_dart/logger.dart' show LogScope;
 export 'schema.dart';
 export 'src/host.dart' show Host, HostLimits, ServeAcross;
 export 'src/participant/participant.dart'
-    show ParticipantRights, DefineCall, WordRole, WordAccess, NotPermitted;
+    show
+        ParticipantRights,
+        DefineCall,
+        SpeakForCall,
+        WordRole,
+        WordAccess,
+        NotPermitted;
 export 'src/remote/participant.dart'
     show
         IRemoteParticipant,

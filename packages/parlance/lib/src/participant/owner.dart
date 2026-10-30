@@ -6,7 +6,8 @@ import 'package:clock/clock.dart' as clock_;
 import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart' show ICommandWord, IFactOf, Keyed, WordSet;
+import '../registry/words.dart'
+    show ICommandWord, IFactOf, Keyed, RawFact, WordSet;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';

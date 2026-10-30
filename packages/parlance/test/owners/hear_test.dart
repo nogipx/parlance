@@ -47,7 +47,7 @@ void main() {
     final door = r.participant(
       const Principal('door'),
       vocabularies: [WordSet.open('door')],
-      rights: ParticipantRights(speakFor: (_, _, _) => null),
+      rights: ParticipantRights(speakFor: (_) => null),
     );
     final rang = door.fact(_Fact.rang).define();
     r.participant(

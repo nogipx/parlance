@@ -42,7 +42,7 @@ Future<void> main() async {
     owners: [house],
     access: const WordAccess(callers: Who.household),
     rights: ParticipantRights(
-      speakFor: (_, by, fact) => fact == HouseFact.rang.name
+      speakFor: (call) => call.fact == HouseFact.rang.name
           ? null
           : 'only the doorbell speaks for anyone',
     ),

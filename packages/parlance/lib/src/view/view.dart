@@ -218,12 +218,12 @@ final class ViewFactOf<T> {
   /// The last [count] the registry keeps, oldest first.
   Future<List<Fact<T>>> recent(int count) async => [
     for (final m in await view.recent(word.name, count))
-      Fact(word.shape.fromJson(m.payload), m),
+      factIn(word.shape.fromJson(m.payload), m),
   ];
 
   /// Those said from now on.
   Stream<Fact<T>> get facts =>
-      view.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
+      view.factsAs(word.name, word.shape).map((f) => factIn(f.$1, f.$2));
 
   /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
   WordStatus get status => wordStatus(view, word);

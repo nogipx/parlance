@@ -42,8 +42,8 @@ enum PlayerState<T> implements IStateWord<T> {
     'player.playing',
     NullableShape<Track>(
       JsonShape<Track>(
-        Track.fromJson,
-        _$PlayerTrackToJson,
+        from: Track.fromJson,
+        to: _$PlayerTrackToJson,
         type: RecordType({
           'title': Field(TextType()),
           'length': Field(NullableType(IntType()), optional: true),
@@ -88,8 +88,8 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
       {
         'track': Part(
           JsonShape<Track>(
-            Track.fromJson,
-            _$PlayerTrackToJson,
+            from: Track.fromJson,
+            to: _$PlayerTrackToJson,
             type: RecordType({
               'title': Field(TextType()),
               'length': Field(NullableType(IntType()), optional: true),
@@ -148,8 +148,8 @@ enum PlayerQuery<P, R> implements IQueryWord<P, R> {
     ),
     ListShape(
       JsonShape<Track>(
-        Track.fromJson,
-        _$PlayerTrackToJson,
+        from: Track.fromJson,
+        to: _$PlayerTrackToJson,
         type: RecordType({
           'title': Field(TextType()),
           'length': Field(NullableType(IntType()), optional: true),
@@ -185,8 +185,8 @@ enum PlayerFact<T> implements IFactWord<T> {
   finished<Track>(
     'player.finished',
     JsonShape<Track>(
-      Track.fromJson,
-      _$PlayerTrackToJson,
+      from: Track.fromJson,
+      to: _$PlayerTrackToJson,
       type: RecordType({
         'title': Field(TextType()),
         'length': Field(NullableType(IntType()), optional: true),

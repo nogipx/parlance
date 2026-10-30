@@ -20,11 +20,15 @@ Map<String, Object?> jsonSchema(
   },
   TextType(:final maxLength) => {'type': 'string', 'maxLength': ?maxLength},
   EnumType(:final values) => {'type': 'string', 'enum': values},
-  DurationType(:final max) => {
+  DurationType(maxMillis: final max) => {
     'type': 'integer',
     'minimum': 0,
     'maximum': ?max,
     'description': 'milliseconds',
+  },
+  DateTimeType() => {
+    'type': 'integer',
+    'description': 'milliseconds since the epoch, UTC',
   },
   ChoiceType(:final of) => {
     'type': 'string',

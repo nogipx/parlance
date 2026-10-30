@@ -49,7 +49,8 @@ sealed class ValueType<T> {
       'enum' => EnumType([
         for (final v in json['values'] as List) v as String,
       ], unknown: json['unknown'] as String?),
-      'duration' => DurationType(max: n('max')?.toInt()),
+      'duration' => DurationType(maxMillis: n('max')?.toInt()),
+      'datetime' => const DateTimeType(),
       'ref' => ChoiceType(json['kind'] as String),
       'list' => ListType(
         ValueType.fromJson(json['item']),
@@ -186,20 +187,34 @@ final class EnumType extends ValueType<String> {
 
 /// A duration as whole milliseconds.
 final class DurationType extends ValueType<int> {
-  const DurationType({this.max});
+  const DurationType({this.maxMillis});
 
   /// The longest, in milliseconds.
-  final int? max;
+  final int? maxMillis;
 
   @override
   Object? check(Object? value, ITypeContext ctx, [String path = '']) {
     final v = const IntType(min: 0).check(value, ctx, path) as int;
-    if (max case final m? when v > m) ValueType._fail(path, 'above $m ms');
+    if (maxMillis case final m? when v > m) {
+      ValueType._fail(path, 'above $m ms');
+    }
     return v;
   }
 
   @override
-  Map<String, Object?> toJson() => {'type': 'duration', 'max': ?max};
+  Map<String, Object?> toJson() => {'type': 'duration', 'max': ?maxMillis};
+}
+
+/// A moment, as whole milliseconds since the epoch, UTC.
+final class DateTimeType extends ValueType<int> {
+  const DateTimeType();
+
+  @override
+  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
+      const IntType().check(value, ctx, path);
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'datetime'};
 }
 
 /// One of the choices of [of] (`room`), as its owner gives them: which

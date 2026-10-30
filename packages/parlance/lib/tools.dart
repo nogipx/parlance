@@ -41,11 +41,12 @@ export 'src/registry/registry.dart'
 export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';
 export 'src/registry/words.dart'
-    hide TypedRegistry, StateOf, CommandOf, QueryOf, FactOf;
+    hide TypedRegistry, StateOf, CommandOf, QueryOf, FactOf, factIn;
 export 'src/participant/local.dart'
     hide registryOf, takeForServing, builtAgainstSchemas, forgetBuiltAgainst;
 export 'src/participant/owner.dart' hide OwnerGroup, Owner, saidApart;
-export 'src/participant/participant.dart' hide defineCallOf, WordAccessOf;
+export 'src/participant/participant.dart'
+    hide defineCallOf, speakForCallOf, WordAccessOf;
 export 'src/remote/participant.dart'
     show
         ParticipantError,

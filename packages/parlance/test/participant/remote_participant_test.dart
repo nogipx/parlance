@@ -392,7 +392,7 @@ void main() {
   test('it speaks for another only when the host lets it', () async {
     final p = await join(
       rights: ParticipantRights(
-        speakFor: (_, by, _) => by.kind == 'visitor' ? null : 'visitors only',
+        speakFor: (call) => call.by.kind == 'visitor' ? null : 'visitors only',
       ),
     );
     final errors = <ParticipantError>[];

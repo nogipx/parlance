@@ -192,7 +192,8 @@ void main() {
         orders,
         vocabularies: [WordSet.open('orders')],
         rights: ParticipantRights(
-          speakFor: (_, by, _) => by.kind == 'visitor' ? null : 'visitors only',
+          speakFor: (call) =>
+              call.by.kind == 'visitor' ? null : 'visitors only',
         ),
       );
       (voice.fact(OrderFact.placed).define() as FactEmitterOf<Order>).emit((
