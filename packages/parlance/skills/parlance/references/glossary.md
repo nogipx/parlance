@@ -128,7 +128,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Protocol**: the remote protocol's version, told by `describe`.
 - **Mirror**: a remote participant's copy of the states it follows, from the feed; resumes after a lost connection, back to a snapshot after a gap. The package's own.
 - **Synced**: whether a mirror follows the registry now.
-- **`reach(epoch, seq)`**: waits until a mirror has a call's seq, so a read after a call reads its effect.
+- **`reach(epoch, seq)`**: waits until a mirror has a call's seq, so a read after a call reads its effect: however long its feed takes, and no longer than it follows the registry (`synced`).
 
 ## View (§20)
 

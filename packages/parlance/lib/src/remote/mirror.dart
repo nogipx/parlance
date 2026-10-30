@@ -85,22 +85,20 @@ final class RegistryMirror {
   };
 
   /// Completes when the copy has the seq [seq] of [epoch] (what a call
-  /// answered at it wrote), or after [timeout]; answers whether it got
-  /// there. With a subscription the copy's seq moves only with the ticks
-  /// its feed carries: a write to a state it does not keep is not waited
-  /// for.
-  Future<bool> reach(
-    String epoch,
-    int seq, {
-    Duration timeout = const Duration(seconds: 2),
-  }) async {
+  /// answered at it wrote), however long its feed takes: the host tells a
+  /// seq a call or `describe` answered at even when nothing of it is
+  /// carried. Answers whether it got there: not when the copy lost the
+  /// registry (`synced` false, as a reader sees), the registry started
+  /// again, or after [timeout] when one is given.
+  Future<bool> reach(String epoch, int seq, {Duration? timeout}) async {
     bool there() => _synced && _epoch == epoch && _seq >= seq;
     // Of a run the registry left (it started again): never reached.
     bool gone() => _past.contains(epoch);
     if (there()) return true;
-    if (gone()) return false;
+    if (gone() || !_synced) return false;
     try {
-      await changes.firstWhere((_) => there() || gone()).timeout(timeout);
+      final reached = changes.firstWhere((_) => there() || gone() || !_synced);
+      await (timeout == null ? reached : reached.timeout(timeout));
       return there();
     } on TimeoutException {
       return false;
@@ -118,13 +116,10 @@ final class RegistryMirror {
   Set<String>? get facts => _wanted?.facts;
 
   /// Keeps only [states] and hears only [facts] (null: all of them);
-  /// completes when the copy has the values of the states it keeps now, or
-  /// after [timeout]. Kept over a new connection ([follow]).
-  Future<void> subscribe({
-    Set<String>? states,
-    Set<String>? facts,
-    Duration timeout = const Duration(seconds: 2),
-  }) async {
+  /// completes when the copy has the values of the states it keeps now,
+  /// however long its feed takes, or once it lost the registry (`synced`
+  /// false). Kept over a new connection ([follow]).
+  Future<void> subscribe({Set<String>? states, Set<String>? facts}) async {
     final client = _client;
     if (client == null) {
       _wanted = (states: states, facts: facts);
@@ -143,13 +138,11 @@ final class RegistryMirror {
       _wanted = null;
       n = await client.subscribe();
     }
-    if (_subscription >= n || _client != client) return;
+    if (_subscription >= n || _client != client || !_synced) return;
     try {
-      await changes
-          .firstWhere((_) => _subscription >= n || _client != client)
-          .timeout(timeout);
-    } on TimeoutException {
-      return;
+      await changes.firstWhere(
+        (_) => _subscription >= n || _client != client || !_synced,
+      );
     } on StateError {
       return;
     }
@@ -263,6 +256,10 @@ final class RegistryMirror {
   /// ([RemoteEnded]): its feed ends after.
   void Function(String why)? onEnded;
 
+  /// Told when a snapshot says facts went by that its ticks never brought
+  /// (`factsLost`): it was away or behind past what the host retains.
+  void Function()? onFactsLost;
+
   /// How many times within a minute the copy follows again over what it
   /// could not read before it stops: a host that sends it every time is
   /// not asked for ever.
@@ -330,6 +327,7 @@ final class RegistryMirror {
             for (final e in snapshot.states.entries) e.key: {...e.value},
           });
         _synced = true;
+        if (snapshot.factsLost) onFactsLost?.call();
       case RemoteTick(:final tick):
         if (tick.epoch != _epoch || tick.from != _seq + 1) {
           // A gap: start over from a snapshot.

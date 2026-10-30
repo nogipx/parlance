@@ -111,6 +111,11 @@ enum ParticipantErrorCode {
   /// Facts said while away were dropped, past those it keeps.
   dropped,
 
+  /// Facts it hears went by unheard (`{op: feed}`): it was away or behind
+  /// past the ticks the host retains, and follows again from a snapshot
+  /// of now. Its states are whole again; those facts are gone.
+  factsLost,
+
   /// The host it joins again speaks another protocol (SPEC §14).
   protocol,
 

@@ -224,6 +224,13 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           : 'the host sent what cannot be read; following again from now: $e',
     );
     p._mirror.onEnded = p._endedByHost;
+    // Facts it hears went by unheard: told, as its states are whole again.
+    p._mirror.onFactsLost = () => p._fail(
+      const {'op': 'feed'},
+      'factsLost',
+      'facts said while it was away or behind went by unheard: the host '
+          'retains no more of them',
+    );
     p._mirror.follow(client);
     p._changes = p._mirror.changes.listen((_) => p._checkWhyNot());
     // It has joined when its view is live: the feed's first snapshot came.
@@ -1241,6 +1248,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     _live();
     await OwnerGroup.idle();
     await flush();
+    // What its listeners asked for is carried: a fact said after is heard.
+    if (_online) await _view.settled;
     final d = await _asked(_client.describe);
     try {
       _mirror.takeCatalog(d);

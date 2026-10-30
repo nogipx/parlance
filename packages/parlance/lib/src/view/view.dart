@@ -45,7 +45,10 @@ abstract interface class IRegistryView {
   Stream<void> changes(Set<String> states);
 
   /// The facts of [fact] said from now on; while it is listened to, a
-  /// remote view hears them.
+  /// remote view hears them, from once the host heard it listen (a
+  /// remote participant's `settle` waits for that). Across a connection
+  /// those said while it was away past what the host retains are gone,
+  /// as its participant's `errors` tells (`factsLost`).
   Stream<FactMessage> facts(String fact);
 
   /// [facts] with their payloads as [shape] has them (SPEC §18).
