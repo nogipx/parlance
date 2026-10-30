@@ -7,7 +7,7 @@ import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart'
-    show ICommandWord, IFactOf, Keyed, RawFact, WordSet;
+    show ICommandWord, IFactOf, Keyed, RawFact, WordSet, undoingOnThrow;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
@@ -106,7 +106,11 @@ final class _Core {
   /// Whether it was synced once, after it was attached.
   bool synced = false;
 
+  /// Whether it was withdrawn: an owner is attached once.
+  bool withdrawn = false;
+
   void whenAttached(void Function(IParticipant p) f) {
+    if (withdrawn) throw StateError('$type was withdrawn');
     if (participant case final p? when _due == null) {
       f(p);
     } else {
@@ -115,6 +119,9 @@ final class _Core {
   }
 
   void attach(IParticipant p, OwnerGroup group) {
+    if (withdrawn) {
+      throw StateError('$type was withdrawn: an owner is attached once');
+    }
     if (participant != null) throw StateError('$type is attached');
     _mayOwn(p);
     participant = p;
@@ -206,7 +213,10 @@ final class _Core {
     handles.dispose();
     group?._left(this);
     group = null;
+    withdrawn = true;
+    synced = false;
     if (participant case final p?) {
+      participant = null;
       _ofParticipant[p]?.remove(this);
       // What it defined as its owner name goes with it.
       p.dispose();
@@ -223,11 +233,15 @@ final class _Core {
 /// (`IHouseClient.of(this)`) reach the participant for it.
 extension OwnerParticipant on IOwner {
   /// The participant it speaks through: `ofOwner` of its vocabulary.
-  /// Throws while it is not attached: what needs it waits in
-  /// [whenAttached].
+  /// Throws while it is not attached, and once it was withdrawn: what
+  /// needs it waits in [whenAttached].
   IParticipant get participant =>
       _Core.of(this).participant ??
-      (throw StateError('$runtimeType is not attached'));
+      (throw StateError(
+        _Core.of(this).withdrawn
+            ? '$runtimeType was withdrawn'
+            : '$runtimeType is not attached',
+      ));
 
   /// Runs [f] with its participant once it is attached, after its words
   /// are defined; at once, when it is.
@@ -316,7 +330,7 @@ extension OwnerTools on IOwner {
   /// whole, or not at all when it throws. Not attached, it just runs them.
   void batch(void Function() writes) {
     final p = _Core.of(this).participant;
-    p == null ? writes() : p.batch(writes);
+    p == null ? undoingOnThrow(writes) : p.batch(writes);
   }
 
   /// Guards its command [word] (SPEC §10), named [id] in refusals and

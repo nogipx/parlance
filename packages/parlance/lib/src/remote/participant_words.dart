@@ -32,9 +32,10 @@ final class _State implements IStateHandle {
 
   @override
   void set(Object? value, {String? key, Cause? cause}) {
-    // What a participant gone writes is not written: code still running
-    // when it closed is let go quietly.
-    if (_p._disposed) return;
+    // What a participant gone writes is not written, nor what an owner
+    // withdrawn writes of a word it no longer has: code still running when
+    // it went is let go quietly, as in the host's process.
+    if (_gone) return;
     final c = _p._as(cause, _by);
     _checkKey(key);
     // Refused here, as in the host's process, not later in errors.
@@ -51,9 +52,14 @@ final class _State implements IStateHandle {
     (_p._own[descriptor.name] ??= {})[key] = v;
   }
 
+  /// Whether it writes no more: its participant went, or it was withdrawn
+  /// (disposed, or its owner was).
+  bool get _gone =>
+      _p._disposed || !identical(_p._states[descriptor.name]?.d, descriptor);
+
   @override
   void remove({String? key, Cause? cause}) {
-    if (_p._disposed) return;
+    if (_gone) return;
     final c = _p._as(cause, _by);
     _checkKey(key);
     _p._ask({
@@ -104,7 +110,11 @@ final class _Fact implements IFactHandle {
   /// is dropped there) is not known when it is said.
   @override
   bool say(Object? payload, {String? id, Cause? cause}) {
-    if (_p._disposed) return false;
+    // Gone, or withdrawn with its owner: said nowhere, as in the host's
+    // process.
+    if (_p._disposed || !identical(_p._facts[descriptor.name]?.d, descriptor)) {
+      return false;
+    }
     final speaker = _by ?? _p.who;
     cause ??= inReplyAs(speaker);
     final by = cause != null && !_p._ownAct(cause.by, speaker)

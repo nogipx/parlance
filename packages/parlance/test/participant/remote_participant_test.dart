@@ -854,9 +854,20 @@ void main() {
     );
     final p = await RemoteParticipant.join(connection!);
     final lamps = Lamps();
+    final told = <ParticipantError>[];
+    p.errors.listen(told.add);
     await expectLater(p.attach([lamps]), throwsStateError);
     await settle();
     expect(r.stateDescriptor('kittens.lamp'), isNull, reason: 'withdrawn');
+    told.clear();
+
+    // What it writes withdrawn goes nowhere, as in the host's process.
+    lamps.turn(on: true);
+    await p.flush();
+    expect(told, isEmpty);
+    // It says it was withdrawn, and is not attached again.
+    expect(() => OwnerParticipant(lamps).participant, throwsStateError);
+    await expectLater(p.attach([lamps]), throwsStateError);
     await p.dispose();
   });
 }

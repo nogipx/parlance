@@ -582,7 +582,7 @@ final class LocalParticipant implements IRawParticipant {
   }
 
   @override
-  void batch(void Function() writes) => _r.batch(writes);
+  void batch(void Function() writes) => undoingOnThrow(() => _r.batch(writes));
 
   @override
   Future<void> settle() => OwnerGroup.idle();

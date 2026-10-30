@@ -1,5 +1,6 @@
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/registry/words.dart' show StateWriterOf;
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
 
@@ -58,6 +59,80 @@ void main() {
         expect(p.raw.read('deck.volume'), 1, reason: 'its own copy too');
         expect(heard, isEmpty);
       });
+
+      test('a set the registry refuses leaves Single and Keyed as the '
+          'registry has them', () async {
+        final p = await owner();
+        const level = IntType(min: 0, max: 10);
+        final single = Single<int>();
+        Single.attach(
+          single,
+          StateWriterOf(
+            p.raw.defineState(StateDescriptor('deck.level', type: level)),
+            const PlainShape(level),
+          ),
+        );
+        final keyed = Keyed<int>();
+        Keyed.attach(
+          keyed,
+          StateWriterOf(
+            p.raw.defineState(
+              StateDescriptor('deck.levels', type: level, key: 'channel'),
+            ),
+            const PlainShape(level),
+          ),
+        );
+        single.set(5);
+        keyed.set('a', 5);
+        expect(() => single.set(50), throwsA(anything));
+        expect(() => keyed.set('a', 50), throwsA(anything));
+        expect(() => keyed.set('b', 50), throwsA(anything));
+        expect(single.value, 5);
+        expect(keyed.all, {'a': 5});
+      });
+
+      test(
+        'a batch that throws leaves Single and Keyed as they were',
+        () async {
+          final p = await owner();
+          const level = IntType();
+          final single = Single<int>();
+          Single.attach(
+            single,
+            StateWriterOf(
+              p.raw.defineState(StateDescriptor('deck.one', type: level)),
+              const PlainShape(level),
+            ),
+          );
+          final keyed = Keyed<int>();
+          Keyed.attach(
+            keyed,
+            StateWriterOf(
+              p.raw.defineState(
+                StateDescriptor('deck.many', type: level, key: 'channel'),
+              ),
+              const PlainShape(level),
+            ),
+          );
+          single.set(1);
+          keyed.set('a', 1);
+          expect(
+            () => p.batch(() {
+              single.set(2);
+              keyed
+                ..set('a', 2)
+                ..set('b', 3)
+                ..remove('a');
+              throw StateError('no');
+            }),
+            throwsStateError,
+          );
+          await settled(p);
+          expect(single.value, 1);
+          expect(keyed.all, {'a': 1});
+          expect(host.registry.read('deck.one'), 1);
+        },
+      );
 
       test(
         'an outer batch that catches an inner one keeps what it wrote',

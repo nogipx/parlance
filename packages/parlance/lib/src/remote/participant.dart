@@ -1212,7 +1212,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       ..addAll(_away);
     _undo.add({});
     try {
-      writes();
+      undoingOnThrow(writes);
     } catch (_) {
       bool undone(Map<String, Object?> op) =>
           !before.contains(op) &&

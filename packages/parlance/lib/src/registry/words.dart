@@ -253,16 +253,26 @@ final class Keyed<T> {
   /// What it set of [key], if it did.
   T? of(String key) => _now[key];
 
-  /// Sets the value of [key].
+  /// Sets the value of [key]. One the registry refuses throws, and it
+  /// keeps what it had, as the registry does.
   void set(String key, T value) {
-    _now[key] = value;
     _writer?.set(value, key: key);
+    _keep(key);
+    _now[key] = value;
   }
 
   /// Removes the value of [key].
   void remove(String key) {
-    _now.remove(key);
     _writer?.remove(key: key);
+    _keep(key);
+    _now.remove(key);
+  }
+
+  /// What [key] had, put back if the batch it is in throws.
+  void _keep(String key) {
+    final had = _now.containsKey(key);
+    final was = _now[key];
+    _undoable(() => had ? _now[key] = was as T : _now.remove(key));
   }
 
   /// What it set, by key.
@@ -346,20 +356,34 @@ final class Single<T> {
   IStateWriterOf<T>? _writer;
 
   /// What it set last; null before it set anything, and after [remove].
+  /// As the registry has it: a set it refused, or one in a batch that
+  /// threw, is not.
   T? get value => _now;
 
-  /// Sets the value.
+  /// Sets the value. One the registry refuses throws, and it keeps what
+  /// it had, as the registry does.
   void set(T value) {
+    _writer?.set(value);
+    _keep();
     _now = value;
     _last = _Last.set;
-    _writer?.set(value);
   }
 
   /// Removes the value: the state is not there until set again.
   void remove() {
+    _writer?.remove();
+    _keep();
     _now = null;
     _last = _Last.removed;
-    _writer?.remove();
+  }
+
+  /// What it had, put back if the batch it is in throws.
+  void _keep() {
+    final (was, last) = (_now, _last);
+    _undoable(() {
+      _now = was;
+      _last = last;
+    });
   }
 
   /// For the base the generator made: [s] writes through [writer] from
@@ -382,6 +406,30 @@ final class Single<T> {
 }
 
 enum _Last { none, set, removed }
+
+final Object _undoing = Object();
+
+/// [f], to put back what an owner keeps ([Single], [Keyed]) when the
+/// batch it is written in throws; outside one, nothing.
+void _undoable(void Function() f) =>
+    (Zone.current[_undoing] as List<void Function()>?)?.add(f);
+
+/// Runs [writes] so that what owners keep of what it writes ([Single],
+/// [Keyed]) is put back when it throws, as the registry puts back its
+/// own: a batch whole or not at all, there too. Nested, what an inner one
+/// kept goes to the outer, undone if the outer throws. The library's.
+void undoingOnThrow(void Function() writes) {
+  final undo = <void Function()>[];
+  try {
+    runZoned(writes, zoneValues: {_undoing: undo});
+  } catch (_) {
+    for (final f in undo.reversed) {
+      f();
+    }
+    rethrow;
+  }
+  (Zone.current[_undoing] as List<void Function()>?)?.addAll(undo);
+}
 
 /// What a call through a client ended with when it was not done: a refusal, a failure, no answer in time, or a lost answer.
 final class CallNotDone implements Exception {

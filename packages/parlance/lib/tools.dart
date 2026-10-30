@@ -42,7 +42,13 @@ export 'src/registry/registry.dart'
 export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';
 export 'src/registry/words.dart'
-    hide factIn, StateWriterOf, FactSayerOf, CommandAnswers, QueryAnswers;
+    hide
+        factIn,
+        StateWriterOf,
+        FactSayerOf,
+        CommandAnswers,
+        QueryAnswers,
+        undoingOnThrow;
 export 'src/participant/local.dart'
     hide
         Participants,
