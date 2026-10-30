@@ -318,6 +318,10 @@ final class LocalParticipant implements IRawParticipant {
   Map<String?, Object?> readAll(String state) => _view.readAll(state);
 
   @override
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape) =>
+      _view.readAllAs(state, shape);
+
+  @override
   Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) =>
       _view.fetch(state, keep: keep);
 

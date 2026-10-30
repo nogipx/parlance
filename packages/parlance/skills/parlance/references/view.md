@@ -29,7 +29,7 @@ remote (`tools.dart`). An app's screen takes a client (§23.5), not this.
   see where one is defined otherwise (`Registry.mismatches`, §6.9); a
   client tells it as it is made. Across a connection by fingerprint
   first (§25.4).
-- As a shape has them (§18): `readAs(state, shape, {key})`,
+- As a shape has them (§18): `readAs(state, shape, {key})`, `readAllAs(state, shape)` (each value as `readAs` reads it, one that cannot be read left out, as `readAs` answers null),
   `factsAs(fact, shape)`, `callAs(command, params, shape)`: in this process
   a word the registry keeps by that shape is the Dart value itself, both
   ways; else JSON decoded, or encoded for the call. A view has no typed

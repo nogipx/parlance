@@ -367,8 +367,9 @@ extension OwnerTools on IOwner {
     );
   }
 
-  /// The time now, by its registry's clock once it is attached (a test's
-  /// clock, when it gives one).
+  /// The time now, by its participant's clock once it is attached: the
+  /// registry's in the host's process, this process's across a connection
+  /// (a test host's, given one, both ways).
   DateTime get now =>
       (_Core.of(this).participant?.raw.clock ?? clock_.clock).now();
 

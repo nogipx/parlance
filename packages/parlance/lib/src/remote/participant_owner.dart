@@ -33,6 +33,10 @@ final class _OfOwner implements IRawParticipant {
   Map<String?, Object?> readAll(String state) => _root.readAll(state);
 
   @override
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape) =>
+      _root.readAllAs(state, shape);
+
+  @override
   Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) =>
       _root.fetch(state, keep: keep);
 

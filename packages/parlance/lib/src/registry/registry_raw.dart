@@ -310,6 +310,21 @@ extension RawRegistry on Registry {
         : decodeKnown(shape, e.jsonOf(key, v));
   }
 
+  /// [readAll] as [shape] has it, as [readAs] reads each value: the value
+  /// itself when the registry keeps it by [shape]; one that cannot be read
+  /// is left out.
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape) {
+    final e = _states[canonical(state)];
+    if (e == null) return const {};
+    if (identical(e.shape, shape)) {
+      return {
+        for (final MapEntry(:key, :value) in e.local.values.entries)
+          if (value != null) key: value as T,
+      };
+    }
+    return decodeAllKnown(shape, readAll(state));
+  }
+
   /// Whether [state] (of [key]) has a committed value.
   bool has(String state, {String? key}) =>
       _states[canonical(state)]?.local.has(key) ?? false;

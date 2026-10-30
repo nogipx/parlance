@@ -198,7 +198,8 @@ abstract interface class IParticipant implements IHandle {
   /// Withdraws its owners, the last attached first, then everything it
   /// defined, registered and added, its owners' too: a scope (a user's
   /// session, a feature) leaves nothing of itself, and its vocabularies are
-  /// free again.
+  /// free again. In the host's process at once; across a connection once
+  /// the host heard it, which `IRemoteParticipant.dispose` completes on.
   @override
   void dispose();
 }
@@ -229,7 +230,8 @@ abstract interface class IRawParticipant
   /// Who may read and call its words when a word does not say.
   WordAccess get access;
 
-  /// Where it reads the time: the registry's clock in this process.
+  /// Where it reads the time: the registry's clock in the host's process,
+  /// this process's across a connection (a test host's, in a test).
   Clock get clock;
 
   /// The value of [state] (of [key]) now, then on every change; null
@@ -243,7 +245,9 @@ abstract interface class IRawParticipant
   /// (`call.causeFor(who)`), so it follows from the call being served.
   /// When [cancel] is cancelled first, it answers `cancelled`
   /// ([CallCancelled]): not run if its handler had not begun, its handler
-  /// told (`expired`) if it had.
+  /// told (`expired`) if it had. Across a connection the host is told
+  /// only when it speaks `cancel` and the word reaches it: else the call
+  /// may run to its end untold.
   @override
   Future<CallResult<Object?>> call(
     String command,
@@ -450,12 +454,13 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
   @override
   T? of(String key) => _w._resolve().readAs(_word.name, _word.shape, key: key);
 
+  /// As [of] reads each: the owner's own values in its process, and one
+  /// that cannot be read left out, as [of] answers null for it.
   @override
   Map<String, T> get all => {
     for (final MapEntry(:key, :value)
-        in _w._resolve().readAll(_word.name).entries)
-      if (key != null && (value != null || null is T))
-        key: _word.shape.fromJson(value),
+        in _w._resolve().readAllAs(_word.name, _word.shape).entries)
+      ?key: value,
   };
 
   @override

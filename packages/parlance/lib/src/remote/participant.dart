@@ -112,6 +112,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// §14); a host that does not speak one is refused
   /// ([ProtocolMismatch]), on joining and on joining again. One whose
   /// host gives no view of the registry in time is [HostUnreachable].
+  /// [clock] is where its owners read the time: this process's, unless a
+  /// test host in the same process gives its own.
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
     void Function(ParticipantError error)? onParticipantError,
@@ -119,6 +121,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     int keepAway = 1000,
     Iterable<IRpcInterceptor> interceptors = const [],
     Set<String> requires = const {},
+    Clock? clock,
   }) async {
     final endpoint = RpcPeerEndpoint(transport: connection.transport);
     interceptors.forEach(endpoint.addInterceptor);
@@ -140,8 +143,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       await endpoint.close();
       rethrow;
     }
-    p._joined = connection;
-    p._connection = connection.state.listen(p._onConnection);
+    p
+      .._clock = clock
+      .._joined = connection
+      .._connection = connection.state.listen(p._onConnection);
     return p;
   }
 
@@ -445,7 +450,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   static Map<String, Object?> _asOf(Principal? as) => {'as': ?as?.toJson()};
 
   @override
-  Clock get clock => clock_zone.clock;
+  Clock get clock => _clock ?? clock_zone.clock;
+  Clock? _clock;
 
   void _live() {
     if (_disposed) throw StateError('participant $who is gone');
@@ -648,6 +654,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   Map<String?, Object?> readAll(String state) => _own.containsKey(state)
       ? Map.unmodifiable(_own[state]!)
       : _view.readAll(state);
+
+  /// One it cannot read is told, as [readAs] tells it.
+  @override
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape) =>
+      decodeAllKnown(shape, readAll(state), (e) => _unknown(state, e));
 
   @override
   Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) async =>

@@ -110,7 +110,8 @@ final class TestHost {
       shouldReconnect: (_) => false,
     );
     _connections.add(connection);
-    final p = await Host.join(connection);
+    // Its owners read the time by the host's clock, a test's when given.
+    final p = await RemoteParticipant.join(connection, clock: registry.clock);
     _remotes.add(p);
     return p;
   }

@@ -826,6 +826,17 @@ T? decodeKnown<T>(
   }
 }
 
+/// Each value of [json] as [decodeKnown] reads it, by key: one it cannot
+/// read is left out, and told to [unreadable].
+Map<String?, T> decodeAllKnown<T>(
+  Shape<T> shape,
+  Map<String?, Object?> json, [
+  void Function(Object error)? unreadable,
+]) => {
+  for (final MapEntry(:key, :value) in json.entries)
+    key: ?decodeKnown(shape, value, unreadable),
+};
+
 /// The value [shape] makes of [json], null for none. JSON a registry or a
 /// mirror tells is frozen, so one decoded value serves every read of the
 /// same JSON; a write puts another JSON there.

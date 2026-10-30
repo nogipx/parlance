@@ -27,6 +27,10 @@ abstract interface class IRegistryView {
   /// Every value of [state], by key.
   Map<String?, Object?> readAll(String state);
 
+  /// [readAll] as [shape] has it, each value as [readAs] reads it: one it
+  /// cannot read is left out, as [readAs] answers null for it.
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape);
+
   /// Every value of [state] now, by key, also of a state the view does not
   /// keep (SPEC §20): what a part that names words at run time reads (a
   /// plugin, an agent). Across a connection the view waits until it has
@@ -142,6 +146,10 @@ final class LocalView implements IRegistryView {
   @override
   Map<String?, Object?> readAll(String state) =>
       registry.mayRead(by, state) ? registry.readAll(state) : const {};
+
+  @override
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape) =>
+      registry.mayRead(by, state) ? registry.readAllAs(state, shape) : const {};
 
   /// A read by name, as a part outside the build makes it: counted as
   /// [by]'s use of the word (SPEC §6.8).

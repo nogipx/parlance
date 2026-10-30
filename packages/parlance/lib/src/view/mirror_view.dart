@@ -86,6 +86,10 @@ final class MirrorView implements IRegistryView {
   @override
   Map<String?, Object?> readAll(String state) => mirror.readAll(state);
 
+  @override
+  Map<String?, T> readAllAs<T>(String state, Shape<T> shape) =>
+      decodeAllKnown(shape, readAll(state));
+
   /// What it keeps for [fetch], as long as it lives.
   final Set<String> _fetched = {};
 
