@@ -14,7 +14,7 @@ import 'notes.dart';
 Future<void> main() async {
   final host = Host();
   host.participant(const Principal('notes'), vocabularies: [notesWords]).attach(
-    {'book': Book()},
+    [Book()],
   );
 
   // The curated tools, and with commandTools each command the agent may

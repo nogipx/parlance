@@ -51,7 +51,7 @@ void main() {
       access: const WordAccess(call: anyone),
     );
     board = Pinboard();
-    p.attach({'board': board});
+    p.attach([board]);
   });
   tearDown(() => r.dispose());
 

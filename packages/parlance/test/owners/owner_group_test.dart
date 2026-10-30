@@ -41,7 +41,7 @@ void main() {
       'they have', () {
     final good = Level('mix.a');
     final bad = Level('mix.b');
-    p.attach({'a': good, 'b': bad});
+    p.attach([good, bad]);
     good.value = 1;
     bad
       ..value = 1
@@ -54,7 +54,7 @@ void main() {
   test('an owner disposed on its own is synced no more', () {
     final gone = Level('mix.a');
     final kept = Level('mix.b');
-    p.attach({'a': gone, 'b': kept});
+    p.attach([gone, kept]);
     gone.dispose();
     kept.value = 2;
     p.sync();
@@ -64,15 +64,12 @@ void main() {
 
   test('owners are attached all or none', () {
     expect(
-      () => p.attach({
-        'a': Level('mix.a'),
-        'b': Level('mix.b', defineFails: true),
-      }),
+      () => p.attach([Level('mix.a'), Level('mix.b', defineFails: true)]),
       throwsStateError,
     );
     expect(r.stateDescriptor('mix.a'), isNull);
     expect(r.stateDescriptor('mix.b'), isNull);
-    p.attach({'a': Level('mix.a')});
+    p.attach([Level('mix.a')]);
     expect(r.read('mix.a'), 0);
   });
 
@@ -80,15 +77,12 @@ void main() {
     'an owner attached elsewhere is refused before anything is attached',
     () {
       final twice = Level('mix.a');
-      p.attach({'a': twice});
+      p.attach([twice]);
       final other = r.participant(
         const Principal('other'),
         vocabularies: [const WordSet.open('other')],
       );
-      expect(
-        () => other.attach({'b': Level('other.b'), 'a': twice}),
-        throwsStateError,
-      );
+      expect(() => other.attach([Level('other.b'), twice]), throwsStateError);
       expect(r.stateDescriptor('other.b'), isNull);
       expect(r.stateDescriptor('mix.a'), isNotNull);
     },

@@ -60,7 +60,7 @@ void main() {
     'attach completes when the host has the words and their values',
     () async {
       final p = await join();
-      await p.attach({'it': _Lamp()});
+      await p.attach([_Lamp()]);
       expect(r.read('lamp.on'), isTrue);
     },
   );

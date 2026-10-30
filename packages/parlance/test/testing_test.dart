@@ -60,6 +60,8 @@ enum Target<T> implements IStateWord<T> {
 /// The module under test: it heats when it is cold outside, through the
 /// heater's command, and says so.
 final class Thermostat extends Owner {
+  Thermostat() : super(vocabulary: 'thermostat');
+
   late final IStateWriterOf<bool> _heating;
   late final IFactEmitterOf<Power> _adjusted;
 
@@ -90,9 +92,9 @@ void main() {
       'did is read back', () async {
     final outside = host.stateOf(Outside.temperature, 10);
     final heater = host.commandOf(Heater.power);
-    host.participant(me, vocabularies: [WordSet.open('thermostat')]).attach({
-      'heat': Thermostat(),
-    });
+    host.participant(me, vocabularies: [WordSet.open('thermostat')]).attach([
+      Thermostat(),
+    ]);
     await host.settle();
     outside.set(25);
     await host.settle();
@@ -101,8 +103,8 @@ void main() {
     expect(host.written(Target.heating), [true, false]);
     expect(host.said(Adjusted.adjusted), [(on: true), (on: false)]);
     expect(host.callsOf('heater.power.set').map((c) => c.cause.by), [
-      me.child('heat'),
-      me.child('heat'),
+      me.child('thermostat'),
+      me.child('thermostat'),
     ]);
     expect(host.errors, isEmpty);
   });
@@ -111,13 +113,13 @@ void main() {
     host.stateOf(Outside.temperature, 10);
     final heater = host.commandOf(Heater.power);
     final p = await host.join(me, vocabularies: [WordSet.open('thermostat')]);
-    p.attach({'heat': Thermostat()});
+    p.attach([Thermostat()]);
     await host.settle();
     expect(heater.params, [(on: true)]);
     expect(host.written(Target.heating), [true]);
     expect(
       host.registry.usesOf('heater.power.set').single.by,
-      me.child('heat'),
+      me.child('thermostat'),
     );
   });
 

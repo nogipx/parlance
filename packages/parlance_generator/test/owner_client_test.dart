@@ -40,12 +40,12 @@ void main() {
             vocabularies: [playerWords],
             access: const WordAccess(call: Callers({'*': Access.allow})),
           )
-          .attach({'deck': Deck()});
+          .attach([Deck()]);
       final fan = Fan();
       final side = across
           ? await host.join(const Principal('listener', 'ann'))
           : host.participant(const Principal('listener', 'ann'));
-      await side.attach({'fan': fan});
+      await side.attach([fan]);
       await host.settle();
 
       await fan.player.setVolume(volume: 95);
@@ -63,14 +63,14 @@ void main() {
       const who = Principal('player');
       final side = across ? await host.join(who) : host.participant(who);
       expect(
-        () => side.attach({'deck': Deck()}),
+        () => side.attach([Deck()]),
         throwsA(
           isA<NotPermitted>().having(
             (e) => '$e',
             'message',
             allOf(
               contains(
-                'Deck, attached as player@deck, owns the words of '
+                'Deck, attached as player@player, owns the words of '
                 'the vocabulary player',
               ),
               contains(

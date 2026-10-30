@@ -10,7 +10,7 @@ part 'words.g.dart';
 
 /// Who acts in the house.
 abstract final class Who {
-  static const house = Principal('house');
+  static const home = Principal('home');
   static const ann = Principal('resident', 'ann');
   static const bob = Principal('guest', 'bob');
   static Principal phone(String name) => Principal('phone', name);
@@ -24,7 +24,7 @@ abstract final class Who {
     'resident': Access.allow,
     'phone': Access.allow,
     'agent': Access.allow,
-    'house': Access.allow,
+    'home': Access.allow,
     'system': Access.allow,
   });
 
@@ -33,7 +33,7 @@ abstract final class Who {
     'resident': Access.allow,
     'phone': Access.allow,
     'agent': Access.allow,
-    'house': Access.allow,
+    'home': Access.allow,
     'system': Access.allow,
     'guest': Access.warn,
   });

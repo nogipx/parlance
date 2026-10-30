@@ -73,7 +73,7 @@ void main() {
             const Principal('room'),
             vocabularies: [WordSet.open('room')],
           )
-          .attach({'it': room});
+          .attach([room]);
       expect(room.caller, isNull, reason: 'outside a handler');
       await r.participant(user).call('room.warm', {}, id: 'w1');
       expect(room.warmedBy, user);
@@ -93,7 +93,7 @@ void main() {
           const Principal('room'),
           vocabularies: [WordSet.open('room')],
         )
-        .attach({'it': room});
+        .attach([room]);
     await pumpEventQueue();
     final ticks = <Tick>[];
     final sub = r.ticks.listen(ticks.add);

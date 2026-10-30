@@ -33,7 +33,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Who and why
 
-- **Principal** (§4): who acts, `kind[/id][@owner]` (`user/local`, `module/visit`, `guest/bob`, `house@devices`). Kinds are the host's; the package reserves `system` (the registry).
+- **Principal** (§4): who acts, `kind[/id][@owner]` (`user/local`, `module/visit`, `guest/bob`, `home@house`). Kinds are the host's; the package reserves `system` (the registry).
 - **Selector** (§6.2): how callers and readers name principals: a kind (`user`), a kind and id (`module/visit`), or `*`. The most specific one that matches wins.
 - **Cause** (§4): why a message happened: `by` (the principal), `parent` (the message it follows from), `conversation` (the conversation it is part of) and `origin` (what that conversation started with: the first message's `{word, by}`; `originOf(word)`). Passed explicitly (`call.causeFor(by)`), or, with none given in a handler a participant serves, taken from its call.
 - **Conversation** (§4): everything that followed from one message, however far; its id is that message's. `registry.conversation(id)` (bounded), a span's and a journal entry's `conversation`.
@@ -107,7 +107,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`Single<T>`**: a state with no key as a generated owner base keeps it: `heat.set(21)`, `heat.value`, `heat.remove()`.
 - **`Keyed<T>`**: a keyed state as a generated owner base keeps it: `light.set('kitchen', true)`, `light.remove(key)`, `light.of(key)`, `light.all`.
 - **Owner**: who defines words and does their work. `define(r)` defines them through typed words and `keep`s each handle; `sync()` writes the states as its devices or ports have them now; `dispose()` withdraws them, the last kept first.
-- **Attaching owners**: `p.attach({name: owner})`, each to the part of its name; the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
+- **Attaching owners**: `p.attach([owner])`, each to the part named by its vocabulary (one of no words as the participant); the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
 - **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.
 - **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`) and what happened read back (`written`, `said`, `callsOf`).
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.

@@ -231,7 +231,7 @@ void main() {
       vocabularies: [const WordSet.open('plug')],
     );
     final owner = Ticking();
-    p.attach({'tick': owner});
+    p.attach([owner]);
     expect(owner.changed.hasListener, isTrue);
     p.dispose();
     expect(owner.changed.hasListener, isFalse);

@@ -1141,7 +1141,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   late final OwnerGroup _group = OwnerGroup(this);
 
   @override
-  Future<void> attach(Map<String, IOwner> owners) {
+  Future<void> attach(Iterable<IOwner> owners) {
     _live();
     _group.attach(owners);
     return flush();

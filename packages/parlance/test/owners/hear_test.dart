@@ -29,6 +29,8 @@ enum _State<T> implements IStateWord<T> {
 }
 
 final class _Book extends Owner {
+  _Book() : super(vocabulary: 'book');
+
   late final IStateWriterOf<String> _last;
 
   @override
@@ -53,7 +55,7 @@ void main() {
           const Principal('book'),
           vocabularies: [WordSet.open('book')],
         )
-        .attach({'page': _Book()});
+        .attach([_Book()]);
     await pumpEventQueue();
 
     rang.emitFor('ann', const Principal('guest', 'ann'));
@@ -63,6 +65,6 @@ void main() {
     final change = r.explain('book.last').change!;
     expect(r.read('book.last'), 'ann');
     expect(change.cause.parent, said.id);
-    expect(change.cause.by, const Principal('book').child('page'));
+    expect(change.cause.by, const Principal('book').child('book'));
   });
 }

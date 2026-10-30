@@ -159,7 +159,7 @@ final class _Part implements IRawParticipant {
   late final OwnerGroup _group = OwnerGroup(this);
 
   @override
-  Future<void> attach(Map<String, IOwner> owners) {
+  Future<void> attach(Iterable<IOwner> owners) {
     _group.attach(owners);
     return _root.flush();
   }

@@ -177,7 +177,7 @@ void main() {
           const Principal('lamps'),
           vocabularies: [WordSet.open('lamps')],
         )
-        .attach({'it': lamps});
+        .attach([lamps]);
     final ann = r.participant(const Principal('user', 'ann'));
     expect(GeneratedWords.of(ann).state(_Lit.of).readAll().keys, {'a', 'b'});
 
@@ -202,7 +202,7 @@ void main() {
           const Principal('lamps'),
           vocabularies: [WordSet.open('lamps')],
         )
-        .attach({'it': _Lamps(listed: false)});
+        .attach([_Lamps(listed: false)]);
     final ann = r.participant(const Principal('user', 'ann'));
     final r1 = await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'a'));
     expect(r1.whyNot, contains("choices(name: 'bulb', list: ...)"));
@@ -218,7 +218,7 @@ void main() {
           const Principal('bell'),
           vocabularies: [WordSet.open('bell')],
         )
-        .attach({'it': bell});
+        .attach([bell]);
     final heard = <String>[];
     final ann = r.participant(const Principal('user', 'ann'));
     GeneratedWords.of(
@@ -240,7 +240,7 @@ void main() {
           const Principal('dial'),
           vocabularies: [WordSet.open('dial')],
         )
-        .attach({'it': _Dial(power)});
+        .attach([_Dial(power)]);
     final ann = r.participant(const Principal('user', 'ann'));
     final admin = r.participant(const Principal('admin'));
 
@@ -273,10 +273,7 @@ void main() {
               const Principal('dial'),
               vocabularies: [WordSet.open('dial')],
             );
-      await dial.attach({
-        'it': _Dial(const Stream.empty()),
-        'rules': _NoAgents(),
-      });
+      await dial.attach([_Dial(const Stream.empty()), _NoAgents()]);
       await host.settle();
       final agent = host.participant(const Principal('agent', 'a'));
       final ann = host.participant(const Principal('user', 'ann'));
@@ -301,7 +298,7 @@ void main() {
           const Principal('dial'),
           vocabularies: [WordSet.open('dial')],
         )
-        .attach({'it': _Dial(power.stream)});
+        .attach([_Dial(power.stream)]);
     final ann = r.participant(const Principal('user', 'ann'));
     final seen = <WordStatus>[];
     final sub = GeneratedWords.of(
@@ -332,7 +329,7 @@ void main() {
       const Principal('dial'),
       vocabularies: [WordSet.open('dial')],
     );
-    await p.attach({'it': _Dial(const Stream.empty())});
+    await p.attach([_Dial(const Stream.empty())]);
     expect(
       GeneratedWords.of(
         p,
@@ -352,7 +349,7 @@ void main() {
           const Principal('dial'),
           vocabularies: [WordSet.open('dial')],
         )
-        .attach({'it': dial});
+        .attach([dial]);
     expect(dial.now, then);
   });
 }

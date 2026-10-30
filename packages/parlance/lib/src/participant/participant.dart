@@ -113,21 +113,22 @@ abstract interface class IParticipant implements IHandle {
   /// loop, across a connection once its copy reached the host.
   Future<void> settle();
 
-  /// Attaches [owners] (SPEC §22.3), each to the part of its name
-  /// (`child(name)`), so causes, records and `explain` tell which owner did
-  /// what; then writes what they have now, as one tick. The names are
-  /// `main`'s; two owners of one name are refused. They go with it.
+  /// Attaches [owners] (SPEC §22.3), each to the part named by its
+  /// vocabulary (`house@house`), so causes, records and `explain` tell
+  /// which owner did what; one of no words (a rule of the whole, a guard)
+  /// speaks as the participant. Two owners of one vocabulary are refused.
+  /// They go with it.
   /// Completes when the registry has their words and what they set:
   /// at once in the host's process, across a connection when the host
   /// answered (what it refused told to its errors by then).
-  Future<void> attach(Map<String, IOwner> owners);
+  Future<void> attach(Iterable<IOwner> owners);
 
   /// Writes what every owner attached to it has now (what each
   /// `follow`s), as one tick.
   void sync();
 
   /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
-  /// (`house@devices`), in the same vocabularies with the same rights, so
+  /// (`home@house`), in the same vocabularies with the same rights, so
   /// what each part does is told as that part's in causes, records and
   /// `explain`. A part has no parts (`StateError`).
   IParticipant child(String name);

@@ -87,7 +87,7 @@ void main() {
     expect(lamp.order, isEmpty);
 
     device.level = 3;
-    await p.attach({'it': lamp});
+    await p.attach([lamp]);
     await pumpEventQueue();
     expect(lamp.order, ['attached']);
     expect(lamp.pulls, 1);
@@ -98,7 +98,7 @@ void main() {
 
   test('it follows its model: on sync, and when the model tells it, once '
       'for all told in a turn', () async {
-    await p.attach({'it': lamp});
+    await p.attach([lamp]);
     p.sync();
     expect(lamp.pulls, 2);
 
@@ -111,7 +111,7 @@ void main() {
   });
 
   test('a follow said once attached runs at once', () async {
-    await p.attach({'it': lamp});
+    await p.attach([lamp]);
     var late_ = 0;
     lamp.follow(pull: () => late_++);
     expect(late_, 1);
@@ -120,14 +120,14 @@ void main() {
   });
 
   test('what it lets go of goes with it', () async {
-    await p.attach({'it': lamp});
+    await p.attach([lamp]);
     await r.dispose();
     expect(lamp.order, ['attached', 'gone']);
   });
 
   test('a name of its own is its own: the tool is reached by the '
       'extension', () async {
-    await p.attach({'it': lamp});
+    await p.attach([lamp]);
     expect(lamp.caller, 'its own caller');
     expect(OwnerTools(lamp).caller, isNull);
   });

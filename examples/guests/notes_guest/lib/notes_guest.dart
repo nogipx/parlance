@@ -29,6 +29,6 @@ final class Notebook extends NotesOwnerBase {
 /// who may call its commands, the host says.
 Future<IRemoteParticipant> startNotes(RpcPeerEndpoint endpoint) async {
   final p = await Host.over(endpoint);
-  await p.attach({'book': Notebook()});
+  await p.attach([Notebook()]);
   return p;
 }

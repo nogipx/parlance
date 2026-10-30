@@ -40,9 +40,10 @@ final class Handles implements IHandle {
 }
 
 /// An owner of words (SPEC §6, §19, §23.4): what `main` attaches to a
-/// participant (`p.attach({'devices': Home(...)})`), to speak as the part
-/// of its name; who that is, and what it may, `main` says when it makes
-/// the participant, never the owner.
+/// participant (`p.attach([Home(...)])`), to speak as the part named by
+/// its vocabulary (`house@house`; one of no words, as the participant
+/// itself); who that is, and what it may, `main` says when it makes the
+/// participant, never the owner.
 ///
 /// It has no members: what an owner does with the library it does by
 /// [OwnerTools], extensions, so no name of an owner's own is the
@@ -53,7 +54,9 @@ abstract interface class IOwner {
   /// does it): [define] defines its words once it is attached, through the
   /// participant it is given, and they go when the owner goes; [write],
   /// when given, writes what it set before it was attached, first of each
-  /// sync.
+  /// sync. [words] is the vocabulary its words are in: it speaks as the
+  /// part of its name; without, it defines none and speaks as the
+  /// participant.
   static void made(
     IOwner owner, {
     required void Function(IParticipant p) define,
@@ -75,13 +78,15 @@ final class _Core {
   static final Expando<_Core> _all = Expando('owner');
   static _Core of(IOwner o) => _all[o] ??= _Core(o.runtimeType);
 
-  /// The owner of each part attached: told when a handler there answered.
-  static final Expando<_Core> _ofPart = Expando('owner of a part');
+  /// The owners of each participant or part attached: told when a
+  /// handler there answered.
+  static final Expando<List<_Core>> _ofPart = Expando('owners of a part');
 
   final Type type;
 
   /// The vocabulary its words are in, when its base said it: held to the
-  /// participant's before anything is defined.
+  /// participant's before anything is defined, and the name of the part
+  /// it speaks as.
   WordSet? words;
   final Handles handles = Handles();
   IParticipant? participant;
@@ -113,7 +118,7 @@ final class _Core {
     _mayOwn(p);
     participant = p;
     this.group = group;
-    _ofPart[p] = this;
+    (_ofPart[p] ??= []).add(this);
     runZoned(
       () => define?.call(p),
       zoneValues: {
@@ -201,10 +206,11 @@ final class _Core {
     handles.dispose();
     group?._left(this);
     group = null;
-    // What it defined through its part goes with it.
     if (participant case final p?) {
-      _ofPart[p] = null;
-      p.dispose();
+      _ofPart[p]?.remove(this);
+      // What it defined through its part goes with it; one of no words
+      // speaks as the participant, which is not its to end.
+      if (words != null) p.dispose();
     }
   }
 }
@@ -382,7 +388,9 @@ extension OwnerTools on IOwner {
 /// words in [define] and writes what it has now in [sync]. Not exported:
 /// an app's owner extends the base its words' generator made.
 abstract base class Owner implements IOwner, IHandle {
-  Owner() {
+  /// Of [vocabulary], it speaks as the part of its name; without, as the
+  /// participant.
+  Owner({String? vocabulary}) {
     final c = _Core.of(this);
     IOwner.made(
       this,
@@ -390,6 +398,7 @@ abstract base class Owner implements IOwner, IHandle {
         define(p.raw);
         if (changes case final s?) c.syncOn(s);
       },
+      words: vocabulary == null ? null : WordSet.open(vocabulary),
     );
     c.follows.add(sync);
   }
@@ -495,48 +504,62 @@ final class _Choices {
 
 /// A handler of [part]'s answered: its owner lists its choices and asks
 /// its checks again.
-void ownerServed(IParticipant part) => _Core._ofPart[part]?.moved();
+void ownerServed(IParticipant part) {
+  for (final c in [...?_Core._ofPart[part]]) {
+    c.moved();
+  }
+}
 
 /// The owners attached to one participant (SPEC §22.3): each to the part
-/// of its name, synced as one tick, withdrawn with the participant. A
+/// named by its vocabulary, synced as one tick, withdrawn with the
+/// participant. A
 /// participant's own; code reaches it through `IParticipant.attach` and
 /// `sync`.
 final class OwnerGroup {
   OwnerGroup(this.participant);
 
   final IParticipant participant;
-  final Map<String, IOwner> _owners = {};
   final Map<IOwner, _Core> _cores = {};
   final Set<_Core> _dirty = {};
   bool _disposed = false;
 
-  /// The owners by the names of their parts.
-  Map<String, IOwner> get owners => Map.unmodifiable(_owners);
+  /// The owners attached.
+  Iterable<IOwner> get owners => _cores.keys;
 
-  /// Attaches each of [owners] to the part of its name
-  /// (`participant.child(name)`), so its acts are told as its own, in
-  /// order; then writes what they have now, as one tick. All or none: when
-  /// one cannot define its words, those attached here are withdrawn and
-  /// the error goes on.
-  void attach(Map<String, IOwner> owners) {
+  /// Attaches each of [owners] to the part named by its vocabulary
+  /// (`participant.child('house')`), so its acts are told as its own; one
+  /// of no words to the participant itself. In order; then writes what
+  /// they have now, as one tick. All or none: when one cannot define its
+  /// words, those attached here are withdrawn and the error goes on.
+  void attach(Iterable<IOwner> owners) {
     if (_disposed) throw StateError('${participant.who} is gone');
-    for (final name in owners.keys) {
-      if (_owners.containsKey(name)) {
-        throw StateError('${participant.who} has an owner named $name');
-      }
-    }
-    final cores = [for (final o in owners.values) _Core.of(o)];
+    final list = [...owners];
+    final cores = [for (final o in list) _Core.of(o)];
+    final named = {
+      for (final c in _cores.values)
+        if (c.words case final w?) w.name: c.type,
+    };
     for (final c in cores) {
       if (c.participant != null) throw StateError('${c.type} is attached');
+      if (c.words case final w?) {
+        if (named[w.name] case final other?) {
+          throw StateError(
+            '${participant.who} has an owner of ${w.name} already ($other): '
+            'one vocabulary, one owner',
+          );
+        }
+        named[w.name] = c.type;
+      }
     }
     final attached = <IOwner>[];
     try {
-      var i = 0;
-      for (final MapEntry(key: name, value: o) in owners.entries) {
-        final c = cores[i++];
+      for (final (i, o) in list.indexed) {
+        final c = cores[i];
         attached.add(o);
-        c.attach(participant.child(name), this);
-        _owners[name] = o;
+        c.attach(switch (c.words) {
+          final w? => participant.child(w.name),
+          null => participant,
+        }, this);
         _cores[o] = c;
       }
     } catch (_) {
@@ -577,11 +600,7 @@ final class OwnerGroup {
 
   /// [c] was disposed on its own: it is synced no more.
   void _left(_Core c) {
-    _cores.removeWhere((o, x) {
-      if (!identical(x, c)) return false;
-      _owners.removeWhere((_, y) => identical(y, o));
-      return true;
-    });
+    _cores.removeWhere((_, x) => identical(x, c));
     _dirty.remove(c);
   }
 
@@ -621,7 +640,6 @@ final class OwnerGroup {
     for (final o in [..._cores.keys].reversed) {
       _end(o);
     }
-    _owners.clear();
     _cores.clear();
   }
 }

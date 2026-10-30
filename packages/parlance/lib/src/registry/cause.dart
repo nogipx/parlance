@@ -28,7 +28,7 @@ final class Principal {
   final String owner;
 
   /// Its selector (SPEC §4): `kind[/id][@owner]` (`user/local`,
-  /// `house@devices`, `module/visit@book`, `member/forum.123`).
+  /// `home@house`, `module/visit@visit`, `member/forum.123`).
   String get selector =>
       '$kind${id.isEmpty ? '' : '/$id'}${owner.isEmpty ? '' : '@$owner'}';
 
@@ -112,8 +112,8 @@ final class Principal {
     }
   }
 
-  /// Its owner named [name] (SPEC §4): `house` → `house@devices`,
-  /// `module/visit` → `module/visit@book`. What names the whole names its
+  /// Its owner named [name], its vocabulary's (SPEC §4): `home` →
+  /// `home@house`, `module/visit` → `module/visit@visit`. What names the whole names its
   /// owners too, unless something names the owner. An owner has none.
   Principal child(String name) {
     if (owner.isNotEmpty) {

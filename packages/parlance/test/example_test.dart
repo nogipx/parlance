@@ -17,21 +17,21 @@ void main() {
     final out = lines.join('\n');
     for (final expected in [
       'ann turns the kitchen light on: done',
-      'why: written by house@devices, '
+      'why: written by home@house, '
           'started by house.set_light by resident/ann',
       'answering house.set_light {room: kitchen, on: true} by resident/ann',
       'bob, a guest, sets the heating: refused (notPermitted)',
       'ann lights a room there is not: refused (invalidParams)',
       'for bob: house.set_heat notPermitted, house.set_light ready, '
           'visit.guests missing',
-      'an agent unlocks at night: refused (denied by house@devices#night-door)',
+      'an agent unlocks at night: refused (denied by home@house#night-door)',
       'ann unlocks at night: done',
       'rooms lit, asked by bob: [kitchen]',
       'and dark: [hall, living, porch]',
       'the kitchen switch flipped by hand: from true to false',
       'during the visit: visit.guests ready',
       'guests: [bob]',
-      'written by module/visit@book, '
+      'written by module/visit@visit, '
           'started by house.rang by guest/bob',
       'after the visit: visit.guests missing',
       'the phone sets the heating: done',
@@ -39,7 +39,7 @@ void main() {
       'the phone sets 40 °C: refused (invalidParams): target: above 28',
       'fact house.rang by guest/bob, '
           'started by house.rang by guest/bob\n'
-          '  write visit.guests by module/visit@book, '
+          '  write visit.guests by module/visit@visit, '
           'started by house.rang by guest/bob',
     ]) {
       expect(out, contains(expected));

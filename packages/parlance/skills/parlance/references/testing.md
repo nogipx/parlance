@@ -10,7 +10,7 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 final host = TestHost();
 final outside = host.stateOf(WeatherState.outside, 10); // another's state
 final heater = host.commandOf(HeaterCommand.power);       // another's command
-host.participant(me, vocabularies: [thermostatWords]).attach({'heat': Thermostat()});
+host.participant(me, vocabularies: [thermostatWords]).attach([Thermostat()]);
 await host.settle();
 outside.set(25);
 await host.settle();

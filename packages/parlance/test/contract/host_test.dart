@@ -58,7 +58,7 @@ void main() {
 
         final atGuest = RpcPeerEndpoint(transport: g)..start();
         final guest = await Host.over(atGuest);
-        await guest.attach({'it': _Echo()});
+        await guest.attach([_Echo()]);
 
         final user = host.participant(const Principal('user', 'ann'));
         await user.settle();

@@ -45,7 +45,7 @@ final class Deck extends PlayerOwnerBase {
 }
 ```
 
-`main` grants the vocabulary to the module's participant and attaches the owner to it: `host.participant(Who.player, vocabularies: [playerWords]).attach({'deck': Deck()})`; its name is written only in `@Vocabulary`, and disposing the participant takes the owner with it.
+`main` grants the vocabulary to the module's participant and attaches the owner to it: `host.participant(Who.player, vocabularies: [playerWords]).attach([Deck()])` (it speaks as `player@player`, the part named by its vocabulary); its name is written only in `@Vocabulary`, and disposing the participant takes the owner with it.
 
 Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `PlayerClient.of(this)`, and hears it at once: `hear(fact: PlayerClient.of(this).clipped, onData: ...)`.
 

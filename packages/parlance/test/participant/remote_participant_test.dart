@@ -72,6 +72,8 @@ final class _Seen extends RpcCallObserverInterceptor<String> {
 /// One owner's code: the same whether it runs in the host's process or
 /// across a connection.
 final class Lamps extends Owner {
+  Lamps() : super(vocabulary: 'kittens');
+
   bool lit = false;
   late final IStateWriterOf<bool> _on;
   late final IFactEmitterOf<Turn> _purred;
@@ -150,7 +152,7 @@ void main() {
       'and what it writes and says follows from the call', () async {
     final lamps = Lamps();
     final p = await join();
-    p.attach({'lamps': lamps});
+    p.attach([lamps]);
     await p.flush();
     expect(r.read('kittens.lamp'), false);
 
@@ -159,7 +161,7 @@ void main() {
     expect(done.ok, isTrue, reason: '$done');
     expect(r.read('kittens.lamp'), true);
     final change = r.lastChange('kittens.lamp')!;
-    expect(change.cause.by, kittens.child('lamps'), reason: 'its part');
+    expect(change.cause.by, kittens.child('kittens'), reason: 'its part');
     expect(change.cause.parent, isNotNull, reason: 'it follows from the call');
     final purr = r.recent('kittens.purred').single;
     expect(purr.cause.parent, change.cause.parent);
@@ -172,7 +174,7 @@ void main() {
     () async {
       final p = await join();
       final lamps = Lamps();
-      p.attach({'lamps': lamps});
+      p.attach([lamps]);
       await p.flush();
       expect(r.read('kittens.lamp'), false);
       lamps.lit = true;
@@ -188,7 +190,7 @@ void main() {
       'those it serves', () async {
     final seen = _Seen();
     final p = await join(interceptors: [seen]);
-    p.attach({'lamps': Lamps()});
+    p.attach([Lamps()]);
     await p.flush();
     await r.participant(crew).command(LampCommand.turn).call((on: true));
     expect(seen.calls, containsAll(['outgoing describe', 'incoming serve']));
@@ -197,9 +199,9 @@ void main() {
   test('a part across a connection acts as itself on the host', () async {
     final p = await join();
     final lamps = Lamps();
-    p.attach({'lamps': lamps});
+    p.attach([lamps]);
     await p.flush();
-    final part = kittens.child('lamps');
+    final part = kittens.child('kittens');
     expect(r.lastChange('kittens.lamp')!.cause.by, part);
 
     final records = <CallRecord>[];
@@ -302,7 +304,7 @@ void main() {
     await r.dispose();
     r = Registry(log: logs.scope('host'));
     final p = await join(log: logs.scope('kittens'));
-    p.attach({'lamps': Lamps()});
+    p.attach([Lamps()]);
     await p.flush();
     expect(
       (await r.call('kittens.lamp.turn', {'on': true}, by: crew)).ok,
@@ -476,7 +478,7 @@ void main() {
     final guest = RpcPeerEndpoint(transport: c)..start();
     final p = await RemoteParticipant.over(guest);
     final lamps = Lamps();
-    p.attach({'lamps': lamps});
+    p.attach([lamps]);
     await p.flush();
     final done = await r.call('kittens.lamp.turn', {'on': true}, by: crew);
     expect(done.ok, isTrue, reason: '$done');
@@ -693,7 +695,7 @@ void main() {
 
   test('going, it withdraws its words', () async {
     final p = await join();
-    p.attach({'lamps': Lamps()});
+    p.attach([Lamps()]);
     await p.flush();
     expect(r.commandDescriptor('kittens.lamp.turn'), isNotNull);
     await p.close();
@@ -747,7 +749,7 @@ void main() {
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
     final lamps = Lamps();
-    p.attach({'lamps': lamps});
+    p.attach([lamps]);
     await p.flush();
 
     final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
@@ -802,7 +804,7 @@ void main() {
     );
     final p = await RemoteParticipant.join(connection);
     final lamps = Lamps();
-    p.attach({'lamps': lamps});
+    p.attach([lamps]);
     await p.flush();
     expect(r.read('kittens.lamp'), false);
 

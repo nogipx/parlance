@@ -67,7 +67,7 @@ void main() {
           const Principal('deck'),
           vocabularies: [WordSet.open('deck')],
         )
-        .attach({'it': deck});
+        .attach([deck]);
     user = r.participant(const Principal('user', 'ann'));
   });
   tearDown(() => r.dispose());

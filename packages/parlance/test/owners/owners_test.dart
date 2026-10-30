@@ -22,6 +22,8 @@ enum Level<T> implements IStateWord<T> {
 
 /// Dials and their levels: one keyed state, a kind it keeps.
 final class Dials extends Owner {
+  Dials() : super(vocabulary: 'test');
+
   final Map<String, num> dials = {'a': 1, 'b': 2};
   late final IStateWriterOf<num> _level;
   final Set<String> _written = {};
@@ -114,7 +116,7 @@ void main() {
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
     final dials = Dials();
-    final owners = module()..attach({'dials': dials, 'other': Other()});
+    final owners = module()..attach([dials, Other()]);
     await pumpEventQueue();
     expect(ticks, hasLength(1));
     expect(r.state(Level.of).readAll(), {'a': 1, 'b': 2});
@@ -126,7 +128,7 @@ void main() {
 
   test('a tracked kind announces a change and names what went', () async {
     final dials = Dials();
-    module().attach({'dials': dials});
+    module().attach([dials]);
     final changes = <CatalogChange>[];
     r.catalogChanges.listen(changes.add);
     dials.dials.remove('a');
@@ -143,14 +145,14 @@ void main() {
 
   test('an owner attaches once; handles withdrawn take no more', () {
     final o = Other();
-    final p = module()..attach({'other': o});
+    final p = module()..attach([o]);
     final elsewhere = r.participant(
       const Principal('elsewhere'),
       vocabularies: [WordSet.open('elsewhere')],
     );
-    expect(() => elsewhere.attach({'other': o}), throwsStateError);
+    expect(() => elsewhere.attach([o]), throwsStateError);
     expect(
-      () => p.attach({'other': Other()}),
+      () => p.attach([Other()]),
       throwsStateError,
       reason: 'one owner to a name',
     );
@@ -163,7 +165,7 @@ void main() {
     'an owner defines only in the vocabularies main gave its participant',
     () {
       expect(
-        () => module({'dials'})..attach({'other': Other()}),
+        () => module({'dials'})..attach([Other()]),
         throwsA(isA<NotPermitted>()),
       );
       expect(r.stateDescriptor('test.on'), isNull);
@@ -177,33 +179,47 @@ void main() {
           vocabularies: [WordSet.open('test')],
           access: WordAccess(read: Callers.only(['host'])),
         )
-        .attach({'dials': Dials()});
+        .attach([Dials()]);
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
   });
 
   test('going, a participant takes its owners with it, and its vocabulary '
       'is free again', () {
-    final p = module()..attach({'other': Other()});
+    final p = module()..attach([Other()]);
     p.dispose();
     expect(r.stateDescriptor('test.on'), isNull);
-    expect(() => p.attach({'other': Other()}), throwsStateError);
-    module().attach({'other': Other()});
+    expect(() => p.attach([Other()]), throwsStateError);
+    module().attach([Other()]);
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'test is free');
   });
 
-  test('each owner speaks as its part, named by main: what it writes and '
-      'its calls tell which owner it was', () async {
+  test('an owner speaks as the part named by its vocabulary; one of no '
+      'words as the participant', () async {
     final p = module();
-    p.attach({'dials': Dials(), 'other': Other()});
-    expect(r.lastChange('test.level', key: 'a')!.cause.by, me.child('dials'));
+    p.attach([Dials(), Other()]);
+    expect(r.lastChange('test.level', key: 'a')!.cause.by, me.child('test'));
     expect(r.lastChange('test.on'), isNull);
-    expect(me.child('dials').selector, 'host@dials');
+    expect(me.child('test').selector, 'host@test');
+  });
+
+  test('two owners of one vocabulary are refused', () {
+    final p = module()..attach([Dials()]);
+    expect(
+      () => p.attach([Dials()]),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('one vocabulary, one owner'),
+        ),
+      ),
+    );
   });
 
   test('an owner listens while attached, and stops when it goes', () async {
     final turns = StreamController<num>.broadcast();
     final knob = Knob(turns.stream);
-    final owners = module()..attach({'knob': knob});
+    final owners = module()..attach([knob]);
     turns.add(1);
     await pumpEventQueue();
     expect(knob.heard, [1]);
@@ -217,7 +233,7 @@ void main() {
       'what one turn told, once and as one tick for the group', () async {
     final dials = Watched();
     final flag = Flagged();
-    module().attach({'dials': dials, 'flag': flag});
+    module().attach([dials, flag]);
     expect(dials.synced, 1);
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
@@ -241,7 +257,7 @@ void main() {
     final statuses = <WordStatus>[];
     outsider.statusChanges('test.level').listen(statuses.add);
     final dials = Dials();
-    p.attach({'dials': dials});
+    p.attach([dials]);
     final part = p.child('dials');
     part.raw.state(_Flag.on).define().set(true);
     await pumpEventQueue();
@@ -257,7 +273,7 @@ void main() {
     dials.dials['a'] = 9;
     dials.sync();
     expect(r.state(Level.of).readAll(), isEmpty, reason: 'withdrawn');
-    module().attach({'dials': Dials()});
+    module().attach([Dials()]);
     expect(r.state(Level.of).read(key: 'a'), 1, reason: 'the next session');
   });
 }

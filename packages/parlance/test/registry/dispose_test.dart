@@ -45,7 +45,7 @@ void main() {
         vocabularies: [WordSet.open('lamp')],
       );
       final lamp = _Lamp();
-      await p.attach({'it': lamp});
+      await p.attach([lamp]);
       final (g, h) = RpcChannelTransport.memoryPair();
       final host = RpcPeerEndpoint(transport: h);
       r.participant(const Principal('widlet', 'a')).serve(host);

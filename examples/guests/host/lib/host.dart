@@ -45,7 +45,7 @@ final class Shell {
             vocabularies: [appWords],
             access: const WordAccess(call: Who.callers),
           )
-          .attach({'shell': app}),
+          .attach([app]),
     );
   }
 

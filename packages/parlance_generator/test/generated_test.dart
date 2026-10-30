@@ -195,7 +195,7 @@ void main() {
     int? shown(IPlayerClient player) => player.volume.value;
 
     expect(shown(_StandIn()), 7);
-    p.attach({'deck': Deck()});
+    p.attach([Deck()]);
     expect(shown(PlayerClient(asAnn)), 50);
     expect(
       PlayerClient(asAnn).mismatches,
@@ -261,7 +261,7 @@ void main() {
     late Deck deck;
     setUp(() {
       deck = Deck();
-      p.attach({'deck': deck});
+      p.attach([deck]);
     });
 
     test('defines every word, and an owner writes only its handlers', () {
@@ -282,7 +282,7 @@ void main() {
       ));
       expect(done.ok, isTrue, reason: '$done');
       expect(asAnn.raw.state(PlayerState.volume).read(), 95);
-      expect(r.lastChange('player.volume')!.cause.by, me.child('deck'));
+      expect(r.lastChange('player.volume')!.cause.by, me.child('player'));
       expect((await asAnn.raw.recent('player.clipped', 9)).single.payload, {
         'volume': 95,
       });
@@ -341,7 +341,7 @@ void main() {
       expect((await asAnn.raw.command(PlayerCommand.stop).call(())).ok, isTrue);
       expect(deck.stopped, 1);
       deck.library.clear();
-      p.child('deck').raw.availabilityChanged('player.play');
+      p.child('player').raw.availabilityChanged('player.play');
       final play = await asAnn.raw.command(PlayerCommand.play).call((
         track: const Track(title: 'A'),
         repeat: Repeat.off,
@@ -361,7 +361,7 @@ void main() {
   group('the client', () {
     late PlayerClient asAnn;
     setUp(() {
-      p.attach({'deck': Deck()});
+      p.attach([Deck()]);
       asAnn = PlayerClient(r.participant(ann));
     });
 
@@ -387,7 +387,7 @@ void main() {
         expect(clipped.single.payload.volume, 95);
         expect(
           clipped.single.message.cause.by,
-          me.child('deck'),
+          me.child('player'),
           reason: 'the message comes with it',
         );
         expect(await asAnn.skip(), 1, reason: 'its default');
