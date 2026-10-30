@@ -141,7 +141,6 @@ final class Registry implements ITypeContext {
   // --- Catalog ---------------------------------------------------------------
 
   final Map<String, Choices> _choices = {};
-  final Map<String, String? Function(Object?)> _customTypes = {};
   final Map<String, _StateEntry> _states = {};
   final Map<String, _CommandEntry> _commands = {};
   final Map<String, _FactEntry> _facts = {};
@@ -248,27 +247,12 @@ final class Registry implements ITypeContext {
       if (!(f.descriptor.readers?.allows(by) ?? true)) f.descriptor.name,
   ];
 
-  /// Registers the host's type [name] with its checker (SPEC §2).
-  IHandle registerType(String name, String? Function(Object? value) check) {
-    checkName(name, 'type');
-    if (_customTypes.containsKey(name)) throw StateError('type $name exists');
-    _customTypes[name] = check;
-    return Disposer(() => _customTypes.remove(name));
-  }
-
   @override
   bool hasChoices(String name) => _choices.containsKey(name);
 
   @override
   bool hasChoice(String name, String id) =>
       _choices[name]?.contains(id) ?? false;
-
-  @override
-  String? checkCustom(String name, Object? value) {
-    final check = _customTypes[name];
-    if (check == null) return 'no type $name';
-    return check(value);
-  }
 
   void _checkFree(String name) {
     if (_states.containsKey(name) ||

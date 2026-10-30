@@ -39,7 +39,7 @@ abstract base class Shape<T> {
   T check(T value, ITypeContext ctx, {T? was});
 
   /// Whether a value of it is checked by itself alone, asking no choices
-  /// and no host's type: a value kept once passes again as it is.
+  /// of the registry: a value kept once passes again as it is.
   bool get checkedAlone => _aloneOf[this] ??= _alone(type);
 
   /// Whether [a] and [b] are one value: whether their JSON is equal.
@@ -50,7 +50,7 @@ abstract base class Shape<T> {
 }
 
 /// The lists and maps the shapes made: unmodifiable, and checked already
-/// but for what the registry knows now (choices, the host's types).
+/// but for what the registry knows now (the choices there are).
 final Expando<bool> _kept = Expando('kept');
 
 /// The fields of each record shape in order, read once a shape.
@@ -64,7 +64,7 @@ final Expando<bool> _aloneOf = Expando('alone');
 
 /// Whether a value of [t] is checked asking nothing of the registry.
 bool _alone(ValueType<Object?> t) => switch (t) {
-  ChoiceType() || CustomType() => false,
+  ChoiceType() => false,
   ListType(:final item) => _alone(item),
   MapType(:final value) => _alone(value),
   NullableType(:final of) => _alone(of),

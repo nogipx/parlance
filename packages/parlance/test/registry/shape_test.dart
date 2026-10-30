@@ -13,10 +13,6 @@ final class _Ctx implements ITypeContext {
 
   @override
   bool hasChoice(String kind, String id) => kind == 'room' && id == 'main';
-
-  @override
-  String? checkCustom(String name, Object? value) =>
-      value is String && value.startsWith('#') ? null : 'not a color';
 }
 
 /// Rooms that come and go.
@@ -29,9 +25,6 @@ final class _Known implements ITypeContext {
 
   @override
   bool hasChoice(String kind, String id) => ids.contains(id);
-
-  @override
-  String? checkCustom(String name, Object? value) => null;
 }
 
 enum Mood { calm, loud }
@@ -144,7 +137,6 @@ Object? _trackAt(Track t, int i) => switch (i) {
 
 const playlist = ListShape(track, maxItems: 2);
 const levels = MapShape(PlainShape(IntType(min: 0)), maxEntries: 2);
-const color = PlainShape<Object?>(CustomType('color'));
 const anyJson = JsonValue(AnyType());
 
 Track t(
@@ -222,7 +214,7 @@ void main() {
     expect(kept.fade, 250, reason: 'the default is given');
   });
 
-  test('lists, maps, unions, custom types and plain JSON', () {
+  test('lists, maps, unions and plain JSON', () {
     same(playlist, [t('a'), t('b')]);
     same(playlist, [t('a'), t('b'), t('c')]);
     same(playlist, [t('a'), t('b', volume: -1)]);
@@ -232,8 +224,6 @@ void main() {
     same(shot, Wide(35));
     same(shot, Wide(5));
     same(shot, Close('ann'));
-    same(color, '#fff');
-    same(color, 'red');
     same(anyJson, {
       'a': [1, 2],
     });

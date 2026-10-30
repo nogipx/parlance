@@ -63,7 +63,7 @@ Map<String, Object?> jsonSchema(
     ],
   },
   // A type of a newer parlance is any value, as far as an agent is told.
-  CustomType() || AnyType() || UnknownType() => const {},
+  AnyType() || UnknownType() => const {},
 };
 
 Map<String, Object?> _object(

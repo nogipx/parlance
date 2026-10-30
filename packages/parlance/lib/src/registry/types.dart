@@ -1,16 +1,12 @@
 import 'json.dart';
 
-/// What a type check needs from the registry: the choices there are and
-/// the host's own types.
+/// What a type check needs from the registry: the choices there are.
 abstract interface class ITypeContext {
   /// Whether someone gives the choices of [name].
   bool hasChoices(String name);
 
   /// Whether [id] is one of the choices of [name] right now.
   bool hasChoice(String name, String id);
-
-  /// Null when the host's type [name] accepts [value], else why not.
-  String? checkCustom(String name, Object? value);
 }
 
 /// A value that does not pass its type.
@@ -77,7 +73,6 @@ sealed class ValueType<T> {
         unknown: json['unknown'] == true,
       ),
       'nullable' => NullableType(ValueType.fromJson(json['of'])),
-      'custom' => CustomType(json['name'] as String),
       'any' => const AnyType(),
       // A type of a newer parlance (SPEC §14): kept as it came.
       _ => UnknownType(json.cast<String, Object?>()),
@@ -450,25 +445,6 @@ final class NullableType extends ValueType<Object?> {
 
   @override
   Map<String, Object?> toJson() => {'type': 'nullable', 'of': of.toJson()};
-}
-
-/// A type of the host's: the registry asks the host's checker.
-final class CustomType extends ValueType<Object?> {
-  const CustomType(this.name);
-
-  final String name;
-
-  @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
-    if (!isJsonValue(value)) ValueType._fail(path, 'not a JSON value');
-    if (ctx.checkCustom(name, value) case final why?) {
-      ValueType._fail(path, why);
-    }
-    return value;
-  }
-
-  @override
-  Map<String, Object?> toJson() => {'type': 'custom', 'name': name};
 }
 
 /// A type a newer parlance has and this one does not (SPEC §14), read

@@ -88,7 +88,7 @@
 
 - `IParticipant` в `schema.dart` узкий: `who`, `settle`, `sync`, `batch`, `dispose` (у гостя ещё `attach`; `ofOwner` — у сырого участника), чтение и вызовы, типизированные слова через `serve`. Всё по имени и дескриптору — `IRawParticipant` в `participant.dart` (`p.raw`), без обещаний.
 - `OwnerTools`: типизированный `guard`, `now`, доступность перепроверяется сама после `follow`/`listen`/`hear`; `StateWordOf` для слов с именами во время работы; `failCall` в `schema.dart`.
-- `app.dart`: `Host` (final class: `participant`, `serve` → `IRemoteSession`, `alias`, `registerType`, `dispose`, `registry` для инструментов), `HostLimits`, `Host.join`/`Host.joinEndpoint` → `IRemoteParticipant`. Конкретные `Registry`, `LocalParticipant`, `RemoteParticipant`, `RemoteSession` ушли из замороженной части.
+- `app.dart`: `Host` (final class: `participant`, `serve` → `IRemoteSession`, `alias`, `dispose`, `registry` для инструментов; `registerType` удалён 2026-10-30), `HostLimits`, `Host.join`/`Host.joinEndpoint` → `IRemoteParticipant`. Конкретные `Registry`, `LocalParticipant`, `RemoteParticipant`, `RemoteSession` ушли из замороженной части.
 - Правило: расти может то, что создаёт только библиотека (final-классы, интерфейсы, которые не реализуют приложения); не растёт то, что реализует приложение (`IOwner`, `IWord`).
 - Типы `rpc_dart` в сигнатурах `Host.serve` и `Guest` приняты как часть контракта.
 

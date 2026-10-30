@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:parlance/app.dart';
-import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart' show OwnerParticipant;
 import 'package:test/test.dart';
 

@@ -74,7 +74,6 @@ export 'src/registry/types.dart'
         MapType,
         UnionType,
         NullableType,
-        CustomType,
         AnyType,
         UnknownType;
 export 'src/registry/words.dart'

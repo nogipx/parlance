@@ -7,12 +7,6 @@ final class _Ctx implements ITypeContext {
 
   @override
   bool hasChoice(String kind, String id) => kind == 'room' && id == 'main';
-
-  @override
-  String? checkCustom(String name, Object? value) =>
-      name == 'color' && value is String && value.startsWith('#')
-      ? null
-      : 'not a color';
 }
 
 void main() {
@@ -69,18 +63,12 @@ void main() {
     expect(() => ok(t, 'a'), fails('expected a list'));
   });
 
-  test('custom types ask the host', () {
-    expect(ok(const CustomType('color'), '#fff'), '#fff');
-    expect(() => ok(const CustomType('color'), 'red'), fails('not a color'));
-  });
-
   test('types round-trip through JSON', () {
     const t = RecordType({
       'room': Field(ChoiceType('room')),
       'n': Field(IntType(min: 1, max: 5), defaultValue: 2),
       'tags': Field(ListType(EnumType(['x', 'y']), maxItems: 3)),
       'd': Field(DurationType(maxMillis: 1000), optional: true),
-      'c': Field(CustomType('color')),
       'any': Field(AnyType()),
       'maybe': Field(NullableType(ListType(TextType()))),
     });

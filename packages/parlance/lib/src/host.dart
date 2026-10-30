@@ -66,11 +66,6 @@ final class Host {
   /// old name gets the word, until the handle is disposed.
   IHandle alias(String old, String to) => registry.alias(old, to);
 
-  /// Adds a type of values (SPEC §2) by [name]: [check] says why a value
-  /// is not one, or null.
-  IHandle registerType(String name, String? Function(Object? value) check) =>
-      registry.registerType(name, check);
-
   /// Ends every participant and session, the last made first, and the
   /// registry.
   Future<void> dispose() => registry.dispose();

@@ -267,7 +267,4 @@ final class _Free implements ITypeContext {
 
   @override
   bool hasChoice(String kind, String id) => true;
-
-  @override
-  String? checkCustom(String name, Object? value) => null;
 }
