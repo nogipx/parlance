@@ -24,7 +24,7 @@ Future<void> main(List<String> args) async {
   final rang = p.defineFact(
     FactDescriptor(
       'house.doorbell.rang',
-      type: const ObjectType({'who': Field(TextType())}),
+      type: const RecordType({'who': Field(TextType())}),
     ),
   );
   final porch = p.defineState(
@@ -36,7 +36,7 @@ Future<void> main(List<String> args) async {
   p.defineCommand(
     CommandDescriptor(
       'house.doorbell.ring',
-      params: const ObjectType({'who': Field(TextType())}),
+      params: const RecordType({'who': Field(TextType())}),
       callers: Callers.only(['guest']),
     ),
     (c) => rang.emit({'who': c.params['who']}, cause: c.causeFor(house)),
@@ -46,7 +46,7 @@ Future<void> main(List<String> args) async {
   p.defineCommand(
     CommandDescriptor(
       'house.porch.light.set',
-      params: const ObjectType({'on': Field(BoolType())}),
+      params: const RecordType({'on': Field(BoolType())}),
       callers: Callers.only(['module', 'resident']),
     ),
     (c) async {

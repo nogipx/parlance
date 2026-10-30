@@ -33,22 +33,22 @@ Map<String, dynamic> _$ArtistToJson(Artist instance) => <String, dynamic>{
 
 /// The states of [Player].
 enum PlayerState<T> implements IStateWord<T> {
-  volume<int>('player.volume', Plain(IntType(min: 0, max: 100))),
+  volume<int>('player.volume', PlainShape(IntType(min: 0, max: 100))),
   repeat<Repeat>(
     'player.repeat',
     EnumShape(Repeat.values, unknown: Repeat.off),
   ),
   playing<Track?>(
     'player.playing',
-    Nullable<Track>(
+    NullableShape<Track>(
       JsonShape<Track>(
         Track.fromJson,
         _$PlayerTrackToJson,
-        type: ObjectType({
+        type: RecordType({
           'title': Field(TextType()),
           'length': Field(NullableType(IntType()), optional: true),
           'artist': Field(
-            NullableType(ObjectType({'name': Field(TextType())})),
+            NullableType(RecordType({'name': Field(TextType())})),
             optional: true,
           ),
         }),
@@ -57,7 +57,7 @@ enum PlayerState<T> implements IStateWord<T> {
   ),
   speakerLevel<num>(
     'player.speaker_level',
-    Plain(NumType(min: 0, max: 1)),
+    PlainShape(NumType(min: 0, max: 1)),
     key: 'speaker',
   );
 
@@ -75,7 +75,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
   setVolume<PlayerSetVolume, void>(
     'player.volume_set',
     RecordShape<PlayerSetVolume>(
-      {'volume': Part(Plain(IntType(min: 0, max: 100)))},
+      {'volume': Part(PlainShape(IntType(min: 0, max: 100)))},
       to: _$PlayerSetVolumeTo,
       from: _$PlayerSetVolumeFrom,
       get: _$PlayerSetVolumeAt,
@@ -90,11 +90,11 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
           JsonShape<Track>(
             Track.fromJson,
             _$PlayerTrackToJson,
-            type: ObjectType({
+            type: RecordType({
               'title': Field(TextType()),
               'length': Field(NullableType(IntType()), optional: true),
               'artist': Field(
-                NullableType(ObjectType({'name': Field(TextType())})),
+                NullableType(RecordType({'name': Field(TextType())})),
                 optional: true,
               ),
             }),
@@ -104,7 +104,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
           EnumShape(Repeat.values, unknown: Repeat.off),
           defaultValue: 'off',
         ),
-        'on': Part(Plain(ChoiceType('speaker')), optional: true),
+        'on': Part(PlainShape(ChoiceType('speaker')), optional: true),
       },
       to: _$PlayerPlayTo,
       from: _$PlayerPlayFrom,
@@ -115,12 +115,12 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
   skip<PlayerSkip, int>(
     'player.skip',
     RecordShape<PlayerSkip>(
-      {'count': Part(Plain(IntType()), defaultValue: 1)},
+      {'count': Part(PlainShape(IntType()), defaultValue: 1)},
       to: _$PlayerSkipTo,
       from: _$PlayerSkipFrom,
       get: _$PlayerSkipAt,
     ),
-    Plain(IntType()),
+    PlainShape(IntType()),
   ),
   stop<(), void>('player.stop', RecordShape.none, null);
 
@@ -139,8 +139,8 @@ enum PlayerQuery<P, R> implements IQueryWord<P, R> {
     'player.search',
     RecordShape<PlayerSearch>(
       {
-        'text': Part(Plain(TextType(maxLength: 40))),
-        'limit': Part(Plain(IntType()), optional: true),
+        'text': Part(PlainShape(TextType(maxLength: 40))),
+        'limit': Part(PlainShape(IntType()), optional: true),
       },
       to: _$PlayerSearchTo,
       from: _$PlayerSearchFrom,
@@ -150,11 +150,11 @@ enum PlayerQuery<P, R> implements IQueryWord<P, R> {
       JsonShape<Track>(
         Track.fromJson,
         _$PlayerTrackToJson,
-        type: ObjectType({
+        type: RecordType({
           'title': Field(TextType()),
           'length': Field(NullableType(IntType()), optional: true),
           'artist': Field(
-            NullableType(ObjectType({'name': Field(TextType())})),
+            NullableType(RecordType({'name': Field(TextType())})),
             optional: true,
           ),
         }),
@@ -176,7 +176,7 @@ enum PlayerFact<T> implements IFactWord<T> {
   clipped<PlayerClipped>(
     'player.clipped',
     RecordShape<PlayerClipped>(
-      {'volume': Part(Plain(IntType()))},
+      {'volume': Part(PlainShape(IntType()))},
       to: _$PlayerClippedTo,
       from: _$PlayerClippedFrom,
       get: _$PlayerClippedAt,
@@ -187,11 +187,11 @@ enum PlayerFact<T> implements IFactWord<T> {
     JsonShape<Track>(
       Track.fromJson,
       _$PlayerTrackToJson,
-      type: ObjectType({
+      type: RecordType({
         'title': Field(TextType()),
         'length': Field(NullableType(IntType()), optional: true),
         'artist': Field(
-          NullableType(ObjectType({'name': Field(TextType())})),
+          NullableType(RecordType({'name': Field(TextType())})),
           optional: true,
         ),
       }),

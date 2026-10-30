@@ -18,8 +18,8 @@ RecordShape<T> _set<T>(Map<String, Part> fields) => RecordShape<T>(
 
 /// The words as the guest was built against them.
 enum Built<T> implements IStateWord<T> {
-  volume<int>('deck.volume', Plain(IntType(min: 0, max: 100))),
-  mode<String>('deck.mode', Plain(EnumType(['a', 'b'])));
+  volume<int>('deck.volume', PlainShape(IntType(min: 0, max: 100))),
+  mode<String>('deck.mode', PlainShape(EnumType(['a', 'b'])));
 
   const Built(this.name, this.shape);
   @override
@@ -42,13 +42,13 @@ enum BuiltCommand<P, R> implements ICommandWord<P, R> {
   Shape<R>? get returns => null;
 }
 
-final _built = _set<Volume>({'volume': const Part(Plain(IntType()))});
+final _built = _set<Volume>({'volume': const Part(PlainShape(IntType()))});
 
 /// The same words as the owner defines them now: the volume may go
 /// higher than the code built against it reads.
 enum Now<T> implements IStateWord<T> {
-  volume<int>('deck.volume', Plain(IntType(min: 0, max: 150))),
-  mode<String>('deck.mode', Plain(EnumType(['a', 'b'])));
+  volume<int>('deck.volume', PlainShape(IntType(min: 0, max: 150))),
+  mode<String>('deck.mode', PlainShape(EnumType(['a', 'b'])));
 
   const Now(this.name, this.shape);
   @override
@@ -74,13 +74,13 @@ enum NowCommand<P, R> implements ICommandWord<P, R> {
 /// A param added that a caller may leave out: every call made before
 /// still passes.
 final _now = _set<VolumeNow>({
-  'volume': const Part(Plain(IntType())),
-  'fade': const Part(Plain(BoolType()), optional: true),
+  'volume': const Part(PlainShape(IntType())),
+  'fade': const Part(PlainShape(BoolType()), optional: true),
 });
 
 /// The volume as another owner defines it: all of it changed.
 enum Wide<T> implements IStateWord<T> {
-  volume<num>('deck.volume', Plain(NumType(min: -1)));
+  volume<num>('deck.volume', PlainShape(NumType(min: -1)));
 
   const Wide(this.name, this.shape);
   @override
@@ -106,8 +106,8 @@ enum BrokenCommand<P, R> implements ICommandWord<P, R> {
 }
 
 final _broken = _set<VolumeNow>({
-  'volume': const Part(Plain(TextType())),
-  'fade': const Part(Plain(BoolType()), optional: true),
+  'volume': const Part(PlainShape(TextType())),
+  'fade': const Part(PlainShape(BoolType()), optional: true),
 });
 
 /// Each break a status says, as text; none for one that is no mismatch.

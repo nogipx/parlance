@@ -8,7 +8,7 @@ part of 'host_words.dart';
 
 /// The states of [App].
 enum AppState<T> implements IStateWord<T> {
-  dark<bool>('app.dark', Plain(BoolType()));
+  dark<bool>('app.dark', PlainShape(BoolType()));
 
   const AppState(this.name, this.shape, {this.key});
   @override
@@ -24,7 +24,7 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
   toast<AppToast, void>(
     'app.toast',
     RecordShape<AppToast>(
-      {'text': Part(Plain(TextType(maxLength: 80)))},
+      {'text': Part(PlainShape(TextType(maxLength: 80)))},
       to: _$AppToastTo,
       from: _$AppToastFrom,
       get: _$AppToastAt,

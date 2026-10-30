@@ -11,7 +11,7 @@ const asker = Principal('module', 'cart');
 typedef Page = ({int from});
 
 final _page = RecordShape<Page>(
-  {'from': Part(Plain(IntType()))},
+  {'from': Part(PlainShape(IntType()))},
   to: (p) => {'from': p.from},
   from: (m) => (from: m['from']! as int),
 );
@@ -25,7 +25,7 @@ enum OrdersQuery<P, R> implements IQueryWord<P, R> {
   @override
   RecordShape<P> get params => _page as RecordShape<P>;
   @override
-  Shape<R> get returns => const ListShape(Plain(TextType())) as Shape<R>;
+  Shape<R> get returns => const ListShape(PlainShape(TextType())) as Shape<R>;
 }
 
 Future<void> settle() => Future<void>.delayed(Duration.zero);
@@ -39,7 +39,7 @@ void main() {
   IHandle define({Callers askers = Callers.anyone}) => r.defineQuery(
     QueryDescriptor(
       'orders.page',
-      params: const ObjectType({'from': Field(IntType())}),
+      params: const RecordType({'from': Field(IntType())}),
       returns: const ListType(TextType()),
       askers: askers,
     ),
@@ -226,7 +226,7 @@ enum _Note<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(TextType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(TextType()) as Shape<T>;
   @override
   String? get key => null;
 }
@@ -238,5 +238,5 @@ enum _Said<T> implements IFactWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(TextType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(TextType()) as Shape<T>;
 }

@@ -24,7 +24,7 @@ enum NotesCommand<P, R> implements ICommandWord<P, R> {
   add<NotesAdd, void>(
     'notes.add',
     RecordShape<NotesAdd>(
-      {'text': Part(Plain(TextType(maxLength: 200)))},
+      {'text': Part(PlainShape(TextType(maxLength: 200)))},
       to: _$NotesAddTo,
       from: _$NotesAddFrom,
       get: _$NotesAddAt,
@@ -46,7 +46,10 @@ enum NotesFact<T> implements IFactWord<T> {
   added<NotesAdded>(
     'notes.added',
     RecordShape<NotesAdded>(
-      {'id': Part(Plain(TextType())), 'text': Part(Plain(TextType()))},
+      {
+        'id': Part(PlainShape(TextType())),
+        'text': Part(PlainShape(TextType())),
+      },
       to: _$NotesAddedTo,
       from: _$NotesAddedFrom,
       get: _$NotesAddedAt,
@@ -198,7 +201,7 @@ const notesWords = WordSet(
 );
 
 const _$NoteShape = RecordShape<Note>(
-  {'id': Part(Plain(TextType())), 'text': Part(Plain(TextType()))},
+  {'id': Part(PlainShape(TextType())), 'text': Part(PlainShape(TextType()))},
   to: _$NoteTo,
   from: _$NoteFrom,
   get: _$NoteAt,

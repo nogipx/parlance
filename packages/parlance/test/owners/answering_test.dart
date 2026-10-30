@@ -9,8 +9,8 @@ import 'package:parlance/src/participant/owner.dart' show Owner;
 /// in it (`apart`), and writes as one tick outside a handler (`batch`),
 /// with nothing of the call passed to it.
 enum _State<T> implements IStateWord<T> {
-  heat<int>('room.heat', Plain(IntType())),
-  lamp<bool>('room.lamp', Plain(BoolType()));
+  heat<int>('room.heat', PlainShape(IntType())),
+  lamp<bool>('room.lamp', PlainShape(BoolType()));
 
   const _State(this.name, this.shape);
   @override

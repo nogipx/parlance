@@ -35,7 +35,7 @@ base class Fixture {
     r.defineCommand(
       CommandDescriptor(
         'house.show',
-        params: const ObjectType({'room': Field(ChoiceType('room'))}),
+        params: const RecordType({'room': Field(ChoiceType('room'))}),
         callers: const Callers({
           'user': Access.allow,
           'agent': Access.allow,
@@ -51,7 +51,7 @@ base class Fixture {
     r.defineCommand(
       CommandDescriptor(
         'door.lock',
-        params: const ObjectType({'on': Field(BoolType())}),
+        params: const RecordType({'on': Field(BoolType())}),
         callers: Callers.only(['user', 'agent', 'system']),
       ),
       (c) {
@@ -62,7 +62,7 @@ base class Fixture {
     r.defineCommand(
       CommandDescriptor(
         'door.chime.set',
-        params: const ObjectType({
+        params: const RecordType({
           'input': Field(ChoiceType('input')),
           'db': Field(NumType(min: -60, max: 12), defaultValue: 0),
         }),

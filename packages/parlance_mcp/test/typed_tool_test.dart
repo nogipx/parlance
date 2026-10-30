@@ -22,14 +22,14 @@ final _ops = UnionShape<Op>(
   {
     'add': RecordShape<Add>(
       {
-        'name': Part(Plain(TextType()), description: 'what it is called'),
-        'ref': Part(Plain(TextType()), optional: true),
+        'name': Part(PlainShape(TextType()), description: 'what it is called'),
+        'ref': Part(PlainShape(TextType()), optional: true),
       },
       to: (a) => {'name': a.name, 'ref': a.ref},
       from: (m) => Add(m['name']! as String, ref: m['ref'] as String?),
     ),
     'remove': RecordShape<Remove>(
-      {'id': Part(Plain(TextType()))},
+      {'id': Part(PlainShape(TextType()))},
       to: (r) => {'id': r.id},
       from: (m) => Remove(m['id']! as String),
     ),
@@ -44,7 +44,7 @@ typedef Edit = ({String label, List<Op> ops});
 
 final _edit = RecordShape<Edit>(
   {
-    'label': Part(Plain(TextType()), description: 'for the undo menu'),
+    'label': Part(PlainShape(TextType()), description: 'for the undo menu'),
     'ops': Part(ListShape(_ops)),
   },
   to: (e) => {'label': e.label, 'ops': e.ops},
@@ -118,7 +118,7 @@ void main() {
     final json = _ops.toJson(const Add('Cam'));
     expect(json, {'op': 'add', 'name': 'Cam'});
     expect(_ops.fromJson(json), isA<Add>());
-    expect(ValueType.fromJson(_ops.type.toJson()), isA<OneOfType>());
+    expect(ValueType.fromJson(_ops.type.toJson()), isA<UnionType>());
   });
 
   test('a map takes any keys, its values typed', () async {
@@ -127,7 +127,7 @@ void main() {
       name: 'write',
       description: 'Writes files.',
       params: RecordShape<({Map<String, String> files})>(
-        {'files': Part(MapShape(Plain(TextType())))},
+        {'files': Part(MapShape(PlainShape(TextType())))},
         to: (a) => {'files': a.files},
         from: (m) => (files: m['files']! as Map<String, String>),
       ),

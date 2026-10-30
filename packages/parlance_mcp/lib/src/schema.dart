@@ -37,13 +37,13 @@ Map<String, Object?> jsonSchema(
     'items': jsonSchema(item, kinds: kinds),
     'maxItems': ?maxItems,
   },
-  ObjectType() => _object(t, kinds),
+  RecordType() => _object(t, kinds),
   MapType(:final value, :final maxEntries) => {
     'type': 'object',
     'additionalProperties': jsonSchema(value, kinds: kinds),
     'maxProperties': ?maxEntries,
   },
-  OneOfType(:final key, :final variants, :final descriptions) => {
+  UnionType(:final key, :final variants, :final descriptions) => {
     'oneOf': [
       for (final MapEntry(key: tag, value: o) in variants.entries)
         {
@@ -63,7 +63,7 @@ Map<String, Object?> jsonSchema(
 };
 
 Map<String, Object?> _object(
-  ObjectType o,
+  RecordType o,
   Map<String, List<Map<String, Object?>>> kinds, {
   (String, String)? tag,
 }) => {

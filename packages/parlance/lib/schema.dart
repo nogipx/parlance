@@ -38,8 +38,8 @@ export 'src/registry/messages.dart'
 export 'src/registry/shapes.dart'
     show
         Shape,
-        Plain,
-        Nullable,
+        PlainShape,
+        NullableShape,
         ListShape,
         MapShape,
         RecordShape,
@@ -60,10 +60,10 @@ export 'src/registry/types.dart'
         DurationType,
         ChoiceType,
         ListType,
-        ObjectType,
+        RecordType,
         Field,
         MapType,
-        OneOfType,
+        UnionType,
         NullableType,
         CustomType,
         AnyType,

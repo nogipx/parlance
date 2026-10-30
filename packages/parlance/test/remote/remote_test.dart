@@ -592,7 +592,7 @@ void main() {
           await o.defineCommand(
             CommandDescriptor(
               'kittens.lights.set',
-              params: const ObjectType({'on': Field(BoolType())}),
+              params: const RecordType({'on': Field(BoolType())}),
               callers: Callers.only(['user', 'plugin']),
             ),
             (c) async {

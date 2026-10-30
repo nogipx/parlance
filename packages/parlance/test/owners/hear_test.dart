@@ -7,7 +7,7 @@ import 'package:parlance/src/participant/owner.dart' show Owner;
 /// as a handler's follows from its call (SPEC §4): no cause passed. And a
 /// fact said for another follows from what is being answered too.
 enum _Fact<T> implements IFactWord<T> {
-  rang<String>('door.rang', Plain(TextType()));
+  rang<String>('door.rang', PlainShape(TextType()));
 
   const _Fact(this.name, this.shape);
   @override
@@ -17,7 +17,7 @@ enum _Fact<T> implements IFactWord<T> {
 }
 
 enum _State<T> implements IStateWord<T> {
-  last<String>('book.last', Plain(TextType()));
+  last<String>('book.last', PlainShape(TextType()));
 
   const _State(this.name, this.shape);
   @override

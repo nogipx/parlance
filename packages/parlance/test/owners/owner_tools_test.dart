@@ -9,7 +9,7 @@ import 'package:test/test.dart';
 /// And it overrides nothing: what it follows, hears, keeps and lets go of
 /// it says in its constructor.
 enum _State<T> implements IStateWord<T> {
-  level<int>('lamp.level', Plain(IntType()));
+  level<int>('lamp.level', PlainShape(IntType()));
 
   const _State(this.name, this.shape);
   @override

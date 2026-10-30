@@ -19,7 +19,7 @@ final class Bench {
     said = s.defineFact(
       FactDescriptor(
         'st.said',
-        type: const ObjectType({
+        type: const RecordType({
           'visitor': Field(TextType(), optional: true),
           'n': Field(IntType(), optional: true),
         }),
@@ -28,7 +28,7 @@ final class Bench {
     s.defineCommand(
       CommandDescriptor(
         'st.note',
-        params: const ObjectType({
+        params: const RecordType({
           'n': Field(IntType(), optional: true),
           'visitor': Field(TextType(), optional: true),
         }),

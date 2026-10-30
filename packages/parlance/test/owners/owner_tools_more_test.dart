@@ -11,7 +11,7 @@ import 'package:parlance/testing.dart';
 /// a word named at run time, and a command's status that follows what it
 /// heard, with no one telling the registry so.
 const _to = RecordShape<({int to})>(
-  {'to': Part(Plain(IntType()))},
+  {'to': Part(PlainShape(IntType()))},
   to: _toJson,
   from: _fromJson,
 );
@@ -43,7 +43,7 @@ final class _Dial implements IOwner {
     listen(on: power, onData: (on) => this.on = on);
     whenAttached(
       (p) => GeneratedWords(p)
-          .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
+          .state(StateWordOf<int>('dial.$serial', const PlainShape(IntType())))
           .define()
           .set(7),
     );
@@ -77,7 +77,7 @@ final class _NoAgents implements IOwner {
 }
 
 enum _Fact<T> implements IFactWord<T> {
-  rang<String>('bell.rang', Plain(TextType()));
+  rang<String>('bell.rang', PlainShape(TextType()));
 
   const _Fact(this.name, this.shape);
   @override
@@ -101,7 +101,7 @@ final class _Bell implements IOwner {
 }
 
 enum _Lit<T> implements IStateWord<T> {
-  of<bool>('lamps.lit', Plain(BoolType()));
+  of<bool>('lamps.lit', PlainShape(BoolType()));
 
   const _Lit(this.name, this.shape);
   @override
@@ -113,7 +113,7 @@ enum _Lit<T> implements IStateWord<T> {
 }
 
 const _bulb = RecordShape<({String bulb})>(
-  {'bulb': Part(Plain(ChoiceType('bulb')))},
+  {'bulb': Part(PlainShape(ChoiceType('bulb')))},
   to: _bulbJson,
   from: _fromBulb,
 );
@@ -322,7 +322,7 @@ void main() {
     expect(
       GeneratedWords(
         p,
-      ).state(const StateWordOf<int>('dial.x1', Plain(IntType()))).read(),
+      ).state(const StateWordOf<int>('dial.x1', PlainShape(IntType()))).read(),
       7,
     );
   });

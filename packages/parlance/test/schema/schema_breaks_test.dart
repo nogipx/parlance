@@ -2,7 +2,7 @@ import 'package:parlance/schema.dart';
 import 'package:test/test.dart';
 
 Map<String, Object?> _command(Map<String, Field> params) => {
-  'a.go': {'is': 'command', 'params': ObjectType(params).toJson()},
+  'a.go': {'is': 'command', 'params': RecordType(params).toJson()},
 };
 
 void main() {

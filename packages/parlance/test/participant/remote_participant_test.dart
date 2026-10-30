@@ -21,7 +21,7 @@ enum Lamp<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(BoolType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(BoolType()) as Shape<T>;
   @override
   String? get key => null;
 }
@@ -29,7 +29,7 @@ enum Lamp<T> implements IStateWord<T> {
 typedef Turn = ({bool on});
 
 final _turn = RecordShape<Turn>(
-  {'on': Part(Plain(BoolType()))},
+  {'on': Part(PlainShape(BoolType()))},
   to: (t) => {'on': t.on},
   from: (m) => (on: m['on']! as bool),
 );
@@ -854,7 +854,7 @@ enum _Focus<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(TextType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(TextType()) as Shape<T>;
   @override
   String? get key => null;
 }

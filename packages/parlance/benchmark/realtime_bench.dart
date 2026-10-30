@@ -25,11 +25,11 @@ typedef Task = ({String id, int version, List<Section> sections});
 
 const checkShape = RecordShape<Check>(
   {
-    'id': Part(Plain(TextType())),
-    'text': Part(Plain(TextType())),
-    'passed': Part(Plain(BoolType())),
-    'note': Part(Plain(TextType()), optional: true),
-    'tags': Part(ListShape(Plain(TextType()))),
+    'id': Part(PlainShape(TextType())),
+    'text': Part(PlainShape(TextType())),
+    'passed': Part(PlainShape(BoolType())),
+    'note': Part(PlainShape(TextType()), optional: true),
+    'tags': Part(ListShape(PlainShape(TextType()))),
   },
   to: _checkTo,
   from: _checkFrom,
@@ -58,7 +58,10 @@ Check _checkFrom(Map<String, Object?> m) => (
 );
 
 const sectionShape = RecordShape<Section>(
-  {'title': Part(Plain(TextType())), 'checks': Part(ListShape(checkShape))},
+  {
+    'title': Part(PlainShape(TextType())),
+    'checks': Part(ListShape(checkShape)),
+  },
   to: _sectionTo,
   from: _sectionFrom,
   get: _sectionAt,
@@ -73,8 +76,8 @@ Section _sectionFrom(Map<String, Object?> m) =>
 
 const taskShape = RecordShape<Task>(
   {
-    'id': Part(Plain(TextType())),
-    'version': Part(Plain(IntType())),
+    'id': Part(PlainShape(TextType())),
+    'version': Part(PlainShape(IntType())),
     'sections': Part(ListShape(sectionShape)),
   },
   to: _taskTo,
@@ -99,7 +102,7 @@ Task _taskFrom(Map<String, Object?> m) => (
 
 typedef Cursor = ({double x, double y});
 const cursorShape = RecordShape<Cursor>(
-  {'x': Part(Plain(NumType())), 'y': Part(Plain(NumType()))},
+  {'x': Part(PlainShape(NumType())), 'y': Part(PlainShape(NumType()))},
   to: _cursorTo,
   from: _cursorFrom,
   get: _cursorAt,

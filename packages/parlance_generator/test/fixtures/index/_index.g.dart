@@ -118,8 +118,8 @@ const doorsWords = WordSet(
 
 const _$RoomShape = RecordShape<Room>(
   {
-    'name': Part(Plain(TextType()), description: 'Its name.'),
-    'floor': Part(Plain(IntType())),
+    'name': Part(PlainShape(TextType()), description: 'Its name.'),
+    'floor': Part(PlainShape(IntType())),
   },
   to: _$RoomTo,
   from: _$RoomFrom,

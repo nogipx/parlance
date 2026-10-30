@@ -10,8 +10,8 @@ import 'package:test/test.dart';
 /// and as words come, go and are defined again, here and across a
 /// connection. Diagnostics only: nothing is refused for it.
 enum Built<T> implements IStateWord<T> {
-  volume<int>('deck.volume', Plain(IntType(min: 0, max: 100))),
-  mode<String>('deck.mode', Plain(EnumType(['a', 'b'])));
+  volume<int>('deck.volume', PlainShape(IntType(min: 0, max: 100))),
+  mode<String>('deck.mode', PlainShape(EnumType(['a', 'b'])));
 
   const Built(this.name, this.shape);
   @override
@@ -25,7 +25,7 @@ enum Built<T> implements IStateWord<T> {
 /// The volume as its owner defines it now: it may go higher than code
 /// built against it reads.
 enum Now<T> implements IStateWord<T> {
-  volume<int>('deck.volume', Plain(IntType(min: 0, max: 150)));
+  volume<int>('deck.volume', PlainShape(IntType(min: 0, max: 150)));
 
   const Now(this.name, this.shape);
   @override
@@ -54,8 +54,8 @@ enum BuiltCommand<P, R> implements ICommandWord<P, R> {
 
 final _turn = RecordShape<Turn>(
   {
-    'volume': const Part(Plain(IntType())),
-    'fade': const Part(Plain(BoolType()), optional: true),
+    'volume': const Part(PlainShape(IntType())),
+    'fade': const Part(PlainShape(BoolType()), optional: true),
   },
   to: (t) => {'volume': t.volume, 'fade': ?t.fade},
   from: (m) => (volume: m['volume']! as int, fade: m['fade'] as bool?),
@@ -75,7 +75,7 @@ enum NowCommand<P, R> implements ICommandWord<P, R> {
 }
 
 final _turnNow = RecordShape<TurnNow>(
-  {'volume': const Part(Plain(IntType()))},
+  {'volume': const Part(PlainShape(IntType()))},
   to: (t) => {'volume': t.volume},
   from: (m) => (volume: m['volume']! as int),
 );
@@ -317,7 +317,7 @@ void main() {
 
 /// The volume as code built against its old name knows it.
 enum _Old<T> implements IStateWord<T> {
-  volume<int>('deck.loudness', Plain(IntType(min: 0, max: 100)));
+  volume<int>('deck.loudness', PlainShape(IntType(min: 0, max: 100)));
 
   const _Old(this.name, this.shape);
   @override

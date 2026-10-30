@@ -20,7 +20,7 @@ final class S<T> implements IStateWord<T> {
 
 enum Mode { a, b }
 
-const when = S<String>('deck.when', Plain(TextType()));
+const when = S<String>('deck.when', PlainShape(TextType()));
 
 void main() {
   group('a type it does not know', () {
@@ -130,7 +130,7 @@ void main() {
       'now', () async {
     final host = TestHost();
     addTearDown(host.dispose);
-    final abc = Plain(const EnumType(['a', 'b', 'c']));
+    final abc = PlainShape(const EnumType(['a', 'b', 'c']));
     final deck = host.participant(
       const Principal('deck'),
       vocabularies: [WordSet.open('deck')],

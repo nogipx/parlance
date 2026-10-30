@@ -9,7 +9,7 @@ import 'package:test/test.dart';
 /// only a host that lacks what it requires. Guests over the air are often
 /// built against a newer parlance than their host.
 enum Built<T> implements IStateWord<T> {
-  volume<int>('deck.volume', Plain(IntType(max: 100)));
+  volume<int>('deck.volume', PlainShape(IntType(max: 100)));
 
   const Built(this.name, this.shape);
   @override

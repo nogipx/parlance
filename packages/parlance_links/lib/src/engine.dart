@@ -232,7 +232,7 @@ final class Links {
     _press = participant.defineCommand(
       CommandDescriptor(
         pressCommand,
-        params: const ObjectType({'button': Field(TextType())}),
+        params: const RecordType({'button': Field(TextType())}),
         callers: pressers,
         deadline: const Duration(minutes: 2),
         meta: const {'label': 'Press a button'},

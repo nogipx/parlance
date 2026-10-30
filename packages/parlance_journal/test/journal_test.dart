@@ -35,7 +35,7 @@ final class House {
     p.defineCommand(
       CommandDescriptor(
         'clip.save',
-        params: const ObjectType({'len': Field(IntType())}),
+        params: const RecordType({'len': Field(IntType())}),
         callers: Callers.only(['plugin']),
       ),
       (c) => last.set('clip-${c.params['len']}', cause: c.causeFor(house)),

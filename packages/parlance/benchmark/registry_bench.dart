@@ -45,9 +45,9 @@ Item _itemFrom(Map<String, Object?> m) => (
 
 const itemShape = RecordShape<Item>(
   {
-    'id': Part(Plain(TextType())),
-    'title': Part(Plain(TextType())),
-    'done': Part(Plain(BoolType())),
+    'id': Part(PlainShape(TextType())),
+    'title': Part(PlainShape(TextType())),
+    'done': Part(PlainShape(BoolType())),
   },
   to: _itemTo,
   from: _itemFrom,
@@ -82,11 +82,14 @@ enum BenchCommand<P, R> implements ICommandWord<P, R> {
   toggle<Toggle, bool>(
     'bench.toggle',
     RecordShape(
-      {'id': Part(Plain(TextType())), 'done': Part(Plain(BoolType()))},
+      {
+        'id': Part(PlainShape(TextType())),
+        'done': Part(PlainShape(BoolType())),
+      },
       to: _toggleTo,
       from: _toggleFrom,
     ),
-    returns: Plain(BoolType()),
+    returns: PlainShape(BoolType()),
   );
 
   const BenchCommand(this.name, this.params, {this.returns});

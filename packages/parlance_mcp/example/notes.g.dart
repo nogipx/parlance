@@ -8,7 +8,7 @@ part of 'notes.dart';
 
 /// The states of [Notes].
 enum NotesState<T> implements IStateWord<T> {
-  count<int>('notes.count', Plain(IntType(min: 0)));
+  count<int>('notes.count', PlainShape(IntType(min: 0)));
 
   const NotesState(this.name, this.shape, {this.key});
   @override
@@ -24,7 +24,7 @@ enum NotesCommand<P, R> implements ICommandWord<P, R> {
   add<NotesAdd, void>(
     'notes.add',
     RecordShape<NotesAdd>(
-      {'text': Part(Plain(TextType(maxLength: 500)))},
+      {'text': Part(PlainShape(TextType(maxLength: 500)))},
       to: _$NotesAddTo,
       from: _$NotesAddFrom,
       get: _$NotesAddAt,

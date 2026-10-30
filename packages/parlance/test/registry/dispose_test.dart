@@ -24,7 +24,7 @@ final class _Lamp extends Owner {
 }
 
 enum _On<T> implements IStateWord<T> {
-  on<bool>('lamp.on', Plain(BoolType()));
+  on<bool>('lamp.on', PlainShape(BoolType()));
 
   const _On(this.name, this.shape);
   @override

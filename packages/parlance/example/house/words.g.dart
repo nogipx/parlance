@@ -8,10 +8,10 @@ part of 'words.dart';
 
 /// The states of [House].
 enum HouseState<T> implements IStateWord<T> {
-  light<bool>('house.light', Plain(BoolType()), key: 'room'),
-  heat<num>('house.heat', Plain(NumType(min: 10, max: 28))),
+  light<bool>('house.light', PlainShape(BoolType()), key: 'room'),
+  heat<num>('house.heat', PlainShape(NumType(min: 10, max: 28))),
   mode<Mode>('house.mode', EnumShape(Mode.values)),
-  locked<bool>('house.locked', Plain(BoolType()));
+  locked<bool>('house.locked', PlainShape(BoolType()));
 
   const HouseState(this.name, this.shape, {this.key});
   @override
@@ -27,7 +27,10 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   setLight<HouseSetLight, void>(
     'house.set_light',
     RecordShape<HouseSetLight>(
-      {'room': Part(Plain(ChoiceType('room'))), 'on': Part(Plain(BoolType()))},
+      {
+        'room': Part(PlainShape(ChoiceType('room'))),
+        'on': Part(PlainShape(BoolType())),
+      },
       to: _$HouseSetLightTo,
       from: _$HouseSetLightFrom,
       get: _$HouseSetLightAt,
@@ -37,7 +40,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   setHeat<HouseSetHeat, void>(
     'house.set_heat',
     RecordShape<HouseSetHeat>(
-      {'target': Part(Plain(NumType(min: 10, max: 28)))},
+      {'target': Part(PlainShape(NumType(min: 10, max: 28)))},
       to: _$HouseSetHeatTo,
       from: _$HouseSetHeatFrom,
       get: _$HouseSetHeatAt,
@@ -57,7 +60,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
   lock<HouseLock, void>(
     'house.lock',
     RecordShape<HouseLock>(
-      {'on': Part(Plain(BoolType()))},
+      {'on': Part(PlainShape(BoolType()))},
       to: _$HouseLockTo,
       from: _$HouseLockFrom,
       get: _$HouseLockAt,
@@ -79,12 +82,12 @@ enum HouseQuery<P, R> implements IQueryWord<P, R> {
   rooms<HouseRooms, List<String>>(
     'house.rooms',
     RecordShape<HouseRooms>(
-      {'lit': Part(Plain(BoolType()))},
+      {'lit': Part(PlainShape(BoolType()))},
       to: _$HouseRoomsTo,
       from: _$HouseRoomsFrom,
       get: _$HouseRoomsAt,
     ),
-    ListShape(Plain(TextType())),
+    ListShape(PlainShape(TextType())),
   );
 
   const HouseQuery(this.name, this.params, this.returns);
@@ -101,7 +104,7 @@ enum HouseFact<T> implements IFactWord<T> {
   rang<HouseRang>(
     'house.rang',
     RecordShape<HouseRang>(
-      {'who': Part(Plain(TextType()))},
+      {'who': Part(PlainShape(TextType()))},
       to: _$HouseRangTo,
       from: _$HouseRangFrom,
       get: _$HouseRangAt,
@@ -110,7 +113,7 @@ enum HouseFact<T> implements IFactWord<T> {
   motion<HouseMotion>(
     'house.motion',
     RecordShape<HouseMotion>(
-      {'room': Part(Plain(TextType()))},
+      {'room': Part(PlainShape(TextType()))},
       to: _$HouseMotionTo,
       from: _$HouseMotionFrom,
       get: _$HouseMotionAt,
@@ -468,7 +471,7 @@ Object? _$HouseMotionAt(HouseMotion p, int i) => p.room;
 
 /// The states of [Visit].
 enum VisitState<T> implements IStateWord<T> {
-  guests<List<String>>('visit.guests', ListShape(Plain(TextType())));
+  guests<List<String>>('visit.guests', ListShape(PlainShape(TextType())));
 
   const VisitState(this.name, this.shape, {this.key});
   @override
@@ -484,7 +487,7 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
   leave<VisitLeave, void>(
     'visit.leave',
     RecordShape<VisitLeave>(
-      {'who': Part(Plain(TextType()))},
+      {'who': Part(PlainShape(TextType()))},
       to: _$VisitLeaveTo,
       from: _$VisitLeaveFrom,
       get: _$VisitLeaveAt,

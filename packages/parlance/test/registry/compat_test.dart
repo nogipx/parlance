@@ -14,7 +14,7 @@ Map<String, Object?> _command(
   ValueType<Object?>? returns,
 ]) => {
   'is': 'command',
-  'params': ObjectType(params).toJson(),
+  'params': RecordType(params).toJson(),
   if (returns != null) 'returns': returns.toJson(),
 };
 
@@ -22,7 +22,7 @@ List<String> _said(Object? built, Object? live) => [
   for (final b in entryBreaks(built, live)) '$b',
 ];
 
-const _point = ObjectType({
+const _point = RecordType({
   'x': Field(IntType()),
   'y': Field(IntType(), optional: true),
 });
@@ -36,7 +36,7 @@ void main() {
         _said(
           _state(_point),
           _state(
-            const ObjectType({
+            const RecordType({
               'x': Field(IntType()),
               'y': Field(IntType(), optional: true),
               'z': Field(TextType()),
@@ -52,14 +52,14 @@ void main() {
       expect(
         _said(
           _state(_point),
-          _state(const ObjectType({'y': Field(IntType())})),
+          _state(const RecordType({'y': Field(IntType())})),
         ),
         ['type.fields.x: was required, is nothing'],
       );
       expect(
         _said(
           _state(_point),
-          _state(const ObjectType({'x': Field(IntType())})),
+          _state(const RecordType({'x': Field(IntType())})),
         ),
         isEmpty,
       );

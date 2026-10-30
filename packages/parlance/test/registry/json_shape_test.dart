@@ -36,9 +36,9 @@ final class Order {
   int get hashCode => Object.hash(id, to.city);
 }
 
-const _orderType = ObjectType({
+const _orderType = RecordType({
   'id': Field(TextType()),
-  'to': Field(ObjectType({'city': Field(TextType())})),
+  'to': Field(RecordType({'city': Field(TextType())})),
 });
 
 enum Orders<T> implements IStateWord<T> {

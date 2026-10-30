@@ -12,7 +12,7 @@ import '../remote/remote_test.dart' show Link, settle;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 enum _State<T> implements IStateWord<T> {
-  locked<bool>(Plain(BoolType()));
+  locked<bool>(PlainShape(BoolType()));
 
   const _State(this.shape);
 
@@ -30,7 +30,7 @@ enum _State<T> implements IStateWord<T> {
 
 /// The locked state as code built against another owner's knows it.
 enum _Text<T> implements IStateWord<T> {
-  locked<String>(Plain(TextType()));
+  locked<String>(PlainShape(TextType()));
 
   const _Text(this.shape);
 
@@ -50,7 +50,7 @@ final class _Notes implements IStateWord<String> {
   @override
   String get name => 'house.notes';
   @override
-  Shape<String> get shape => const Plain(TextType());
+  Shape<String> get shape => const PlainShape(TextType());
   @override
   String? get key => null;
 }

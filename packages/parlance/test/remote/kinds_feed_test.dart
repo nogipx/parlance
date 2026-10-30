@@ -25,7 +25,7 @@ void main() {
     house.defineCommand(
       CommandDescriptor(
         'house.show',
-        params: const ObjectType({'room': Field(ChoiceType('room'))}),
+        params: const RecordType({'room': Field(ChoiceType('room'))}),
         callers: Callers.only(['agent']),
       ),
       (_) {},

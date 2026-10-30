@@ -11,7 +11,7 @@ import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 const me = Principal('host');
 
 enum Level<T> implements IStateWord<T> {
-  of<num>('test.level', Plain(NumType()));
+  of<num>('test.level', PlainShape(NumType()));
 
   const Level(this.name, this.shape);
   @override
@@ -94,7 +94,7 @@ final class Flagged extends Owner {
 }
 
 enum _Flag<T> implements IStateWord<T> {
-  on<bool>('test.on', Plain(BoolType()));
+  on<bool>('test.on', PlainShape(BoolType()));
 
   const _Flag(this.name, this.shape);
   @override

@@ -11,8 +11,8 @@ typedef Tune = ({String input, num db, Level? level});
 
 const _tune = RecordShape<Tune>(
   {
-    'input': Part(Plain(ChoiceType('input'))),
-    'db': Part(Plain(NumType(min: -60, max: 12))),
+    'input': Part(PlainShape(ChoiceType('input'))),
+    'db': Part(PlainShape(NumType(min: -60, max: 12))),
     'level': Part(EnumShape(Level.values), optional: true),
   },
   to: _tuneTo,
@@ -32,7 +32,7 @@ Tune _tuneFrom(Map<String, Object?> m) => (
 typedef Heard = ({List<String> inputs});
 
 const _heard = RecordShape<Heard>(
-  {'inputs': Part(ListShape(Plain(TextType())))},
+  {'inputs': Part(ListShape(PlainShape(TextType())))},
   to: _heardTo,
   from: _heardFrom,
 );
@@ -70,7 +70,7 @@ enum TestCommand<P, R> implements ICommandWord<P, R> {
 typedef Only = ({List<String>? apps});
 
 const _only = RecordShape<Only>(
-  {'apps': Part(Nullable(ListShape(Plain(TextType()))))},
+  {'apps': Part(NullableShape(ListShape(PlainShape(TextType()))))},
   to: _onlyTo,
   from: _onlyFrom,
 );
@@ -79,7 +79,10 @@ Only _onlyFrom(Map<String, Object?> m) => (apps: m['apps'] as List<String>?);
 
 /// None is a value of its own: every app, apart from none of them.
 enum NullableState<T> implements IStateWord<T> {
-  only<List<String>?>('test.only', Nullable(ListShape(Plain(TextType()))));
+  only<List<String>?>(
+    'test.only',
+    NullableShape(ListShape(PlainShape(TextType()))),
+  );
 
   const NullableState(this.name, this.shape);
   @override
@@ -178,7 +181,7 @@ void main() {
       'low',
       'high',
     ]);
-    expect(d.returns, isA<ObjectType>());
+    expect(d.returns, isA<RecordType>());
   });
 
   test('states and facts read and stream typed', () async {

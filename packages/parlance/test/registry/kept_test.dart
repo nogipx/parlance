@@ -9,8 +9,8 @@ typedef Song = ({String title, int volume});
 
 const _song = RecordShape<Song>(
   {
-    'title': Part(Plain(TextType())),
-    'volume': Part(Plain(IntType(min: 0, max: 100))),
+    'title': Part(PlainShape(TextType())),
+    'volume': Part(PlainShape(IntType(min: 0, max: 100))),
   },
   to: _songTo,
   from: _songFrom,

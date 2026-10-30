@@ -46,7 +46,7 @@ void main() {
   });
 
   test('objects fill defaults and refuse unknown and missing fields', () {
-    const t = ObjectType({
+    const t = RecordType({
       'a': Field(IntType()),
       'b': Field(TextType(), defaultValue: 'x'),
       'c': Field(BoolType(), optional: true),
@@ -75,7 +75,7 @@ void main() {
   });
 
   test('types round-trip through JSON', () {
-    const t = ObjectType({
+    const t = RecordType({
       'room': Field(ChoiceType('room')),
       'n': Field(IntType(min: 1, max: 5), defaultValue: 2),
       'tags': Field(ListType(EnumType(['x', 'y']), maxItems: 3)),
@@ -114,7 +114,7 @@ void main() {
   });
 
   test('an optional field given as null is left out', () {
-    const t = ObjectType({
+    const t = RecordType({
       'a': Field(TextType(), optional: true),
       'b': Field(IntType(), defaultValue: 3),
       'c': Field(TextType()),

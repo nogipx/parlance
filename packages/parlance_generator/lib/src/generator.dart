@@ -10,7 +10,7 @@ import 'package:build/build.dart';
 import 'package:dart_style/dart_style.dart';
 import 'package:parlance/tools.dart'
     show isValidName, isValidVocabularyName, checkWordName;
-import 'package:parlance/schema.dart';
+import 'package:parlance/schema.dart' hide RecordType;
 import 'package:pub_semver/pub_semver.dart' show Version;
 import 'package:source_gen/source_gen.dart';
 
@@ -1193,11 +1193,11 @@ final class _Emitter {
     }
     // Any value, null too.
     if (t is DynamicType || (t is InterfaceType && t.isDartCoreObject)) {
-      return 'Plain(AnyType())';
+      return 'PlainShape(AnyType())';
     }
     if (t.nullabilitySuffix == NullabilitySuffix.question) {
       final inner = _nonNull(t);
-      return 'Nullable<${_dart(inner)}>('
+      return 'NullableShape<${_dart(inner)}>('
           '${_shape(inner, on, where, bounded: bounded, notes: notes)})';
     }
     DartObject? note(TypeChecker c) => !bounded
@@ -1231,7 +1231,7 @@ final class _Emitter {
       return '$type(${[if (min != null) 'min: ${_code(r.read('min').objectValue, '$min')}', if (mx != null) 'max: ${_code(r.read('max').objectValue, '$mx')}'].join(', ')})';
     }
 
-    if (t.isDartCoreBool) return 'Plain(BoolType())';
+    if (t.isDartCoreBool) return 'PlainShape(BoolType())';
     if (t is InterfaceType &&
         t.element.name == 'Duration' &&
         t.element.library.isDartCore) {
@@ -1247,7 +1247,7 @@ final class _Emitter {
         element: on,
       );
     }
-    if (t.isDartCoreInt) return 'Plain(${bounds('IntType')})';
+    if (t.isDartCoreInt) return 'PlainShape(${bounds('IntType')})';
     if (t.isDartCoreDouble) {
       throw InvalidGenerationSourceError(
         '$where: a number a word carries is num or int, not double (JSON '
@@ -1255,14 +1255,14 @@ final class _Emitter {
         element: on,
       );
     }
-    if (t.isDartCoreNum) return 'Plain(${bounds('NumType')})';
+    if (t.isDartCoreNum) return 'PlainShape(${bounds('NumType')})';
     if (t.isDartCoreString) {
       if (ref != null) {
         final kind = ConstantReader(ref).read('of');
         _named(kind.stringValue, on);
-        return 'Plain(ChoiceType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
+        return 'PlainShape(ChoiceType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
       }
-      return 'Plain(TextType(${max == null ? '' : 'maxLength: $max'}))';
+      return 'PlainShape(TextType(${max == null ? '' : 'maxLength: $max'}))';
     }
     if (t case InterfaceType(element: final EnumElement e)) {
       final name = e.displayName;
@@ -1453,7 +1453,7 @@ final class _Emitter {
           '${_quote(key)}: Field(${_valueType(type, {...seen})}'
               '${optional ? ', optional: true' : ''})',
       ];
-      return 'ObjectType({${fields.join(', ')}})';
+      return 'RecordType({${fields.join(', ')}})';
     }
     return 'AnyType()';
   }

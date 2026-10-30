@@ -53,10 +53,10 @@ Track _trackFrom(Map<String, Object?> m) => (
 
 const track = RecordShape<Track>(
   {
-    'title': Part(Plain(TextType(maxLength: 8))),
-    'volume': Part(Plain(IntType(min: 0, max: 100))),
+    'title': Part(PlainShape(TextType(maxLength: 8))),
+    'volume': Part(PlainShape(IntType(min: 0, max: 100))),
     'mood': Part(EnumShape(Mood.values)),
-    'tags': Part(ListShape(Plain(TextType()), maxItems: 3)),
+    'tags': Part(ListShape(PlainShape(TextType()), maxItems: 3)),
   },
   to: _trackTo,
   from: _trackFrom,
@@ -81,10 +81,10 @@ Cue _cueFrom(Map<String, Object?> m) => (
 
 const cue = RecordShape<Cue>(
   {
-    'room': Part(Plain(ChoiceType('room'))),
-    'note': Part(Nullable(Plain(TextType()))),
-    'fade': Part(Plain(IntType(max: 500)), defaultValue: 250),
-    'label': Part(Plain(TextType()), optional: true),
+    'room': Part(PlainShape(ChoiceType('room'))),
+    'note': Part(NullableShape(PlainShape(TextType()))),
+    'fade': Part(PlainShape(IntType(max: 500)), defaultValue: 250),
+    'label': Part(PlainShape(TextType()), optional: true),
   },
   to: _cueTo,
   from: _cueFrom,
@@ -106,12 +106,12 @@ final shot = UnionShape<Shot>(
   'kind',
   {
     'wide': RecordShape<Shot>(
-      const {'lens': Part(Plain(IntType(min: 10)))},
+      const {'lens': Part(PlainShape(IntType(min: 10)))},
       to: (s) => {'lens': (s as Wide).lens},
       from: (m) => Wide(m['lens']! as int),
     ),
     'close': RecordShape<Shot>(
-      const {'who': Part(Plain(TextType()))},
+      const {'who': Part(PlainShape(TextType()))},
       to: (s) => {'who': (s as Close).who},
       from: (m) => Close(m['who']! as String),
     ),
@@ -125,10 +125,10 @@ final shot = UnionShape<Shot>(
 /// [track], its fields read by place rather than through a map.
 const trackByPlace = RecordShape<Track>(
   {
-    'title': Part(Plain(TextType(maxLength: 8))),
-    'volume': Part(Plain(IntType(min: 0, max: 100))),
+    'title': Part(PlainShape(TextType(maxLength: 8))),
+    'volume': Part(PlainShape(IntType(min: 0, max: 100))),
     'mood': Part(EnumShape(Mood.values)),
-    'tags': Part(ListShape(Plain(TextType()), maxItems: 3)),
+    'tags': Part(ListShape(PlainShape(TextType()), maxItems: 3)),
   },
   to: _trackTo,
   from: _trackFrom,
@@ -143,8 +143,8 @@ Object? _trackAt(Track t, int i) => switch (i) {
 };
 
 const playlist = ListShape(track, maxItems: 2);
-const levels = MapShape(Plain(IntType(min: 0)), maxEntries: 2);
-const color = Plain<Object?>(CustomType('color'));
+const levels = MapShape(PlainShape(IntType(min: 0)), maxEntries: 2);
+const color = PlainShape<Object?>(CustomType('color'));
 const anyJson = JsonValue(AnyType());
 
 Track t(
@@ -336,7 +336,7 @@ void main() {
     final more = songs.check([t('a'), t('b'), t('c')], ctx, was: list);
     expect(identical(more, list), isFalse);
     expect(identical(more[0], list[0]), isTrue, reason: 'an equal item kept');
-    const byName = MapShape(Plain(IntType()));
+    const byName = MapShape(PlainShape(IntType()));
     final m = byName.check({'a': 1, 'b': 2}, ctx);
     expect(identical(byName.check({'a': 1, 'b': 2}, ctx, was: m), m), isTrue);
     expect(byName.check({'a': 1}, ctx, was: m), {'a': 1});
@@ -363,11 +363,11 @@ void main() {
     final shape = JsonShape<({String id})>(
       (m) => (id: m['id']! as String),
       (v) => {'id': v.id},
-      type: const ObjectType({'id': Field(TextType())}),
+      type: const RecordType({'id': Field(TextType())}),
     );
     expect(shape.keptAsIs, isFalse);
     expect(track.keptAsIs, isTrue);
-    expect(const ListShape(Plain(TextType())).keptAsIs, isTrue);
+    expect(const ListShape(PlainShape(TextType())).keptAsIs, isTrue);
     expect(ListShape(shape).keptAsIs, isFalse);
   });
 }

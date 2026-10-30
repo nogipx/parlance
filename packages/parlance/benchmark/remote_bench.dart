@@ -36,7 +36,7 @@ final class Host {
       p.defineState(
         StateDescriptor(
           'studio.s$i',
-          type: const ObjectType({'v': Field(IntType())}),
+          type: const RecordType({'v': Field(IntType())}),
           meta: const {'label': 'a state of the studio, with a label'},
         ),
       );
@@ -44,7 +44,7 @@ final class Host {
     p.defineCommand(
       CommandDescriptor(
         'studio.ping',
-        params: const ObjectType({'n': Field(IntType())}),
+        params: const RecordType({'n': Field(IntType())}),
         callers: Callers.only(['widlet']),
       ),
       (c) => c.params['n'],

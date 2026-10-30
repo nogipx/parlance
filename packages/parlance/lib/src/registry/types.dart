@@ -29,7 +29,7 @@ final class TypeMismatch implements Exception {
 ///
 /// Types are values themselves: [toJson] and [ValueType.fromJson] carry them
 /// to clients for `describe`. [T] is the Dart type of the values it passes,
-/// for typed words (`Plain(BoolType())` is a `Shape<bool>`).
+/// for typed words (`PlainShape(BoolType())` is a `Shape<bool>`).
 sealed class ValueType<T> {
   const ValueType();
 
@@ -55,7 +55,7 @@ sealed class ValueType<T> {
         ValueType.fromJson(json['item']),
         maxItems: n('maxItems')?.toInt(),
       ),
-      'object' => ObjectType({
+      'object' => RecordType({
         for (final e in (json['fields'] as Map).entries)
           e.key as String: Field.fromJson(e.value),
       }),
@@ -63,11 +63,11 @@ sealed class ValueType<T> {
         ValueType.fromJson(json['value']),
         maxEntries: n('maxEntries')?.toInt(),
       ),
-      'oneOf' => OneOfType(
+      'oneOf' => UnionType(
         json['key'] as String,
         {
           for (final e in (json['variants'] as Map).entries)
-            e.key as String: ObjectType.fromJson(e.value),
+            e.key as String: RecordType.fromJson(e.value),
         },
         descriptions: {
           for (final e in (json['descriptions'] as Map? ?? const {}).entries)
@@ -255,7 +255,7 @@ final class ListType extends ValueType<List<Object?>> {
   };
 }
 
-/// A field of an [ObjectType].
+/// A field of a [RecordType].
 final class Field {
   const Field(
     this.type, {
@@ -295,14 +295,14 @@ final class Field {
 
 /// A map with named fields: unknown ones are refused, left-out optional
 /// ones (or null) get their default.
-final class ObjectType extends ValueType<Map<String, Object?>> {
-  const ObjectType(this.fields);
+final class RecordType extends ValueType<Map<String, Object?>> {
+  const RecordType(this.fields);
 
   /// [json] as an object type: params, a variant. Another type (one a
   /// newer parlance has) is a [FormatException], as a word of it is.
-  factory ObjectType.fromJson(Object? json) =>
+  factory RecordType.fromJson(Object? json) =>
       switch (ValueType.fromJson(json)) {
-        final ObjectType o => o,
+        final RecordType o => o,
         final t => throw FormatException('not an object type: ${t.toJson()}'),
       };
 
@@ -377,8 +377,8 @@ final class MapType extends ValueType<Map<String, Object?>> {
 
 /// One of several objects, told apart by the text in field [key]: its value
 /// names the variant, whose fields the rest must pass.
-final class OneOfType extends ValueType<Map<String, Object?>> {
-  const OneOfType(
+final class UnionType extends ValueType<Map<String, Object?>> {
+  const UnionType(
     this.key,
     this.variants, {
     this.descriptions = const {},
@@ -386,7 +386,7 @@ final class OneOfType extends ValueType<Map<String, Object?>> {
   });
 
   final String key;
-  final Map<String, ObjectType> variants;
+  final Map<String, RecordType> variants;
 
   /// What each variant is for, by its tag, for people and agents.
   final Map<String, String> descriptions;
@@ -482,9 +482,9 @@ UnknownType? unknownTypeIn(ValueType<Object?>? type) => switch (type) {
   ListType(:final item) => unknownTypeIn(item),
   MapType(:final value) => unknownTypeIn(value),
   NullableType(:final of) => unknownTypeIn(of),
-  ObjectType(:final fields) =>
+  RecordType(:final fields) =>
     fields.values.map((f) => unknownTypeIn(f.type)).nonNulls.firstOrNull,
-  OneOfType(:final variants) =>
+  UnionType(:final variants) =>
     variants.values.map(unknownTypeIn).nonNulls.firstOrNull,
   _ => null,
 };

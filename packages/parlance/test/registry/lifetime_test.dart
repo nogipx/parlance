@@ -96,7 +96,7 @@ void main() {
 
   test('null is a value of its own for a nullable field with a default', () {
     final r = Registry();
-    const t = ObjectType({
+    const t = RecordType({
       'x': Field(NullableType(IntType()), defaultValue: 5),
       'y': Field(IntType(), defaultValue: 1),
     });
@@ -182,7 +182,7 @@ enum Maybe<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Nullable(Plain(IntType())) as Shape<T>;
+  Shape<T> get shape => const NullableShape(PlainShape(IntType())) as Shape<T>;
   @override
   String? get key => 'input';
 }

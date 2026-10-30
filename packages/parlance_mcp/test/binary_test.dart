@@ -31,7 +31,7 @@ void main() {
       house.defineCommand(
         CommandDescriptor(
           'house.show',
-          params: const ObjectType({'room': Field(TextType())}),
+          params: const RecordType({'room': Field(TextType())}),
           callers: const Callers({'agent': Access.allow}),
         ),
         (c) => focus.set(c.params['room']),

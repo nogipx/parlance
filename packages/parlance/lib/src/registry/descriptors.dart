@@ -194,7 +194,7 @@ sealed class CallableDescriptor extends Descriptor {
     }
   }
 
-  final ObjectType params;
+  final RecordType params;
 
   /// The type of what a call answers; null: it answers nothing.
   final ValueType<Object?>? returns;
@@ -210,7 +210,7 @@ sealed class CallableDescriptor extends Descriptor {
 final class CommandDescriptor extends CallableDescriptor {
   CommandDescriptor(
     String name, {
-    ObjectType params = const ObjectType({}),
+    RecordType params = const RecordType({}),
     super.returns,
     required super.callers,
     super.deadline = const Duration(seconds: 30),
@@ -220,7 +220,7 @@ final class CommandDescriptor extends CallableDescriptor {
   factory CommandDescriptor.fromJson(Map<Object?, Object?> m) =>
       CommandDescriptor(
         m['name'] as String,
-        params: ObjectType.fromJson(m['params']),
+        params: RecordType.fromJson(m['params']),
         returns: m['returns'] == null ? null : ValueType.fromJson(m['returns']),
         callers: Callers.fromJson(m['callers']),
         deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
@@ -244,7 +244,7 @@ final class CommandDescriptor extends CallableDescriptor {
 final class QueryDescriptor extends CallableDescriptor {
   QueryDescriptor(
     String name, {
-    ObjectType params = const ObjectType({}),
+    RecordType params = const RecordType({}),
     required ValueType<Object?> returns,
     required Callers askers,
     Duration deadline = const Duration(seconds: 30),
@@ -260,7 +260,7 @@ final class QueryDescriptor extends CallableDescriptor {
 
   factory QueryDescriptor.fromJson(Map<Object?, Object?> m) => QueryDescriptor(
     m['name'] as String,
-    params: ObjectType.fromJson(m['params']),
+    params: RecordType.fromJson(m['params']),
     returns: ValueType.fromJson(m['returns']),
     askers: Callers.fromJson(m['askers']),
     deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),

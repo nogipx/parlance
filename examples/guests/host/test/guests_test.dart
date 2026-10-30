@@ -75,7 +75,7 @@ void main() {
         p.raw.defineCommand(
           CommandDescriptor(
             'notes.add',
-            params: const ObjectType({'text': Field(TextType(maxLength: 100))}),
+            params: const RecordType({'text': Field(TextType(maxLength: 100))}),
             callers: Who.callers,
           ),
           (_) => null,

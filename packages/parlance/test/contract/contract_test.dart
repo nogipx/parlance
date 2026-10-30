@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 /// alone, so what they need is what a developer is given; what they
 /// watch of the registry to tell, through its tools (`Host.registry`).
 enum _State<T> implements IStateWord<T> {
-  level<int>('deck.level', Plain(IntType(min: 0, max: 100)));
+  level<int>('deck.level', PlainShape(IntType(min: 0, max: 100)));
 
   const _State(this.name, this.shape);
   @override
@@ -18,7 +18,7 @@ enum _State<T> implements IStateWord<T> {
 }
 
 enum _Command<P, R> implements ICommandWord<P, R> {
-  set<({int to}), int>('deck.set', _to, Plain(IntType()));
+  set<({int to}), int>('deck.set', _to, PlainShape(IntType()));
 
   const _Command(this.name, this.params, this.returns);
   @override
@@ -30,7 +30,7 @@ enum _Command<P, R> implements ICommandWord<P, R> {
 }
 
 const _to = RecordShape<({int to})>(
-  {'to': Part(Plain(IntType(min: 0, max: 100)))},
+  {'to': Part(PlainShape(IntType(min: 0, max: 100)))},
   to: _toJson,
   from: _fromJson,
 );
@@ -143,7 +143,7 @@ final class _Lamp implements IStateWord<bool> {
   @override
   String get name => 'lamp.on';
   @override
-  Shape<bool> get shape => const Plain(BoolType());
+  Shape<bool> get shape => const PlainShape(BoolType());
   @override
   String? get key => null;
 }

@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 /// serves a guest, the guest's owner serves its command there, a part of
 /// the host calls it, and the session ends with its connection.
 enum _Command<P, R> implements ICommandWord<P, R> {
-  ping<(), String>('echo.ping', _none, Plain(TextType()));
+  ping<(), String>('echo.ping', _none, PlainShape(TextType()));
 
   const _Command(this.name, this.params, this.returns);
   @override

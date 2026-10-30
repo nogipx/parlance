@@ -15,7 +15,7 @@ final class Board extends Fixture {
     party = r.defineFact(
       FactDescriptor(
         'porch.party',
-        type: const ObjectType({
+        type: const RecordType({
           'from': Field(TextType()),
           'visitors': Field(IntType(min: 0)),
         }),
@@ -237,7 +237,7 @@ void main() {
             EntityRef('g1', 'Gauge', {
               'type': const NumType(min: 0, max: 1).toJson(),
             }),
-            const EntityRef('g2', 'Plain'),
+            const EntityRef('g2', 'PlainShape'),
           ],
         ),
       );
@@ -248,7 +248,7 @@ void main() {
           'label': 'Gauge',
           'takes': {'type': 'number', 'minimum': 0, 'maximum': 1},
         },
-        'g2 (Plain)',
+        'g2 (PlainShape)',
       ]);
     });
 

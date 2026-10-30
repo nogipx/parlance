@@ -42,11 +42,11 @@ final class Q<R> implements IQueryWord<(), R> {
 
 const abc = EnumType(['a', 'b', 'c']);
 const builtMode = S('deck.mode', EnumShape(Mode.values));
-const nowMode = S<String>('deck.mode', Plain(abc));
+const nowMode = S<String>('deck.mode', PlainShape(abc));
 const builtSaid = F('deck.said', EnumShape(Mode.values));
-const nowSaid = F<String>('deck.said', Plain(abc));
+const nowSaid = F<String>('deck.said', PlainShape(abc));
 const builtPick = Q('deck.pick', EnumShape(Mode.values));
-const nowPick = Q<String>('deck.pick', Plain(abc));
+const nowPick = Q<String>('deck.pick', PlainShape(abc));
 
 sealed class Pet {
   const Pet();
@@ -74,7 +74,7 @@ typedef Turn = ({int volume});
 final builtTurn = S(
   'deck.turn',
   RecordShape<Turn>(
-    {'volume': const Part(Plain(IntType()))},
+    {'volume': const Part(PlainShape(IntType()))},
     to: (t) => {'volume': t.volume},
     from: (m) => (volume: m['volume']! as int),
   ),
@@ -83,7 +83,7 @@ final builtTurn = S(
 /// The turn as its owner writes it now: the volume may be left out.
 const nowTurn = S<Object?>(
   'deck.turn',
-  Plain(ObjectType({'volume': Field(IntType(), optional: true)})),
+  PlainShape(RecordType({'volume': Field(IntType(), optional: true)})),
 );
 
 /// A class read by its own fromJson, as json_serializable's are.
@@ -99,12 +99,12 @@ final builtBox = S(
   JsonShape<Box>(
     Box.fromJson,
     (b) => b.toJson(),
-    type: const ObjectType({'n': Field(IntType())}),
+    type: const RecordType({'n': Field(IntType())}),
   ),
 );
 const nowBox = S<Object?>(
   'deck.box',
-  Plain(ObjectType({'n': Field(TextType())})),
+  PlainShape(RecordType({'n': Field(TextType())})),
 );
 
 const deck = Principal('deck');
@@ -178,9 +178,9 @@ void main() {
           schemaOfDescriptor(
             StateDescriptor(
               'deck.pets',
-              type: OneOfType('is', {
-                'cat': const ObjectType({}),
-                'dog': const ObjectType({}),
+              type: UnionType('is', {
+                'cat': const RecordType({}),
+                'dog': const RecordType({}),
               }),
             ),
           ),
@@ -320,11 +320,11 @@ void main() {
 
     test('deep in what is written: a field of an item of a list', () async {
       ValueType<Object?> queue(EnumType mode) =>
-          ListType(ObjectType({'mode': Field(mode)}));
+          ListType(RecordType({'mode': Field(mode)}));
       host.participant(guest).raw.builtAgainst([
-        S('deck.queue', Plain(queue(const EnumType(['a', 'b'])))),
+        S('deck.queue', PlainShape(queue(const EnumType(['a', 'b'])))),
       ]);
-      final q = owner().state(S<Object?>('deck.queue', Plain(queue(abc))));
+      final q = owner().state(S<Object?>('deck.queue', PlainShape(queue(abc))));
       final w = q.define();
       await pumpEventQueue();
       expect(

@@ -14,7 +14,7 @@ void main() {
     party = f.r.defineFact(
       FactDescriptor(
         'porch.party',
-        type: const ObjectType({
+        type: const RecordType({
           'from': Field(TextType()),
           'visitors': Field(IntType(min: 0)),
         }),

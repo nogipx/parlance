@@ -9,7 +9,7 @@ part of 'board.dart';
 /// The states of [Board].
 enum BoardState<T> implements IStateWord<T> {
   notes<Note>('note', _$NoteShape, key: 'note'),
-  anything<Object?>('note.anything', Plain(AnyType()));
+  anything<Object?>('note.anything', PlainShape(AnyType()));
 
   const BoardState(this.name, this.shape, {this.key});
   @override
@@ -27,7 +27,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
     RecordShape<BoardPut>(
       {
         'id': Part(
-          Plain(TextType()),
+          PlainShape(TextType()),
           optional: true,
           description: 'Its id; else a new one.',
         ),
@@ -43,7 +43,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
     'note.expire',
     RecordShape<BoardExpire>(
       {
-        'id': Part(Plain(ChoiceType('note'))),
+        'id': Part(PlainShape(ChoiceType('note'))),
         'in': Part(DurationShape(max: Duration(microseconds: 60000000))),
       },
       to: _$BoardExpireTo,
@@ -55,7 +55,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
   pin<BoardPin, void>(
     'note.pin',
     RecordShape<BoardPin>(
-      {'ids': Part(ListShape(Plain(ChoiceType('note')), maxItems: 3))},
+      {'ids': Part(ListShape(PlainShape(ChoiceType('note')), maxItems: 3))},
       to: _$BoardPinTo,
       from: _$BoardPinFrom,
       get: _$BoardPinAt,
@@ -65,7 +65,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
   count<BoardCount, void>(
     'note.count',
     RecordShape<BoardCount>(
-      {'readers': Part(Nullable<int>(Plain(IntType())))},
+      {'readers': Part(NullableShape<int>(PlainShape(IntType())))},
       to: _$BoardCountTo,
       from: _$BoardCountFrom,
       get: _$BoardCountAt,
@@ -302,8 +302,8 @@ const boardWords = WordSet(
 
 const _$ActionShape = RecordShape<Action>(
   {
-    'call': Part(Plain(TextType())),
-    'params': Part(MapShape(Plain(AnyType())), defaultValue: {}),
+    'call': Part(PlainShape(TextType())),
+    'params': Part(MapShape(PlainShape(AnyType())), defaultValue: {}),
   },
   to: _$ActionTo,
   from: _$ActionFrom,
@@ -328,9 +328,12 @@ Object? _$ActionAt(Action v, int i) => switch (i) {
 const _$NoteShape = RecordShape<Note>(
   {
     'level': Part(EnumShape(Level.values)),
-    'text': Part(Plain(TextType(maxLength: 200)), description: 'What it says.'),
-    'tags': Part(ListShape(Plain(TextType())), defaultValue: []),
-    'by': Part(Plain(TextType()), optional: true),
+    'text': Part(
+      PlainShape(TextType(maxLength: 200)),
+      description: 'What it says.',
+    ),
+    'tags': Part(ListShape(PlainShape(TextType())), defaultValue: []),
+    'by': Part(PlainShape(TextType()), optional: true),
     'action': Part(_$ActionShape, optional: true),
   },
   to: _$NoteTo,
@@ -375,7 +378,7 @@ Object? _$BoardPutAt(BoardPut p, int i) => switch (i) {
 };
 
 const _$BoardPutValueShape = RecordShape<({String id})>(
-  {'id': Part(Plain(TextType()))},
+  {'id': Part(PlainShape(TextType()))},
   to: _$BoardPutValueTo,
   from: _$BoardPutValueFrom,
   get: _$BoardPutValueAt,

@@ -11,7 +11,7 @@ const someone = Principal('visitor', 'v1');
 typedef Order = ({String id, String status});
 
 final _order = RecordShape<Order>(
-  {'id': Part(Plain(TextType())), 'status': Part(Plain(TextType()))},
+  {'id': Part(PlainShape(TextType())), 'status': Part(PlainShape(TextType()))},
   to: (o) => {'id': o.id, 'status': o.status},
   from: (m) => (id: m['id']! as String, status: m['status']! as String),
 );
@@ -37,7 +37,7 @@ enum OrderCommand<P, R> implements ICommandWord<P, R> {
   @override
   RecordShape<P> get params => _order as RecordShape<P>;
   @override
-  Shape<R>? get returns => const Plain(TextType()) as Shape<R>;
+  Shape<R>? get returns => const PlainShape(TextType()) as Shape<R>;
 }
 
 enum OrderFact<T> implements IFactWord<T> {
@@ -370,7 +370,7 @@ void main() {
     c.defineCommand(
       CommandDescriptor(
         'cart.add',
-        params: ObjectType({'id': Field(TextType())}),
+        params: RecordType({'id': Field(TextType())}),
         callers: Callers.anyone,
       ),
       (_) => flagged++,
@@ -577,7 +577,7 @@ enum _Other<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(BoolType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(BoolType()) as Shape<T>;
   @override
   String? get key => null;
 }
@@ -589,7 +589,7 @@ enum _Spaced<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(BoolType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(BoolType()) as Shape<T>;
   @override
   String? get key => null;
 }

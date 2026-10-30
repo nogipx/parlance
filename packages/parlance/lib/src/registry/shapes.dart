@@ -68,8 +68,8 @@ bool _alone(ValueType<Object?> t) => switch (t) {
   ListType(:final item) => _alone(item),
   MapType(:final value) => _alone(value),
   NullableType(:final of) => _alone(of),
-  ObjectType(:final fields) => fields.values.every((f) => _alone(f.type)),
-  OneOfType(:final variants) => variants.values.every(_alone),
+  RecordType(:final fields) => fields.values.every((f) => _alone(f.type)),
+  UnionType(:final variants) => variants.values.every(_alone),
   _ => true,
 };
 
@@ -79,7 +79,7 @@ bool _alone(ValueType<Object?> t) => switch (t) {
 TypeMismatch _within(String at, TypeMismatch e) =>
     TypeMismatch(e.path.isEmpty ? at : '$at.${e.path}', e.message);
 
-/// The JSON values of a shape that holds JSON ([Plain] of an object or a
+/// The JSON values of a shape that holds JSON ([PlainShape] of an object or a
 /// list, [JsonValue]): frozen, as the registry has always kept JSON.
 Object? _keepJson(Object? v) => v is List || v is Map ? freezeJson(v) : v;
 
@@ -112,9 +112,9 @@ final class JsonValue extends Shape<Object?> {
 }
 
 /// A value kept as it is: a bool, an int, a num, a text or an entity id.
-/// Its Dart type is its type's: `Plain(BoolType())` is a `Shape<bool>`.
-final class Plain<T> extends Shape<T> {
-  const Plain(this.type);
+/// Its Dart type is its type's: `PlainShape(BoolType())` is a `Shape<bool>`.
+final class PlainShape<T> extends Shape<T> {
+  const PlainShape(this.type);
 
   @override
   final ValueType<T> type;
@@ -143,7 +143,7 @@ final class Plain<T> extends Shape<T> {
 
 /// A class that serializes itself, as json_serializable and freezed make
 /// them: kept as the map [toJson] gives, read back by [fromJson]. Give its
-/// [type] (an `ObjectType` of its fields) for the registry to check what
+/// [type] (a `RecordType` of its fields) for the registry to check what
 /// is written and `describe` to tell it; without one any object passes.
 ///
 /// [toJson] must give plain JSON all the way down: with json_serializable,
@@ -383,8 +383,8 @@ final class ListShape<T> extends Shape<List<T>> {
 }
 
 /// [of], or null.
-final class Nullable<T> extends Shape<T?> {
-  const Nullable(this.of);
+final class NullableShape<T> extends Shape<T?> {
+  const NullableShape(this.of);
 
   final Shape<T> of;
 
@@ -564,7 +564,7 @@ final class RecordShape<T> extends Shape<T> {
   }
 
   @override
-  ObjectType get type => ObjectType({
+  RecordType get type => RecordType({
     for (final MapEntry(:key, value: p) in fields.entries)
       key: Field(
         p.shape.type,
@@ -583,7 +583,7 @@ final class RecordShape<T> extends Shape<T> {
     return {
       for (final MapEntry(:key, value: p) in fields.entries)
         // A null a field may be is said: it is a value of its own.
-        if (dart[key] != null || (p.shape is Nullable && !p.optional))
+        if (dart[key] != null || (p.shape is NullableShape && !p.optional))
           key: p.shape.toJson(dart[key]),
     };
   }
@@ -603,9 +603,9 @@ final class RecordShape<T> extends Shape<T> {
   /// Whether field [p] of value [v] is in its JSON: a null is said only of
   /// a field that may be null and is not optional ([toJson]).
   static bool _said(Part p, Object? v) =>
-      v != null || (p.shape is Nullable && !p.optional);
+      v != null || (p.shape is NullableShape && !p.optional);
 
-  /// Checks each field as `ObjectType` checks it, in the same order, and
+  /// Checks each field as `RecordType` checks it, in the same order, and
   /// gives a left-out one its default; a new record only when a field
   /// changed.
   @override
@@ -719,7 +719,7 @@ final class UnionShape<T> extends Shape<T> {
   final T Function(Map<String, Object?> json)? unknown;
 
   @override
-  OneOfType get type => OneOfType(
+  UnionType get type => UnionType(
     key,
     {for (final MapEntry(key: tag, value: v) in variants.entries) tag: v.type},
     descriptions: descriptions,

@@ -10,7 +10,7 @@ enum Outside<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(NumType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(NumType()) as Shape<T>;
   @override
   String? get key => null;
 }
@@ -18,7 +18,7 @@ enum Outside<T> implements IStateWord<T> {
 typedef Power = ({bool on});
 
 final _power = RecordShape<Power>(
-  {'on': Part(Plain(BoolType()))},
+  {'on': Part(PlainShape(BoolType()))},
   to: (p) => {'on': p.on},
   from: (m) => (on: m['on']! as bool),
 );
@@ -52,7 +52,7 @@ enum Target<T> implements IStateWord<T> {
   @override
   final String name;
   @override
-  Shape<T> get shape => const Plain(BoolType()) as Shape<T>;
+  Shape<T> get shape => const PlainShape(BoolType()) as Shape<T>;
   @override
   String? get key => null;
 }
