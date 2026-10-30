@@ -1,18 +1,23 @@
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
+
+part 'settle_test.g.dart';
 
 /// What a guest waits for, with no delay of its own: `attach` until the
 /// host has its owners' words, `settle` until its copy and its listeners
 /// are as the host is.
-final class _Lamp extends Owner {
-  @override
-  void define(IRawParticipant p) {
-    keep(
-      p.defineState(StateDescriptor('lamp.on', type: const BoolType())),
-    ).set(true);
+@Vocabulary('lamp')
+abstract class Lamp {
+  @StateWord('on')
+  bool get on;
+}
+
+final class _Lamp extends LampOwnerBase {
+  _Lamp() {
+    on.set(true);
   }
 }
 

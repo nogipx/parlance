@@ -1,42 +1,30 @@
 import 'package:parlance/tools.dart';
+import 'package:parlance/schema.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
+
+part 'hear_test.g.dart';
 
 /// What an owner does on hearing another's fact follows from that fact,
 /// as a handler's follows from its call (SPEC §4): no cause passed. And a
 /// fact said for another follows from what is being answered too.
-enum _Fact<T> implements IFactWord<T> {
-  rang<String>('door.rang', PlainShape(TextType()));
-
-  const _Fact(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
+@Vocabulary('door')
+abstract class Door {
+  @FactWord('rang')
+  void rang({required String who});
 }
 
-enum _State<T> implements IStateWord<T> {
-  last<String>('book.last', PlainShape(TextType()));
-
-  const _State(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => null;
+@Vocabulary('book')
+abstract class Book {
+  @StateWord('last')
+  String get last;
 }
 
-final class _Book extends Owner {
-  _Book() : super(vocabulary: 'book');
+final class _Door extends DoorOwnerBase {}
 
-  late final IStateWriterOf<String> _last;
-
-  @override
-  void define(IRawParticipant p) {
-    _last = keep(GeneratedWords(p).state(_State.last).define());
-    hear(fact: GeneratedWords(p).factOf(_Fact.rang), onData: _last.set);
+final class _Book extends BookOwnerBase {
+  _Book() {
+    hear(fact: IDoorClient.of(this).rang, onData: (r) => last.set(r.who));
   }
 }
 
@@ -44,20 +32,16 @@ void main() {
   test('what it does on hearing a fact follows from the fact', () async {
     final r = Registry();
     addTearDown(r.dispose);
-    final door = r.participant(
+    final door = _Door();
+    r.participant(
       const Principal('door'),
-      vocabularies: [WordSet.open('door')],
+      owners: [door],
       rights: ParticipantRights(speakFor: (_) => null),
     );
-    final rang = GeneratedWords(door).fact(_Fact.rang).define();
-    r.participant(
-      const Principal('book'),
-      vocabularies: [WordSet.open('book')],
-      owners: [_Book()],
-    );
+    r.participant(const Principal('book'), owners: [_Book()]);
     await pumpEventQueue();
 
-    rang.say('ann', by: const Principal('guest', 'ann'));
+    door.rang.say(who: 'ann', by: const Principal('guest', 'ann'));
     await pumpEventQueue();
     final said = r.recent('door.rang', 1).single;
     expect(said.cause.by, const Principal('guest', 'ann'));

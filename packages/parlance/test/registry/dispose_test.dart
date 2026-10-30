@@ -1,38 +1,26 @@
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/client.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
+
+part 'dispose_test.g.dart';
 
 /// A registry disposed ends what holds it, the last made first: its
-/// participants, their owners and parts, and the sessions it serves.
-/// Nothing is closed by hand before it.
-final class _Lamp extends Owner {
-  late final IStateWriterOf<bool> on;
-  var gone = false;
-
-  @override
-  void define(IRawParticipant p) {
-    on = keep(GeneratedWords(p).state(_On.on).define());
-  }
-
-  @override
-  void dispose() {
-    gone = true;
-    super.dispose();
-  }
+/// participants, their owners, and the sessions it serves. Nothing is
+/// closed by hand before it.
+@Vocabulary('lamp')
+abstract class Lamp {
+  @StateWord('on')
+  bool get on;
 }
 
-enum _On<T> implements IStateWord<T> {
-  on<bool>('lamp.on', PlainShape(BoolType()));
+final class _Lamp extends LampOwnerBase {
+  _Lamp() {
+    onDispose(() => gone = true);
+  }
 
-  const _On(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => null;
+  var gone = false;
 }
 
 void main() {
@@ -41,11 +29,7 @@ void main() {
     () async {
       final r = Registry();
       final lamp = _Lamp();
-      final p = r.participant(
-        const Principal('lamp'),
-        owners: [lamp],
-        vocabularies: [WordSet.open('lamp')],
-      );
+      final p = r.participant(const Principal('lamp'), owners: [lamp]);
       final (g, h) = RpcChannelTransport.memoryPair();
       final host = RpcPeerEndpoint(transport: h);
       r.participant(const Principal('widlet', 'a')).serve(host);

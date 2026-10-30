@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/contract.dart';
 import 'package:parlance/src/remote/client.dart' show ParlanceClient;
@@ -7,8 +8,10 @@ import 'package:parlance/src/remote/mirror.dart' show RegistryMirror;
 import 'package:parlance/testing.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
+
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+
+part 'session_test.g.dart';
 
 const plugin = Principal('plugin', 'p');
 const visitor = Principal('visitor', 'v');
@@ -24,14 +27,16 @@ RemoteSession _session(Registry r, {Principal who = plugin}) {
       .serve(RpcPeerEndpoint(transport: t));
 }
 
-final class Ticking extends Owner {
+/// A vocabulary of no words: an owner of rules alone has one too.
+@Vocabulary('plug')
+abstract class Plug {}
+
+final class Ticking extends PlugOwnerBase {
+  Ticking() {
+    follow(pull: () {}, on: changed.stream);
+  }
+
   final changed = StreamController<void>.broadcast();
-
-  @override
-  Stream<void> get changes => changed.stream;
-
-  @override
-  void define(IRawParticipant p) {}
 }
 
 void main() {

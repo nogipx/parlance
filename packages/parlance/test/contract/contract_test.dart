@@ -39,7 +39,11 @@ Map<String, Object?> _toJson(({int to}) p) => {'to': p.to};
 
 final class _Deck implements IOwner {
   _Deck() {
-    IOwner.made(this, define: _define);
+    IOwner.made(
+      this,
+      define: _define,
+      vocabulary: const WordSet('deck', [_State.level, _Command.set]),
+    );
   }
 
   late final IStateWriterOf<int> level;
@@ -62,11 +66,7 @@ void main() {
   setUp(() async {
     r = Host();
     deck = _Deck();
-    r.participant(
-      const Principal('deck'),
-      vocabularies: [WordSet.open('deck')],
-      owners: [deck],
-    );
+    r.participant(const Principal('deck'), owners: [deck]);
     user = r.participant(const Principal('user', 'ann'));
   });
   tearDown(() => r.dispose());

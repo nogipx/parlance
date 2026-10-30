@@ -352,14 +352,6 @@ final class _Emitter {
         _unmarked(m);
       }
     }
-    if (names.isEmpty) {
-      throw InvalidGenerationSourceError(
-        '$_c says no word: mark its members @StateWord, @CommandWord, '
-        '@QueryWord or @FactWord',
-        element: cls,
-      );
-    }
-
     final out = StringBuffer();
     if (states.isNotEmpty) out.write(_statesEnum(states));
     if (commands.isNotEmpty) {
@@ -899,8 +891,14 @@ final class _Emitter {
     }
     out
       ..writeln()
-      ..writeln('  void _\$define(IParticipant participant) {')
-      ..writeln('    final p = GeneratedWords(participant);');
+      ..writeln('  void _\$define(IParticipant participant) {');
+    // A vocabulary of no words (an owner of rules alone) defines none.
+    if (states.isNotEmpty ||
+        facts.isNotEmpty ||
+        commands.isNotEmpty ||
+        queries.isNotEmpty) {
+      out.writeln('    final p = GeneratedWords(participant);');
+    }
     for (final st in states) {
       final define = 'p.state(${_c}State.${st.member}).define(${opts(st)})';
       out.writeln(

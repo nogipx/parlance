@@ -1,6 +1,7 @@
 targets:
   $default:
     builders:
-      # The house example's words come from its vocabularies.
+      # The house example's words come from its vocabularies, and so do
+      # the owners of the package's tests.
       parlance_generator|parlance:
-        generate_for: ["example/house/**"]
+        generate_for: ["example/house/**", "test/**"]

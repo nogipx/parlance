@@ -105,15 +105,14 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **`Single<T>`**: a state with no key as a generated owner base keeps it: `heat.set(21)`, `heat.value`, `heat.remove()`.
 - **`Keyed<T>`**: a keyed state as a generated owner base keeps it: `light.set('kitchen', true)`, `light.remove(key)`, `light.of(key)`, `light.all`.
-- **Owner**: who defines words and does their work. `define(r)` defines them through typed words and `keep`s each handle; `sync()` writes the states as its devices or ports have them now; `dispose()` withdraws them, the last kept first.
-- **Attaching owners**: `host.participant(who, owners: [owner])` (a guest: `part.attach([owner])`), each owning its vocabulary and speaking as the part named by it (one of no words as the participant); the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
+- **Owner**: who defines words and does their work: a class extending the base its vocabulary's generator made (`class Home extends HouseOwnerBase`), its handlers overridden, its states and facts objects of the base (`heat.set(21)`, `rang.say(who:)`); what it follows, hears and lets go of it says in its constructor through `OwnerTools`. Every owner has a vocabulary, one of no words for an owner of rules alone; its words go with it.
+- **Attaching owners**: `host.participant(who, owners: [owner])` (a guest: `part.attach([owner])`), each owning its vocabulary and speaking as the owner named by it; the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
 - **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.
 - **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`standInState`, `standInKeyed`, `standInCommand`, `standInFact`) and what happened read back (`written`, `said`, `callsOf`).
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
 - **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first word of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **Handles**: the set of handles an owner keeps, withdrawn together.
-- **`keep`**: a hand-written `Owner`'s: keeps a handle and gives it back with its own type. An owner of a generated base keeps nothing: its words go with it.
 - **`choices`** (was `trackKind`): an owner tells which of a kind there are now, for agents and editors to choose from and `@ChoiceOf` to hold to; listed again on its own, and what went goes of its keyed states, whose keyed values the owner removes.
 - **`listen`**: a subscription that lives while the owner is attached, for what its work reports by itself.
 - **`failCall(why)`**: ends a call `failed` with the owner's reason; refusals with a code come only from the registry's stages.

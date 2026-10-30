@@ -2,15 +2,15 @@ import 'package:parlance/app.dart';
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
 
+import 'fixtures/fan.dart';
 import 'fixtures/player.dart';
 import 'generated_test.dart' show Deck;
 
 /// An owner that uses another's words through their client, made in its
 /// constructor (`IPlayerClient.of(this)`): it hears and reads them once
 /// it is attached, here and on a guest, with no participant in hand.
-final class Fan implements IOwner {
+final class Fan extends FansOwnerBase {
   Fan() {
-    IOwner.made(this, define: (_) {});
     // What it reads of another's it watches: across a connection a state
     // is kept only while watched.
     listen(on: player.volume.changes, onData: (v) => volume = v);
@@ -42,7 +42,10 @@ void main() {
       final fan = Fan();
       const listener = Principal('listener', 'ann');
       if (across) {
-        await (await host.join(listener)).attach([fan]);
+        await (await host.join(
+          listener,
+          vocabularies: [fansWords],
+        )).attach([fan]);
       } else {
         host.participant(listener, owners: [fan]);
       }

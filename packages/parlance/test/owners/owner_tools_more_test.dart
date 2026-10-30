@@ -2,40 +2,49 @@ import 'dart:async';
 
 import 'package:clock/clock.dart';
 import 'package:parlance/app.dart';
+import 'package:parlance/schema.dart';
 import 'package:test/test.dart';
 import 'package:parlance/tools.dart' show OwnerParticipant, StateWordOf;
 import 'package:parlance/testing.dart';
+
+part 'owner_tools_more_test.g.dart';
 
 /// What an owner says with the tools beside its words (SPEC §19): a guard
 /// of its own command by its params, the time by the registry's clock,
 /// a word named at run time, and a command's status that follows what it
 /// heard, with no one telling the registry so.
-const _to = RecordShape<({int to})>(
-  {'to': Part(PlainShape(IntType()))},
-  to: _toJson,
-  from: _fromJson,
-);
-Map<String, Object?> _toJson(({int to}) p) => {'to': p.to};
-({int to}) _fromJson(Map<String, Object?> m) => (to: m['to']! as int);
-
-enum _Command<P, R> implements ICommandWord<P, R> {
-  set<({int to}), void>('dial.set', _to, null);
-
-  const _Command(this.name, this.params, this.returns);
-  @override
-  final String name;
-  @override
-  final RecordShape<P> params;
-  @override
-  final Shape<R>? returns;
+@Vocabulary('dial')
+abstract class Dial {
+  @CommandWord('set', callers: Callers.anyone, whyNot: true)
+  void set({required int to});
 }
 
-final class _Dial implements IOwner {
+/// No words: a rule of the whole participant.
+@Vocabulary('rules')
+abstract class Rules {}
+
+@Vocabulary('bell')
+abstract class Bell {
+  @FactWord('rang')
+  void rang({required String who});
+}
+
+/// Lamps of bulbs: which are lit, by bulb; a bulb dropped goes of them by
+/// itself, as a choice and as a key.
+@Vocabulary('lamps')
+abstract class Lamps {
+  @StateWord('lit', keyOf: 'bulb')
+  bool get lit;
+
+  @CommandWord('drop', callers: Callers.anyone)
+  void drop({@ChoiceOf('bulb') required String bulb});
+}
+
+final class _Dial extends DialOwnerBase {
   _Dial(Stream<bool> power) {
-    IOwner.made(this, define: _define);
     guard(
       id: 'gentle',
-      word: _Command.set,
+      word: DialCommand.set,
       check: (call) => call.params.to > 10 && call.by.kind != 'admin'
           ? 'too far for ${call.by}'
           : null,
@@ -53,21 +62,16 @@ final class _Dial implements IOwner {
   var on = true;
   int? at;
 
-  void _define(IParticipant p) {
-    GeneratedWords(p)
-        .command(_Command.set)
-        .serve(
-          (x) => at = x.to,
-          callers: Callers.anyone,
-          whyNot: () => on ? null : 'it is off',
-        );
-  }
+  @override
+  void set({required int to}) => at = to;
+
+  @override
+  String? whyNotSet() => on ? null : 'it is off';
 }
 
-/// An owner of no words: a rule of the whole participant.
-final class _NoAgents implements IOwner {
+/// An owner of rules alone: no words of its own.
+final class _NoAgents extends RulesOwnerBase {
   _NoAgents() {
-    IOwner.made(this, define: (_) {});
     guardAll(
       id: 'no-agents',
       check: (call) =>
@@ -76,78 +80,21 @@ final class _NoAgents implements IOwner {
   }
 }
 
-enum _Fact<T> implements IFactWord<T> {
-  rang<String>('bell.rang', PlainShape(TextType()));
-
-  const _Fact(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-}
-
-final class _Bell implements IOwner {
-  _Bell() {
-    IOwner.made(
-      this,
-      define: (p) => _rang = GeneratedWords(p).fact(_Fact.rang).define(),
-    );
-  }
-
-  late IFactSayerOf<String> _rang;
-
+final class _Bell extends BellOwnerBase {
   /// A ring from outside, which may come twice.
-  bool ring(String id, String who) => once(id: id, say: () => _rang.say(who));
+  bool ring(String id, String who) => once(
+    id: id,
+    say: () => rang.say(who: who),
+  );
 }
 
-enum _Lit<T> implements IStateWord<T> {
-  of<bool>('lamps.lit', PlainShape(BoolType()));
-
-  const _Lit(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => 'bulb';
-}
-
-const _bulb = RecordShape<({String bulb})>(
-  {'bulb': Part(PlainShape(ChoiceType('bulb')))},
-  to: _bulbJson,
-  from: _fromBulb,
-);
-Map<String, Object?> _bulbJson(({String bulb}) p) => {'bulb': p.bulb};
-({String bulb}) _fromBulb(Map<String, Object?> m) =>
-    (bulb: m['bulb']! as String);
-
-enum _Drop<P, R> implements ICommandWord<P, R> {
-  of<({String bulb}), void>('lamps.drop', _bulb, null);
-
-  const _Drop(this.name, this.params, this.returns);
-  @override
-  final String name;
-  @override
-  final RecordShape<P> params;
-  @override
-  final Shape<R>? returns;
-}
-
-/// Lamps of bulbs: which are lit, by bulb; a bulb dropped goes of them by
-/// itself, as a choice and as a key.
-final class _Lamps implements IOwner {
-  _Lamps({this.listed = true}) {
-    IOwner.made(
-      this,
-      define: (p) {
-        Keyed.attach(lit, GeneratedWords(p).state(_Lit.of).define());
-        GeneratedWords(p)
-            .command(_Drop.of)
-            .serve((x) => bulbs.remove(x.bulb), callers: Callers.anyone);
-      },
-    );
+final class _Lamps extends LampsOwnerBase {
+  _Lamps({bool listed = true}) {
     if (listed) {
-      choices(name: 'bulb', list: () => [for (final b in bulbs) Choice(b)]);
+      choices(
+        name: LampsChoices.bulb,
+        list: () => [for (final b in bulbs) Choice(b)],
+      );
     }
     follow(
       pull: () {
@@ -158,9 +105,10 @@ final class _Lamps implements IOwner {
     );
   }
 
-  final bool listed;
   final List<String> bulbs = ['a', 'b'];
-  final Keyed<bool> lit = Keyed<bool>();
+
+  @override
+  void drop({required String bulb}) => bulbs.remove(bulb);
 }
 
 void main() {
@@ -169,35 +117,31 @@ void main() {
     final r = Host();
     addTearDown(r.dispose);
     final lamps = _Lamps();
-    r.participant(
-      const Principal('lamps'),
-      vocabularies: [WordSet.open('lamps')],
-      owners: [lamps],
-    );
+    r.participant(const Principal('lamps'), owners: [lamps]);
     final ann = r.participant(const Principal('user', 'ann'));
-    expect(GeneratedWords(ann).keyedOf(_Lit.of).keys, {'a', 'b'});
+    expect(GeneratedWords(ann).keyedOf(LampsState.lit).keys, {'a', 'b'});
 
     expect(
-      await GeneratedWords(ann).command(_Drop.of).call((bulb: 'b')),
+      await GeneratedWords(ann).command(LampsCommand.drop).call((bulb: 'b')),
       isA<CallDone<void>>(),
     );
     await ann.settle();
-    expect(GeneratedWords(ann).keyedOf(_Lit.of).keys, {'a'});
+    expect(GeneratedWords(ann).keyedOf(LampsState.lit).keys, {'a'});
     expect(lamps.lit.keys, ['a']);
-    final gone = await GeneratedWords(ann).command(_Drop.of).call((bulb: 'b'));
+    final gone = await GeneratedWords(
+      ann,
+    ).command(LampsCommand.drop).call((bulb: 'b'));
     expect(gone.why, contains('no bulb b'));
   });
 
   test('a ref to choices no one gives says so', () async {
     final r = Host();
     addTearDown(r.dispose);
-    r.participant(
-      const Principal('lamps'),
-      vocabularies: [WordSet.open('lamps')],
-      owners: [_Lamps(listed: false)],
-    );
+    r.participant(const Principal('lamps'), owners: [_Lamps(listed: false)]);
     final ann = r.participant(const Principal('user', 'ann'));
-    final r1 = await GeneratedWords(ann).command(_Drop.of).call((bulb: 'a'));
+    final r1 = await GeneratedWords(
+      ann,
+    ).command(LampsCommand.drop).call((bulb: 'a'));
     expect(r1.why, contains("choices(name: 'bulb', list: ...)"));
   });
 
@@ -206,16 +150,12 @@ void main() {
     final r = Host();
     addTearDown(r.dispose);
     final bell = _Bell();
-    r.participant(
-      const Principal('bell'),
-      vocabularies: [WordSet.open('bell')],
-      owners: [bell],
-    );
+    r.participant(const Principal('bell'), owners: [bell]);
     final heard = <String>[];
     final ann = r.participant(const Principal('user', 'ann'));
     GeneratedWords(
       ann,
-    ).factOf(_Fact.rang).facts.listen((f) => heard.add(f.payload));
+    ).factOf(BellFact.rang).facts.listen((f) => heard.add(f.payload.who));
     expect(bell.ring('e1', 'bob'), isTrue);
     expect(bell.ring('e1', 'bob'), isFalse);
     expect(bell.ring('e2', 'cat'), isTrue);
@@ -227,23 +167,21 @@ void main() {
     final r = Host();
     addTearDown(r.dispose);
     final power = Stream<bool>.empty();
-    r.participant(
-      const Principal('dial'),
-      vocabularies: [WordSet.open('dial')],
-      owners: [_Dial(power)],
-    );
+    r.participant(const Principal('dial'), owners: [_Dial(power)]);
     final ann = r.participant(const Principal('user', 'ann'));
     final admin = r.participant(const Principal('admin'));
 
     expect(
-      await GeneratedWords(ann).command(_Command.set).call((to: 3)),
+      await GeneratedWords(ann).command(DialCommand.set).call((to: 3)),
       isA<CallDone<void>>(),
     );
-    final far = await GeneratedWords(ann).command(_Command.set).call((to: 30));
+    final far = await GeneratedWords(
+      ann,
+    ).command(DialCommand.set).call((to: 30));
     expect(far, isA<CallRefused>());
     expect(far.why, contains('too far for user/ann'));
     expect(
-      await GeneratedWords(admin).command(_Command.set).call((to: 30)),
+      await GeneratedWords(admin).command(DialCommand.set).call((to: 30)),
       isA<CallDone<void>>(),
     );
   });
@@ -257,26 +195,22 @@ void main() {
       if (across) {
         final dial = await host.join(
           const Principal('dial'),
-          vocabularies: [WordSet.open('dial')],
+          vocabularies: [dialWords, rulesWords],
         );
         await dial.attach(owners);
       } else {
-        host.participant(
-          const Principal('dial'),
-          owners: owners,
-          vocabularies: [WordSet.open('dial')],
-        );
+        host.participant(const Principal('dial'), owners: owners);
       }
       await host.settle();
       final agent = host.participant(const Principal('agent', 'a'));
       final ann = host.participant(const Principal('user', 'ann'));
       final refused = await GeneratedWords(
         agent,
-      ).command(_Command.set).call((to: 3));
+      ).command(DialCommand.set).call((to: 3));
       expect(refused, isA<CallRefused>(), reason: 'across: $across');
       expect(refused.why, contains('no agent calls dial.set'));
       expect(
-        await GeneratedWords(ann).command(_Command.set).call((to: 3)),
+        await GeneratedWords(ann).command(DialCommand.set).call((to: 3)),
         isA<CallDone<void>>(),
       );
     }
@@ -286,24 +220,20 @@ void main() {
     final r = Host();
     addTearDown(r.dispose);
     final power = StreamController<bool>();
-    r.participant(
-      const Principal('dial'),
-      vocabularies: [WordSet.open('dial')],
-      owners: [_Dial(power.stream)],
-    );
+    r.participant(const Principal('dial'), owners: [_Dial(power.stream)]);
     final ann = r.participant(const Principal('user', 'ann'));
     final seen = <WordStatus>[];
     final sub = GeneratedWords(
       ann,
-    ).statusChanges(_Command.set).listen(seen.add);
+    ).statusChanges(DialCommand.set).listen(seen.add);
     await ann.settle();
 
     power.add(false);
     await ann.settle();
-    expect(GeneratedWords(ann).status(_Command.set), isA<WordUnavailable>());
+    expect(GeneratedWords(ann).status(DialCommand.set), isA<WordUnavailable>());
     power.add(true);
     await ann.settle();
-    expect(GeneratedWords(ann).status(_Command.set), isA<WordReady>());
+    expect(GeneratedWords(ann).status(DialCommand.set), isA<WordReady>());
     await sub.cancel();
     expect(seen.whereType<WordUnavailable>(), hasLength(1));
   });
@@ -314,7 +244,6 @@ void main() {
     final p = r.participant(
       const Principal('dial'),
       owners: [_Dial(const Stream.empty())],
-      vocabularies: [WordSet.open('dial')],
     );
     expect(
       GeneratedWords(
@@ -330,11 +259,7 @@ void main() {
     addTearDown(r.dispose);
     final dial = _Dial(const Stream.empty());
     expect(dial.now, isNot(then));
-    r.participant(
-      const Principal('dial'),
-      vocabularies: [WordSet.open('dial')],
-      owners: [dial],
-    );
+    r.participant(const Principal('dial'), owners: [dial]);
     expect(dial.now, then);
   });
 }

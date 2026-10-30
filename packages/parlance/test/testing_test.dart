@@ -1,81 +1,49 @@
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
 
-enum Outside<T> implements IStateWord<T> {
-  temperature<num>('weather.outside');
+part 'testing_test.g.dart';
 
-  const Outside(this.name);
-  @override
-  final String name;
-  @override
-  Shape<T> get shape => const PlainShape(NumType()) as Shape<T>;
-  @override
-  String? get key => null;
+@Vocabulary('weather')
+abstract class Weather {
+  @StateWord('outside')
+  num get outside;
 }
 
-typedef Power = ({bool on});
-
-final _power = RecordShape<Power>(
-  {'on': Part(PlainShape(BoolType()))},
-  to: (p) => {'on': p.on},
-  from: (m) => (on: m['on']! as bool),
-);
-
-enum Heater<P, R> implements ICommandWord<P, R> {
-  power<Power, void>('heater.power.set');
-
-  const Heater(this.name);
-  @override
-  final String name;
-  @override
-  RecordShape<P> get params => _power as RecordShape<P>;
-  @override
-  Shape<R>? get returns => null;
+@Vocabulary('heater')
+abstract class Heater {
+  @CommandWord('set_power')
+  void setPower({required bool on});
 }
 
-enum Adjusted<T> implements IFactWord<T> {
-  adjusted<Power>('thermostat.adjusted');
+@Vocabulary('thermostat')
+abstract class Thermostat {
+  @StateWord('heating')
+  bool get heating;
 
-  const Adjusted(this.name);
-  @override
-  final String name;
-  @override
-  Shape<T> get shape => _power as Shape<T>;
+  @FactWord('adjusted')
+  void adjusted({required bool on});
 }
 
-enum Target<T> implements IStateWord<T> {
-  heating<bool>('thermostat.heating');
-
-  const Target(this.name);
-  @override
-  final String name;
-  @override
-  Shape<T> get shape => const PlainShape(BoolType()) as Shape<T>;
-  @override
-  String? get key => null;
+@Vocabulary('lamp')
+abstract class Lamp {
+  @StateWord('on', keyOf: 'room')
+  bool get on;
 }
 
 /// The module under test: it heats when it is cold outside, through the
 /// heater's command, and says so.
-final class Thermostat extends Owner {
-  Thermostat() : super(vocabulary: 'thermostat');
-
-  late final IStateWriterOf<bool> _heating;
-  late final IFactSayerOf<Power> _adjusted;
-
-  @override
-  void define(IRawParticipant p) {
-    _heating = keep(GeneratedWords(p).state(Target.heating).define());
-    _adjusted = keep(GeneratedWords(p).fact(Adjusted.adjusted).define());
+final class _Thermostat extends ThermostatOwnerBase {
+  _Thermostat() {
+    final heater = IHeaterClient.of(this);
     listen(
-      on: GeneratedWords(p).stateOf(Outside.temperature).changes,
+      on: IWeatherClient.of(this).outside.changes,
       onData: (t) async {
         final on = (t ?? 20) < 15;
-        await GeneratedWords(p).command(Heater.power).call((on: on));
-        _heating.set(on);
-        _adjusted.say((on: on));
+        await heater.setPower(on: on);
+        heating.set(on);
+        adjusted.say(on: on);
       },
     );
   }
@@ -90,21 +58,17 @@ void main() {
 
   test('stand-ins answer for the modules a test leaves out; what the module '
       'did is read back', () async {
-    final outside = host.standInState(Outside.temperature, 10);
-    final heater = host.standInCommand(Heater.power);
-    host.participant(
-      me,
-      vocabularies: [WordSet.open('thermostat')],
-      owners: [Thermostat()],
-    );
+    final outside = host.standInState(WeatherState.outside, 10);
+    final heater = host.standInCommand(HeaterCommand.setPower);
+    host.participant(me, owners: [_Thermostat()]);
     await host.settle();
     outside.set(25);
     await host.settle();
 
     expect(heater.params, [(on: true), (on: false)]);
-    expect(host.written(Target.heating), [true, false]);
-    expect(host.said(Adjusted.adjusted), [(on: true), (on: false)]);
-    expect(host.callsOf(Heater.power).map((c) => c.cause.by), [
+    expect(host.written(ThermostatState.heating), [true, false]);
+    expect(host.said(ThermostatFact.adjusted), [(on: true), (on: false)]);
+    expect(host.callsOf(HeaterCommand.setPower).map((c) => c.cause.by), [
       me.ofOwner('thermostat'),
       me.ofOwner('thermostat'),
     ]);
@@ -112,48 +76,45 @@ void main() {
   });
 
   test('the same module across a connection, as a plugin or a phone', () async {
-    host.standInState(Outside.temperature, 10);
-    final heater = host.standInCommand(Heater.power);
+    host.standInState(WeatherState.outside, 10);
+    final heater = host.standInCommand(HeaterCommand.setPower);
     final p = await host.join(me, vocabularies: [WordSet.open('thermostat')]);
-    p.attach([Thermostat()]);
+    p.attach([_Thermostat()]);
     await host.settle();
     expect(heater.params, [(on: true)]);
-    expect(host.written(Target.heating), [true]);
+    expect(host.written(ThermostatState.heating), [true]);
     expect(
-      host.registry.usesOf('heater.power.set').single.by,
+      host.registry.usesOf('heater.set_power').single.by,
       me.ofOwner('thermostat'),
     );
   });
 
   test('a stand-in takes only the vocabulary of its word', () async {
     host.participant(me, vocabularies: [WordSet.open('garden')]);
-    final outside = host.standInState(Outside.temperature, 10);
+    final outside = host.standInState(WeatherState.outside, 10);
     outside.set(12);
     await host.settle();
-    expect(host.written(Outside.temperature), [10, 12]);
+    expect(host.written(WeatherState.outside), [10, 12]);
   });
 
   test('a stand-in command answers what it is told', () async {
     host.standInCommand(
-      Heater.power,
+      HeaterCommand.setPower,
       answer: (p) => throw StateError('broken'),
     );
-    final r = await GeneratedWords(
-      host.participant(me).raw,
-    ).command(Heater.power).call((on: true));
-    expect(r, isA<CallFailed>());
+    await expectLater(
+      IHeaterClient(host.participant(me)).setPower(on: true),
+      throwsA(
+        isA<CallNotDone>().having((e) => e.result, 'result', isA<CallFailed>()),
+      ),
+    );
   });
 
   test('a stand-in state is kept as an owner keeps its own', () async {
     final host = TestHost();
-    const lamp = StateWordOf<bool>(
-      'lamp.on',
-      PlainShape(BoolType()),
-      key: 'room',
-    );
     final reader = host.participant(const Principal('module', 'reader'));
-    final outside = host.standInState(Outside.temperature, 10);
-    final lamps = host.standInKeyed(lamp, {'hall': true});
+    final outside = host.standInState(WeatherState.outside, 10);
+    final lamps = host.standInKeyed(LampState.on, {'hall': true});
     await host.settle();
     expect(reader.raw.read('weather.outside'), 10);
     expect(reader.raw.read('lamp.on', key: 'hall'), isTrue);
@@ -162,10 +123,10 @@ void main() {
       ..set('kitchen', false)
       ..remove('hall');
     await host.settle();
-    expect(host.written(Outside.temperature), [10, 12]);
+    expect(host.written(WeatherState.outside), [10, 12]);
     expect(reader.raw.readAll('lamp.on'), {'kitchen': false});
     expect(
-      () => host.standInKeyed(Outside.temperature, {}),
+      () => host.standInKeyed(WeatherState.outside, {}),
       throwsArgumentError,
     );
     await host.dispose();

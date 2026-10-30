@@ -43,7 +43,7 @@ final class Handles implements IHandle {
 /// An owner of words (SPEC §6, §19, §23.4): what `main` gives a
 /// participant it makes (`host.participant(who, owners: [Home(...)])`),
 /// to speak as the participant's principal of it, named by its
-/// vocabulary (`home@house`; one of no words, as the participant itself); who that is, and what it may,
+/// vocabulary (`home@house`); who that is, and what it may,
 /// `main` says, never the owner.
 ///
 /// It has no members: what an owner does with the library it does by
@@ -56,13 +56,13 @@ abstract interface class IOwner {
   /// participant it is given, and they go when the owner goes; [write],
   /// when given, writes what it set before it was attached, first of each
   /// sync. [vocabulary] is the vocabulary its words are in: it speaks as
-  /// the owner of that name (`home@house`); without, it defines none and
-  /// speaks as the participant.
+  /// the owner of that name (`home@house`), one of no words (rules alone)
+  /// too.
   static void made(
     IOwner owner, {
     required void Function(IParticipant p) define,
     void Function()? write,
-    WordSet? vocabulary,
+    required WordSet vocabulary,
   }) {
     final c = _Core.of(owner);
     c.define = define;
@@ -91,9 +91,9 @@ final class _Core {
 
   final Type type;
 
-  /// The vocabulary its words are in, when its base said it: held to the
-  /// participant's before anything is defined, and the owner name it
-  /// speaks as.
+  /// The vocabulary its words are in, as its base said it ([IOwner.made]):
+  /// held to the participant's before anything is defined, and the owner
+  /// name it speaks as; null for an owner that never said it.
   WordSet? words;
   final Handles handles = Handles();
   IParticipant? participant;
@@ -150,8 +150,7 @@ final class _Core {
   /// in, saying what to give and where: a vocabulary is a right, given
   /// where the participant is made, never taken by attaching an owner.
   void _mayOwn(IParticipant p) {
-    final w = words;
-    if (w == null) return;
+    final w = words!;
     final raw = p.raw;
     final given = raw.vocabularyNames;
     if (given.contains(w.name)) return;
@@ -218,9 +217,8 @@ final class _Core {
     group = null;
     if (participant case final p?) {
       _ofParticipant[p]?.remove(this);
-      // What it defined as its owner name goes with it; one of no words
-      // speaks as the participant, which is not its to end.
-      if (words != null) p.dispose();
+      // What it defined as its owner name goes with it.
+      p.dispose();
     }
   }
 }
@@ -391,45 +389,6 @@ extension OwnerTools on IOwner {
   }
 }
 
-/// An owner written by hand, for the package's own tests: it defines its
-/// words in [define] and writes what it has now in [sync]. Not exported:
-/// an app's owner extends the base its words' generator made.
-abstract base class Owner implements IOwner, IHandle {
-  /// Of [vocabulary], it speaks as the owner of its name; without, as the
-  /// participant.
-  Owner({String? vocabulary}) {
-    final c = _Core.of(this);
-    IOwner.made(
-      this,
-      define: (p) {
-        define(p.raw);
-        if (changes case final s?) c.syncOn(s);
-      },
-      vocabulary: vocabulary == null ? null : WordSet.open(vocabulary),
-    );
-    c.follows.add(sync);
-  }
-
-  /// Told whenever what its states say may have changed: it is then
-  /// synced, once for all told in one turn.
-  Stream<void>? get changes => null;
-
-  /// Defines its words through [p]; keep what each returns with `keep`.
-  void define(IRawParticipant p) {}
-
-  /// Writes its states as they are now. `IParticipant.sync` calls every
-  /// owner's in one batch, so a change is seen whole.
-  void sync() {}
-
-  /// Keeps [h] to withdraw when the owner goes, and gives it back.
-  H keep<H extends IHandle>(H h) => _Core.of(this).handles.keep(h);
-
-  /// Withdraws its words, and leaves the participant it was attached to:
-  /// its `sync` is not asked again. An owner that overrides it calls it.
-  @override
-  void dispose() => _Core.of(this).dispose();
-}
-
 /// A call a guard judges ([OwnerTools.guard], [OwnerTools.guardAll]):
 /// what it asks, on whose behalf, of which command. What a guard is told
 /// may grow; a guard written now keeps working.
@@ -500,7 +459,7 @@ List<(String, Object?)> saidApart(IOwner o) =>
     List.unmodifiable(_Core.of(o).said);
 
 /// The vocabulary [o]'s words are in, as its base said it; null for an
-/// owner of no words.
+/// owner that never said it.
 WordSet? wordsOf(IOwner o) => _Core.of(o).words;
 
 /// A handler of [p]'s answered: its owner lists its choices and asks
@@ -527,39 +486,37 @@ final class OwnerGroup {
   Iterable<IOwner> get owners => _cores.keys;
 
   /// Attaches each of [owners] to the participant for its vocabulary
-  /// (`participant.ofOwner('house')`), so its acts are told as its own; one
-  /// of no words to the participant itself. In order; then writes what
+  /// (`participant.ofOwner('house')`), so its acts are told as its own. In
+  /// order; then writes what
   /// they have now, as one tick. All or none: when one cannot define its
   /// words, those attached here are withdrawn and the error goes on.
   void attach(Iterable<IOwner> owners) {
     if (_disposed) throw StateError('${participant.who} is gone');
     final list = [...owners];
     final cores = [for (final o in list) _Core.of(o)];
-    final named = {
-      for (final c in _cores.values)
-        if (c.words case final w?) w.name: c.type,
-    };
+    final named = {for (final c in _cores.values) c.words!.name: c.type};
     for (final c in cores) {
       if (c.participant != null) throw StateError('${c.type} is attached');
-      if (c.words case final w?) {
-        if (named[w.name] case final other?) {
-          throw StateError(
-            '${participant.who} has an owner of ${w.name} already ($other): '
-            'one vocabulary, one owner',
-          );
-        }
-        named[w.name] = c.type;
+      final w =
+          c.words ??
+          (throw StateError(
+            '${c.type} never said IOwner.made: an owner extends the base its '
+            "words' generator made",
+          ));
+      if (named[w.name] case final other?) {
+        throw StateError(
+          '${participant.who} has an owner of ${w.name} already ($other): '
+          'one vocabulary, one owner',
+        );
       }
+      named[w.name] = c.type;
     }
     final attached = <IOwner>[];
     try {
       for (final (i, o) in list.indexed) {
         final c = cores[i];
         attached.add(o);
-        c.attach(switch (c.words) {
-          final w? => participant.raw.ofOwner(w.name),
-          null => participant,
-        }, this);
+        c.attach(participant.raw.ofOwner(c.words!.name), this);
         _cores[o] = c;
       }
     } catch (_) {
@@ -593,10 +550,8 @@ final class OwnerGroup {
     if (error case final e?) Error.throwWithStackTrace(e, stack!);
   }
 
-  /// Withdraws [o]: by its own `dispose`, an [Owner] written by hand
-  /// that may let go of more.
-  static void _end(IOwner o) =>
-      o is Owner ? o.dispose() : _Core.of(o).dispose();
+  /// Withdraws [o].
+  static void _end(IOwner o) => _Core.of(o).dispose();
 
   /// [c] was disposed on its own: it is synced no more.
   void _left(_Core c) {

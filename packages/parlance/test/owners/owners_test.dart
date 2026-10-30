@@ -1,108 +1,76 @@
 import 'dart:async';
 
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance/app.dart' show ServeAcross;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+
+part 'owners_test.g.dart';
 
 const me = Principal('host');
 
-enum Level<T> implements IStateWord<T> {
-  of<num>('test.level', PlainShape(NumType()));
-
-  const Level(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => 'dial';
+/// Dials and their levels: one keyed state, the choices of its keys.
+@Vocabulary('test')
+abstract class Test {
+  @StateWord('level', keyOf: 'dial')
+  num get level;
 }
 
-/// Dials and their levels: one keyed state, a kind it keeps.
-final class Dials extends Owner {
-  Dials() : super(vocabulary: 'test');
+/// A flag.
+@Vocabulary('flag')
+abstract class Flag {
+  @StateWord('on')
+  bool get on;
+}
 
-  final Map<String, num> dials = {'a': 1, 'b': 2};
-  late final IStateWriterOf<num> _level;
-  final Set<String> _written = {};
-  var synced = 0;
+/// No words: an owner that only listens has a vocabulary too.
+@Vocabulary('knob')
+abstract class KnobWords {}
 
-  @override
-  void define(IRawParticipant p) {
-    choices(name: 'dial', list: () => [for (final d in dials.keys) Choice(d)]);
-    _level = keep(GeneratedWords(p).state(Level.of).define());
+/// Dials and their levels, synced again when [moved] says their model
+/// moved.
+final class Dials extends TestOwnerBase {
+  Dials({Stream<void>? moved}) {
+    choices(
+      name: TestChoices.dial,
+      list: () => [for (final d in dials.keys) Choice(d)],
+    );
+    follow(pull: _pull, on: moved);
   }
 
-  @override
-  void sync() {
+  final Map<String, num> dials = {'a': 1, 'b': 2};
+  var synced = 0;
+
+  void _pull() {
     synced++;
-    for (final gone in _written.difference(dials.keys.toSet())) {
-      _level.remove(key: gone);
-    }
-    _written
-      ..clear()
-      ..addAll(dials.keys);
     for (final MapEntry(:key, :value) in dials.entries) {
-      _level.set(value, key: key);
+      level.set(key, value);
     }
   }
 }
 
 /// What turns come from on their own: a stream it listens to.
-final class Knob extends Owner {
-  Knob(this.turns);
-  final Stream<num> turns;
-  final List<num> heard = [];
-
-  @override
-  void define(IRawParticipant p) => listen(on: turns, onData: heard.add);
-}
-
-final class Other extends Owner {
-  @override
-  void define(IRawParticipant p) {
-    keep(GeneratedWords(p).state(_Flag.on).define());
+final class Knob extends KnobWordsOwnerBase {
+  Knob(Stream<num> turns) {
+    listen(on: turns, onData: heard.add);
   }
+
+  final List<num> heard = [];
 }
 
-/// Dials that say when their model changed.
-final class Watched extends Dials {
+/// The flag, defined and never set.
+final class Other extends FlagOwnerBase {}
+
+/// The flag, written from its model whenever [moved] says it moved.
+final class Flagged extends FlagOwnerBase {
+  Flagged() {
+    follow(pull: () => on.set(lit), on: moved.stream);
+  }
+
+  bool lit = false;
   final StreamController<void> moved = StreamController.broadcast();
-
-  @override
-  Stream<void> get changes => moved.stream;
-}
-
-/// One more, of another part, writing the flag from its model.
-final class Flagged extends Owner {
-  bool on = false;
-  final StreamController<void> moved = StreamController.broadcast();
-  late final IStateWriterOf<bool> _on;
-
-  @override
-  Stream<void> get changes => moved.stream;
-
-  @override
-  void define(IRawParticipant p) =>
-      _on = keep(GeneratedWords(p).state(_Flag.on).define());
-
-  @override
-  void sync() => _on.set(on);
-}
-
-enum _Flag<T> implements IStateWord<T> {
-  on<bool>('test.on', PlainShape(BoolType()));
-
-  const _Flag(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => null;
 }
 
 void main() {
@@ -111,103 +79,84 @@ void main() {
   tearDown(() => r.dispose());
 
   /// The module's participant of [owners], as `main` makes it.
-  IParticipant module([
-    List<IOwner> owners = const [],
-    Set<String> names = const {'test'},
-  ]) => r.participant(
-    me,
-    owners: owners,
-    vocabularies: [for (final n in names) WordSet.open(n)],
-  );
+  IParticipant module([List<IOwner> owners = const []]) =>
+      r.participant(me, owners: owners);
 
   test('owners define, sync as one tick, and withdraw their words', () async {
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
-    final dials = Dials();
-    final owners = module([dials, Other()]);
+    final owners = module([Dials(), Other()]);
     await pumpEventQueue();
     expect(ticks, hasLength(1));
-    expect(r.readAll(Level.of.name), {'a': 1, 'b': 2});
+    expect(r.readAll('test.level'), {'a': 1, 'b': 2});
     owners.dispose();
     expect(r.stateDescriptor('test.level'), isNull);
-    expect(r.stateDescriptor('test.on'), isNull);
+    expect(r.stateDescriptor('flag.on'), isNull);
     expect(r.hasChoices('dial'), isFalse);
   });
 
-  test('a tracked kind announces a change and names what went', () async {
-    final dials = Dials();
-    module([dials]);
-    final changes = <CatalogChange>[];
-    r.catalogChanges.listen(changes.add);
-    dials.dials.remove('a');
-    dials.dials['c'] = 3;
-    r.batch(dials.sync);
-    await pumpEventQueue();
-    expect(changes.whereType<ChoicesChanged>().map((c) => c.name), ['dial']);
-    expect(r.readAll(Level.of.name), {'b': 2, 'c': 3});
-    changes.clear();
-    r.batch(dials.sync);
-    await pumpEventQueue();
-    expect(changes, isEmpty, reason: 'nothing changed');
-  });
+  test(
+    'choices announce a change, and what went goes of the keyed state',
+    () async {
+      final dials = Dials();
+      final p = module([dials]);
+      final changes = <CatalogChange>[];
+      r.catalogChanges.listen(changes.add);
+      dials.dials.remove('a');
+      dials.dials['c'] = 3;
+      p.sync();
+      await pumpEventQueue();
+      expect(changes.whereType<ChoicesChanged>().map((c) => c.name), ['dial']);
+      expect(r.readAll('test.level'), {'b': 2, 'c': 3});
+      changes.clear();
+      p.sync();
+      await pumpEventQueue();
+      expect(changes, isEmpty, reason: 'nothing changed');
+    },
+  );
 
   test('an owner attaches once; handles withdrawn take no more', () {
     final o = Other();
     module([o]);
     expect(
-      () => r.participant(
-        const Principal('elsewhere'),
-        owners: [o],
-        vocabularies: [WordSet.open('elsewhere')],
-      ),
+      () => r.participant(const Principal('elsewhere'), owners: [o]),
       throwsStateError,
     );
     final h = Handles()..dispose();
     expect(
       () => h.keep(
         r.defineState(
-          StateDescriptor(_Flag.on.name, type: _Flag.on.shape.type),
+          StateDescriptor('flag.on', type: const BoolType()),
           by: me,
-          shape: _Flag.on.shape,
         ),
       ),
       throwsStateError,
     );
-    expect(r.stateDescriptor('test.on'), isNotNull, reason: 'o still has it');
+    expect(r.stateDescriptor('flag.on'), isNotNull, reason: 'o still has it');
   });
-
-  test(
-    'an owner defines only in the vocabularies main gave its participant',
-    () {
-      expect(() => module([Other()], {'dials'}), throwsA(isA<NotPermitted>()));
-      expect(r.stateDescriptor('test.on'), isNull);
-    },
-  );
 
   test('the participant main made says who reads the owners\' words', () {
     r.participant(
       me,
-      vocabularies: [WordSet.open('test')],
       access: WordAccess(readers: Callers.only(['host'])),
       owners: [Dials()],
     );
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
   });
 
-  test('going, a participant takes its owners with it, and its vocabulary '
-      'is free again', () {
+  test('going, a participant takes its owners with it, and their '
+      'vocabularies are free again', () {
     final p = module([Other()]);
     p.dispose();
-    expect(r.stateDescriptor('test.on'), isNull);
+    expect(r.stateDescriptor('flag.on'), isNull);
     module([Other()]);
-    expect(r.stateDescriptor('test.on'), isNotNull, reason: 'test is free');
+    expect(r.stateDescriptor('flag.on'), isNotNull, reason: 'flag is free');
   });
 
-  test('an owner speaks as the owner named by its vocabulary; one of no '
-      'words as the participant', () async {
+  test('an owner speaks as the owner named by its vocabulary', () async {
     module([Dials(), Other()]);
     expect(r.lastChange('test.level', key: 'a')!.cause.by, me.ofOwner('test'));
-    expect(r.lastChange('test.on'), isNull);
+    expect(r.lastChange('flag.on'), isNull);
     expect(me.ofOwner('test').selector, 'host@test');
   });
 
@@ -253,52 +202,47 @@ void main() {
 
   test('an owner that says when its model moved is synced on its own: '
       'what one turn told, once and as one tick for the group', () async {
-    final dials = Watched();
+    final moved = StreamController<void>.broadcast();
+    final dials = Dials(moved: moved.stream);
     final flag = Flagged();
     module([dials, flag]);
     expect(dials.synced, 1);
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
     dials.dials['a'] = 5;
-    dials.moved
+    moved
       ..add(null)
       ..add(null);
-    flag.on = true;
+    flag.lit = true;
     flag.moved.add(null);
     await pumpEventQueue();
     expect(dials.synced, 2, reason: 'once for the turn');
     expect(ticks, hasLength(1), reason: 'one tick for both');
-    expect(r.readAs(Level.of.name, Level.of.shape, key: 'a'), 5);
-    expect(r.readAs(_Flag.on.name, _Flag.on.shape), isTrue);
+    expect(r.read('test.level', key: 'a'), 5);
+    expect(r.read('flag.on'), isTrue);
   });
 
   test('a scope is a participant: going, it leaves nothing of itself, its '
-      'words, values and kinds, and others see them missing', () async {
+      'words, values and choices, and others see them missing', () async {
     final outsider = r.participant(const Principal('outsider'));
     final statuses = <WordStatus>[];
     outsider.statusChanges('test.level').listen(statuses.add);
     final dials = Dials();
-    final p = module([dials]);
-    final part = p.raw.ofOwner('dials');
-    GeneratedWords(part).state(_Flag.on).define().set(true);
+    final flag = Flagged()..lit = true;
+    final p = module([dials, flag]);
     await pumpEventQueue();
     p.dispose();
     await pumpEventQueue();
     expect(r.stateDescriptor('test.level'), isNull);
-    expect(r.stateDescriptor('test.on'), isNull, reason: 'the part went');
-    expect(r.readAll(Level.of.name), isEmpty);
+    expect(r.stateDescriptor('flag.on'), isNull);
+    expect(r.readAll('test.level'), isEmpty);
     expect(r.hasChoices('dial'), isFalse);
     expect(statuses.last, const WordMissing());
     // What it writes after it went (code still running then) is not
     // written, and throws nothing.
-    dials.dials['a'] = 9;
-    dials.sync();
-    expect(r.readAll(Level.of.name), isEmpty, reason: 'withdrawn');
+    dials.level.set('a', 9);
+    expect(r.readAll('test.level'), isEmpty, reason: 'withdrawn');
     module([Dials()]);
-    expect(
-      r.readAs(Level.of.name, Level.of.shape, key: 'a'),
-      1,
-      reason: 'the next session',
-    );
+    expect(r.read('test.level', key: 'a'), 1, reason: 'the next session');
   });
 }

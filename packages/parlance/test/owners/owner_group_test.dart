@@ -1,30 +1,61 @@
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show IOwner, Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+
+part 'owner_group_test.g.dart';
 
 const me = Principal('host');
 
-/// Writes [value] to its state on every sync, or throws when [fails].
-final class Level extends Owner {
-  Level(this.name, {this.fails = false, this.defineFails = false});
+@Vocabulary('a')
+abstract class A {
+  @StateWord('level')
+  int get level;
+}
 
-  final String name;
-  bool fails;
-  final bool defineFails;
+@Vocabulary('b')
+abstract class B {
+  @StateWord('level')
+  int get level;
+}
+
+@Vocabulary('c')
+abstract class C {
+  @StateWord('level')
+  int get level;
+}
+
+/// Writes [value] to its level whenever it is synced, or throws when
+/// [fails]; [defineFails] fails it as it is attached.
+mixin _Level {
+  bool fails = false;
   int value = 0;
-  late final IStateHandle _state;
 
-  @override
-  void define(IRawParticipant p) {
-    _state = keep(p.defineState(StateDescriptor(name, type: const IntType())));
-    if (defineFails) throw StateError('cannot define');
-  }
+  Single<int> get level;
 
-  @override
-  void sync() {
-    _state.set(value);
+  void pull() {
+    level.set(value);
     if (fails) throw StateError('cannot sync');
+  }
+}
+
+final class LevelA extends AOwnerBase with _Level {
+  LevelA({bool defineFails = false}) {
+    follow(pull: pull);
+    if (defineFails) whenAttached((_) => throw StateError('cannot define'));
+  }
+}
+
+final class LevelB extends BOwnerBase with _Level {
+  LevelB({bool defineFails = false}) {
+    follow(pull: pull);
+    if (defineFails) whenAttached((_) => throw StateError('cannot define'));
+  }
+}
+
+final class LevelC extends COwnerBase with _Level {
+  LevelC() {
+    follow(pull: pull);
   }
 }
 
@@ -33,65 +64,45 @@ void main() {
   setUp(() => r = Registry());
   tearDown(() => r.dispose());
 
-  /// The participant of [owners], in the vocabulary mix.
-  LocalParticipant mix(List<IOwner> owners) => r.participant(
-    me,
-    owners: owners,
-    vocabularies: [const WordSet.open('mix')],
-  );
+  /// The participant of [owners].
+  LocalParticipant mix(List<IOwner> owners) =>
+      r.participant(me, owners: owners);
 
   test('an owner whose sync throws writes nothing; the others write what '
       'they have', () {
-    final good = Level('mix.a');
-    final bad = Level('mix.b');
+    final good = LevelA();
+    final bad = LevelB();
     final p = mix([good, bad]);
     good.value = 1;
     bad
       ..value = 1
       ..fails = true;
     expect(p.sync, throwsStateError);
-    expect(r.read('mix.a'), 1);
-    expect(r.read('mix.b'), 0);
-  });
-
-  test('an owner disposed on its own is synced no more', () {
-    final gone = Level('mix.a');
-    final kept = Level('mix.b');
-    final p = mix([gone, kept]);
-    gone.dispose();
-    kept.value = 2;
-    p.sync();
-    expect(r.read('mix.b'), 2);
-    expect(r.stateDescriptor('mix.a'), isNull);
+    expect(r.read('a.level'), 1);
+    expect(r.read('b.level'), 0);
   });
 
   test('owners are attached all or none, and the participant goes with '
       'them', () {
-    expect(
-      () => mix([Level('mix.a'), Level('mix.b', defineFails: true)]),
-      throwsStateError,
-    );
-    expect(r.stateDescriptor('mix.a'), isNull);
-    expect(r.stateDescriptor('mix.b'), isNull);
-    mix([Level('mix.a')]);
-    expect(r.read('mix.a'), 0, reason: 'its principal and mix are free');
+    expect(() => mix([LevelA(), LevelB(defineFails: true)]), throwsStateError);
+    expect(r.stateDescriptor('a.level'), isNull);
+    expect(r.stateDescriptor('b.level'), isNull);
+    mix([LevelA()]);
+    expect(r.read('a.level'), 0, reason: 'its principal and a are free');
   });
 
   test(
     'an owner attached elsewhere is refused before anything is attached',
     () {
-      final twice = Level('mix.a');
+      final twice = LevelA();
       mix([twice]);
       expect(
-        () => r.participant(
-          const Principal('other'),
-          owners: [Level('other.b'), twice],
-          vocabularies: [const WordSet.open('other')],
-        ),
+        () =>
+            r.participant(const Principal('other'), owners: [LevelC(), twice]),
         throwsStateError,
       );
-      expect(r.stateDescriptor('other.b'), isNull);
-      expect(r.stateDescriptor('mix.a'), isNotNull);
+      expect(r.stateDescriptor('c.level'), isNull);
+      expect(r.stateDescriptor('a.level'), isNotNull);
     },
   );
 }

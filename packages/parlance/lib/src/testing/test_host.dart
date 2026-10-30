@@ -57,6 +57,7 @@ final class TestHost {
   late final StreamSubscription<Tick> _ticks;
   late final StreamSubscription<CallRecord> _calls;
   final Map<String, LocalParticipant> _standIns = {};
+  final List<IParticipant> _modules = [];
   final List<IRemoteSession> _sessions = [];
   final List<RpcPeerEndpoint> _hosts = [];
   final List<IRemoteParticipant> _remotes = [];
@@ -70,13 +71,17 @@ final class TestHost {
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
-  }) => host.participant(
-    who,
-    owners: owners,
-    vocabularies: vocabularies,
-    rights: rights,
-    access: access,
-  );
+  }) {
+    final p = host.participant(
+      who,
+      owners: owners,
+      vocabularies: vocabularies,
+      rights: rights,
+      access: access,
+    );
+    _modules.add(p);
+    return p;
+  }
 
   /// The module under test across a connection, in memory: the host
   /// serves it a participant made as [participant] makes one, and it
@@ -224,7 +229,9 @@ final class TestHost {
   }
 
   /// Ends it all: the participants across a connection, their sessions,
-  /// the stand-ins and the registry.
+  /// the modules' participants, the last made first, then the stand-ins,
+  /// so a module never sees what it reads go before it does, and the
+  /// registry.
   Future<void> dispose() async {
     for (final p in _remotes) {
       await (p as RemoteParticipant).close();
@@ -237,6 +244,9 @@ final class TestHost {
     }
     for (final h in _hosts) {
       await h.close();
+    }
+    for (final p in _modules.reversed) {
+      p.dispose();
     }
     for (final p in _standIns.values) {
       p.dispose();

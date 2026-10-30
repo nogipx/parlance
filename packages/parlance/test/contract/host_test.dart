@@ -31,6 +31,7 @@ final class _Echo implements IOwner {
             (_) => 'pong to ${by!.kind}',
             callers: const Callers({'user': Access.allow}),
           ),
+      vocabulary: const WordSet('echo', [_Command.ping]),
     );
   }
 }

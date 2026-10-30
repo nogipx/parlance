@@ -1,23 +1,20 @@
 import 'dart:async';
 
 import 'package:parlance/app.dart';
+import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart' show OwnerParticipant;
 import 'package:test/test.dart';
+
+part 'owner_tools_test.g.dart';
 
 /// An owner has no members of the library's (SPEC §23.4): what it does
 /// with it, it does by `OwnerTools`, so a name of its own stays its own.
 /// And it overrides nothing: what it follows, hears, keeps and lets go of
 /// it says in its constructor.
-enum _State<T> implements IStateWord<T> {
-  level<int>('lamp.level', PlainShape(IntType()));
-
-  const _State(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => null;
+@Vocabulary('lamp')
+abstract class Lamp {
+  @StateWord('level')
+  int get level;
 }
 
 /// What a lamp's device says, changed by hand too.
@@ -31,16 +28,12 @@ final class _Device {
   }
 }
 
-final class _Lamp implements IOwner {
+final class _Lamp extends LampOwnerBase {
   _Lamp(this.device) {
-    IOwner.made(
-      this,
-      define: (p) => _level = GeneratedWords(p).state(_State.level).define(),
-    );
     follow(
       pull: () {
         pulls++;
-        _level.set(device.level);
+        level.set(device.level);
       },
       on: device.changed,
     );
@@ -51,7 +44,6 @@ final class _Lamp implements IOwner {
   }
 
   final _Device device;
-  late IStateWriterOf<int> _level;
   final List<String> bulbs = ['a'];
   final StreamController<int> heard = StreamController();
   final List<String> order = [];
@@ -75,11 +67,7 @@ void main() {
   tearDown(() => r.dispose());
 
   /// The lamp's participant, the lamp attached.
-  void attach() => p = r.participant(
-    const Principal('lamp'),
-    owners: [lamp],
-    vocabularies: [WordSet.open('lamp')],
-  );
+  void attach() => p = r.participant(const Principal('lamp'), owners: [lamp]);
 
   test('nothing runs before it is attached; what waits runs once it is, '
       'after its words', () async {
@@ -95,7 +83,7 @@ void main() {
     expect(lamp.order, ['attached']);
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
-    expect(GeneratedWords(p).stateOf(_State.level).value, 3);
+    expect(GeneratedWords(p).stateOf(LampState.level).value, 3);
     expect(r.registry.hasChoices('bulb'), isTrue);
   });
 
@@ -110,7 +98,7 @@ void main() {
       ..turn(6);
     await p.settle();
     expect(lamp.pulls, 3);
-    expect(GeneratedWords(p).stateOf(_State.level).value, 6);
+    expect(GeneratedWords(p).stateOf(LampState.level).value, 6);
   });
 
   test('a follow said once attached runs at once', () async {

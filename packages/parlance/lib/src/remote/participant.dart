@@ -52,8 +52,7 @@ part 'participant_owner.dart';
 abstract interface class IRemoteParticipant implements IParticipant {
   /// Attaches [owners] (SPEC §22.3), each speaking as the owner named by
   /// its vocabulary (`module/notes@notes`), so causes, records and `explain`
-  /// tell which owner did what; one of no words (a rule of the whole, a
-  /// guard) speaks as the participant. Each owns words only in what the
+  /// tell which owner did what. Each owns words only in what the
   /// host granted where it serves it; two owners of one vocabulary are
   /// refused. They go with it. Completes when the host answered, what it
   /// refused told to [errors] by then.
