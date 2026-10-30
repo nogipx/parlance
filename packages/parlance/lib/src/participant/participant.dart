@@ -367,6 +367,15 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
       _w.later(() => _w.state(_word).watch(key: key));
 
   @override
+  Stream<Map<String, T>> get changes => _w.later(
+    () => Stream.multi((c) {
+      c.add(all);
+      final sub = _w._resolve().changes({_word.name}).listen((_) => c.add(all));
+      c.onCancel = sub.cancel;
+    }),
+  );
+
+  @override
   String toString() => '${_word.name} = $all';
 }
 

@@ -417,6 +417,9 @@ abstract interface class IKeyedOf<T> {
 
   /// [of] [key], then whenever it changes.
   Stream<T?> changesOf(String key);
+
+  /// [all], then whenever any key changes, comes or goes.
+  Stream<Map<String, T>> get changes;
 }
 
 /// A fact as a part that hears it (SPEC §23.5): what is said from now on,

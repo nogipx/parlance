@@ -52,6 +52,13 @@ final class KeyedStub<T> implements IKeyedOf<T> {
     c.onCancel = sub.cancel;
   });
 
+  @override
+  Stream<Map<String, T>> get changes => Stream.multi((c) {
+    c.add(all);
+    final sub = _changed.stream.listen((_) => c.add(all));
+    c.onCancel = sub.cancel;
+  });
+
   /// Sets the value of [key]; null removes it. Who listens is told.
   void set(String key, T? value) {
     value == null ? _values.remove(key) : _values[key] = value;

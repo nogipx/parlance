@@ -369,10 +369,24 @@ void main() {
   });
 
   group('the client', () {
+    late Deck deck;
     late PlayerClient asAnn;
     setUp(() {
-      attach(Deck());
+      attach(deck = Deck());
       asAnn = PlayerClient(r.participant(ann));
+    });
+
+    test('watches a keyed state whole: every key, as any comes, changes '
+        'or goes', () async {
+      final seen = <Map<String, num>>[];
+      final sub = asAnn.speakerLevel.changes.listen(seen.add);
+      await pumpEventQueue();
+      deck.speakerLevel.set('left', 0.5);
+      await pumpEventQueue();
+      deck.speakerLevel.remove('left');
+      await pumpEventQueue();
+      await sub.cancel();
+      expect(seen, [{}, {'left': 0.5}, {}]);
     });
 
     test(
