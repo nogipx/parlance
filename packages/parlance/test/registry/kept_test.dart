@@ -73,7 +73,7 @@ void main() {
     owner.command(DeckCommand.play).define((c) {
       sent.add(c.params);
       playing.set(c.params);
-      started.emit(c.params);
+      started.say(c.params);
       return c.params;
     }, callers: Callers.anyone);
   });

@@ -289,8 +289,8 @@ void main() {
         await b.settle();
         await pumpEventQueue();
         say
-          ..emit('c')
-          ..emit('a');
+          ..say('c')
+          ..say('a');
         await pumpEventQueue();
         if (b is RemoteParticipant) await b.settle();
         await pumpEventQueue();
@@ -363,10 +363,10 @@ void main() {
       host.participant(guest).raw.builtAgainst([builtSaid]);
       final say = owner().fact(nowSaid).define();
       await pumpEventQueue();
-      say.emit('a');
+      say.say('a');
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks.single.certain, isFalse);
-      say.emit('c');
+      say.say('c');
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks.single.certain, isTrue);
     });

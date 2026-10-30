@@ -57,7 +57,7 @@ void main() {
     );
     await pumpEventQueue();
 
-    rang.emitFor('ann', const Principal('guest', 'ann'));
+    rang.say('ann', by: const Principal('guest', 'ann'));
     await pumpEventQueue();
     final said = r.recent('door.rang', 1).single;
     expect(said.cause.by, const Principal('guest', 'ann'));

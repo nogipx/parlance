@@ -289,11 +289,9 @@ abstract interface class IStateWriterOf<T> implements IHandle {
 /// What a base the generator made says a fact through (SPEC §23.4): the
 /// generator's contract, as [IStateWriterOf] is.
 abstract interface class IFactEmitterOf<T> implements IHandle {
-  /// Says [payload]; false when the registry dropped it as said before.
-  bool emit(T payload);
-
-  /// Says [payload] on behalf of [by], as far as the rights let it.
-  bool emitFor(T payload, Principal by);
+  /// Says [payload], on behalf of [by] when given, as far as the rights
+  /// let it; false when the registry dropped it as said before.
+  bool say(T payload, {Principal? by});
 }
 
 final class StateWriterOf<T> implements IStateWriterOf<T> {
@@ -686,9 +684,19 @@ final class FactEmitterOf<T> implements IFactEmitterOf<T> {
   final IFactHandle raw;
   final Shape<T> _shape;
 
-  /// As [RawFactEmitter.emit]; under the id of a `once` it runs in, when
-  /// none is given.
+  /// Says [payload], on behalf of [by] when given, as far as the
+  /// participant's rights let it speak for another: following from the
+  /// call or the fact being answered where it is said, if one is.
   @override
+  bool say(T payload, {Principal? by, String? id}) => emit(
+    payload,
+    id: id,
+    cause: by == null ? null : inReplyAs(by) ?? Cause(by),
+  );
+
+  /// As [RawFactEmitter.emit], with a cause of the caller's own: the
+  /// library's and its tools'. Under the id of a `once` it runs in, when
+  /// none is given.
   bool emit(T payload, {String? id, Cause? cause}) {
     final said = raw.emit(
       raw.shape == null ? _shape.toJson(payload) : payload,
@@ -698,13 +706,6 @@ final class FactEmitterOf<T> implements IFactEmitterOf<T> {
     if (!said) droppedOnce();
     return said;
   }
-
-  /// Says it on behalf of [by], as far as the participant's rights let it
-  /// speak for another: following from the call or the fact being
-  /// answered where it is said, if one is.
-  @override
-  bool emitFor(T payload, Principal by, {String? id}) =>
-      emit(payload, id: id, cause: inReplyAs(by) ?? Cause(by));
 
   @override
   void dispose() => raw.dispose();

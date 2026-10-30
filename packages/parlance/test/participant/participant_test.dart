@@ -66,7 +66,7 @@ void main() {
     final placed = p.fact(OrderFact.placed).define();
     p.command(OrderCommand.place).define((c) {
       last.set(c.params);
-      placed.emit(c.params);
+      placed.say(c.params);
       return c.params.id;
     }, callers: Callers.only(['module/cart']));
     return p;

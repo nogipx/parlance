@@ -82,10 +82,8 @@ abstract class NotesOwnerBase implements IOwner {
   void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       IOwner.said(this, fact, payload);
-    } else if (by == null) {
-      e.emit(payload);
     } else {
-      e.emitFor(payload, by);
+      e.say(payload, by: by);
     }
   }
 

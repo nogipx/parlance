@@ -151,7 +151,7 @@ void main() {
     expect((long as CallRefused).code, Refusal.invalidParams);
 
     final finished = p.raw.fact(PlayerFact.finished).define();
-    finished.emit(const Track(title: 'C'));
+    finished.say(const Track(title: 'C'));
     expect((await asAnn.raw.recent('player.finished', 9)).single.payload, {
       'title': 'C',
       'length': null,

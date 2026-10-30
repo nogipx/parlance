@@ -86,7 +86,7 @@ final class Lamps extends Owner {
       p.command(LampCommand.turn).define((c) {
         lit = c.params.on;
         _on.set(lit);
-        _purred.emit(c.params);
+        _purred.say(c.params);
       }, callers: Callers.only(['user'])),
     );
   }
@@ -94,7 +94,7 @@ final class Lamps extends Owner {
   @override
   void sync() => _on.set(lit);
 
-  void purr() => _purred.emit((on: lit));
+  void purr() => _purred.say((on: lit));
 }
 
 void main() {

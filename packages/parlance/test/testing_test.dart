@@ -75,7 +75,7 @@ final class Thermostat extends Owner {
         final on = (t ?? 20) < 15;
         await p.command(Heater.power).call((on: on));
         _heating.set(on);
-        _adjusted.emit((on: on));
+        _adjusted.say((on: on));
       },
     );
   }

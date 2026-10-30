@@ -892,10 +892,8 @@ final class _Emitter {
         )
         ..writeln('    if (e == null) {')
         ..writeln('      IOwner.said(this, fact, payload);')
-        ..writeln('    } else if (by == null) {')
-        ..writeln('      e.emit(payload);')
         ..writeln('    } else {')
-        ..writeln('      e.emitFor(payload, by);')
+        ..writeln('      e.say(payload, by: by);')
         ..writeln('    }')
         ..writeln('  }');
     }
