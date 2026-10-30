@@ -218,7 +218,7 @@ final class ChoiceType extends ValueType<String> {
       ValueType._fail(
         path,
         'no one gives the choices of $of: its owner says them, '
-        "choices('$of', ...)",
+        "choices(name: '$of', list: ...)",
       );
     }
     if (!ctx.hasEntity(of, value)) ValueType._fail(path, 'no $of $value');

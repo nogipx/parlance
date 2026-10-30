@@ -9,7 +9,7 @@ const anyone = Callers({'*': Access.allow});
 
 final class Pinboard extends BoardOwnerBase {
   Pinboard() {
-    choices('note', () => [for (final id in up.keys) Choice(id)]);
+    choices(name: 'note', list: () => [for (final id in up.keys) Choice(id)]);
   }
 
   final Map<String, Note> up = {};

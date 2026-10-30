@@ -37,14 +37,17 @@ final class _Lamp implements IOwner {
       this,
       define: (p) => _level = GeneratedWords.of(p).state(_State.level).define(),
     );
-    follow(() {
-      pulls++;
-      _level.set(device.level);
-    }, on: device.changed);
-    listen(heard.stream, (_) => listened++);
+    follow(
+      pull: () {
+        pulls++;
+        _level.set(device.level);
+      },
+      on: device.changed,
+    );
+    listen(stream: heard.stream, onData: (_) => listened++);
     whenAttached((_) => order.add('attached'));
     onDispose(() => order.add('gone'));
-    choices('bulb', () => [for (final b in bulbs) Choice(b)]);
+    choices(name: 'bulb', list: () => [for (final b in bulbs) Choice(b)]);
   }
 
   final _Device device;
@@ -110,7 +113,7 @@ void main() {
   test('a follow said once attached runs at once', () async {
     await p.attach({'it': lamp});
     var late_ = 0;
-    lamp.follow(() => late_++);
+    lamp.follow(pull: () => late_++);
     expect(late_, 1);
     p.sync();
     expect(late_, 2);

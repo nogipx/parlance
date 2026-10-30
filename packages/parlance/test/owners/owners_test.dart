@@ -29,7 +29,7 @@ final class Dials extends Owner {
 
   @override
   void define(IRawParticipant p) {
-    choices('dial', () => [for (final d in dials.keys) Choice(d)]);
+    choices(name: 'dial', list: () => [for (final d in dials.keys) Choice(d)]);
     _level = keep(p.state(Level.of).define());
   }
 
@@ -55,7 +55,7 @@ final class Knob extends Owner {
   final List<num> heard = [];
 
   @override
-  void define(IRawParticipant p) => listen(turns, heard.add);
+  void define(IRawParticipant p) => listen(stream: turns, onData: heard.add);
 }
 
 final class Other extends Owner {

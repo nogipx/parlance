@@ -241,7 +241,7 @@ extension OwnerTools on IOwner {
   /// called, and when [on] tells it something changed, once for all told
   /// in one turn; with the participant's other owners, as one tick. What
   /// it sets equal to what is kept changes nothing.
-  void follow(void Function() pull, {Stream<void>? on}) {
+  void follow({required void Function() pull, Stream<void>? on}) {
     final c = _Core.of(this);
     c.follows.add(pull);
     if (on != null) c.syncOn(on);
@@ -251,7 +251,10 @@ extension OwnerTools on IOwner {
   /// Listens to [stream] while it is attached: what its work reports on
   /// its own (a switch flipped by hand, a message come in), for it to
   /// write or say.
-  void listen<T>(Stream<T> stream, void Function(T) onData) {
+  void listen<T>({
+    required Stream<T> stream,
+    required void Function(T) onData,
+  }) {
     final c = _Core.of(this);
     c.whenAttached(
       (_) => c.handles.keep(
@@ -269,9 +272,12 @@ extension OwnerTools on IOwner {
   /// `hear(HouseClient.of(this).rang, ...)`): what [onData] writes, says
   /// and calls follows from the fact it hears, as a handler's follows from
   /// its call.
-  void hear<T>(IFactOf<T> fact, void Function(T payload) onData) => listen(
-    fact.facts,
-    (f) => following(
+  void hear<T>({
+    required IFactOf<T> fact,
+    required void Function(T payload) onData,
+  }) => listen(
+    stream: fact.facts,
+    onData: (f) => following(
       (by) => f.cause.child(f.message.id, by: by, word: f.message.fact),
       f.cause.by,
       () => onData(f.payload),
@@ -292,7 +298,8 @@ extension OwnerTools on IOwner {
   /// the same id, it is dropped, and this answers false (in the host's
   /// process; across a connection the host drops it). For what comes from
   /// outside more than once: a platform's event, a webhook retried.
-  bool once(String id, void Function() say) => serving_.once(id, say);
+  bool once({required String id, required void Function() say}) =>
+      serving_.once(id, say);
 
   /// Runs [writes] as one tick, as a handler's or a sync's are: seen
   /// whole, or not at all when it throws. Not attached, it just runs them.
@@ -302,21 +309,27 @@ extension OwnerTools on IOwner {
   }
 
   /// Guards its command [word] (SPEC §10), named [id] in refusals and
-  /// records: [check] answers why a call of [params] on behalf of [by] may
-  /// not run, or null; asked before the handler, once it is attached.
-  /// Who passes it is [check]'s to say: the rule is the owner's.
-  void guard<P, R>(
-    String id,
-    ICommandWord<P, R> word,
-    String? Function(P params, Principal by) check,
-  ) {
+  /// records: [check] answers why the call may not run, or null; asked
+  /// before the handler, once it is attached. Who passes it is [check]'s to
+  /// say: the rule is the owner's.
+  void guard<P, R>({
+    required String id,
+    required ICommandWord<P, R> word,
+    required String? Function(GuardCall<P> call) check,
+  }) {
     final c = _Core.of(this);
     c.whenAttached(
       (p) => c.handles.keep(
         p.raw.addGuard(
           id,
           (call) => call.command.name == word.name
-              ? check(word.params.fromJson(call.params), call.by)
+              ? check(
+                  GuardCall._(
+                    word.params.fromJson(call.params),
+                    call.by,
+                    word.name,
+                  ),
+                )
               : null,
         ),
       ),
@@ -328,14 +341,17 @@ extension OwnerTools on IOwner {
   /// [command] on behalf of [by] may not run, or null. A rule of the whole
   /// participant, made by one owner: who may call what, beyond a word's
   /// callers. [id] names it in refusals and records.
-  void guardAll(
-    String id,
-    String? Function(String command, Principal by) check,
-  ) {
+  void guardAll({
+    required String id,
+    required String? Function(GuardCall<Map<String, Object?>> call) check,
+  }) {
     final c = _Core.of(this);
     c.whenAttached(
       (p) => c.handles.keep(
-        p.raw.whole.addGuard(id, (call) => check(call.command.name, call.by)),
+        p.raw.whole.addGuard(
+          id,
+          (call) => check(GuardCall._(call.params, call.by, call.command.name)),
+        ),
       ),
     );
   }
@@ -351,7 +367,10 @@ extension OwnerTools on IOwner {
   /// is held to them. They are listed again on their own: when it is
   /// attached, after it followed its model, heard something or answered a
   /// call; what went goes of its keyed states keyed by [name] too.
-  void choices(String name, Iterable<Choice> Function() list) {
+  void choices({
+    required String name,
+    required Iterable<Choice> Function() list,
+  }) {
     final c = _Core.of(this);
     final ch = _Choices(name, list);
     c.choices.add(ch);
@@ -393,6 +412,23 @@ abstract base class Owner implements IOwner, IHandle {
   /// its `sync` is not asked again. An owner that overrides it calls it.
   @override
   void dispose() => _Core.of(this).dispose();
+}
+
+/// A call a guard judges ([OwnerTools.guard], [OwnerTools.guardAll]):
+/// what it asks, on whose behalf, of which command. What a guard is told
+/// may grow; a guard written now keeps working.
+final class GuardCall<P> {
+  GuardCall._(this.params, this.by, this.command);
+
+  /// Its params: typed, for a guard of one command; as JSON, for a guard
+  /// of all.
+  final P params;
+
+  /// On whose behalf it comes.
+  final Principal by;
+
+  /// The command it calls.
+  final String command;
 }
 
 /// One of what an owner gives to choose from ([OwnerTools.choices]): its

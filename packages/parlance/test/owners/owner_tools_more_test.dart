@@ -34,11 +34,13 @@ final class _Dial implements IOwner {
   _Dial(Stream<bool> power) {
     IOwner.made(this, define: _define);
     guard(
-      'gentle',
-      _Command.set,
-      (p, by) => p.to > 10 && by.kind != 'admin' ? 'too far for $by' : null,
+      id: 'gentle',
+      word: _Command.set,
+      check: (call) => call.params.to > 10 && call.by.kind != 'admin'
+          ? 'too far for ${call.by}'
+          : null,
     );
-    listen(power, (on) => this.on = on);
+    listen(stream: power, onData: (on) => this.on = on);
     whenAttached(
       (p) => GeneratedWords.of(p)
           .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
@@ -67,8 +69,9 @@ final class _NoAgents implements IOwner {
   _NoAgents() {
     IOwner.made(this, define: (_) {});
     guardAll(
-      'no-agents',
-      (command, by) => by.kind == 'agent' ? 'no agent calls $command' : null,
+      id: 'no-agents',
+      check: (call) =>
+          call.by.kind == 'agent' ? 'no agent calls ${call.command}' : null,
     );
   }
 }
@@ -94,7 +97,7 @@ final class _Bell implements IOwner {
   late IFactEmitterOf<String> _rang;
 
   /// A ring from outside, which may come twice.
-  bool ring(String id, String who) => once(id, () => _rang.emit(who));
+  bool ring(String id, String who) => once(id: id, say: () => _rang.emit(who));
 }
 
 enum _Lit<T> implements IStateWord<T> {
@@ -146,12 +149,16 @@ final class _Lamps implements IOwner {
             );
       },
     );
-    if (listed) choices('bulb', () => [for (final b in bulbs) Choice(b)]);
-    follow(() {
-      for (final b in bulbs) {
-        lit.set(b, true);
-      }
-    });
+    if (listed) {
+      choices(name: 'bulb', list: () => [for (final b in bulbs) Choice(b)]);
+    }
+    follow(
+      pull: () {
+        for (final b in bulbs) {
+          lit.set(b, true);
+        }
+      },
+    );
   }
 
   final bool listed;
@@ -198,7 +205,7 @@ void main() {
         .attach({'it': _Lamps(listed: false)});
     final ann = r.participant(const Principal('user', 'ann'));
     final r1 = await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'a'));
-    expect(r1.whyNot, contains("choices('bulb', ...)"));
+    expect(r1.whyNot, contains("choices(name: 'bulb', list: ...)"));
   });
 
   test('a fact said once by its id is said once, however often it '

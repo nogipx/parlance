@@ -40,19 +40,22 @@ final class Home extends HouseOwnerBase {
     // The rooms there are, for an agent or an editor to choose from; one
     // that goes, goes of the lights too.
     choices(
-      HouseChoices.room,
-      () => [for (final id in devices.lights.keys) Choice(id)],
+      name: HouseChoices.room,
+      list: () => [for (final id in devices.lights.keys) Choice(id)],
     );
     // What the devices say now: the house's devices are its model, so it
     // follows them, as one tick with its group; when a device changed by
     // hand too, so nobody has to call `sync` on its participant.
-    follow(_pull, on: devices.changed);
+    follow(pull: _pull, on: devices.changed);
     // At night only a resident unlocks the door: not a phone, not an
     // agent. The rule is the house's, and so is who passes it.
     guard(
-      'night-door',
-      HouseCommand.lock,
-      (lock, by) => !lock.on && mode.value == Mode.night && by.kind != 'resident'
+      id: 'night-door',
+      word: HouseCommand.lock,
+      check: (call) =>
+          !call.params.on &&
+              mode.value == Mode.night &&
+              call.by.kind != 'resident'
           ? 'at night only a resident unlocks the door'
           : null,
     );

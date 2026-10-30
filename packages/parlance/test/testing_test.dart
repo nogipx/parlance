@@ -67,12 +67,15 @@ final class Thermostat extends Owner {
   void define(IRawParticipant p) {
     _heating = keep(p.state(Target.heating).define());
     _adjusted = keep(p.fact(Adjusted.adjusted).define());
-    listen(p.state(Outside.temperature).watch(), (t) async {
-      final on = (t ?? 20) < 15;
-      await p.command(Heater.power).call((on: on));
-      _heating.set(on);
-      _adjusted.emit((on: on));
-    });
+    listen(
+      stream: p.state(Outside.temperature).watch(),
+      onData: (t) async {
+        final on = (t ?? 20) < 15;
+        await p.command(Heater.power).call((on: on));
+        _heating.set(on);
+        _adjusted.emit((on: on));
+      },
+    );
   }
 }
 

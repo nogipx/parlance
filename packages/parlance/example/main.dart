@@ -167,7 +167,9 @@ Future<void> main() async {
   await home.setHeat(target: 22);
   print('  the phone sets the heating: done');
   // A call answers once the phone's copy has what it wrote.
-  print('  the phone sees: ${home.heat.value} °C, mode ${home.mode.value?.name}');
+  print(
+    '  the phone sees: ${home.heat.value} °C, mode ${home.mode.value?.name}',
+  );
   await show('the phone sets 40 °C', () => home.setHeat(target: 40));
   await heats.cancel();
   await modes.cancel();
