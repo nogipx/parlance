@@ -40,7 +40,8 @@ export 'src/registry/registry.dart'
     hide Disposer, RawRegistry, paramsAs, answersAs;
 export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';
-export 'src/registry/words.dart' hide factIn;
+export 'src/registry/words.dart'
+    hide factIn, StateWriterOf, FactSayerOf, CommandAnswers, QueryAnswers;
 export 'src/participant/local.dart'
     hide registryOf, takeForServing, builtAgainstSchemas, forgetBuiltAgainst;
 export 'src/participant/owner.dart' hide OwnerGroup, saidApart;

@@ -140,12 +140,6 @@ final class FactWordOf<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
-/// A state's value from its JSON, wherever it was read (a registry, a
-/// mirror).
-extension StateValues<T> on IStateWord<T> {
-  T? decode(Object? json) => decodeKnown(shape, json);
-}
-
 /// A done call's value decoded by [shape] (`failed` when it does not
 /// decode); any other end as it is.
 CallResult<R> _answer<R>(
@@ -175,17 +169,11 @@ extension CommandAnswers<P, R> on ICommandWord<P, R> {
   CallResult<R> answer(CallResult<Object?> raw) => _answer(name, returns, raw);
 
   /// Its handler as the registry serves it: the params as the word has
-  /// them, the answer as the command keeps it (SPEC §18); [servedBy] who
-  /// serves it, for `inReply`.
-  CommandHandler serve(
-    FutureOr<R> Function(CommandCallOf<P> call) handler, {
-    Principal? servedBy,
-  }) => (c) {
+  /// them, the answer as the command keeps it (SPEC §18).
+  CommandHandler serve(FutureOr<R> Function(P params) handler) => (c) {
     final asIs = answersAs(c, returns);
     Object? answer(R value) => asIs ? value : returns?.toJson(value);
-    final out = handler(
-      CommandCallOf(c, paramsAs(c, params), servedBy: servedBy),
-    );
+    final out = handler(paramsAs(c, params));
     return out is Future<R> ? out.then(answer) : answer(out);
   };
 }
@@ -210,10 +198,10 @@ extension QueryAnswers<P, R> on IQueryWord<P, R> {
 
   /// Its handler as the registry serves it: the params as the word has
   /// them, the answer as the query keeps it (SPEC §18).
-  CommandHandler serve(FutureOr<R> Function(QueryAskOf<P> ask) handler) => (c) {
+  CommandHandler serve(FutureOr<R> Function(P params) handler) => (c) {
     final asIs = answersAs(c, returns);
     Object? answer(R value) => asIs ? value : returns.toJson(value);
-    final out = handler(QueryAskOf(c, paramsAs(c, params)));
+    final out = handler(paramsAs(c, params));
     return out is Future<R> ? out.then(answer) : answer(out);
   };
 }
@@ -413,67 +401,6 @@ final class CallNotDone implements Exception {
 
   @override
   String toString() => 'CallNotDone: ${result.why}';
-}
-
-/// A call being served, its params typed.
-final class CommandCallOf<P> {
-  CommandCallOf(this.raw, this.params, {this.servedBy});
-
-  /// The call as the registry has it.
-  final CommandCall raw;
-  final P params;
-
-  /// Who serves it: the participant (or it for an owner) that defined the
-  /// command; null for one defined on the registry itself.
-  final Principal? servedBy;
-
-  String get id => raw.id;
-
-  /// The cause of the call: who called, and what led to it.
-  Cause get cause => raw.cause;
-  Principal get by => raw.by;
-  Future<void> get expired => raw.expired;
-  Cause causeFor(Principal by) => raw.causeFor(by);
-
-  /// The call's span in the registry's log: its events and spans go with
-  /// the call; `LogScope.noop`'s without a log.
-  LogSpanHandle get span => raw.span;
-
-  /// The cause of what its server writes, says and calls in reply:
-  /// `causeFor(servedBy)`, so the trail shows the call led to it. Through
-  /// a participant only; on the registry itself, `causeFor(owner)`.
-  Cause get inReply => switch (servedBy) {
-    final by? => raw.causeFor(by),
-    null => throw StateError(
-      '${raw.command} is served on the registry itself: use causeFor',
-    ),
-  };
-}
-
-/// A question being answered, its params typed: what a query's handler
-/// gets. Unlike a command's call it offers no cause to write with: a
-/// query writes nothing ([QueryEffect]). [causeFor] is the cause of a
-/// question it asks in turn, so the trail and loop checks follow.
-final class QueryAskOf<P> {
-  QueryAskOf(this.raw, this.params);
-
-  /// The call as the registry has it.
-  final CommandCall raw;
-  final P params;
-
-  String get id => raw.id;
-
-  /// Who asks, and why.
-  Cause get cause => raw.cause;
-  Principal get by => raw.by;
-  Future<void> get expired => raw.expired;
-
-  /// The cause of a query [by] asks in turn while answering this one.
-  Cause causeFor(Principal by) => raw.causeFor(by);
-
-  /// The question's span in the registry's log; `LogScope.noop`'s without
-  /// a log.
-  LogSpanHandle get span => raw.span;
 }
 
 /// A committed fact, its payload typed.

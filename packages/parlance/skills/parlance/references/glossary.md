@@ -46,7 +46,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`RawStateWriter`, typed `StateWriterOf<T>`).
 - **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and to agents; none means everyone. Code in the registry's process reads everything. `mayRead`, and `unreadable` in `describeFor`.
 - **Command** (§6.2): something that can be asked: params, an optional answer (`returns`), exactly one handler.
-- **Handler** (§6.2): the code that runs a command; gets the call (`CommandCall`, typed `CommandCallOf<P>`).
+- **Handler** (§6.2): the code that runs a command: an owner's method of the command's params; by name, raw, it gets the call (`CommandCall`).
 - **Callers** (§6.2): selectors with `allow`, `warn` or `deny`; who matches none is denied.
 - **`warn`** (§6.2): allowed, but an editor tells the author who can now call it (any guest, say).
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
@@ -98,7 +98,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`was`, `checkedAlone`** (§18): a write is checked against the value kept before; what is the same of it passes unvisited when its check asks nothing of the registry.
 - **Part**: a field of a `RecordShape`: its shape, optional or default, description.
 - **`RecordShape.none`**: the params of a command that takes none.
-- **Typed handles**: `StateOf`, `StateWriterOf`, `CommandOf`, `CommandCallOf`, `FactOf`, `FactSayerOf`, `Fact<T>`; through `participant.state(word)`, `command(word)`, `fact(word)` (`StateOf`, `CommandOf`, `FactOf` are the package's own, on the registry).
+- **Typed handles**: what `GeneratedWords` gives (`GeneratedState`, `GeneratedCommand`, `GeneratedQuery`, `GeneratedFact`) and what they give (`IStateWriterOf<T>`, `IFactSayerOf<T>`), a client's reads (`IStateOf`, `IKeyedOf`, `IFactOf`) and `Fact<T>`. Nothing else is typed.
 - **The word fixes the types**: a call is made on what `command(word)` gives, never by a generic function taking a word and params together, which would compile another command's params.
 
 ## Owners (§19)

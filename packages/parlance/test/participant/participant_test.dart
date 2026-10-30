@@ -167,12 +167,12 @@ void main() {
         throwsA(isA<StateError>()),
       );
       final q = r.participant(cart, vocabularies: [WordSet.open('cart')]);
-      final flag = GeneratedWords(q).state(_Other.flag).define();
+      // A cause of one's own is the raw handle's, by name.
+      final flag = q.defineState(
+        StateDescriptor(_Other.flag.name, type: const BoolType()),
+      );
       expect(
-        () => (flag as StateWriterOf<bool>).set(
-          true,
-          cause: const Cause(someone),
-        ),
+        () => flag.set(true, cause: const Cause(someone)),
         throwsA(isA<StateError>()),
       );
     });
@@ -313,9 +313,11 @@ void main() {
         ordersModule();
         final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
         final ui = c.ofOwner('ui');
-        final flag = GeneratedWords(ui).state(_Other.flag).define()..set(true);
+        final flag = ui.defineState(
+          StateDescriptor(_Other.flag.name, type: const BoolType()),
+        )..set(true);
         expect(r.lastChange('cart.flag')!.cause.by, cart.ofOwner('ui'));
-        (flag as StateWriterOf<bool>).set(false, cause: const Cause(cart));
+        flag.set(false, cause: const Cause(cart));
         expect(r.lastChange('cart.flag')!.cause.by, cart.ofOwner('ui'));
         expect(
           () => flag.set(true, cause: Cause(cart.ofOwner('sync'))),
