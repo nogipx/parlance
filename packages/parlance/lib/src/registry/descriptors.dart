@@ -56,9 +56,9 @@ enum Access {
 
 /// Who may call a command: selectors (`user`, `module/visit`, `*` for
 /// anyone) to access; the most specific selector wins, an unmatched
-/// principal is denied. A selector names the parts of what it names too
+/// principal is denied. A selector names the owners of what it names too
 /// (`module/visit` names `module/visit@visit`), so the nearest one wins:
-/// the part's own, then its whole, then its kind.
+/// the owner's own, then its whole, then its kind.
 final class Callers {
   const Callers(this.rules);
 

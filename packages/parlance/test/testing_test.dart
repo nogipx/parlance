@@ -105,8 +105,8 @@ void main() {
     expect(host.written(Target.heating), [true, false]);
     expect(host.said(Adjusted.adjusted), [(on: true), (on: false)]);
     expect(host.callsOf(Heater.power).map((c) => c.cause.by), [
-      me.child('thermostat'),
-      me.child('thermostat'),
+      me.ofOwner('thermostat'),
+      me.ofOwner('thermostat'),
     ]);
     expect(host.errors, isEmpty);
   });
@@ -121,7 +121,7 @@ void main() {
     expect(host.written(Target.heating), [true]);
     expect(
       host.registry.usesOf('heater.power.set').single.by,
-      me.child('thermostat'),
+      me.ofOwner('thermostat'),
     );
   });
 

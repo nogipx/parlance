@@ -25,7 +25,7 @@ final class Principal {
   /// (`house`).
   final String id;
 
-  /// The owner of it that acts ([child]); empty for the whole.
+  /// The owner of it that acts ([ofOwner]); empty for the whole.
   final String owner;
 
   /// Its selector (SPEC §4): `kind[/id][@owner]` (`user/local`,
@@ -33,7 +33,7 @@ final class Principal {
   String get selector =>
       '$kind${id.isEmpty ? '' : '/$id'}${owner.isEmpty ? '' : '@$owner'}';
 
-  /// Its parts (SPEC §4). A kind and an owner's name are ours, as a word's
+  /// What it is made of (SPEC §4). A kind and an owner's name are ours, as a word's
   /// name is: lower-case letters and digits joined by `_` or `-`. An id may
   /// come from outside: letters, digits, `.`, `-` and `_`, its case kept
   /// (`idOf` makes one of any text). So `/` and `@` are only ever
@@ -87,7 +87,7 @@ final class Principal {
   }
 
   /// Throws when its kind, id or owner is not one (SPEC §4): so a
-  /// principal from outside is the parts it says.
+  /// principal from outside is what it says it is.
   void check() {
     if (!_kind.hasMatch(kind)) {
       throw ArgumentError.value(
@@ -114,11 +114,12 @@ final class Principal {
   }
 
   /// Its owner named [name], its vocabulary's (SPEC §4): `home` →
-  /// `home@house`, `module/visit` → `module/visit@visit`. What names the whole names its
-  /// owners too, unless something names the owner. An owner has none.
-  Principal child(String name) {
+  /// `home@house`, `module/visit` → `module/visit@visit`. What names the
+  /// whole names its owners too, unless something names the owner. An
+  /// owner has no owners.
+  Principal ofOwner(String name) {
     if (owner.isNotEmpty) {
-      throw StateError('$selector is an owner: it has no parts');
+      throw StateError('$selector is an owner: it has no owners');
     }
     if (!_owner.hasMatch(name)) {
       throw ArgumentError.value(
@@ -138,8 +139,8 @@ final class Principal {
     return other.id.isEmpty || id == other.id;
   }
 
-  /// The one this is a part of: the whole of an owner, the kind of an id;
-  /// null for a bare kind.
+  /// One up: the whole of an owner, the kind of an id; null for a bare
+  /// kind.
   Principal? get parent {
     if (owner.isNotEmpty) return Principal(kind, id);
     if (id.isNotEmpty) return Principal(kind);

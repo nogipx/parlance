@@ -196,7 +196,7 @@ abstract interface class IParticipant implements IHandle {
   void sync();
 
   /// Withdraws its owners, the last attached first, then everything it
-  /// defined, registered and added, and its parts: a scope (a user's
+  /// defined, registered and added, its owners' too: a scope (a user's
   /// session, a feature) leaves nothing of itself, and its vocabularies are
   /// free again.
   @override
@@ -312,25 +312,26 @@ abstract interface class IRawParticipant
   /// now: each is asked again, and a status told where it changed.
   void availabilityMayHaveChanged();
 
-  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
+  /// It for its owner [name] (SPEC §22.3): speaking as `who.ofOwner(name)`
   /// (`home@house`), in the same vocabularies with the same rights, so
-  /// what each part does is told as that part's in causes, records and
-  /// `explain`. A part has no parts (`StateError`). The library names an
-  /// owner's part by its vocabulary.
-  IRawParticipant child(String name);
+  /// what each owner does is told as that owner's in causes, records and
+  /// `explain`. One of an owner has no owners (`StateError`). The library
+  /// names an owner by its vocabulary.
+  IRawParticipant ofOwner(String name);
 
-  /// The participant this is a part of, or itself when it is no part: what
-  /// a guard of every command it serves is added on.
+  /// The participant this one speaks for an owner of, or itself when it
+  /// speaks for none: what a guard of every command it serves is added
+  /// on.
   IRawParticipant get whole;
 }
 
-/// [answer], as a handler served by [part] gave it; its owner told once
+/// [answer], as a handler served by [p] gave it; its owner told once
 /// it is given.
-FutureOr<R> _served<R>(IParticipant part, FutureOr<R> answer) {
+FutureOr<R> _served<R>(IParticipant p, FutureOr<R> answer) {
   if (answer is Future<R>) {
-    return answer.whenComplete(() => ownerServed(part));
+    return answer.whenComplete(() => ownerServed(p));
   }
-  ownerServed(part);
+  ownerServed(p);
   return answer;
 }
 

@@ -178,13 +178,13 @@ void main() {
         expect(told.last, const Mismatch(guest, 'deck.volume', []));
       });
 
-      test('a part of it is told as itself', () async {
+      test('it for an owner is told as that owner', () async {
         GeneratedWords(owner()).state(Now.volume).define();
         final b = await asGuest();
-        b.raw.child('screen').raw.builtAgainst(Built.values);
+        b.raw.ofOwner('screen').raw.builtAgainst(Built.values);
         await settled(b);
         expect(host.registry.mismatches, [
-          Mismatch(guest.child('screen'), 'deck.volume', higher),
+          Mismatch(guest.ofOwner('screen'), 'deck.volume', higher),
         ]);
       });
     });

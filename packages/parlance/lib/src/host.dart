@@ -38,8 +38,8 @@ final class Host {
   final Registry registry;
 
   /// A participant of a part of the app, speaking as [who] (SPEC §22),
-  /// its [owners] attached: each speaks as the part named by its
-  /// vocabulary (`home@house`) and owns that vocabulary's words, none
+  /// its [owners] attached: each speaks as [who] of that owner, named by
+  /// its vocabulary (`home@house`), and owns that vocabulary's words, none
   /// other's. It does what [rights] let it beyond, and its words name
   /// [access]'s readers and callers when they name none. One participant
   /// per principal: a second one of [who] is refused while the first

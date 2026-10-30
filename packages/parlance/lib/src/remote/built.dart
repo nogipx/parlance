@@ -6,7 +6,7 @@ import '../registry/compat.dart';
 /// Avro handshake tells a protocol by its hash; its schema only when the
 /// host answers it does not know that fingerprint.
 final class BuiltTold {
-  /// By part (null: the participant itself), by word: the schema and the
+  /// By owner (null: the participant itself), by word: the schema and the
   /// words package it came from.
   final Map<Principal?, Map<String, ({Object? schema, String? from})>> _told =
       {};
@@ -78,9 +78,9 @@ final class BuiltTold {
     };
   }
 
-  /// All it told, for a new session: by part and package.
+  /// All it told, for a new session: by owner and package.
   List<Map<String, Object?>> standing() => [
-    for (final MapEntry(key: part, value: words) in _told.entries)
+    for (final MapEntry(key: owner, value: words) in _told.entries)
       for (final from in {for (final w in words.values) w.from})
         _byPrint(
           {
@@ -88,14 +88,14 @@ final class BuiltTold {
               if (w.from == from) word: w.schema,
           },
           from,
-          part,
+          owner,
         ),
   ];
 
   /// The ops letting go of all it told, and forgets it.
   List<Map<String, Object?>> forget() {
     final ops = [
-      for (final part in _told.keys) {'op': 'unbuilt', 'as': ?part?.toJson()},
+      for (final owner in _told.keys) {'op': 'unbuilt', 'as': ?owner?.toJson()},
     ];
     _told.clear();
     return ops;

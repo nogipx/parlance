@@ -28,7 +28,7 @@ import 'mirror.dart';
 
 part 'participant_errors.dart';
 part 'participant_words.dart';
-part 'participant_part.dart';
+part 'participant_owner.dart';
 
 /// A participant across a connection (SPEC §22.4): the same
 /// [IParticipant] a part has in the host's process, over its session.
@@ -50,8 +50,8 @@ part 'participant_part.dart';
 /// (`Host.join`): a participant, and what the host refused of what it
 /// asked. Frozen (`app.dart`); only the library makes one.
 abstract interface class IRemoteParticipant implements IParticipant {
-  /// Attaches [owners] (SPEC §22.3), each to the part named by its
-  /// vocabulary (`module/notes@notes`), so causes, records and `explain`
+  /// Attaches [owners] (SPEC §22.3), each speaking as the owner named by
+  /// its vocabulary (`module/notes@notes`), so causes, records and `explain`
   /// tell which owner did what; one of no words (a rule of the whole, a
   /// guard) speaks as the participant. Each owns words only in what the
   /// host granted where it serves it; two owners of one vocabulary are
@@ -392,18 +392,18 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Its own states, as it wrote them: name, key, value.
   final Map<String, Map<String?, Object?>> _own = {};
 
-  /// Its own states and facts, as defined, and which part defined each
-  /// (`as`, null for itself): what a new session is given.
+  /// Its own states and facts, as defined, and which of its owners
+  /// defined each (`as`, null for itself): what a new session is given.
   final Map<String, ({StateDescriptor d, Principal? as})> _states = {};
   final Map<String, ({FactDescriptor d, Principal? as})> _facts = {};
   final Map<String, _Command> _commands = {};
 
-  /// Its guards and its parts', by the id the host knows them by.
+  /// Its guards and its owners', by the id the host knows them by.
   final Map<String, ({String id, GuardCheck check, Principal? as})> _guards =
       {};
   final Map<String, ({Choices choices, Principal? as})> _choices = {};
 
-  final Map<Principal, _Part> _parts = {};
+  final Map<Principal, _OfOwner> _ofOwners = {};
   bool _disposed = false;
 
   static Map<String, Object?> _asOf(Principal? as) => {'as': ?as?.toJson()};
@@ -439,7 +439,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   /// Whether a cause by [by] is [speaker]'s own act: [speaker] itself, or
-  /// a whole it is part of, up to this participant.
+  /// the whole it speaks for an owner of, up to this participant.
   bool _ownAct(Principal by, Principal speaker) =>
       by == speaker || (speaker.isWithin(by) && by.isWithin(who));
 
@@ -887,7 +887,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     }
   }
 
-  /// What it and its parts told the host they were built against: kept
+  /// What it and its owners told the host they were built against: kept
   /// also for a host that does not speak it, to tell a new session that
   /// does.
   final BuiltTold _built = BuiltTold();
@@ -943,7 +943,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     Shape<Object?>? returns,
   }) => _defineCommand(d, handler, available, null);
 
-  /// A command or a query of its own, or of [as], a part of it.
+  /// A command or a query of its own, or of [as], one of its owners.
   IHandle _defineCommand(
     CallableDescriptor d,
     CommandHandler handler,
@@ -1024,22 +1024,22 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     _ask(_choicesOp(c.choices, c.as));
   }
 
-  /// A part of it (SPEC §22.3): its words, writes, calls and facts go as
-  /// the part's, and the host holds them to the part.
+  /// It for its owner [name] (SPEC §22.3): its words, writes, calls and
+  /// facts go as that owner's, and the host holds them to it.
   @override
-  IRawParticipant child(String name) => _partOf(who.child(name));
+  IRawParticipant ofOwner(String name) => _ofOwnerAs(who.ofOwner(name));
 
   @override
   IRawParticipant get whole => this;
 
-  _Part _partOf(Principal p) {
+  _OfOwner _ofOwnerAs(Principal p) {
     _live();
-    return _parts[p] ??= _Part(this, p);
+    return _ofOwners[p] ??= _OfOwner(this, p);
   }
 
-  /// Withdraws what [part] and its own parts defined and added.
-  void _withdraw(Principal part) {
-    bool mine(Principal? as) => as != null && as.isWithin(part);
+  /// Withdraws what [as] and its owners defined and added.
+  void _withdraw(Principal as) {
+    bool mine(Principal? by) => by != null && by.isWithin(as);
     for (final e in [..._states.entries]) {
       if (!mine(e.value.as)) continue;
       _states.remove(e.key);
@@ -1066,7 +1066,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _choices.remove(e.key);
       _ask({'op': 'unkind', 'name': e.key, ..._asOf(e.value.as)});
     }
-    _parts.removeWhere((p, _) => p.isWithin(part));
+    _ofOwners.removeWhere((p, _) => p.isWithin(as));
   }
 
   @override
@@ -1198,9 +1198,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     if (_disposed) return;
     _retry?.cancel();
     _retry = null;
-    // Owners attached to its parts go too, as a local participant's parts'.
-    for (final part in [..._parts.values]) {
-      part._group.dispose();
+    // Owners attached to it for its owners go too, as a local
+    // participant's.
+    for (final o in [..._ofOwners.values]) {
+      o._group.dispose();
     }
     _group.dispose();
     for (final name in [..._own.keys, ..._facts.keys, ..._commands.keys]) {

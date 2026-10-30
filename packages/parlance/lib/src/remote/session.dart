@@ -187,7 +187,7 @@ final class RemoteSession extends ParlanceContractPeer
   /// The choices it gives, as it sent them last.
   final Map<
     String,
-    ({IHandle handle, List<Choice> list, LocalParticipant part})
+    ({IHandle handle, List<Choice> list, LocalParticipant speaker})
   >
   _choices = {};
 
@@ -476,8 +476,8 @@ final class RemoteSession extends ParlanceContractPeer
     _open();
     // Ids are the principal's own: another principal reusing one does not
     // get this one's answer.
-    // A part of the session calls as itself (SPEC §22.3).
-    final by = _part(request.as).who;
+    // The session for one of its owners calls as that owner (SPEC §22.3).
+    final by = _speakerOf(request.as).who;
     if (limits.calls case final max? when _calling >= max) {
       // Nothing ran: it may call again once one of its calls is answered.
       return WireCallReply(
@@ -600,23 +600,24 @@ final class RemoteSession extends ParlanceContractPeer
     return WireJson({'results': results});
   }
 
-  /// The part of the session's principal [as] names (SPEC §22.3); the
-  /// session itself for none. Anything but a part of it is refused.
-  LocalParticipant _part(Object? as) {
+  /// The session's participant for the owner [as] names (SPEC §22.3); the
+  /// session itself for none. Anything but an owner of its principal is
+  /// refused.
+  LocalParticipant _speakerOf(Object? as) {
     if (as == null) return _p;
     final who = _principal(as);
     if (who == principal) return _p;
     if (who.owner.isEmpty || who.parent != principal) {
-      _deny('$who is no part of $principal');
+      _deny('$who is no owner of $principal');
     }
-    return _p.child(who.owner);
+    return _p.ofOwner(who.owner);
   }
 
   Map<String, Object?> _op(Map<String, Object?> m) {
-    final part = _part(m['as']);
+    final speaker = _speakerOf(m['as']);
     switch (m['op']) {
       case 'define':
-        _define(_descriptor(_obj(m['descriptor'])), part);
+        _define(_descriptor(_obj(m['descriptor'])), speaker);
       case 'undefine':
         _undefine(m['name']! as String);
       case 'set' || 'remove':
@@ -626,7 +627,7 @@ final class RemoteSession extends ParlanceContractPeer
           value: m['value'],
           remove: m['op'] == 'remove',
           parent: m['parent'] as String?,
-          part: part,
+          speaker: speaker,
         );
       case 'emit':
         return {
@@ -636,7 +637,7 @@ final class RemoteSession extends ParlanceContractPeer
             id: m['id'] as String?,
             by: m['by'] == null ? null : _principal(m['by']),
             parent: m['parent'] as String?,
-            part: part,
+            speaker: speaker,
           ),
         };
       case 'available':
@@ -645,14 +646,14 @@ final class RemoteSession extends ParlanceContractPeer
         _choicesOf(
           m['name']! as String,
           m['entities'] as List? ?? const [],
-          part,
+          speaker,
         );
       case 'unkind':
         _choices.remove(m['name'])?.handle.dispose();
       case 'guard':
-        _guard(m['id']! as String, part: part);
+        _guard(m['id']! as String, speaker: speaker);
       case 'unguard':
-        _guards.remove(part.guardId('${m['id']}'))?.dispose();
+        _guards.remove(speaker.guardId('${m['id']}'))?.dispose();
       case 'built':
         // Told by fingerprint first (SPEC §25.4): the schemas it knows it
         // takes as told, and answers which it does not.
@@ -667,10 +668,10 @@ final class RemoteSession extends ParlanceContractPeer
             unknown.add(word);
           }
         }
-        builtAgainstSchemas(part, schemas, from: m['from'] as String?);
+        builtAgainstSchemas(speaker, schemas, from: m['from'] as String?);
         if (unknown.isNotEmpty) return {'unknown': unknown};
       case 'unbuilt':
-        forgetBuiltAgainst(part);
+        forgetBuiltAgainst(speaker);
       default:
         throw RpcStatusException(RpcStatus.invalidArgument, 'no op ${m['op']}');
     }
@@ -706,8 +707,8 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
-  void _define(Descriptor d, [LocalParticipant? part]) {
-    final p = part ?? _p;
+  void _define(Descriptor d, [LocalParticipant? speaker]) {
+    final p = speaker ?? _p;
     final words = _states.length + _facts.length + _commands.length;
     if (limits.words case final max? when words >= max) {
       _exhausted('the session defines $max words, as many as it may');
@@ -760,7 +761,7 @@ final class RemoteSession extends ParlanceContractPeer
     Object? value,
     bool remove = false,
     String? parent,
-    LocalParticipant? part,
+    LocalParticipant? speaker,
   }) {
     final w = _states[state];
     if (w == null) {
@@ -769,7 +770,7 @@ final class RemoteSession extends ParlanceContractPeer
       }
       _deny('$state is not the session\'s own');
     }
-    final cause = _cause(parent: parent, by: (part ?? _p).who);
+    final cause = _cause(parent: parent, by: (speaker ?? _p).who);
     final had = _bytes[state]?[key] ?? 0;
     final weight = remove ? 0 : jsonWeight(value) + (key?.length ?? 0);
     if (limits.stateBytes case final max?
@@ -803,9 +804,9 @@ final class RemoteSession extends ParlanceContractPeer
     String? id,
     Principal? by,
     String? parent,
-    LocalParticipant? part,
+    LocalParticipant? speaker,
   }) {
-    final p = part ?? _p;
+    final p = speaker ?? _p;
     final sayer = _facts[fact];
     if (sayer == null) {
       if (registry.factDescriptor(fact) == null) {
@@ -842,7 +843,7 @@ final class RemoteSession extends ParlanceContractPeer
   void _choicesOf(
     String name,
     List<Object?> entities, [
-    LocalParticipant? part,
+    LocalParticipant? speaker,
   ]) {
     if (limits.choices case final max?) {
       final others = [
@@ -865,25 +866,25 @@ final class RemoteSession extends ParlanceContractPeer
         ),
     ];
     if (_choices[name] case final c?) {
-      _choices[name] = (handle: c.handle, list: list, part: c.part);
-      _permitted(() => c.part.choicesChanged(name));
+      _choices[name] = (handle: c.handle, list: list, speaker: c.speaker);
+      _permitted(() => c.speaker.choicesChanged(name));
       return;
     }
-    final p = part ?? _p;
+    final p = speaker ?? _p;
     try {
       final handle = p.addChoices(
         Choices(name, list: () => _choices[name]?.list ?? const []),
       );
-      _choices[name] = (handle: handle, list: list, part: p);
+      _choices[name] = (handle: handle, list: list, speaker: p);
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }
   }
 
-  /// A guard of the session's or a part's, on its commands only, asked in
+  /// A guard of the session's or one of its owners', on its commands only, asked in
   /// its turn: the participant judges the call. Known as `<speaker>/<id>`.
-  void _guard(String id, {LocalParticipant? part}) {
-    final p = part ?? _p;
+  void _guard(String id, {LocalParticipant? speaker}) {
+    final p = speaker ?? _p;
     final full = p.guardId(id);
     if (limits.guards case final max?
         when _guards.length >= max && !_guards.containsKey(full)) {

@@ -1,9 +1,10 @@
 part of 'participant.dart';
 
-/// A part of a remote participant (SPEC §22.3): the participant's own
-/// machinery, each thing it asks told as the part's (`as`).
-final class _Part implements IRawParticipant {
-  _Part(this._root, this.who);
+/// A remote participant for one of its owners (SPEC §22.3): the
+/// participant's own machinery, each thing it asks told as that owner's
+/// (`as`).
+final class _OfOwner implements IRawParticipant {
+  _OfOwner(this._root, this.who);
   final RemoteParticipant _root;
 
   @override
@@ -162,7 +163,7 @@ final class _Part implements IRawParticipant {
   void sync() => _group.sync();
 
   @override
-  IRawParticipant child(String name) => _root._partOf(who.child(name));
+  IRawParticipant ofOwner(String name) => _root._ofOwnerAs(who.ofOwner(name));
 
   @override
   void dispose() {

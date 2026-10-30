@@ -304,7 +304,7 @@ void main() {
       ).command(PlayerCommand.setVolume).call((volume: 95));
       expect(done.ok, isTrue, reason: '$done');
       expect(GeneratedWords(asAnn.raw).stateOf(PlayerState.volume).value, 95);
-      expect(r.lastChange('player.volume')!.cause.by, me.child('player'));
+      expect(r.lastChange('player.volume')!.cause.by, me.ofOwner('player'));
       expect((await asAnn.raw.recent('player.clipped', 9)).single.payload, {
         'volume': 95,
       });
@@ -369,7 +369,7 @@ void main() {
       );
       expect(deck.stopped, 1);
       deck.library.clear();
-      p.raw.child('player').raw.availabilityChanged('player.play');
+      p.raw.ofOwner('player').raw.availabilityChanged('player.play');
       final play = await GeneratedWords(asAnn.raw)
           .command(PlayerCommand.play)
           .call((track: const Track(title: 'A'), repeat: Repeat.off, on: null));
@@ -431,7 +431,7 @@ void main() {
         expect(clipped.single.payload.volume, 95);
         expect(
           clipped.single.message.cause.by,
-          me.child('player'),
+          me.ofOwner('player'),
           reason: 'the message comes with it',
         );
         expect(

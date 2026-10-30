@@ -423,7 +423,7 @@ final class CommandCallOf<P> {
   final CommandCall raw;
   final P params;
 
-  /// Who serves it: the participant (or its part) that defined the
+  /// Who serves it: the participant (or it for an owner) that defined the
   /// command; null for one defined on the registry itself.
   final Principal? servedBy;
 

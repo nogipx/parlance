@@ -64,6 +64,6 @@ void main() {
     final change = r.explain('book.last').change!;
     expect(r.read('book.last'), 'ann');
     expect(change.cause.parent, said.id);
-    expect(change.cause.by, const Principal('book').child('book'));
+    expect(change.cause.by, const Principal('book').ofOwner('book'));
   });
 }

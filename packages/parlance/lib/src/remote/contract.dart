@@ -124,7 +124,7 @@ final class WireCallRequest implements IRpcSerializable {
   /// What it follows from: a call the session serves, or a fact.
   final String? parent;
 
-  /// The part of the session's principal that calls (SPEC §22.3), as
+  /// The owner of the session's principal that calls (SPEC §22.3), as
   /// `Principal.toJson` gives it; null for the session's principal.
   final Map<String, Object?>? as;
 

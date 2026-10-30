@@ -60,7 +60,7 @@ void main() {
     await b.pin('call ann');
     await p.settle();
     final why = host.host.registry.explain('notes.all');
-    expect(why.change!.cause.by, Who.widlet('notes').child('notes'));
+    expect(why.change!.cause.by, Who.widlet('notes').ofOwner('notes'));
     expect(why.trail.first.command, 'notes.add');
     expect(why.trail.first.cause.by, Who.widlet('board'));
     await b.close();

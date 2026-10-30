@@ -151,7 +151,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Participant** (§22): a part of the app as it speaks, through `IParticipant`: one principal (`who`), words defined only in its `vocabularies`, written and said as itself; made by `main` (`host.participant`), so the part never holds the registry.
 - **Participant rights** (§22.2): `define` (a further check on its words), `speakFor` (facts on someone's behalf).
 - **Access by default** (§22.2): `WordAccess(readers:, callers:)`, the readers and callers of a participant's words when a word does not say; a word's own replaces it whole.
-- **Part** (§4, §22.3): `principal.child(name)` (`house@heating`), an owner of a principal, and a participant's `child(name)` speaking as it; a part has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no parts.
+- **Owner of a principal** (§4, §22.3): `principal.ofOwner(name)` (`house@heating`), and a participant's `ofOwner(name)` speaking as it; it has its whole's rights unless named itself, its acts are told as its own, for audit, and it has no owners of its own. An owner object (`IOwner`) speaks as the one its vocabulary names.
 - **Version** (§1): a word's breaking change beside the old one, the same name with `.v<N>` (N >= 2); the name alone is version 1. A version is a word of its own; `wordVersion(name)` parses one.
 - **Query** (§6.6, §18): a word that only answers, a kind of its own (`QueryDescriptor`, `is: query`; `IQueryWord`, asked with `.ask`): no dedup, no call record, nothing changed from its handler; safe to ask again.
 - **JsonShape** (§18): the shape of a class that serializes itself (json_serializable, freezed), with an optional `type` for checks and `describe`.

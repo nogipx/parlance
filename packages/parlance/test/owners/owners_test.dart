@@ -203,12 +203,12 @@ void main() {
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'test is free');
   });
 
-  test('an owner speaks as the part named by its vocabulary; one of no '
+  test('an owner speaks as the owner named by its vocabulary; one of no '
       'words as the participant', () async {
     module([Dials(), Other()]);
-    expect(r.lastChange('test.level', key: 'a')!.cause.by, me.child('test'));
+    expect(r.lastChange('test.level', key: 'a')!.cause.by, me.ofOwner('test'));
     expect(r.lastChange('test.on'), isNull);
-    expect(me.child('test').selector, 'host@test');
+    expect(me.ofOwner('test').selector, 'host@test');
   });
 
   test('a participant of owners here is not served across a connection', () {
@@ -279,7 +279,7 @@ void main() {
     outsider.statusChanges('test.level').listen(statuses.add);
     final dials = Dials();
     final p = module([dials]);
-    final part = p.raw.child('dials');
+    final part = p.raw.ofOwner('dials');
     GeneratedWords(part).state(_Flag.on).define().set(true);
     await pumpEventQueue();
     p.dispose();

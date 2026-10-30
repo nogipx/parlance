@@ -278,59 +278,69 @@ void main() {
     });
   });
 
-  group('parts', () {
+  group('for its owners', () {
     test('a selector names the owners of what it names; the nearest wins; '
         'an owner has none', () {
-      final sync = orders.child('sync');
+      final sync = orders.ofOwner('sync');
       expect(sync, const Principal('module', 'orders', 'sync'));
       expect(sync.selector, 'module/orders@sync');
       expect(Principal.parse('module/orders@sync'), sync);
       expect(Principal.fromJson(sync.toJson()), sync);
-      expect(const Principal('house').child('screen').selector, 'house@screen');
-      expect(() => sync.child('push'), throwsStateError);
+      expect(
+        const Principal('house').ofOwner('screen').selector,
+        'house@screen',
+      );
+      expect(() => sync.ofOwner('push'), throwsStateError);
       expect(sync.isWithin(orders), isTrue);
       expect(sync.isWithin(const Principal('module')), isTrue);
       expect(orders.isWithin(sync), isFalse);
-      expect(orders.child('ui').isWithin(sync), isFalse);
+      expect(orders.ofOwner('ui').isWithin(sync), isFalse);
       expect(sync.parent, orders);
       final callers = Callers({
         'module/orders': Access.allow,
         'module/orders@sync': Access.deny,
       });
-      expect(callers.allows(orders.child('ui')), isTrue, reason: 'its whole');
+      expect(callers.allows(orders.ofOwner('ui')), isTrue, reason: 'its whole');
       expect(callers.allows(sync), isFalse, reason: 'its own rule');
       expect(callers.allows(cart), isFalse);
-      expect(() => orders.child('Sync'), throwsArgumentError);
+      expect(() => orders.ofOwner('Sync'), throwsArgumentError);
     });
 
-    test('a part writes, says and calls as itself; a cause of its whole is '
-        'its own, a sibling\'s is refused', () async {
-      ordersModule();
-      final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
-      final ui = c.child('ui');
-      final flag = GeneratedWords(ui).state(_Other.flag).define()..set(true);
-      expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
-      (flag as StateWriterOf<bool>).set(false, cause: const Cause(cart));
-      expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
-      expect(
-        () => flag.set(true, cause: Cause(cart.child('sync'))),
-        throwsA(isA<NotPermitted>()),
-      );
-      final records = <CallRecord>[];
-      final sub = r.calls.listen(records.add);
-      final done = await GeneratedWords(
-        ui,
-      ).command(OrderCommand.place).call((id: 'o9', status: 'new'));
-      await settle();
-      expect(done.ok, isTrue, reason: 'module/cart names its parts too');
-      expect(records.single.cause.by, cart.child('ui'), reason: 'the record');
-      await sub.cancel();
-    });
+    test(
+      'for an owner it writes, says and calls as it; a cause of its whole is '
+      'its own, a sibling\'s is refused',
+      () async {
+        ordersModule();
+        final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
+        final ui = c.ofOwner('ui');
+        final flag = GeneratedWords(ui).state(_Other.flag).define()..set(true);
+        expect(r.lastChange('cart.flag')!.cause.by, cart.ofOwner('ui'));
+        (flag as StateWriterOf<bool>).set(false, cause: const Cause(cart));
+        expect(r.lastChange('cart.flag')!.cause.by, cart.ofOwner('ui'));
+        expect(
+          () => flag.set(true, cause: Cause(cart.ofOwner('sync'))),
+          throwsA(isA<NotPermitted>()),
+        );
+        final records = <CallRecord>[];
+        final sub = r.calls.listen(records.add);
+        final done = await GeneratedWords(
+          ui,
+        ).command(OrderCommand.place).call((id: 'o9', status: 'new'));
+        await settle();
+        expect(done.ok, isTrue, reason: 'module/cart names its parts too');
+        expect(
+          records.single.cause.by,
+          cart.ofOwner('ui'),
+          reason: 'the record',
+        );
+        await sub.cancel();
+      },
+    );
 
-    test('a part\'s guard judges its own commands only', () async {
+    test('a guard for an owner judges its commands only', () async {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-      final a = p.child('a');
-      final b = p.child('b');
+      final a = p.ofOwner('a');
+      final b = p.ofOwner('b');
       a.defineCommand(
         CommandDescriptor('orders.a', callers: Callers.anyone),
         (_) {},
@@ -347,7 +357,7 @@ void main() {
     test('a whole\'s guard judges the commands of all its parts', () async {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       p
-          .child('a')
+          .ofOwner('a')
           .defineCommand(
             CommandDescriptor('orders.a', callers: Callers.anyone),
             (_) {},
@@ -357,12 +367,12 @@ void main() {
       expect((refused as CallRefused).guard, '${orders.selector}#orders.no');
     });
 
-    test('a part going withdraws its words only; its whole going withdraws '
-        'its parts', () {
+    test('one of an owner going withdraws its words only; its whole going '
+        'withdraws its owners\'', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-      final a = p.child('a');
+      final a = p.ofOwner('a');
       GeneratedWords(a).state(OrderState.last).define();
-      GeneratedWords(p.child('b')).fact(OrderFact.placed).define();
+      GeneratedWords(p.ofOwner('b')).fact(OrderFact.placed).define();
       a.dispose();
       expect(r.stateDescriptor('orders.last'), isNull);
       expect(r.factDescriptor('orders.placed'), isNotNull);

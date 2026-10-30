@@ -16,7 +16,7 @@ import 'participant.dart';
 /// Participants of a registry in this process (SPEC §22.1).
 extension Participants on Registry {
   /// A participant speaking as [who], with its [owners] attached (SPEC
-  /// §22.1, §22.3), each speaking as the part named by its vocabulary.
+  /// §22.1, §22.3), each speaking as [who] of it, named by its vocabulary.
   /// It defines words only in its owners' vocabularies and in
   /// [vocabularies]: those whose owners are not here (a guest's, served
   /// across a connection) or whose words come at run time (`WordSet.open`).
@@ -137,7 +137,7 @@ void forgetBuiltAgainst(LocalParticipant p) => p._forgetBuilt();
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
-/// guards, choices, owners or parts would go with the session. [end] ends
+/// guards, choices or owners would go with the session. [end] ends
 /// the session, when a new one of the same principal takes its place
 /// ([Participants.participant]). Not exported.
 void takeForServing(LocalParticipant p, {required void Function() end}) {
@@ -150,7 +150,7 @@ void takeForServing(LocalParticipant p, {required void Function() end}) {
       'vocabularies: [...]).serve(endpoint))',
     );
   }
-  if (p._handles.isNotEmpty || p._children.isNotEmpty) {
+  if (p._handles.isNotEmpty || p._ofOwners.isNotEmpty) {
     throw StateError(
       '${p.who} did things in this process: serve a participant made for '
       'the session',
@@ -167,13 +167,15 @@ final class LocalParticipant implements IRawParticipant {
     this.vocabularyNames,
     this.rights,
     this.access, {
-    this.parent,
-  }) : _view = LocalView(_r, by: who);
+    LocalParticipant? parent,
+  }) : _whole = parent,
+       _view = LocalView(_r, by: who);
 
-  /// The participant this one is a part of ([child]); null for a whole.
-  final LocalParticipant? parent;
+  /// The participant this one speaks for an owner of ([ofOwner]); null
+  /// for the whole.
+  final LocalParticipant? _whole;
 
-  final Map<String, LocalParticipant> _children = {};
+  final Map<String, LocalParticipant> _ofOwners = {};
 
   @override
   final WordAccess access;
@@ -247,8 +249,8 @@ final class LocalParticipant implements IRawParticipant {
   }
 
   /// [cause], or its own: what it writes and calls is its own act, or
-  /// follows from a call it serves (`call.causeFor(who)`). A part takes a
-  /// cause of a whole it is part of as its own: what it does is its own.
+  /// follows from a call it serves (`call.causeFor(who)`). One of an owner
+  /// takes a cause of its whole as its own: what it does is its own.
   Cause _as(Cause? cause) {
     // In a handler, what it does follows from the call it serves.
     if (cause == null) return inReplyAs(who) ?? Cause(who);
@@ -259,27 +261,27 @@ final class LocalParticipant implements IRawParticipant {
     throw NotPermitted('$who acts as itself, not as ${cause.by}');
   }
 
-  /// Whether [p] is a participant this one is a part of.
+  /// Whether [p] is the whole this one speaks for an owner of.
   bool _wholeOf(Principal p) {
-    for (var w = parent; w != null; w = w.parent) {
+    for (var w = _whole; w != null; w = w._whole) {
       if (w.who == p) return true;
     }
     return false;
   }
 
   @override
-  IRawParticipant get whole => parent ?? this;
+  IRawParticipant get whole => _whole ?? this;
 
-  /// A part of it, named [name] (SPEC §22.3): it speaks as `who.child(name)`
+  /// It for its owner [name] (SPEC §22.3): it speaks as `who.ofOwner(name)`
   /// in the same vocabularies, with the same rights and access; what it
-  /// defines and does is told as its own, and its guards judge its own
-  /// commands. One part per name; it goes with this one.
+  /// defines and does is told as that owner's, and its guards judge its
+  /// own commands. One per name; it goes with this one.
   @override
-  LocalParticipant child(String name) {
+  LocalParticipant ofOwner(String name) {
     _live();
-    return _children[name] ??= LocalParticipant._(
+    return _ofOwners[name] ??= LocalParticipant._(
       _r,
-      who.child(name),
+      who.ofOwner(name),
       vocabularyNames,
       rights,
       access,
@@ -486,11 +488,11 @@ final class LocalParticipant implements IRawParticipant {
   /// whose it was.
   String guardId(String id) => '${who.selector}#$id';
 
-  /// Whether its guards judge calls of [command]: one it, or a part of
-  /// it, defined.
+  /// Whether its guards judge calls of [command]: one it, or it for one of
+  /// its owners, defined.
   bool _judges(String command) =>
       _commands.contains(command) ||
-      _children.values.any((c) => c._judges(command));
+      _ofOwners.values.any((c) => c._judges(command));
 
   @override
   IHandle addGuard(String id, GuardCheck check) {
@@ -572,7 +574,7 @@ final class LocalParticipant implements IRawParticipant {
     if (_disposed) return;
     _group.dispose();
     _disposed = true;
-    for (final c in [..._children.values].reversed) {
+    for (final c in [..._ofOwners.values].reversed) {
       c.dispose();
     }
     for (final h in [..._handles].reversed) {
@@ -580,8 +582,8 @@ final class LocalParticipant implements IRawParticipant {
     }
     _handles.clear();
     _forgetBuilt();
-    if (parent case final p?) {
-      p._children.removeWhere((_, c) => c == this);
+    if (_whole case final p?) {
+      p._ofOwners.removeWhere((_, c) => c == this);
       return;
     }
     final taken = _taken[_r];

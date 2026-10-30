@@ -136,7 +136,7 @@ void main() {
       'action': {'call': 'note.expire', 'params': <String, Object?>{}},
     });
     expect(
-      IBoardClient(r.participant(ann.child('reader'))).notes.of('n1')!.author,
+      IBoardClient(r.participant(ann.ofOwner('reader'))).notes.of('n1')!.author,
       'Ann',
     );
   });

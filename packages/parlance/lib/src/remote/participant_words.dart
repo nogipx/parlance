@@ -8,7 +8,7 @@ final class _Command {
   final CommandHandler handler;
   final Availability? available;
 
-  /// The part that defined it; null for the participant itself.
+  /// The owner that defined it; null for the participant itself.
   final Principal? as;
 
   /// What its check said last, told to the host.
@@ -20,7 +20,7 @@ final class _State implements IStateHandle {
   _State(this._p, this.descriptor, this._by);
   final RemoteParticipant _p;
 
-  /// The part that defined it; null for the participant itself.
+  /// The owner that defined it; null for the participant itself.
   final Principal? _by;
 
   @override
@@ -90,7 +90,7 @@ final class _Fact implements IFactHandle {
   _Fact(this._p, this.descriptor, {Principal? as}) : _by = as;
   final RemoteParticipant _p;
 
-  /// The part that says it; null for the participant itself.
+  /// The owner that says it; null for the participant itself.
   final Principal? _by;
 
   @override

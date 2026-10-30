@@ -163,7 +163,7 @@ void main() {
     expect(done.ok, isTrue, reason: '$done');
     expect(r.read('kittens.lamp'), true);
     final change = r.lastChange('kittens.lamp')!;
-    expect(change.cause.by, kittens.child('kittens'), reason: 'its part');
+    expect(change.cause.by, kittens.ofOwner('kittens'), reason: 'its part');
     expect(change.cause.parent, isNotNull, reason: 'it follows from the call');
     final purr = r.recent('kittens.purred').single;
     expect(purr.cause.parent, change.cause.parent);
@@ -209,7 +209,7 @@ void main() {
     final lamps = Lamps();
     p.attach([lamps]);
     await p.flush();
-    final part = kittens.child('kittens');
+    final part = kittens.ofOwner('kittens');
     expect(r.lastChange('kittens.lamp')!.cause.by, part);
 
     final records = <CallRecord>[];
@@ -221,11 +221,11 @@ void main() {
     expect(r.lastChange('kittens.lamp')!.cause.by, part, reason: 'served');
     expect(r.recent('kittens.purred').last.cause.by, part);
 
-    final ui = p.child('ui');
+    final ui = p.ofOwner('ui');
     final asked = await ui.call('kittens.lamp.turn', {'on': false});
     await settle();
     expect(asked, isA<CallRefused>(), reason: 'only the user calls it');
-    expect(records.last.cause.by, kittens.child('ui'));
+    expect(records.last.cause.by, kittens.ofOwner('ui'));
     expect(
       () => ui.call('kittens.lamp.turn', {}, cause: Cause(part)),
       throwsA(isA<NotPermitted>()),
@@ -517,7 +517,7 @@ void main() {
         readers: Callers.only(['user']),
       ),
     );
-    final here = r.participant(kittens.child('here'));
+    final here = r.participant(kittens.ofOwner('here'));
     final there = await join();
     for (final p in <IParticipant>[here, there]) {
       final none = await p.raw.explain('house.nothing');

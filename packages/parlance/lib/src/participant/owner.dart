@@ -42,8 +42,8 @@ final class Handles implements IHandle {
 
 /// An owner of words (SPEC §6, §19, §23.4): what `main` gives a
 /// participant it makes (`host.participant(who, owners: [Home(...)])`),
-/// to speak as the part named by its vocabulary (`home@house`; one of no
-/// words, as the participant itself); who that is, and what it may,
+/// to speak as the participant's principal of it, named by its
+/// vocabulary (`home@house`; one of no words, as the participant itself); who that is, and what it may,
 /// `main` says, never the owner.
 ///
 /// It has no members: what an owner does with the library it does by
@@ -55,9 +55,9 @@ abstract interface class IOwner {
   /// does it): [define] defines its words once it is attached, through the
   /// participant it is given, and they go when the owner goes; [write],
   /// when given, writes what it set before it was attached, first of each
-  /// sync. [vocabulary] is the vocabulary its words are in: it speaks as the
-  /// part of its name; without, it defines none and speaks as the
-  /// participant.
+  /// sync. [vocabulary] is the vocabulary its words are in: it speaks as
+  /// the owner of that name (`home@house`); without, it defines none and
+  /// speaks as the participant.
   static void made(
     IOwner owner, {
     required void Function(IParticipant p) define,
@@ -85,15 +85,15 @@ final class _Core {
   static final Expando<_Core> _all = Expando('owner');
   static _Core of(IOwner o) => _all[o] ??= _Core(o.runtimeType);
 
-  /// The owners of each participant or part attached: told when a
-  /// handler there answered.
-  static final Expando<List<_Core>> _ofPart = Expando('owners of a part');
+  /// The owners attached, by the participant each speaks through: told
+  /// when a handler there answered.
+  static final Expando<List<_Core>> _ofParticipant = Expando('owners');
 
   final Type type;
 
   /// The vocabulary its words are in, when its base said it: held to the
-  /// participant's before anything is defined, and the name of the part
-  /// it speaks as.
+  /// participant's before anything is defined, and the owner name it
+  /// speaks as.
   WordSet? words;
   final Handles handles = Handles();
   IParticipant? participant;
@@ -128,7 +128,7 @@ final class _Core {
     _mayOwn(p);
     participant = p;
     this.group = group;
-    (_ofPart[p] ??= []).add(this);
+    (_ofParticipant[p] ??= []).add(this);
     runZoned(
       () => define?.call(p),
       zoneValues: {
@@ -217,8 +217,8 @@ final class _Core {
     group?._left(this);
     group = null;
     if (participant case final p?) {
-      _ofPart[p]?.remove(this);
-      // What it defined through its part goes with it; one of no words
+      _ofParticipant[p]?.remove(this);
+      // What it defined as its owner name goes with it; one of no words
       // speaks as the participant, which is not its to end.
       if (words != null) p.dispose();
     }
@@ -233,7 +233,7 @@ final class _Core {
 /// owner needs none of it: its base, its tools and the clients it makes
 /// (`IHouseClient.of(this)`) reach the participant for it.
 extension OwnerParticipant on IOwner {
-  /// The participant it speaks through: the part named by its vocabulary.
+  /// The participant it speaks through: `ofOwner` of its vocabulary.
   /// Throws while it is not attached: what needs it waits in
   /// [whenAttached].
   IParticipant get participant =>
@@ -395,7 +395,7 @@ extension OwnerTools on IOwner {
 /// words in [define] and writes what it has now in [sync]. Not exported:
 /// an app's owner extends the base its words' generator made.
 abstract base class Owner implements IOwner, IHandle {
-  /// Of [vocabulary], it speaks as the part of its name; without, as the
+  /// Of [vocabulary], it speaks as the owner of its name; without, as the
   /// participant.
   Owner({String? vocabulary}) {
     final c = _Core.of(this);
@@ -503,16 +503,16 @@ List<(String, Object?)> saidApart(IOwner o) =>
 /// owner of no words.
 WordSet? wordsOf(IOwner o) => _Core.of(o).words;
 
-/// A handler of [part]'s answered: its owner lists its choices and asks
+/// A handler of [p]'s answered: its owner lists its choices and asks
 /// its checks again.
-void ownerServed(IParticipant part) {
-  for (final c in [...?_Core._ofPart[part]]) {
+void ownerServed(IParticipant p) {
+  for (final c in [...?_Core._ofParticipant[p]]) {
     c.moved();
   }
 }
 
-/// The owners attached to one participant (SPEC §22.3): each to the part
-/// named by its vocabulary, synced as one tick, withdrawn with the
+/// The owners attached to one participant (SPEC §22.3): each speaking as
+/// the owner named by its vocabulary, synced as one tick, withdrawn with the
 /// participant. A participant's own; code reaches it through the
 /// owners a participant is made with (a guest's `attach`) and `sync`.
 final class OwnerGroup {
@@ -526,8 +526,8 @@ final class OwnerGroup {
   /// The owners attached.
   Iterable<IOwner> get owners => _cores.keys;
 
-  /// Attaches each of [owners] to the part named by its vocabulary
-  /// (`participant.child('house')`), so its acts are told as its own; one
+  /// Attaches each of [owners] to the participant for its vocabulary
+  /// (`participant.ofOwner('house')`), so its acts are told as its own; one
   /// of no words to the participant itself. In order; then writes what
   /// they have now, as one tick. All or none: when one cannot define its
   /// words, those attached here are withdrawn and the error goes on.
@@ -557,7 +557,7 @@ final class OwnerGroup {
         final c = cores[i];
         attached.add(o);
         c.attach(switch (c.words) {
-          final w? => participant.raw.child(w.name),
+          final w? => participant.raw.ofOwner(w.name),
           null => participant,
         }, this);
         _cores[o] = c;
