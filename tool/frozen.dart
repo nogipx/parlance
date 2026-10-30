@@ -4,7 +4,7 @@
 /// builds with the library now. Nothing is kept in the repository to
 /// compare with: the release is taken from its tag.
 ///
-/// Run, in packages/parlance_generator, before a release:
+/// Run from the repository's root, before a release:
 ///
 ///     fvm dart run tool/frozen.dart              # against the last v* tag
 ///     fvm dart run tool/frozen.dart --since <ref>

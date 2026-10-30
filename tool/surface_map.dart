@@ -7,7 +7,7 @@
 /// the truth, and a map kept in git would drift from it; this one is
 /// written anew on each run, what no test touches first.
 ///
-/// Run, in packages/parlance_generator:
+/// Run from the repository's root:
 ///
 ///     fvm dart run tool/surface_map.dart
 ///
@@ -27,7 +27,11 @@ import 'package:analyzer/dart/element/element.dart';
 import 'surface.dart';
 
 Future<void> main(List<String> args) async {
-  final root = Directory('../parlance').resolveSymbolicLinksSync();
+  final repo = (Process.runSync('git', [
+    'rev-parse',
+    '--show-toplevel',
+  ]).stdout as String).trim();
+  final root = '$repo/packages/parlance';
   final collection = AnalysisContextCollection(includedPaths: [root]);
   // Each once: what `app.dart` shows again of `schema.dart` is that one's,
   // a field's getter is the field, and what the language makes on its own
@@ -123,7 +127,7 @@ Future<void> main(List<String> args) async {
     ..writeln('# The frozen surface and its tests')
     ..writeln()
     ..writeln(
-      'Written by `packages/parlance_generator/tool/surface_map.dart` from '
+      'Written by `tool/surface_map.dart` from '
       'the code; not kept in git, written anew on each run: edit nothing '
       'here. How to read it: docs/протечки.md.',
     )
@@ -140,7 +144,6 @@ Future<void> main(List<String> args) async {
     ..writeln('## The whole surface')
     ..write(table);
 
-  final repo = Directory('../..').resolveSymbolicLinksSync();
   final file = File('$repo/docs/карта-поверхности.md')
     ..writeAsStringSync('$map');
   stdout

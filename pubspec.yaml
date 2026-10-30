@@ -19,6 +19,9 @@ workspace:
   - examples/guests/host
 
 dev_dependencies:
+  # tool/: the frozen surface, held to the last release and mapped to
+  # the tests.
+  analyzer: '>=9.0.0 <11.0.0'
   lints: ^6.0.0
 
 # rpc_dart from the local checkout until it is published with what parlance

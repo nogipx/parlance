@@ -75,7 +75,7 @@ expect(breaksSince(releases, schemaOf(playerWords.words)), isEmpty);
 
 ## Before a release: the frozen libraries
 
-`package:parlance/schema.dart` and `app.dart` are frozen: what they show only grows, and a words package's `.g.dart` made by an earlier release builds with the library now. Before a release, in this package:
+`package:parlance/schema.dart` and `app.dart` are frozen: what they show only grows, and a words package's `.g.dart` made by an earlier release builds with the library now. Before a release, from the repository's root (`tool/`, beside `tool/surface_map.dart`, which maps the same surface to the tests: docs/протечки.md):
 
 ```sh
 fvm dart run tool/frozen.dart              # against the last v* tag
