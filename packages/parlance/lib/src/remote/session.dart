@@ -184,12 +184,12 @@ final class RemoteSession extends ParlanceContractPeer
   /// Why each of its commands cannot run now, as the participant told.
   final Map<String, String> _unavailable = {};
 
-  /// Its entity kinds, with the entities it sent last.
+  /// The choices it gives, as it sent them last.
   final Map<
     String,
-    ({IHandle handle, List<EntityRef> entities, LocalParticipant part})
+    ({IHandle handle, List<Choice> list, LocalParticipant part})
   >
-  _kinds = {};
+  _choices = {};
 
   /// Its guards, asked across the connection.
   final Map<String, IHandle> _guards = {};
@@ -642,9 +642,13 @@ final class RemoteSession extends ParlanceContractPeer
       case 'available':
         _available(m['command']! as String, m['why'] as String?);
       case 'kind':
-        _kind(m['name']! as String, m['entities'] as List? ?? const [], part);
+        _choicesOf(
+          m['name']! as String,
+          m['entities'] as List? ?? const [],
+          part,
+        );
       case 'unkind':
-        _kinds.remove(m['name'])?.handle.dispose();
+        _choices.remove(m['name'])?.handle.dispose();
       case 'guard':
         _guard(m['id']! as String, part: part);
       case 'unguard':
@@ -834,34 +838,43 @@ final class RemoteSession extends ParlanceContractPeer
     registry.availabilityChanged(command);
   }
 
-  void _kind(String name, List<Object?> entities, [LocalParticipant? part]) {
+  /// The choices of [name], as the wire says them ([entities]).
+  void _choicesOf(
+    String name,
+    List<Object?> entities, [
+    LocalParticipant? part,
+  ]) {
     if (limits.choices case final max?) {
       final others = [
-        for (final MapEntry(:key, :value) in _kinds.entries)
-          if (key != name) value.entities.length,
+        for (final MapEntry(:key, :value) in _choices.entries)
+          if (key != name) value.list.length,
       ].fold(0, (a, b) => a + b);
       if (others + entities.length > max) {
         _exhausted(
-          'the session has at most $max entities in its kinds: $name would '
+          'the session has at most $max choices: $name would '
           'make it ${others + entities.length}',
         );
       }
     }
     final list = [
       for (final e in entities.cast<Map<Object?, Object?>>())
-        EntityRef(e['id']! as String, e['label'] as String?, _obj(e['meta'])),
+        Choice(
+          e['id']! as String,
+          label: e['label'] as String?,
+          meta: _obj(e['meta']),
+        ),
     ];
-    if (_kinds[name] case final k?) {
-      _kinds[name] = (handle: k.handle, entities: list, part: k.part);
-      _permitted(() => k.part.entitiesChanged(name));
+    if (_choices[name] case final c?) {
+      _choices[name] = (handle: c.handle, list: list, part: c.part);
+      _permitted(() => c.part.choicesChanged(name));
       return;
     }
     final p = part ?? _p;
     try {
-      final handle = p.registerKind(
-        EntityKind(name, list: () => _kinds[name]?.entities ?? const []),
+      final handle = p.addChoices(
+        Choices(name, list: () => _choices[name]?.list ?? const []),
       );
-      _kinds[name] = (handle: handle, entities: list, part: p);
+      _choices[name] = (handle: handle, list: list, part: p);
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }
@@ -962,7 +975,7 @@ final class RemoteSession extends ParlanceContractPeer
     _commands.clear();
     _facts.clear();
     _states.clear();
-    _kinds.clear();
+    _choices.clear();
     _guards.clear();
     _unavailable.clear();
     _listenTo(const {});

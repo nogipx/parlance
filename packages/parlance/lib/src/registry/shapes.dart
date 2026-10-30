@@ -38,7 +38,7 @@ abstract base class Shape<T> {
   /// unvisited. So a list of a thousand with one item new costs one item.
   T check(T value, ITypeContext ctx, {T? was});
 
-  /// Whether a value of it is checked by itself alone, asking no entity
+  /// Whether a value of it is checked by itself alone, asking no choices
   /// and no host's type: a value kept once passes again as it is.
   bool get checkedAlone => _aloneOf[this] ??= _alone(type);
 
@@ -50,7 +50,7 @@ abstract base class Shape<T> {
 }
 
 /// The lists and maps the shapes made: unmodifiable, and checked already
-/// but for what the registry knows now (entities, the host's types).
+/// but for what the registry knows now (choices, the host's types).
 final Expando<bool> _kept = Expando('kept');
 
 /// The fields of each record shape in order, read once a shape.
@@ -111,7 +111,7 @@ final class JsonValue extends Shape<Object?> {
   int weigh(Object? value) => jsonWeight(value);
 }
 
-/// A value kept as it is: a bool, an int, a num, a text or an entity id.
+/// A value kept as it is: a bool, an int, a num, a text or a choice's id.
 /// Its Dart type is its type's: `PlainShape(BoolType())` is a `Shape<bool>`.
 final class PlainShape<T> extends Shape<T> {
   const PlainShape(this.type);

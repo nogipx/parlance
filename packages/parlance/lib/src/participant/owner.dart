@@ -101,12 +101,12 @@ final class _Core {
   void Function(IParticipant p)? define;
   void Function()? write;
   final List<void Function()> follows = [];
-  final List<_Choices> choices = [];
+  final List<_Listing> choices = [];
 
   /// What it said while not attached: each fact's name and payload.
   final List<(String, Object?)> said = [];
 
-  /// Its keyed states, by the kind of their keys.
+  /// Its keyed states, by the choices their keys are of.
   final Map<String, List<Keyed<Object?>>> keyed = {};
 
   /// What waits for it to be attached, in order; null once it is.
@@ -132,8 +132,8 @@ final class _Core {
     runZoned(
       () => define?.call(p),
       zoneValues: {
-        keyedDefined: (String kind, Keyed<Object?> k) =>
-            (keyed[kind] ??= []).add(k),
+        keyedDefined: (String of, Keyed<Object?> k) =>
+            (keyed[of] ??= []).add(k),
       },
     );
     for (final c in choices) {
@@ -183,11 +183,11 @@ final class _Core {
   }
 
   /// Lists its choices again: those that changed are told, and what went
-  /// of them goes of its keyed states keyed by their kind.
+  /// of them goes of its keyed states keyed by them.
   void _relist() {
     for (final c in choices) {
       for (final id in c.relist()) {
-        for (final k in keyed[c.kind] ?? const <Keyed<Object?>>[]) {
+        for (final k in keyed[c.name] ?? const <Keyed<Object?>>[]) {
           if (k.keys.contains(id)) k.remove(id);
         }
       }
@@ -385,7 +385,7 @@ extension OwnerTools on IOwner {
     required Iterable<Choice> Function() list,
   }) {
     final c = _Core.of(this);
-    final ch = _Choices(name, list);
+    final ch = _Listing(name, list);
     c.choices.add(ch);
     if (c.participant case final p? when c.group != null) ch.attach(p, c);
   }
@@ -447,40 +447,25 @@ final class GuardCall<P> {
   final String command;
 }
 
-/// One of what an owner gives to choose from ([OwnerTools.choices]): its
-/// [id], what people see of it ([label], else the id), and what else a
-/// chooser needs ([meta], JSON: the type of the value it takes...).
-final class Choice {
-  const Choice(this.id, {this.label, this.meta = const {}});
+/// The choices of one name an owner gives, as the registry was last told.
+final class _Listing {
+  _Listing(this.name, this._list);
 
-  final String id;
-  final String? label;
-  final Map<String, Object?> meta;
-}
-
-/// The choices of one kind an owner gives, as the registry was last told.
-final class _Choices {
-  _Choices(this.kind, this._list);
-
-  final String kind;
+  final String name;
   final Iterable<Choice> Function() _list;
   IParticipant? _participant;
   List<(String, String)> _known = const [];
 
-  Iterable<EntityRef> _refs() => [
-    for (final c in _list()) EntityRef(c.id, c.label, c.meta),
-  ];
-
   void attach(IParticipant p, _Core core) {
     if (_participant != null) return;
     _participant = p;
-    _known = _ids(_refs());
-    core.handles.keep(p.raw.registerKind(EntityKind(kind, list: _refs)));
+    _known = _ids(_list());
+    core.handles.keep(p.raw.addChoices(Choices(name, list: _list)));
   }
 
   /// Each choice's id, and all it tells (its label, its meta).
-  static List<(String, String)> _ids(Iterable<EntityRef> refs) => [
-    for (final e in refs) (e.id, jsonEncode(e.toJson())),
+  static List<(String, String)> _ids(Iterable<Choice> choices) => [
+    for (final c in choices) (c.id, jsonEncode(c.toJson())),
   ];
 
   /// Compares the choices with the ones told last: when they differ, the
@@ -488,7 +473,7 @@ final class _Choices {
   Set<String> relist() {
     final p = _participant;
     if (p == null) return const {};
-    final now = _ids(_refs());
+    final now = _ids(_list());
     if (_same(now, _known)) return const {};
     final ids = {for (final (id, _) in now) id};
     final gone = {
@@ -496,7 +481,7 @@ final class _Choices {
         if (!ids.contains(id)) id,
     };
     _known = now;
-    p.raw.entitiesChanged(kind);
+    p.raw.choicesChanged(name);
     return gone;
   }
 

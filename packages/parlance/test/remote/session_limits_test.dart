@@ -86,15 +86,13 @@ void main() {
     expect(errors.single.why, contains('1 guards'));
   });
 
-  test('so many entities in its kinds and no more', () async {
+  test('so many choices and no more', () async {
     final (p, errors) = await join(const SessionLimits(choices: 2));
-    p.registerKind(
-      EntityKind('note', list: () => const [EntityRef('a'), EntityRef('b')]),
-    );
-    p.registerKind(EntityKind('tag', list: () => const [EntityRef('t')]));
+    p.addChoices(Choices('note', list: () => const [Choice('a'), Choice('b')]));
+    p.addChoices(Choices('tag', list: () => const [Choice('t')]));
     await p.flush();
-    expect(r.hasKind('note'), isTrue);
-    expect(r.hasKind('tag'), isFalse);
+    expect(r.hasChoices('note'), isTrue);
+    expect(r.hasChoices('tag'), isFalse);
     expect(errors.single.code, ParticipantErrorCode.overLimit);
   });
 

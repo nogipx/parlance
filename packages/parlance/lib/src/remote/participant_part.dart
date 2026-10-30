@@ -138,10 +138,10 @@ final class _Part implements IRawParticipant {
       _root._addGuard(id, check, who);
 
   @override
-  IHandle registerKind(EntityKind kind) => _root._registerKind(kind, who);
+  IHandle addChoices(Choices choices) => _root._addChoices(choices, who);
 
   @override
-  void entitiesChanged(String kind) => _root.entitiesChanged(kind);
+  void choicesChanged(String name) => _root.choicesChanged(name);
 
   @override
   void availabilityChanged(String command) =>

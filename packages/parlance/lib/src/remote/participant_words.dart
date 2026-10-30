@@ -132,16 +132,16 @@ final class _Fact implements IFactHandle {
 }
 
 /// What a value is checked against before it is sent: its type, as the
-/// host checks it. Entities and the host's own types are the host's to
+/// host checks it. Choices and the host's own types are the host's to
 /// know: they pass here, and the host checks them.
 final class _Unseen implements ITypeContext {
   const _Unseen();
 
   @override
-  bool hasKind(String kind) => true;
+  bool hasChoices(String name) => true;
 
   @override
-  bool hasEntity(String kind, String id) => true;
+  bool hasChoice(String name, String id) => true;
 
   @override
   String? checkCustom(String name, Object? value) => null;

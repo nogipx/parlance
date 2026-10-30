@@ -49,15 +49,15 @@ final class Host {
       ),
       (c) => c.params['n'],
     );
-    scenes = [for (var i = 0; i < entities; i++) EntityRef('scene$i')];
-    p.registerKind(EntityKind('scene', list: () => scenes));
+    scenes = [for (var i = 0; i < entities; i++) Choice('scene$i')];
+    p.addChoices(Choices('scene', list: () => scenes));
     this.p = p;
   }
 
   final r = Registry();
   late final LocalParticipant p;
   late final IStateHandle program;
-  late List<EntityRef> scenes;
+  late List<Choice> scenes;
   final List<RpcPeerEndpoint> _ends = [];
 
   /// A guest joined over a channel of its own; [features] stand in for an
@@ -248,11 +248,11 @@ Future<void> entities(
       }),
   ];
   Future<void> once() async {
-    host.scenes = [...host.scenes, EntityRef('scene${host.scenes.length}')];
+    host.scenes = [...host.scenes, Choice('scene${host.scenes.length}')];
     wantLen = host.scenes.length;
     heard = 0;
     all = Completer();
-    host.p.entitiesChanged('scene');
+    host.p.choicesChanged('scene');
     await all!.future;
   }
 

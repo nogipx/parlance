@@ -119,7 +119,7 @@ void main() {
   test('commands take their params, defaults filled and bounds held', () async {
     final played = <PlayerPlay>[];
     GeneratedWords(p.raw).state(PlayerState.volume).define();
-    p.raw.registerKind(EntityKind('speaker', list: () => [EntityRef('left')]));
+    p.raw.addChoices(Choices('speaker', list: () => [Choice('left')]));
     GeneratedWords(
       p.raw,
     ).command(PlayerCommand.play).serve((params) => played.add(params));

@@ -157,8 +157,8 @@ final class Length {
   final int max;
 }
 
-/// A text that is one of the choices of [kind] (SPEC §3), as an owner
-/// gives them (`choices(kind, ...)`): a call naming none of them is
+/// A text that is one of the choices of [of] (SPEC §3), as an owner
+/// gives them (`choices(name: of, list: ...)`): a call naming none of them is
 /// refused before its handler, and an agent or an editor offers them. On
 /// a list, of its items.
 final class ChoiceOf {

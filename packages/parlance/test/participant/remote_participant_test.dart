@@ -387,15 +387,15 @@ void main() {
   test('it keeps a kind of entities and tells when they change', () async {
     final p = await join();
     final names = ['tom'];
-    p.registerKind(
-      EntityKind('kitten', list: () => [for (final n in names) EntityRef(n)]),
+    p.addChoices(
+      Choices('kitten', list: () => [for (final n in names) Choice(n)]),
     );
     await p.flush();
-    expect(r.hasEntity('kitten', 'tom'), isTrue);
+    expect(r.hasChoice('kitten', 'tom'), isTrue);
     names.add('ivy');
-    p.entitiesChanged('kitten');
+    p.choicesChanged('kitten');
     await p.flush();
-    expect(r.hasEntity('kitten', 'ivy'), isTrue);
+    expect(r.hasChoice('kitten', 'ivy'), isTrue);
   });
 
   test('it speaks for another only when the host lets it', () async {

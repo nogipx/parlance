@@ -302,15 +302,15 @@ final class RegistryMirror {
         // the copy follows again from its first item, though nothing may
         // have happened since to send.
         if (_epoch != null && json['epoch'] == _epoch) _synced = true;
-      case RemoteKind(:final name, :final json):
-        // One kind's entities, in its place among the kinds; the rest of
-        // the catalog stays as it was.
-        final kinds = [
-          for (final k in _catalog['kinds'] as List? ?? const [])
-            if ((k as Map)['name'] != name) k else ?json,
+      case RemoteChoices(:final name, :final json):
+        // The choices of one name, in their place among the rest (the
+        // catalog's `kinds`); the rest of the catalog stays as it was.
+        final choices = [
+          for (final c in _catalog['kinds'] as List? ?? const [])
+            if ((c as Map)['name'] != name) c else ?json,
         ];
-        if (json != null && !kinds.contains(json)) kinds.add(json);
-        _catalog = {..._catalog, 'kinds': kinds};
+        if (json != null && !choices.contains(json)) choices.add(json);
+        _catalog = {..._catalog, 'kinds': choices};
         _catalogChanges.add(null);
       case RemoteSnapshot(:final snapshot, :final subscription):
         _subscription = subscription;

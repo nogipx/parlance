@@ -3,35 +3,36 @@ import 'ids.dart';
 import 'json.dart';
 import 'types.dart';
 
-/// One entity of a kind, as `describe` lists it.
-final class EntityRef {
-  const EntityRef(this.id, [String? label, this.meta = const {}])
-    : label = label ?? id;
+/// One of what an owner gives to choose from (`OwnerTools.choices`): its
+/// [id], what people see of it ([label], else the id), and what else a
+/// chooser needs ([meta], JSON: the type of the value it takes...).
+final class Choice {
+  const Choice(this.id, {this.label, this.meta = const {}});
 
   final String id;
-  final String label;
-
-  /// What else the host tells of it, as JSON: what an editor or an agent
-  /// needs to choose it or use it (the type of the value it takes...).
+  final String? label;
   final Map<String, Object?> meta;
 
+  /// As `describe` lists it (on the wire, an entity).
   Map<String, Object?> toJson() => {
     'id': id,
-    'label': label,
+    'label': label ?? id,
     if (meta.isNotEmpty) 'meta': meta,
   };
 }
 
-/// A kind of entity the host has: rooms, devices, documents (SPEC §3).
-final class EntityKind {
-  EntityKind(this.name, {required this.list, this.meta = const {}}) {
-    checkName(name, 'kind');
+/// The choices of [name] there are now: rooms, devices, documents
+/// (SPEC §3), what a `ChoiceType` of [name] holds a value to. On the wire
+/// a kind of entities.
+final class Choices {
+  Choices(this.name, {required this.list, this.meta = const {}}) {
+    checkName(name, 'choices');
   }
 
   final String name;
 
-  /// The entities there are now.
-  final Iterable<EntityRef> Function() list;
+  /// The choices there are now.
+  final Iterable<Choice> Function() list;
 
   final Map<String, Object?> meta;
 
@@ -154,7 +155,7 @@ final class StateDescriptor extends Descriptor {
 
   final ValueType<Object?> type;
 
-  /// The entity kind of its keys, when it holds one value per entity.
+  /// The choices its keys are of, when it holds one value per choice.
   final String? key;
 
   /// Who may read its values over remote and MCP, as callers

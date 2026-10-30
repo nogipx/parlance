@@ -1,13 +1,13 @@
 import 'json.dart';
 
-/// What a type check needs from the registry: entity kinds and the host's
-/// own types.
+/// What a type check needs from the registry: the choices there are and
+/// the host's own types.
 abstract interface class ITypeContext {
-  /// Whether an entity kind named [kind] is registered.
-  bool hasKind(String kind);
+  /// Whether someone gives the choices of [name].
+  bool hasChoices(String name);
 
-  /// Whether the kind [kind] holds an entity [id] right now.
-  bool hasEntity(String kind, String id);
+  /// Whether [id] is one of the choices of [name] right now.
+  bool hasChoice(String name, String id);
 
   /// Null when the host's type [name] accepts [value], else why not.
   String? checkCustom(String name, Object? value);
@@ -229,14 +229,14 @@ final class ChoiceType extends ValueType<String> {
     if (value is! String || value.isEmpty) {
       ValueType._fail(path, 'expected a $of id');
     }
-    if (!ctx.hasKind(of)) {
+    if (!ctx.hasChoices(of)) {
       ValueType._fail(
         path,
         'no one gives the choices of $of: its owner says them, '
         "choices(name: '$of', list: ...)",
       );
     }
-    if (!ctx.hasEntity(of, value)) ValueType._fail(path, 'no $of $value');
+    if (!ctx.hasChoice(of, value)) ValueType._fail(path, 'no $of $value');
     return value;
   }
 

@@ -174,10 +174,10 @@ void main() {
   test('a stand-in gives the choices another module owns', () async {
     final host = TestHost();
     final rooms = host.standInChoices('room', [const Choice('hall')]);
-    expect(host.registry.hasEntity('room', 'hall'), isTrue);
-    expect(host.registry.hasEntity('room', 'kitchen'), isFalse);
+    expect(host.registry.hasChoice('room', 'hall'), isTrue);
+    expect(host.registry.hasChoice('room', 'kitchen'), isFalse);
     rooms.set([const Choice('hall'), const Choice('kitchen')]);
-    expect(host.registry.hasEntity('room', 'kitchen'), isTrue);
+    expect(host.registry.hasChoice('room', 'kitchen'), isTrue);
     await host.dispose();
   });
 }

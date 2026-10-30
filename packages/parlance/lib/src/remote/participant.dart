@@ -341,10 +341,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   /// What it has defined, as it stands now, in the order a session takes
-  /// it: kinds before the values that name their entities, states before
-  /// the commands that set them.
+  /// it: choices before the values that name them, states before the
+  /// commands that set them.
   List<Map<String, Object?>> _standing() => [
-    for (final k in _kinds.values) _kindOp(k.kind, k.as),
+    for (final c in _choices.values) _choicesOp(c.choices, c.as),
     for (final s in _states.values)
       {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
     for (final f in _facts.values)
@@ -401,7 +401,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Its guards and its parts', by the id the host knows them by.
   final Map<String, ({String id, GuardCheck check, Principal? as})> _guards =
       {};
-  final Map<String, ({EntityKind kind, Principal? as})> _kinds = {};
+  final Map<String, ({Choices choices, Principal? as})> _choices = {};
 
   final Map<Principal, _Part> _parts = {};
   bool _disposed = false;
@@ -994,33 +994,34 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   @override
-  IHandle registerKind(EntityKind kind) => _registerKind(kind, null);
+  IHandle addChoices(Choices choices) => _addChoices(choices, null);
 
-  IHandle _registerKind(EntityKind kind, Principal? as) {
+  IHandle _addChoices(Choices choices, Principal? as) {
     _live();
-    if (_kinds.containsKey(kind.name)) {
-      throw StateError('kind ${kind.name} exists');
+    if (_choices.containsKey(choices.name)) {
+      throw StateError('the choices of ${choices.name} exist');
     }
-    _kinds[kind.name] = (kind: kind, as: as);
-    _ask(_kindOp(kind, as));
+    _choices[choices.name] = (choices: choices, as: as);
+    _ask(_choicesOp(choices, as));
     return Disposer(() {
-      if (_kinds.remove(kind.name) == null) return;
-      _ask({'op': 'unkind', 'name': kind.name, ..._asOf(as)});
+      if (_choices.remove(choices.name) == null) return;
+      _ask({'op': 'unkind', 'name': choices.name, ..._asOf(as)});
     });
   }
 
-  static Map<String, Object?> _kindOp(EntityKind kind, Principal? as) => {
+  /// [choices] as the wire says them: a kind and its entities.
+  static Map<String, Object?> _choicesOp(Choices choices, Principal? as) => {
     'op': 'kind',
-    'name': kind.name,
-    'entities': [for (final e in kind.list()) e.toJson()],
+    'name': choices.name,
+    'entities': [for (final c in choices.list()) c.toJson()],
     ..._asOf(as),
   };
 
   @override
-  void entitiesChanged(String kind) {
-    final k = _kinds[kind];
-    if (k == null) throw NotPermitted('$who registered no kind $kind');
-    _ask(_kindOp(k.kind, k.as));
+  void choicesChanged(String name) {
+    final c = _choices[name];
+    if (c == null) throw NotPermitted('$who gives no choices of $name');
+    _ask(_choicesOp(c.choices, c.as));
   }
 
   /// A part of it (SPEC §22.3): its words, writes, calls and facts go as
@@ -1060,9 +1061,9 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _guards.remove(e.key);
       _ask({'op': 'unguard', 'id': e.value.id, ..._asOf(e.value.as)});
     }
-    for (final e in [..._kinds.entries]) {
+    for (final e in [..._choices.entries]) {
       if (!mine(e.value.as)) continue;
-      _kinds.remove(e.key);
+      _choices.remove(e.key);
       _ask({'op': 'unkind', 'name': e.key, ..._asOf(e.value.as)});
     }
     _parts.removeWhere((p, _) => p.isWithin(part));
@@ -1190,7 +1191,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   @override
   void dispose() => unawaited(close());
 
-  /// Withdraws its words, guards and kinds, stops its mirror and closes its
+  /// Withdraws its words, guards and choices, stops its mirror and closes its
   /// endpoint; completes once it is closed. What `dispose` does, awaited:
   /// the library's and its tools'.
   Future<void> close() async {
@@ -1208,8 +1209,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     for (final g in _guards.values) {
       _ask({'op': 'unguard', 'id': g.id, ..._asOf(g.as)});
     }
-    for (final k in _kinds.keys) {
-      _ask({'op': 'unkind', 'name': k});
+    for (final name in _choices.keys) {
+      _ask({'op': 'unkind', 'name': name});
     }
     final unbuilt = _built.forget();
     if (_speaks.contains('built')) unbuilt.forEach(_ask);
@@ -1223,7 +1224,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     _facts.clear();
     _commands.clear();
     _guards.clear();
-    _kinds.clear();
+    _choices.clear();
     await flush();
     await _connection?.cancel();
     await _changes?.cancel();

@@ -419,14 +419,14 @@ void main() {
   test('going, it withdraws all it defined; others see the words missing', () {
     final p = ordersModule();
     p.addGuard('orders.g', (_) => null);
-    p.registerKind(EntityKind('order', list: () => const []));
+    p.addChoices(Choices('order', list: () => const []));
     final c = r.participant(cart);
     expect(c.status('orders.place'), const WordReady());
     p.dispose();
     for (final w in ['orders.place', 'orders.last', 'orders.placed']) {
       expect(c.status(w), const WordMissing(), reason: w);
     }
-    expect(r.hasKind('order'), isFalse);
+    expect(r.hasChoices('order'), isFalse);
     expect(
       () => GeneratedWords(p).state(OrderState.last).define(),
       throwsA(isA<StateError>()),
@@ -435,9 +435,9 @@ void main() {
 
   test('tells of entities only of a kind it registered', () {
     final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-    p.registerKind(EntityKind('order', list: () => const []));
-    p.entitiesChanged('order');
-    expect(() => p.entitiesChanged('room'), throwsA(isA<StateError>()));
+    p.addChoices(Choices('order', list: () => const []));
+    p.choicesChanged('order');
+    expect(() => p.choicesChanged('room'), throwsA(isA<StateError>()));
   });
 
   test(

@@ -230,14 +230,16 @@ void main() {
     });
 
     test('an entity that tells the type of its value shows it', () async {
-      f.r.registerKind(
-        EntityKind(
+      f.r.addChoices(
+        Choices(
           'gauge',
           list: () => [
-            EntityRef('g1', 'Gauge', {
-              'type': const NumType(min: 0, max: 1).toJson(),
-            }),
-            const EntityRef('g2', 'PlainShape'),
+            Choice(
+              'g1',
+              label: 'Gauge',
+              meta: {'type': const NumType(min: 0, max: 1).toJson()},
+            ),
+            const Choice('g2', label: 'PlainShape'),
           ],
         ),
       );

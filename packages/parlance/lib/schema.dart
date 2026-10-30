@@ -14,7 +14,7 @@ library;
 
 export 'src/core/core.dart' show IHandle;
 export 'src/participant/owner.dart'
-    show IOwner, OwnerTools, Choice, GuardCall, failCall, HandlerFailed;
+    show IOwner, OwnerTools, GuardCall, failCall, HandlerFailed;
 export 'src/participant/participant.dart'
     show
         IParticipant,
@@ -25,7 +25,7 @@ export 'src/participant/participant.dart'
         GeneratedFact;
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
-export 'src/registry/descriptors.dart' show Callers, Access;
+export 'src/registry/descriptors.dart' show Callers, Access, Choice;
 export 'src/registry/messages.dart'
     show
         CallResult,

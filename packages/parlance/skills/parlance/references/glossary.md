@@ -10,7 +10,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
 - **Custom type** (§2): a host's own checker under a name; the package never reads it.
-- **Entity kind**, **entity** (§3): what keys and refs point at, for whoever asks the registry to choose from. An owner gives them by `choices(name: kind, list: () => [Choice(id, label:, meta:)])`; underneath, a kind registered with a function listing `EntityRef`s, and `entitiesChanged` when the list changes (the raw API).
+- **Choices**, **choice** (§3): what keys and `ChoiceType` values point at, for whoever asks the registry to choose from. An owner gives them by `choices(name:, list: () => [Choice(id, label:, meta:)])`; underneath, `Choices(name, list:)` given by `addChoices`, and `choicesChanged(name)` when the list changes (the raw API). The wire still says a kind and its entities (`kinds`, `ref`).
 - **`meta`** (§3, §6): what else the host tells of an entity or a word (a label, a unit, the type of value an entity takes), for editors and agents.
 
 ## Core

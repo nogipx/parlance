@@ -15,10 +15,10 @@ final class DescriptorRemoved extends CatalogChange {
   final Descriptor descriptor;
 }
 
-/// Entity kinds came, went or their entities changed.
-final class KindChanged extends CatalogChange {
-  const KindChanged(this.kind);
-  final String kind;
+/// The choices of [name] came, went or changed.
+final class ChoicesChanged extends CatalogChange {
+  const ChoicesChanged(this.name);
+  final String name;
 }
 
 /// A word's old name came or went (SPEC §6.4).

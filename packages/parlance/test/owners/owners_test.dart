@@ -131,7 +131,7 @@ void main() {
     owners.dispose();
     expect(r.stateDescriptor('test.level'), isNull);
     expect(r.stateDescriptor('test.on'), isNull);
-    expect(r.hasKind('dial'), isFalse);
+    expect(r.hasChoices('dial'), isFalse);
   });
 
   test('a tracked kind announces a change and names what went', () async {
@@ -143,7 +143,7 @@ void main() {
     dials.dials['c'] = 3;
     r.batch(dials.sync);
     await pumpEventQueue();
-    expect(changes.whereType<KindChanged>().map((c) => c.kind), ['dial']);
+    expect(changes.whereType<ChoicesChanged>().map((c) => c.name), ['dial']);
     expect(r.readAll(Level.of.name), {'b': 2, 'c': 3});
     changes.clear();
     r.batch(dials.sync);
@@ -287,7 +287,7 @@ void main() {
     expect(r.stateDescriptor('test.level'), isNull);
     expect(r.stateDescriptor('test.on'), isNull, reason: 'the part went');
     expect(r.readAll(Level.of.name), isEmpty);
-    expect(r.hasKind('dial'), isFalse);
+    expect(r.hasChoices('dial'), isFalse);
     expect(statuses.last, const WordMissing());
     // What it writes after it went (code still running then) is not
     // written, and throws nothing.

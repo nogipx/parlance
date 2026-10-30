@@ -263,10 +263,10 @@ final class _Free implements ITypeContext {
   const _Free();
 
   @override
-  bool hasKind(String kind) => true;
+  bool hasChoices(String kind) => true;
 
   @override
-  bool hasEntity(String kind, String id) => true;
+  bool hasChoice(String kind, String id) => true;
 
   @override
   String? checkCustom(String name, Object? value) => null;

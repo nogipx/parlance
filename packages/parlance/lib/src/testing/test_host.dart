@@ -4,7 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../participant/local.dart';
-import '../participant/owner.dart' show Choice, IOwner;
+import '../participant/owner.dart' show IOwner;
 import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
@@ -179,15 +179,8 @@ final class TestHost {
   ChoicesStub standInChoices(String name, Iterable<Choice> choices) {
     final stub = ChoicesStub._([...choices]);
     final p = _standInFor('$name.choices');
-    p.registerKind(
-      EntityKind(
-        name,
-        list: () => [
-          for (final c in stub._now) EntityRef(c.id, c.label, c.meta),
-        ],
-      ),
-    );
-    stub._changed = () => p.entitiesChanged(name);
+    p.addChoices(Choices(name, list: () => [...stub._now]));
+    stub._changed = () => p.choicesChanged(name);
     return stub;
   }
 

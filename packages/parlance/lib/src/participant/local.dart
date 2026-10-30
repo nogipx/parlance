@@ -137,7 +137,7 @@ void forgetBuiltAgainst(LocalParticipant p) => p._forgetBuilt();
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
-/// guards, kinds, owners or parts would go with the session. [end] ends
+/// guards, choices, owners or parts would go with the session. [end] ends
 /// the session, when a new one of the same principal takes its place
 /// ([Participants.participant]). Not exported.
 void takeForServing(LocalParticipant p, {required void Function() end}) {
@@ -200,8 +200,8 @@ final class LocalParticipant implements IRawParticipant {
   /// Its commands and queries with an availability check.
   final Set<String> _checked = {};
 
-  /// The kinds it registered.
-  final Set<String> _kinds = {};
+  /// The names of the choices it gives.
+  final Set<String> _choices = {};
   bool _disposed = false;
   bool _served = false;
 
@@ -538,22 +538,22 @@ final class LocalParticipant implements IRawParticipant {
   }
 
   @override
-  IHandle registerKind(EntityKind kind) {
+  IHandle addChoices(Choices choices) {
     _live();
-    final h = _r.registerKind(kind);
-    _kinds.add(kind.name);
+    final h = _r.addChoices(choices);
+    _choices.add(choices.name);
     return _keepDoing(() {
-      _kinds.remove(kind.name);
+      _choices.remove(choices.name);
       h.dispose();
     });
   }
 
   @override
-  void entitiesChanged(String kind) {
-    if (!_kinds.contains(kind)) {
-      throw NotPermitted('$who registered no kind $kind');
+  void choicesChanged(String name) {
+    if (!_choices.contains(name)) {
+      throw NotPermitted('$who gives no choices of $name');
     }
-    _r.entitiesChanged(kind);
+    _r.choicesChanged(name);
   }
 
   @override

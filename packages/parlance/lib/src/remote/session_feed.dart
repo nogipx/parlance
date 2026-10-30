@@ -9,7 +9,7 @@ final class _Feed {
     : _last = request.since,
       _sent = request.since,
       _sentEpoch = request.epoch,
-      _kinds =
+      _choicesApart =
           _s.features.contains('kinds') &&
           (request.features?.contains('kinds') ?? false) {
     out = StreamController<WireFeedItem>(
@@ -43,9 +43,9 @@ final class _Feed {
   /// The commands that could not run when the feed last told, and why.
   Map<String, String> _unavailable = const {};
 
-  /// Whether the entities of a kind that changed go as a `kind` item
-  /// (the feature `kinds`), not the whole catalog.
-  final bool _kinds;
+  /// Whether choices that changed go alone, as a `kind` item (the feature
+  /// `kinds`), not as the whole catalog.
+  final bool _choicesApart;
 
   /// What waits while the connection is not taking more; ticks carry
   /// their seq.
@@ -60,7 +60,7 @@ final class _Feed {
     _describe();
     _catalog = _registry.catalogChanges.listen(
       (c) => switch (c) {
-        KindChanged(:final kind) when _kinds => _kind(kind),
+        ChoicesChanged(:final name) when _choicesApart => _choicesOf(name),
         _ => _describe(),
       },
     );
@@ -150,11 +150,11 @@ final class _Feed {
     send(WireFeedItem('catalog', d));
   }
 
-  /// The entities of [name] as they are now, none when the kind went;
-  /// then what cannot run, if that moved with them.
-  void _kind(String name) {
-    final kind = _registry.kinds.where((k) => k.name == name).firstOrNull;
-    send(WireFeedItem('kind', {'name': name, 'kind': ?kind?.toJson()}));
+  /// The choices of [name] as they are now, none when they went; then
+  /// what cannot run, if that moved with them.
+  void _choicesOf(String name) {
+    final now = _registry.choices.where((c) => c.name == name).firstOrNull;
+    send(WireFeedItem('kind', {'name': name, 'kind': ?now?.toJson()}));
     _availability();
   }
 

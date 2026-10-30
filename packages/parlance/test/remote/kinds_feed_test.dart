@@ -12,7 +12,7 @@ import 'package:test/test.dart';
 void main() {
   late Registry r;
   late LocalParticipant house;
-  late List<EntityRef> rooms;
+  late List<Choice> rooms;
   final opened = <RpcPeerEndpoint>[];
   setUp(() {
     r = Registry();
@@ -20,8 +20,8 @@ void main() {
       const Principal('house'),
       vocabularies: [WordSet.open('house')],
     );
-    rooms = [const EntityRef('main')];
-    house.registerKind(EntityKind('room', list: () => rooms));
+    rooms = [const Choice('main')];
+    house.addChoices(Choices('room', list: () => rooms));
     house.defineCommand(
       CommandDescriptor(
         'house.show',
@@ -69,14 +69,14 @@ void main() {
     final feed = caller.feed(const WireFeedRequest(features: {'kinds'}));
     final first = items(feed, (g) => g.any((i) => i.kind == 'unavailable'));
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    rooms = [...rooms, const EntityRef('break')];
-    house.entitiesChanged('room');
+    rooms = [...rooms, const Choice('break')];
+    house.choicesChanged('room');
     final got = await first.timeout(const Duration(seconds: 2));
     final after = got.skipWhile((i) => i.kind != 'kind').toList();
     expect([for (final i in after) i.kind], ['kind', 'unavailable']);
     expect(after.first.json, {
       'name': 'room',
-      'kind': EntityKind('room', list: () => rooms).toJson(),
+      'kind': Choices('room', list: () => rooms).toJson(),
     });
     expect(after.last.json['unavailable'], isEmpty);
     expect(
@@ -102,8 +102,8 @@ void main() {
         (g) => g.where((i) => i.kind == 'catalog').length == 2,
       );
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      rooms = [...rooms, const EntityRef('break')];
-      house.entitiesChanged('room');
+      rooms = [...rooms, const Choice('break')];
+      house.choicesChanged('room');
       final all = await got.timeout(const Duration(seconds: 2));
       expect(all.where((i) => i.kind == 'kind'), isEmpty);
       expect(
@@ -120,8 +120,8 @@ void main() {
     await mirror.changes.firstWhere((_) => mirror.synced);
     final descriptors = mirror.catalog['descriptors'];
     final told = mirror.catalogChanges.first;
-    rooms = [...rooms, const EntityRef('break')];
-    house.entitiesChanged('room');
+    rooms = [...rooms, const Choice('break')];
+    house.choicesChanged('room');
     await told;
     expect(
       [
@@ -143,7 +143,7 @@ void main() {
           const Principal('deck'),
           vocabularies: [WordSet.open('deck')],
         )
-        .registerKind(EntityKind('deck', list: () => const []));
+        .addChoices(Choices('deck', list: () => const []));
     await gone;
     expect(mirror.catalog['kinds'], hasLength(2));
     final went = mirror.catalogChanges.first;

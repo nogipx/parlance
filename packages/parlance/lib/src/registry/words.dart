@@ -82,8 +82,8 @@ final class WordSet {
   }
 }
 
-/// A state's name, its value's shape and, for a keyed one, the entity kind
-/// of its keys. A host's enum of its states implements it.
+/// A state's name, its value's shape and, for a keyed one, the choices
+/// its keys are of. A host's enum of its states implements it.
 abstract interface class IStateWord<T> implements IWord {
   @override
   String get name;
@@ -297,10 +297,10 @@ final class Keyed<T> {
   /// now on.
   static void attach<T>(Keyed<T> k, IStateWriterOf<T> writer) {
     k._writer = writer;
-    final kind = writer is StateWriterOf<T> ? writer.raw.descriptor.key : null;
-    if (kind == null) return;
+    final of = writer is StateWriterOf<T> ? writer.raw.descriptor.key : null;
+    if (of == null) return;
     (Zone.current[keyedDefined] as void Function(String, Keyed<Object?>)?)
-        ?.call(kind, k);
+        ?.call(of, k);
   }
 
   /// For the base the generator made: writes what [k] was set before it

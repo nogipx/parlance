@@ -10,11 +10,11 @@ const owner = Principal('host', 'house');
 /// gains, all served by handlers that write what they are asked.
 base class Fixture {
   Fixture({Registry? registry}) : r = registry ?? Registry(onError: _rethrow) {
-    r.registerKind(
-      EntityKind('room', list: () => [for (final s in rooms) EntityRef(s)]),
+    r.addChoices(
+      Choices('room', list: () => [for (final s in rooms) Choice(s)]),
     );
-    r.registerKind(
-      EntityKind('input', list: () => [for (final i in inputs) EntityRef(i)]),
+    r.addChoices(
+      Choices('input', list: () => [for (final i in inputs) Choice(i)]),
     );
     focus = r.defineState(
       StateDescriptor('house.focus', type: const ChoiceType('room')),

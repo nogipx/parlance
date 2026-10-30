@@ -37,8 +37,8 @@ Cause? inReplyAs(Principal by) => _now?.causeFor(by);
 Principal? get answering => _now?.by;
 
 /// Where an owner's words are being defined, told of each keyed state
-/// defined there and the kind of its keys: what goes of the kind goes of
-/// the state too ([OwnerTools.choices]).
+/// defined there and the choices its keys are of: what goes of them goes
+/// of the state too ([OwnerTools.choices]).
 final Object keyedDefined = Object();
 
 final Object _once = Object();

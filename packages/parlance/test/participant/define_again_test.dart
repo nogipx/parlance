@@ -60,18 +60,16 @@ void main() {
           final p = await owner();
           final guard = p.raw.addGuard('quiet', (_) => null);
           expect(() => p.raw.addGuard('quiet', (_) => 'no'), throwsStateError);
-          final kind = p.raw.registerKind(
-            EntityKind('deck.slot', list: () => []),
-          );
+          final kind = p.raw.addChoices(Choices('deck.slot', list: () => []));
           expect(
-            () => p.raw.registerKind(EntityKind('deck.slot', list: () => [])),
+            () => p.raw.addChoices(Choices('deck.slot', list: () => [])),
             throwsStateError,
           );
           guard.dispose();
           kind.dispose();
           p
             ..raw.addGuard('quiet', (_) => null)
-            ..raw.registerKind(EntityKind('deck.slot', list: () => []));
+            ..raw.addChoices(Choices('deck.slot', list: () => []));
         },
       );
 

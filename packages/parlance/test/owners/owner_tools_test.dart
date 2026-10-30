@@ -96,7 +96,7 @@ void main() {
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
     expect(GeneratedWords(p).stateOf(_State.level).value, 3);
-    expect(r.registry.hasKind('bulb'), isTrue);
+    expect(r.registry.hasChoices('bulb'), isTrue);
   });
 
   test('it follows its model: on sync, and when the model tells it, once '

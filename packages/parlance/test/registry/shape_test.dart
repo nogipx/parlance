@@ -9,10 +9,10 @@ import 'package:test/test.dart';
 /// held to one rule.
 final class _Ctx implements ITypeContext {
   @override
-  bool hasKind(String kind) => kind == 'room';
+  bool hasChoices(String kind) => kind == 'room';
 
   @override
-  bool hasEntity(String kind, String id) => kind == 'room' && id == 'main';
+  bool hasChoice(String kind, String id) => kind == 'room' && id == 'main';
 
   @override
   String? checkCustom(String name, Object? value) =>
@@ -25,10 +25,10 @@ final class _Known implements ITypeContext {
   final Set<String> ids;
 
   @override
-  bool hasKind(String kind) => kind == 'room';
+  bool hasChoices(String kind) => kind == 'room';
 
   @override
-  bool hasEntity(String kind, String id) => ids.contains(id);
+  bool hasChoice(String kind, String id) => ids.contains(id);
 
   @override
   String? checkCustom(String name, Object? value) => null;

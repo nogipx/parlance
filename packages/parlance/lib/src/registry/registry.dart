@@ -118,7 +118,7 @@ final class Registry implements ITypeContext {
 
   // --- Catalog ---------------------------------------------------------------
 
-  final Map<String, EntityKind> _kinds = {};
+  final Map<String, Choices> _choices = {};
   final Map<String, String? Function(Object?)> _customTypes = {};
   final Map<String, _StateEntry> _states = {};
   final Map<String, _CommandEntry> _commands = {};
@@ -150,15 +150,15 @@ final class Registry implements ITypeContext {
         }
         _builtAgainst.aliasChanged(alias);
         _aliasWatchers(alias);
-      case KindChanged(:final kind):
+      case ChoicesChanged(:final name):
         if (_catalogLog.isDebug) {
-          _catalogLog.debug('kind changed', data: {'kind': kind});
+          _catalogLog.debug('choices changed', data: {'name': name});
         }
     }
     if (!_catalog.isClosed) _catalog.add(c);
   }
 
-  /// Additions, removals and entity changes, in order.
+  /// Additions, removals and changes of choices, in order.
   Stream<CatalogChange> get catalogChanges => _catalog.stream;
 
   final StreamController<String> _availability = StreamController.broadcast();
@@ -184,7 +184,7 @@ final class Registry implements ITypeContext {
     for (final f in _facts.values) f.descriptor,
   ];
 
-  Iterable<EntityKind> get kinds => _kinds.values;
+  Iterable<Choices> get choices => _choices.values;
 
   StateDescriptor? stateDescriptor(String name) =>
       _states[canonical(name)]?.descriptor;
@@ -209,13 +209,13 @@ final class Registry implements ITypeContext {
       _facts[canonical(name)]?.descriptor;
 
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
-  /// answers its first result, the descriptors and the entity kinds.
+  /// answers its first result, the descriptors and the choices (`kinds`).
   Map<String, Object?> describe() => {
     'epoch': epoch,
     'seq': seq,
     'dedupWindowMs': dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
-    'kinds': [for (final k in _kinds.values) k.toJson()],
+    'kinds': [for (final k in _choices.values) k.toJson()],
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
   };
 
@@ -235,10 +235,11 @@ final class Registry implements ITypeContext {
   }
 
   @override
-  bool hasKind(String kind) => _kinds.containsKey(kind);
+  bool hasChoices(String name) => _choices.containsKey(name);
 
   @override
-  bool hasEntity(String kind, String id) => _kinds[kind]?.contains(id) ?? false;
+  bool hasChoice(String name, String id) =>
+      _choices[name]?.contains(id) ?? false;
 
   @override
   String? checkCustom(String name, Object? value) {

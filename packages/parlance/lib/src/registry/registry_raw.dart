@@ -119,23 +119,23 @@ extension RawRegistry on Registry {
     return why;
   }
 
-  /// Registers an entity kind (SPEC §3); withdraw it with the handle.
-  IHandle registerKind(EntityKind kind) {
-    if (_kinds.containsKey(kind.name)) {
-      throw StateError('kind ${kind.name} exists');
+  /// Takes [choices] (SPEC §3); withdraw them with the handle.
+  IHandle addChoices(Choices choices) {
+    if (_choices.containsKey(choices.name)) {
+      throw StateError('the choices of ${choices.name} exist');
     }
-    _kinds[kind.name] = kind;
-    _announce(KindChanged(kind.name));
+    _choices[choices.name] = choices;
+    _announce(ChoicesChanged(choices.name));
     return Disposer(() {
-      if (_kinds[kind.name] == kind) {
-        _kinds.remove(kind.name);
-        _announce(KindChanged(kind.name));
+      if (_choices[choices.name] == choices) {
+        _choices.remove(choices.name);
+        _announce(ChoicesChanged(choices.name));
       }
     });
   }
 
-  /// The entities of [kind] changed.
-  void entitiesChanged(String kind) => _announce(KindChanged(kind));
+  /// The choices of [name] changed.
+  void choicesChanged(String name) => _announce(ChoicesChanged(name));
 
   /// Defines a state; the returned writer is its only write handle.
   ///
