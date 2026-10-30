@@ -7,50 +7,6 @@ abstract interface class IHandle {
   void dispose();
 }
 
-/// Reads a state: its value now, and as it changes (SPEC §21.6).
-///
-/// A [LocalState] in the core, a typed state in the registry.
-abstract interface class IStateReader<V> {
-  /// The value, or null when there is none.
-  V? get value;
-
-  /// Whether there is a committed value.
-  bool get has;
-
-  /// The value now, then on every change.
-  Stream<V?> watch();
-}
-
-/// Writes a state (SPEC §21.6).
-///
-/// A [LocalStateWriter] in the core, a typed state's writer in the registry.
-abstract interface class IStateWriter<V> {
-  void set(V value);
-  void remove();
-}
-
-/// Calls a command and gets its answer; a call that does not answer
-/// fails (SPEC §21.6).
-///
-/// A [LocalCommand] in the core, a typed command in the registry.
-abstract interface class ICommandCaller<P, R> {
-  Future<R> call(P params);
-}
-
-/// Says a fact: that something happened (SPEC §21.6).
-///
-/// A [LocalFactEmitter] in the core, a typed fact's emitter in the registry.
-abstract interface class IFactEmitter<T> {
-  void emit(T value);
-}
-
-/// Hears facts as they are said (SPEC §21.6).
-///
-/// A [LocalFact] in the core, a typed fact in the registry.
-abstract interface class IFactListener<T> {
-  Stream<T> get stream;
-}
-
 /// A handle that runs [_f] once, when first disposed: the package's own,
 /// not exported.
 final class Disposer implements IHandle {
@@ -350,9 +306,6 @@ final class LocalKeyedState<K, V> implements _Store {
   /// The value of [key] now, then on every committed change.
   Stream<V?> watch(K key) => _watch(this, key, () => read(key));
 
-  /// The value of [key] as a [IStateReader].
-  IStateReader<V> at(K key) => _KeyedReader(this, key);
-
   /// Drops its waiting writes and lets no one write it again.
   void close() {
     _closed = true;
@@ -407,9 +360,6 @@ final class LocalKeyedStateWriter<K, V> implements IHandle {
     _state.hub._clear(_state, [..._state._values.keys], tag);
   }
 
-  /// The value of [key] as a [IStateWriter].
-  IStateWriter<V> at(K key) => _KeyedWriter(this, key);
-
   void _check() {
     if (!_live) throw StateError('this writer was released');
   }
@@ -423,35 +373,8 @@ final class LocalKeyedStateWriter<K, V> implements IHandle {
   }
 }
 
-final class _KeyedReader<K, V> implements IStateReader<V> {
-  _KeyedReader(this._state, this._key);
-  final LocalKeyedState<K, V> _state;
-  final K _key;
-
-  @override
-  V? get value => _state.read(_key);
-
-  @override
-  bool get has => _state.has(_key);
-
-  @override
-  Stream<V?> watch() => _state.watch(_key);
-}
-
-final class _KeyedWriter<K, V> implements IStateWriter<V> {
-  _KeyedWriter(this._writer, this._key);
-  final LocalKeyedStateWriter<K, V> _writer;
-  final K _key;
-
-  @override
-  void set(V value) => _writer.set(_key, value);
-
-  @override
-  void remove() => _writer.remove(_key);
-}
-
 /// One value, written by one writer (SPEC §21.2).
-final class LocalState<V> implements _Store, IStateReader<V> {
+final class LocalState<V> implements _Store {
   LocalState({LocalHub? hub, bool Function(V a, V b)? equals})
     : hub = hub ?? LocalHub(),
       _equals = equals;
@@ -476,7 +399,6 @@ final class LocalState<V> implements _Store, IStateReader<V> {
   }
 
   /// The value, or null when there is none.
-  @override
   V? get value {
     if (hub._waiting(this, null) case final w?) {
       return w.removed ? null : w.value as V;
@@ -485,11 +407,9 @@ final class LocalState<V> implements _Store, IStateReader<V> {
   }
 
   /// Whether it has a committed value.
-  @override
   bool get has => _has;
 
   /// The value now, then on every committed change.
-  @override
   Stream<V?> watch() => _watch(this, null, () => value);
 
   /// Drops its waiting writes and lets no one write it again.
@@ -521,21 +441,19 @@ final class LocalState<V> implements _Store, IStateReader<V> {
 }
 
 /// The write handle of a [LocalState].
-final class LocalStateWriter<V> implements IHandle, IStateWriter<V> {
+final class LocalStateWriter<V> implements IHandle {
   LocalStateWriter._(this._state);
 
   final LocalState<V> _state;
   bool _live = true;
 
   /// Sets the value; [tag] goes with the change, unread.
-  @override
   void set(V value, {Object? tag}) {
     _check();
     _state.hub._write(_state, null, value, false, tag);
   }
 
   /// Removes the value.
-  @override
   void remove({Object? tag}) {
     _check();
     _state.hub._write(_state, null, null, true, tag);
@@ -570,7 +488,7 @@ Stream<V?> _watch<V>(_Member state, Object? key, V? Function() now) =>
 /// What happened, said once, keeping no value (SPEC §21.3).
 ///
 /// One emitter, or as many as claim it when [open].
-final class LocalFact<T> implements _Member, IFactListener<T> {
+final class LocalFact<T> implements _Member {
   LocalFact({LocalHub? hub, this.open = false}) : hub = hub ?? LocalHub();
 
   @override
@@ -591,7 +509,6 @@ final class LocalFact<T> implements _Member, IFactListener<T> {
   }
 
   /// Emits as they are committed.
-  @override
   Stream<T> get stream => hub.ticks.expand(
     (t) => [
       for (final e in t.facts)
@@ -607,14 +524,13 @@ final class LocalFact<T> implements _Member, IFactListener<T> {
 }
 
 /// An emit handle of a [LocalFact].
-final class LocalFactEmitter<T> implements IHandle, IFactEmitter<T> {
+final class LocalFactEmitter<T> implements IHandle {
   LocalFactEmitter._(this._fact);
 
   final LocalFact<T> _fact;
   bool _live = true;
 
   /// Emits [value]; [tag] goes with it, unread.
-  @override
   void emit(T value, {Object? tag}) {
     if (!_live || _fact._closed) {
       throw StateError('this emitter was released');
@@ -631,7 +547,7 @@ final class LocalFactEmitter<T> implements IHandle, IFactEmitter<T> {
 }
 
 /// Asks the one who serves it, and answers what it answers (SPEC §21.4).
-final class LocalCommand<P, R> implements ICommandCaller<P, R> {
+final class LocalCommand<P, R> {
   FutureOr<R> Function(P params)? _handler;
 
   /// Whether someone serves it now.
@@ -648,7 +564,6 @@ final class LocalCommand<P, R> implements ICommandCaller<P, R> {
   }
 
   /// What the handler answers; fails when no one serves it.
-  @override
   Future<R> call(P params) {
     final h = _handler;
     if (h == null) return Future.error(StateError('no one serves the command'));

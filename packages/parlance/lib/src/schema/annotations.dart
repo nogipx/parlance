@@ -11,7 +11,7 @@ import '../registry/descriptors.dart';
 final class Vocabulary {
   const Vocabulary(this.name, {this.owner = true, this.client = true});
 
-  /// The first words of every name: `orders` for `orders.cancel`.
+  /// The first word of every name, one word: `orders` for `orders.cancel`.
   final String name;
 
   /// Whether to make `<Class>OwnerBase` too (SPEC §23.4), an owner base with a

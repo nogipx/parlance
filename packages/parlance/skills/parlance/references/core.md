@@ -2,7 +2,7 @@
 
 Part of the contract the code and its tests follow; sections keep their numbers across these files (`SPEC §n` in the code), and SKILL.md maps them. Where code and contract disagree, the contract is fixed first.
 
-The core is what the registry stands on, inside the package: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. It is not a library of its own; an app takes words and a `Host` (a small one `HostBounds.light`). The registry (§1–12) is built on it, and remote and views on the registry. Nothing above writes a value, emits or serves a command any other way. Only its interfaces (§21.6) are seen outside, through `tools.dart`.
+The core is what the registry stands on, inside the package: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. It is not a library of its own; an app takes words and a `Host` (a small one `HostBounds.light`). The registry (§1–12) is built on it, and remote and views on the registry. Nothing above writes a value, emits or serves a command any other way. Nothing of it is seen outside (§21.6).
 
 Its parts are the package's words, local: a `LocalState` is a state, a `LocalCommand` a command, a `LocalFact` a fact, the same as the registry's without names, principals or JSON.
 
@@ -53,15 +53,4 @@ A `LocalCommand<P, R>` is asked and answers.
 
 ## 21.6 Interfaces
 
-What a part does with states, commands and facts is five interfaces, named in those words; the core's local ones are them, and so are the registry's typed handles (§18). Code that only reads and writes states, calls commands and says and hears facts takes the interfaces; moving it from the core to the registry changes only where they are made.
-
-| Interface | Core | Registry |
-|---|---|---|
-| `IStateReader<V>`: `value`, `has`, `watch()` | `LocalState`, `LocalKeyedState.at(key)` | `StateOf.reader(key:)` |
-| `IStateWriter<V>`: `set`, `remove` | `LocalStateWriter`, `LocalKeyedStateWriter.at(key)` | `StateWriterOf` (unkeyed), `StateWriterOf.at(key)` |
-| `ICommandCaller<P, R>`: `call` | `LocalCommand` | `CommandOf.caller(by:)` |
-| `IFactEmitter<T>`: `emit` | `LocalFactEmitter` | `FactEmitterOf` |
-| `IFactListener<T>`: `stream` | `LocalFact` | `FactOf.listener` |
-
-- Through an interface, writes and calls carry no cause of their own: in a handler a participant serves they follow from its call; elsewhere a write starts a new chain on behalf of the writer, a call acts for the principal its `caller` was made for.
-- A call through `caller` answers the value of a done call; any other end fails with `CallNotDone`, which carries the `CallResult`.
+None: the core is the registry's alone, and nothing outside the package takes its handles. What a part reads, writes, calls and hears it does through its words (§23).

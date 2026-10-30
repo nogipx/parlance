@@ -556,23 +556,23 @@ void main() {
 
   test('a text from outside becomes a level: as it is when it is one, else '
       'its other signs as _ and a hash of it, never two as one', () {
-    expect(Principal.levelOf('cool_guy_99'), 'cool_guy_99');
-    expect(Principal.levelOf('UCabc-D_e.f'), 'UCabc-D_e.f');
-    expect(Principal.levelOf('ann@mail.com'), 'ann_mail.com.1278c97d19647cda');
+    expect(Principal.idOf('cool_guy_99'), 'cool_guy_99');
+    expect(Principal.idOf('UCabc-D_e.f'), 'UCabc-D_e.f');
+    expect(Principal.idOf('ann@mail.com'), 'ann_mail.com.1278c97d19647cda');
     expect(
-      Principal.levelOf('ann#mail.com'),
-      isNot(Principal.levelOf('ann@mail.com')),
+      Principal.idOf('ann#mail.com'),
+      isNot(Principal.idOf('ann@mail.com')),
     );
-    expect(Principal.levelOf('a'), 'a');
-    expect(Principal.levelOf('Вася'), matches(RegExp(r'^x_\.[0-9a-f]{16}$')));
-    expect(Principal.levelOf(''), matches(RegExp(r'^x\.[0-9a-f]{16}$')));
+    expect(Principal.idOf('a'), 'a');
+    expect(Principal.idOf('Вася'), matches(RegExp(r'^x_\.[0-9a-f]{16}$')));
+    expect(Principal.idOf(''), matches(RegExp(r'^x\.[0-9a-f]{16}$')));
     // A name taken as another's made id is not given that id.
-    final made = Principal.levelOf('ann@mail.com');
-    expect(Principal.levelOf(made), isNot(made));
-    expect(Principal.levelOf(made), startsWith('$made.'));
+    final made = Principal.idOf('ann@mail.com');
+    expect(Principal.idOf(made), isNot(made));
+    expect(Principal.idOf(made), startsWith('$made.'));
     for (final t in ['ann@mail.com', 'Вася', '', ' b ']) {
       expect(
-        () => Principal('visitor', Principal.levelOf(t)).check(),
+        () => Principal('visitor', Principal.idOf(t)).check(),
         returnsNormally,
       );
     }

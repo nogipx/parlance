@@ -21,7 +21,8 @@ final class Principal {
 
   final String kind;
 
-  /// One level, maybe from outside; empty for a kind of one (`house`).
+  /// Which one of its kind, maybe from outside; empty for a kind of one
+  /// (`house`).
   final String id;
 
   /// The owner of it that acts ([child]); empty for the whole.
@@ -35,11 +36,11 @@ final class Principal {
   /// Its parts (SPEC §4). A kind and an owner's name are ours, as a word's
   /// name is: lower-case letters and digits joined by `_` or `-`. An id may
   /// come from outside: letters, digits, `.`, `-` and `_`, its case kept
-  /// (`levelOf` makes one of any text). So `/` and `@` are only ever
+  /// (`idOf` makes one of any text). So `/` and `@` are only ever
   /// separators, and every other sign is reserved.
   static final RegExp _kind = RegExp(r'^[a-z][a-z0-9_-]*$');
   static final RegExp _owner = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
-  static final RegExp _level = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+  static final RegExp _id = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
   static final RegExp _outside = RegExp(r'[^A-Za-z0-9._-]+');
 
   /// An id made of [text] from outside (a member's id, a device's name),
@@ -50,8 +51,8 @@ final class Principal {
   /// 64 bits of SHA-256, so no one finds a text that makes another's id;
   /// and a text that ends as one made so (`.` and 16 hex digits) is made
   /// one too, so no one is given another's id by taking it as a name.
-  static String levelOf(String text) {
-    if (_level.hasMatch(text) && !_made.hasMatch(text)) return text;
+  static String idOf(String text) {
+    if (_id.hasMatch(text) && !_made.hasMatch(text)) return text;
     var slug = text.replaceAll(_outside, '_');
     if (slug.isEmpty || !RegExp('^[A-Za-z0-9]').hasMatch(slug)) {
       slug = 'x$slug';
@@ -61,7 +62,7 @@ final class Principal {
     return '$slug.${hash.substring(0, 16)}';
   }
 
-  /// How an id [levelOf] made ends.
+  /// How an id [idOf] made ends.
   static final RegExp _made = RegExp(r'\.[0-9a-f]{16}$');
 
   /// The principal [selector] names: `kind[/id][@owner]`.
@@ -95,12 +96,12 @@ final class Principal {
         'lower-case letters and digits joined by _ or -, from a letter',
       );
     }
-    if (id.isNotEmpty && !_level.hasMatch(id)) {
+    if (id.isNotEmpty && !_id.hasMatch(id)) {
       throw ArgumentError.value(
         id,
         'id',
         'letters, digits, ., - and _, from a letter or digit '
-            '(Principal.levelOf makes one of any text)',
+            '(Principal.idOf makes one of any text)',
       );
     }
     if (owner.isNotEmpty && !_owner.hasMatch(owner)) {

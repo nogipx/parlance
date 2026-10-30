@@ -9,15 +9,7 @@ import '../core/core.dart';
 
 export 'package:rpc_dart/logger.dart'
     show LogScope, LogSpanHandle, LogSpanStatus, RpcLogLevel;
-export '../core/core.dart'
-    show
-        Disposer,
-        ICommandCaller,
-        IFactEmitter,
-        IFactListener,
-        IHandle,
-        IStateReader,
-        IStateWriter;
+export '../core/core.dart' show Disposer, IHandle;
 
 import 'built_against.dart';
 import 'cause.dart';

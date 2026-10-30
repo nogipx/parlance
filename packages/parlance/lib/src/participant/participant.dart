@@ -150,8 +150,8 @@ abstract interface class IRawParticipant
   /// entities changed.
   Stream<void> get catalogChanges;
 
-  /// The first words of the names it may define: `orders` for
-  /// `orders.cancel` and `orders.list.page`.
+  /// Its vocabularies' names, the first word of the names it may define:
+  /// `orders` for `orders.cancel`.
   Set<String> get vocabularies;
 
   /// Who may read and call its words when a word does not say.
@@ -505,32 +505,9 @@ final class ParticipantStateOf<T> {
   Stream<T?> watch({String? key}) =>
       participant.raw.watchAs(word.name, word.shape, key: key);
 
-  /// Its value (of [key]) as the core reads a cell (SPEC §21.6), here or
-  /// across a connection; over one, another's state is there while it is
-  /// watched.
-  IStateReader<T> reader({String? key}) => _ParticipantReader(this, key);
-
   /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
   WordStatus get status => wordStatus(participant, word);
   Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
-}
-
-final class _ParticipantReader<T> implements IStateReader<T> {
-  _ParticipantReader(this._state, this._key);
-  final ParticipantStateOf<T> _state;
-  final String? _key;
-
-  @override
-  T? get value => _state.read(key: _key);
-
-  /// Whether there is a value, a null one of a state that may be null too.
-  @override
-  bool get has =>
-      value != null ||
-      _state.participant.readAll(_state.word.name).containsKey(_key);
-
-  @override
-  Stream<T?> watch() => _state.watch(key: _key);
 }
 
 /// A command as a participant has it, typed.
@@ -564,25 +541,9 @@ final class ParticipantCommandOf<P, R> {
   Future<CallResult<R>> call(P params, {String? id}) =>
       callFrom(params, id: id);
 
-  /// Calls as the core asks a port (SPEC §21.6): the answer of a done
-  /// call, else [CallNotDone] with how it ended.
-  ICommandCaller<P, R> get caller => _ParticipantCaller(this);
-
   /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
   WordStatus get status => wordStatus(participant, word);
   Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
-}
-
-final class _ParticipantCaller<P, R> implements ICommandCaller<P, R> {
-  _ParticipantCaller(this._command);
-  final ParticipantCommandOf<P, R> _command;
-
-  @override
-  Future<R> call(P params) async {
-    final r = await _command.call(params);
-    if (r case CallDone(:final value)) return value;
-    throw CallNotDone(r);
-  }
 }
 
 /// A fact as a participant has it, typed.
@@ -615,9 +576,6 @@ final class ParticipantFactOf<T> {
   Stream<Fact<T>> get stream =>
       participant.factsAs(word.name, word.shape).map((f) => Fact(f.$1, f.$2));
 
-  /// Its payloads as the core hears a signal (SPEC §21.6).
-  IFactListener<T> get listener => _ParticipantListener(this);
-
   /// The last [count] the registry keeps, oldest first.
   Future<List<Fact<T>>> recent(int count) async => [
     for (final m in await participant.recent(word.name, count)) _decode(m),
@@ -626,14 +584,6 @@ final class ParticipantFactOf<T> {
   /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
   WordStatus get status => wordStatus(participant, word);
   Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
-}
-
-final class _ParticipantListener<T> implements IFactListener<T> {
-  _ParticipantListener(this._fact);
-  final ParticipantFactOf<T> _fact;
-
-  @override
-  Stream<T> get stream => _fact.stream.map((f) => f.payload);
 }
 
 /// What the library and its tests do with a query by its ask: not frozen.

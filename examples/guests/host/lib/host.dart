@@ -12,8 +12,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 abstract final class Who {
   static const app = Principal('app');
   static const user = Principal('user');
-  static Principal widlet(String id) =>
-      Principal('widlet', Principal.levelOf(id));
+  static Principal widlet(String id) => Principal('widlet', Principal.idOf(id));
 
   /// Who may call a guest's commands, and the app's: the guests and the
   /// user. The host says it, never a guest of itself.

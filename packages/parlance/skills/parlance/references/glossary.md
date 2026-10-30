@@ -5,7 +5,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Values, names, types
 
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
-- **Name** (§1): a word's address, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
+- **Name** (§1): a word's address, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first word is the owner's vocabulary (§22.1); ownership is by handle, not by name.
 - **Key** (§1): the entity id a keyed state's value belongs to (`kitchen` in `house.light[kitchen]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
@@ -29,7 +29,6 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Fingerprint** (§25.4): the SHA-256 of a schema's canonical form (`canonicalSchema`: keys in order, descriptions out; `fingerprintOf`). A part across a connection tells words by it first; the registry keeps schemas by it (`knownSchema`).
 - **breaksSince** (§25.3): `schemaBreaks` of the words now against each release still in use, or the latest only.
 - **Light host** (§22.5, `HostBounds.light`): the same `Host` keeping nothing past what is now.
-- **Interfaces** (§21.6): `IStateReader`, `IStateWriter`, `ICommandCaller`, `IFactEmitter`, `IFactListener`: what both the core's handles and the registry's typed handles are, so code on them moves from one to the other unchanged.
 
 ## Who and why
 
@@ -112,7 +111,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`stateOf`, `commandOf`, `factOf`) and what happened read back (`written`, `said`, `callsOf`).
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
-- **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first words of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
+- **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first word of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **Handles**: the set of handles an owner keeps, withdrawn together.
 - **`keep`**: a hand-written `Owner`'s: keeps a handle and gives it back with its own type. An owner of a generated base keeps nothing: its words go with it.
 - **`choices`** (was `trackKind`): an owner tells which of a kind there are now, for agents and editors to choose from and `@ChoiceOf` to hold to; listed again on its own, and what went goes of its keyed states, whose keyed values the owner removes.

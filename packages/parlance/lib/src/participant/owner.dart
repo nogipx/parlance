@@ -144,7 +144,7 @@ final class _Core {
     if (w == null) return;
     final raw = p.raw;
     final given = raw.vocabularies;
-    if (given.any((ns) => w.name == ns || w.name.startsWith('$ns.'))) return;
+    if (given.contains(w.name)) return;
     final whole = raw.whole.who;
     throw NotPermitted(
       '$type, attached as ${p.who}, owns the words of the vocabulary '
