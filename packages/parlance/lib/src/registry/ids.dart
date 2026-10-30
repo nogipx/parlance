@@ -37,6 +37,24 @@ void checkName(String name, [String what = 'name']) {
   }
 }
 
+final RegExp _oneWord = RegExp(r'^[a-z][a-z0-9_-]*$');
+
+/// Whether [name] is a valid name of a vocabulary (SPEC §1): one word of
+/// a registry name, no `.`, so a word's name is always
+/// `<vocabulary>.<word>[.vN]` and reads one way.
+bool isValidVocabularyName(String name) => _oneWord.hasMatch(name);
+
+/// Throws [ArgumentError] unless [name] is a valid name of a vocabulary.
+void checkVocabularyName(String name) {
+  if (!isValidVocabularyName(name)) {
+    throw ArgumentError.value(
+      name,
+      'vocabulary',
+      'one lower-case word from a letter, joined by _ or -, no .',
+    );
+  }
+}
+
 final RegExp _version = RegExp(r'^v(\d+)$');
 
 /// The word a name is a version of, and which version (SPEC §1):

@@ -84,6 +84,10 @@ $body
       '@CommandWord("order.cancel") void cancel();',
       'no .; a version is version: 2',
     ),
+    'a name that reads as a version': (
+      '@FactWord("v2") void spoke();',
+      '"v2" reads as a version: a version is version: 2',
+    ),
     'a first version said': (
       '@CommandWord("cancel", version: 1) void cancel();',
       'a version past the first is 2 or more',
@@ -116,6 +120,15 @@ $body
       expect(logs.join('\n'), contains(says));
     });
   }
+
+  test('it refuses a vocabulary of more than one word', () async {
+    final logs = await errorsOf(
+      '@StateWord("open") bool get open;',
+      '',
+      "@Vocabulary('orders.archive')",
+    );
+    expect(logs.join('\n'), contains('"orders.archive" is no name of a'));
+  });
 
   test('it refuses a kind that is no name', () async {
     final logs = await errorsOf(

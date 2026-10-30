@@ -121,8 +121,8 @@ void main() {
     );
   });
 
-  test('a stand-in takes no vocabulary of the module under test', () async {
-    host.participant(me, vocabularies: [WordSet.open('weather.inside')]);
+  test('a stand-in takes only the vocabulary of its word', () async {
+    host.participant(me, vocabularies: [WordSet.open('garden')]);
     final outside = host.stateOf(Outside.temperature, 10);
     outside.set(12);
     await host.settle();

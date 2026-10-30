@@ -58,7 +58,9 @@ final class WordSet {
   /// at the start, for every word at once, not when one is defined.
   void check() {
     final bad = <String>[];
-    if (!isValidName(name)) bad.add('the vocabulary name "$name"');
+    if (!isValidVocabularyName(name)) {
+      bad.add('the vocabulary name "$name" (one word, no .)');
+    }
     for (final w in words) {
       try {
         checkWordName(w.name);

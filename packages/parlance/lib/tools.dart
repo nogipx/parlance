@@ -23,7 +23,7 @@ export 'src/registry/compat.dart'
         fingerprintOf;
 export 'src/registry/descriptors.dart';
 export 'src/registry/ids.dart'
-    show newId, isValidName, checkWordName, wordVersion;
+    show newId, isValidName, isValidVocabularyName, checkWordName, wordVersion;
 export 'src/registry/json.dart';
 export 'src/registry/messages.dart'
     hide

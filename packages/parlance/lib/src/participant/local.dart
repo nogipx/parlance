@@ -37,16 +37,12 @@ extension Participants on Registry {
     }
     final given = [for (final v in vocabularies) v.name];
     for (final (i, a) in given.indexed) {
-      for (final b in given.skip(i + 1)) {
-        if (_overlap(a, b)) {
-          throw ArgumentError.value(
-            vocabularies,
-            'vocabularies',
-            a == b
-                ? 'the vocabulary $a is given twice'
-                : 'the vocabularies $a and $b: one inside the other',
-          );
-        }
+      if (given.skip(i + 1).contains(a)) {
+        throw ArgumentError.value(
+          vocabularies,
+          'vocabularies',
+          'the vocabulary $a is given twice',
+        );
       }
     }
     final names = given.toSet();
@@ -58,18 +54,14 @@ extension Participants on Registry {
     // principal's is refused below.
     for (final old in {
       for (final ns in names)
-        for (final e in taken.entries)
-          if (_overlap(ns, e.key) && e.value.who == who && e.value._end != null)
-            e.value,
+        if (taken[ns] case final p? when p.who == who && p._end != null) p,
     }) {
       old._end!();
     }
     for (final ns in names) {
-      checkName(ns, 'vocabulary');
-      for (final e in taken.entries) {
-        if (_overlap(ns, e.key)) {
-          throw NotPermitted('vocabulary $ns: ${e.key} is ${e.value.who}\'s');
-        }
+      checkVocabularyName(ns);
+      if (taken[ns] case final p?) {
+        throw NotPermitted('vocabulary $ns is ${p.who}\'s');
       }
     }
     final p = LocalParticipant._(
@@ -103,9 +95,6 @@ Set<LocalParticipant> _aliveIn(Registry r) => _alive[r] ??= () {
 
 /// The vocabularies taken, by name, and whose they are.
 final Expando<Map<String, LocalParticipant>> _taken = Expando();
-
-bool _overlap(String a, String b) =>
-    a == b || a.startsWith('$b.') || b.startsWith('$a.');
 
 /// A participant of a registry in this process: the registry as [who] may
 /// use it.

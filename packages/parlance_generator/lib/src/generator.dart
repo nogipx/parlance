@@ -8,7 +8,8 @@ import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:build/build.dart';
 import 'package:dart_style/dart_style.dart';
-import 'package:parlance/tools.dart' show isValidName, checkWordName;
+import 'package:parlance/tools.dart'
+    show isValidName, isValidVocabularyName, checkWordName;
 import 'package:parlance/schema.dart';
 import 'package:pub_semver/pub_semver.dart' show Version;
 import 'package:source_gen/source_gen.dart';
@@ -69,9 +70,9 @@ final class VocabularyGenerator extends GeneratorForAnnotation<Vocabulary> {
       );
     }
     final vocabulary = annotation.read('name').stringValue;
-    if (!isValidName(vocabulary)) {
+    if (!isValidVocabularyName(vocabulary)) {
       throw InvalidGenerationSourceError(
-        '@Vocabulary: "$vocabulary" is no name: $_nameRule',
+        '@Vocabulary: "$vocabulary" is no name of a vocabulary: $_nameRule',
         element: element,
       );
     }
@@ -405,6 +406,14 @@ final class _Emitter {
     if (own.isNotEmpty && !RegExp(r'^[a-z][a-z0-9_-]*$').hasMatch(own)) {
       throw InvalidGenerationSourceError(
         '${e.displayName}: "$own" is no name of a word: $_nameRule',
+        element: e,
+      );
+    }
+    // `v2` would read as the vocabulary's own word, its version 2.
+    if (RegExp(r'^v[0-9]+$').hasMatch(own)) {
+      throw InvalidGenerationSourceError(
+        '${e.displayName}: "$own" reads as a version: a version is '
+        'version: ${own.substring(1)}, a name is a word',
         element: e,
       );
     }

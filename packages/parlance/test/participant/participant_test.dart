@@ -134,12 +134,6 @@ void main() {
         () => r.participant(cart, vocabularies: [WordSet.open('orders')]),
         throwsA(isA<StateError>()),
       );
-      expect(
-        () =>
-            r.participant(cart, vocabularies: [WordSet.open('orders.archive')]),
-        throwsA(isA<StateError>()),
-        reason: 'inside another\'s',
-      );
       a.dispose();
       expect(
         r
@@ -456,12 +450,10 @@ void main() {
       expect(
         () => r.participant(
           orders,
-          vocabularies: [
-            WordSet.open('orders'),
-            WordSet.open('orders.archive'),
-          ],
+          vocabularies: [WordSet.open('orders.archive')],
         ),
         throwsArgumentError,
+        reason: 'a vocabulary is one word',
       );
       expect(
         r

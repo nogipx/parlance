@@ -163,7 +163,7 @@ void main() {
     'an owner defines only in the vocabularies main gave its participant',
     () {
       expect(
-        () => module({'test.level'})..attach({'other': Other()}),
+        () => module({'dials'})..attach({'other': Other()}),
         throwsA(isA<NotPermitted>()),
       );
       expect(r.stateDescriptor('test.on'), isNull);
