@@ -242,10 +242,10 @@ abstract class PlayerOwnerBase implements IOwner {
   /// read by `of`, written by `set` and `remove`.
   final Keyed<num> speakerLevel = Keyed<num>();
 
-  IFactEmitterOf<PlayerClipped>? _$clipped;
-  IFactEmitterOf<Track>? _$finished;
+  IFactSayerOf<PlayerClipped>? _$clipped;
+  IFactSayerOf<Track>? _$finished;
 
-  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       IOwner.said(this, fact, payload);
     } else {

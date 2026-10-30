@@ -564,7 +564,7 @@ final class RemoteSession extends ParlanceContractPeer
   Future<WireTaken> onEmit(WireEmit request, {RpcContext? context}) async {
     _open();
     return WireTaken(
-      _emit(
+      _say(
         request.fact,
         request.payload,
         id: request.id,
@@ -630,7 +630,7 @@ final class RemoteSession extends ParlanceContractPeer
         );
       case 'emit':
         return {
-          'taken': _emit(
+          'taken': _say(
             m['fact']! as String,
             m['payload'],
             id: m['id'] as String?,
@@ -797,7 +797,7 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
-  bool _emit(
+  bool _say(
     String fact,
     Object? payload, {
     String? id,
@@ -806,8 +806,8 @@ final class RemoteSession extends ParlanceContractPeer
     LocalParticipant? part,
   }) {
     final p = part ?? _p;
-    final emitter = _facts[fact];
-    if (emitter == null) {
+    final sayer = _facts[fact];
+    if (sayer == null) {
       if (registry.factDescriptor(fact) == null) {
         throw RpcStatusException(RpcStatus.notFound, 'no fact $fact');
       }
@@ -816,7 +816,7 @@ final class RemoteSession extends ParlanceContractPeer
     }
     try {
       return _permitted(
-        () => emitter.emit(
+        () => sayer.say(
           payload,
           id: id == null ? null : '${principal.selector}#$id',
           cause: _cause(parent: parent, by: by ?? p.who),

@@ -42,17 +42,17 @@ abstract interface class IStateHandle implements IHandle {
   void remove({String? key, Cause? cause});
 }
 
-/// An emit handle of a fact: the registry's own, or a remote participant's
+/// The sayer of a fact: the registry's own, or a remote participant's
 /// (SPEC §22).
 abstract interface class IFactHandle implements IHandle {
   FactDescriptor get descriptor;
 
-  /// The shape whose Dart values [emit] takes as they are (SPEC §18); null:
+  /// The shape whose Dart values [say] takes as they are (SPEC §18); null:
   /// it takes JSON.
   Shape<Object?>? get shape;
 
   /// Says [payload]; false when [id] was said already.
-  bool emit(Object? payload, {String? id, Cause? cause});
+  bool say(Object? payload, {String? id, Cause? cause});
 }
 
 /// The only write handle of a state.
@@ -105,19 +105,19 @@ final class RawStateWriter implements IStateHandle {
   }
 }
 
-/// An emit handle of a fact.
-final class RawFactEmitter implements IFactHandle {
-  RawFactEmitter._(
+/// The sayer of a fact.
+final class RawFactSayer implements IFactHandle {
+  RawFactSayer._(
     this._r,
     this.descriptor,
     this.by,
-    this._emitter, {
+    this._sayer, {
     required this.definer,
     this.shape,
   });
 
   final Registry _r;
-  final LocalFactEmitter<Object?> _emitter;
+  final LocalFactSayer<Object?> _sayer;
   @override
   final FactDescriptor descriptor;
 
@@ -134,11 +134,11 @@ final class RawFactEmitter implements IFactHandle {
   /// Emits [payload]. A fact whose [id] was seen within the dedup window is
   /// dropped; returns whether it was taken.
   @override
-  bool emit(Object? payload, {String? id, Cause? cause}) {
+  bool say(Object? payload, {String? id, Cause? cause}) {
     if (_disposed) throw StateError('${descriptor.name} is gone');
-    return _r._emit(
+    return _r._say(
       descriptor,
-      _emitter,
+      _sayer,
       payload,
       id ?? newId(),
       cause ?? Cause(by),
@@ -150,7 +150,7 @@ final class RawFactEmitter implements IFactHandle {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _emitter.dispose();
+    _sayer.dispose();
     if (definer) _r._undefine(descriptor.name);
   }
 }

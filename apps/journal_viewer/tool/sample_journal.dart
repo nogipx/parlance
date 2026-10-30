@@ -39,7 +39,7 @@ Future<void> main(List<String> args) async {
       params: const RecordType({'who': Field(TextType())}),
       callers: Callers.only(['guest']),
     ),
-    (c) => rang.emit({'who': c.params['who']}, cause: c.causeFor(house)),
+    (c) => rang.say({'who': c.params['who']}, cause: c.causeFor(house)),
   );
   var n = 0;
   var lock = true;

@@ -16,10 +16,10 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Core
 
 - **Core** (§21): the level everything stands on: local states, facts and commands, typed, and the local hub that commits them; no names, no JSON, no principals. Inside the package, not a library of its own.
-- **Local hub** (§21.1, `LocalHub`): commits the writes and emits of its states and facts in ticks (`LocalTick`), numbers them with seq; `batch`, `onCommit`, `ticks`.
-- **Tag** (§21.1): what a writer gives with a write or an emit, carried unread into the tick; the registry carries causes in it.
+- **Local hub** (§21.1, `LocalHub`): commits the writes of its states and what its facts say in ticks (`LocalTick`), numbers them with seq; `batch`, `onCommit`, `ticks`.
+- **Tag** (§21.1): what a writer gives with a write or a saying, carried unread into the tick; the registry carries causes in it.
 - **Local state**, **local keyed state** (§21.2, `LocalState`, `LocalKeyedState`): one value, or one value per key, with one writer (`claim`), `watch` from the value now.
-- **Local fact** (§21.3, `LocalFact`): said once, no value kept; one emitter unless open.
+- **Local fact** (§21.3, `LocalFact`): said once, no value kept; one sayer.
 - **Local command** (§21.4, `LocalCommand`): one handler (`serve`) answers `call`.
 - **WordMismatch** (§6.5): a typed word met that breaks a promise of the one the code was built against, by the `schemaBreaks` rule; its `breaks` say where. `wordStatus`, `wordMismatches`, a client's `mismatches`.
 - **Compatibility of words** (§25): one rule (`keepsPromises`) judged before release (`schemaBreaks` against what is out), by a part (`WordMismatch`) and by the host (`Mismatch`); a published word only grows, a break is a new word beside it.
@@ -52,7 +52,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
 - **Availability** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyUnavailable(command)` asks without calling, so a button can be grey with the reason.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.
-- **Emit handle** (§6.3): what says a fact (`RawFactEmitter`, typed `FactEmitterOf<T>`).
+- **Emit handle** (§6.3): what says a fact (`RawFactSayer`, typed `FactSayerOf<T>`).
 - **Producer** (§6.3, §14): who says a fact: its owner, the one that defined it.
 - **Dedup window** (§6.3, §9): how long an id answers its first message: a fact seen again is dropped, a call seen again answers the first result.
 - **Catalog** (§6.4): the descriptors and entity kinds there are now; changes at runtime (`catalogChanges`).
@@ -98,7 +98,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`was`, `checkedAlone`** (§18): a write is checked against the value kept before; what is the same of it passes unvisited when its check asks nothing of the registry.
 - **Part**: a field of a `RecordShape`: its shape, optional or default, description.
 - **`RecordShape.none`**: the params of a command that takes none.
-- **Typed handles**: `StateOf`, `StateWriterOf`, `CommandOf`, `CommandCallOf`, `FactOf`, `FactEmitterOf`, `Fact<T>`; through `participant.state(word)`, `command(word)`, `fact(word)` (`StateOf`, `CommandOf`, `FactOf` are the package's own, on the registry).
+- **Typed handles**: `StateOf`, `StateWriterOf`, `CommandOf`, `CommandCallOf`, `FactOf`, `FactSayerOf`, `Fact<T>`; through `participant.state(word)`, `command(word)`, `fact(word)` (`StateOf`, `CommandOf`, `FactOf` are the package's own, on the registry).
 - **The word fixes the types**: a call is made on what `command(word)` gives, never by a generic function taking a word and params together, which would compile another command's params.
 
 ## Owners (§19)

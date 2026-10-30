@@ -86,8 +86,8 @@ void main() {
         ],
       },
     ]);
-    b.said.emit({'n': 1});
-    b.said.emit({'n': 3}, id: 'f1');
+    b.said.say({'n': 1});
+    b.said.say({'n': 3}, id: 'f1');
     await pump();
     expect(b.notes.map((x) => x.params), [
       {'n': 3},
@@ -115,7 +115,7 @@ void main() {
         ],
       },
     ]);
-    b.said.emit({'n': 1});
+    b.said.say({'n': 1});
     await pump();
     expect(b.notes, isEmpty);
     expect(runs.single.why, isNotNull);
@@ -227,11 +227,11 @@ void main() {
         ],
       },
     ]);
-    b.said.emit({});
+    b.said.say({});
     await pump();
     b.level.set(1);
     await pump();
-    b.said.emit({});
+    b.said.say({});
     await pump();
     expect(b.notes, hasLength(1));
   });
@@ -260,11 +260,11 @@ void main() {
       );
       async.flushMicrotasks();
       for (final v in ['ann', 'ann', 'bob']) {
-        b.said.emit({'visitor': v});
+        b.said.say({'visitor': v});
         async.flushMicrotasks();
       }
       async.elapse(const Duration(minutes: 1));
-      b.said.emit({'visitor': 'ann'});
+      b.said.say({'visitor': 'ann'});
       async.flushMicrotasks();
       expect(b.notes.map((x) => x.params['visitor']), ['ann', 'bob', 'ann']);
       unawaited(b.dispose());
@@ -297,14 +297,14 @@ void main() {
       );
       async.flushMicrotasks();
       for (var i = 0; i < 300; i++) {
-        b.said.emit({'visitor': 'v$i'});
+        b.said.say({'visitor': 'v$i'});
         async.flushMicrotasks();
       }
-      b.said.emit({'visitor': 'v0'});
+      b.said.say({'visitor': 'v0'});
       async.flushMicrotasks();
       expect(b.notes, hasLength(300), reason: 'v0 is held back still');
       async.elapse(const Duration(minutes: 2));
-      b.said.emit({'visitor': 'v1'});
+      b.said.say({'visitor': 'v1'});
       async.flushMicrotasks();
       expect(b.notes, hasLength(301));
       unawaited(b.dispose());
@@ -410,8 +410,8 @@ void main() {
           ],
         },
       ]);
-      b.said.emit({'visitor': 'bob'});
-      b.said.emit({'visitor': 'ann'});
+      b.said.say({'visitor': 'bob'});
+      b.said.say({'visitor': 'ann'});
       await pump();
       expect(b.notes.single.params, {'visitor': 'it was ann'});
     },
@@ -428,7 +428,7 @@ void main() {
           'st.again',
           callers: Callers({'plugin': Access.allow}),
         ),
-        (call) => b.said.emit({}, cause: call.causeFor(house)),
+        (call) => b.said.say({}, cause: call.causeFor(house)),
       );
       var runs = 0;
       final links = Links(
@@ -451,7 +451,7 @@ void main() {
           ],
         },
       ]);
-      b.said.emit({});
+      b.said.say({});
       for (var i = 0; i < 20; i++) {
         await pump();
       }
@@ -515,8 +515,8 @@ void main() {
         ],
       },
     ]);
-    b.said.emit({'n': 1});
-    b.said.emit({'n': 2});
+    b.said.say({'n': 1});
+    b.said.say({'n': 2});
     await pump();
     expect([for (final n in b.notes) n.params['n']], [1, 2]);
     expect(errors, hasLength(2));
@@ -547,7 +547,7 @@ void main() {
       final first = b.links.load([link('one')]);
       final second = b.links.load([link('two')]);
       await Future.wait([first, second]);
-      b.said.emit({});
+      b.said.say({});
       await pump();
       expect([for (final n in b.notes) n.params['visitor']], ['two']);
       expect(b.errors, isEmpty);
@@ -595,7 +595,7 @@ void main() {
       'many',
       'keyed',
     ]);
-    b.said.emit({});
+    b.said.say({});
     await pump();
     expect(b.notes, hasLength(1));
   });
@@ -702,7 +702,7 @@ void main() {
             ],
           },
         ]);
-        b.said.emit({});
+        b.said.say({});
         await pump();
         expect(b.notes, hasLength(1));
         expect(errors, [isA<StateError>()]);
@@ -743,7 +743,7 @@ void main() {
           },
         ]);
         expect([for (final x in links.problems) x.link], ['odd']);
-        b.said.emit({});
+        b.said.say({});
         await pump();
         expect(b.notes, hasLength(1));
       },

@@ -234,7 +234,7 @@ abstract interface class IStateWriterOf<T> implements IHandle {
 
 /// What a base the generator made says a fact through (SPEC §23.4): the
 /// generator's contract, as [IStateWriterOf] is.
-abstract interface class IFactEmitterOf<T> implements IHandle {
+abstract interface class IFactSayerOf<T> implements IHandle {
   /// Says [payload], on behalf of [by] when given, as far as the rights
   /// let it; false when the registry dropped it as said before.
   bool say(T payload, {Principal? by});
@@ -503,9 +503,9 @@ extension RawFact<T> on Fact<T> {
   Cause get cause => _message.cause;
 }
 
-/// An emit handle of a typed fact.
-final class FactEmitterOf<T> implements IFactEmitterOf<T> {
-  FactEmitterOf(this.raw, this._shape);
+/// The sayer of a typed fact.
+final class FactSayerOf<T> implements IFactSayerOf<T> {
+  FactSayerOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.
   final IFactHandle raw;
@@ -513,22 +513,15 @@ final class FactEmitterOf<T> implements IFactEmitterOf<T> {
 
   /// Says [payload], on behalf of [by] when given, as far as the
   /// participant's rights let it speak for another: following from the
-  /// call or the fact being answered where it is said, if one is.
+  /// call or the fact being answered where it is said, if one is. Under
+  /// the id of a `once` it runs in, when none is given. A cause of one's
+  /// own is the raw handle's ([raw]).
   @override
-  bool say(T payload, {Principal? by, String? id}) => emit(
-    payload,
-    id: id,
-    cause: by == null ? null : inReplyAs(by) ?? Cause(by),
-  );
-
-  /// As [RawFactEmitter.emit], with a cause of the caller's own: the
-  /// library's and its tools'. Under the id of a `once` it runs in, when
-  /// none is given.
-  bool emit(T payload, {String? id, Cause? cause}) {
-    final said = raw.emit(
+  bool say(T payload, {Principal? by, String? id}) {
+    final said = raw.say(
       raw.shape == null ? _shape.toJson(payload) : payload,
       id: id ?? onceId,
-      cause: cause,
+      cause: by == null ? null : inReplyAs(by) ?? Cause(by),
     );
     if (!said) droppedOnce();
     return said;

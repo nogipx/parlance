@@ -2,18 +2,18 @@
 
 Part of the contract the code and its tests follow; sections keep their numbers across these files (`SPEC §n` in the code), and SKILL.md maps them. Where code and contract disagree, the contract is fixed first.
 
-The core is what the registry stands on, inside the package: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. It is not a library of its own; an app takes words and a `Host` (a small one `HostLimits.light`). The registry (§1–12) is built on it, and remote and views on the registry. Nothing above writes a value, emits or serves a command any other way. Nothing of it is seen outside (§21.6).
+The core is what the registry stands on, inside the package: typed values in one process, no names, no JSON, no principals, no dependencies but `dart:`. It is not a library of its own; an app takes words and a `Host` (a small one `HostLimits.light`). The registry (§1–12) is built on it, and remote and views on the registry. Nothing above writes a value, says a fact or serves a command any other way. Nothing of it is seen outside (§21.6).
 
 Its parts are the package's words, local: a `LocalState` is a state, a `LocalCommand` a command, a `LocalFact` a fact, the same as the registry's without names, principals or JSON.
 
 ## 21.1 Local hub
 
-A `LocalHub` commits the writes of its states and the emits of its facts in **ticks**.
+A `LocalHub` commits the writes of its states and what its facts say in **ticks**.
 
-- A write or emit outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick; batches nest, the outermost commits; one whose body throws commits nothing of it, and what waited before it for a state or fact closed in it stays dropped; a batch that returns a future is refused.
+- A write or a saying outside a batch is a tick of its own. `batch(fn)` runs `fn` synchronously and commits everything it wrote as one tick; batches nest, the outermost commits; one whose body throws commits nothing of it, and what waited before it for a state or fact closed in it stays dropped; a batch that returns a future is refused.
 - Inside a batch (and while a tick is being committed), reads see the batch's own writes; `has` sees only committed values.
 - On commit, a write that leaves a value equal to the one there is, and a remove of a value there is not, are dropped. Each remaining change, then each emit, gets the next **seq** of the hub.
-- A tick is `LocalTick { from, to, changes, facts }`; a change (`LocalStateChange`) says its state, key, value, previous value, whether it removed, and the **tag** its writer gave; an emit (`LocalFactEmit`) its fact, value and tag. The hub never reads a tag: it is how a layer above carries its own data through (the registry carries the cause and a fact's id).
+- A tick is `LocalTick { from, to, changes, facts }`; a change (`LocalStateChange`) says its state, key, value, previous value, whether it removed, and the **tag** its writer gave; a saying (`LocalFactSaid`) its fact, value and tag. The hub never reads a tag: it is how a layer above carries its own data through (the registry carries the cause and a fact's id).
 - `onCommit`, given when the hub is made, sees every tick synchronously, before the `ticks` stream delivers it asynchronously, in seq order.
 - A state or fact made without a hub has one of its own.
 
@@ -31,9 +31,9 @@ A `LocalState<V>` holds one value; a `LocalKeyedState<K, V>` one value per key.
 
 A `LocalFact<T>` is said once and keeps no value.
 
-- One emitter (`claim()`, a `LocalFactEmitter`), or as many as claim it when the fact is **open**.
-- An emit is committed in the hub's tick, after the changes, and reaches `stream`.
-- `close()` drops its waiting emits and refuses new emitters; an emitter of a closed fact cannot emit.
+- One sayer (`claim()`, a `LocalFactSayer`); a second claim fails while it is held.
+- What is said is committed in the hub's tick, after the changes, and reaches `stream`.
+- `close()` drops what waits to be said and refuses a new sayer; the sayer of a closed fact cannot say.
 
 ## 21.4 Local commands
 

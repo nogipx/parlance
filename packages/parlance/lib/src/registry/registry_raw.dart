@@ -209,12 +209,12 @@ extension RawRegistry on Registry {
     return Disposer(() => _undefine(d.name));
   }
 
-  /// Defines a fact; the returned emitter belongs to the definer.
+  /// Defines a fact; the returned sayer belongs to the definer.
   ///
   /// Given a [shape] that keeps its payloads as they are, the registry
-  /// keeps them so (SPEC §18) and the emitter takes Dart values; else
+  /// keeps them so (SPEC §18) and the sayer takes Dart values; else
   /// JSON.
-  RawFactEmitter defineFact(
+  RawFactSayer defineFact(
     FactDescriptor d, {
     required Principal by,
     Shape<Object?>? shape,
@@ -228,7 +228,7 @@ extension RawRegistry on Registry {
     _names[local] = d.name;
     _shapeOf[local] = keep;
     _announce(DescriptorAdded(d));
-    return RawFactEmitter._(
+    return RawFactSayer._(
       this,
       d,
       by,

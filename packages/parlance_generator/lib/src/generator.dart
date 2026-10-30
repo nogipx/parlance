@@ -881,13 +881,13 @@ final class _Emitter {
     }
     for (final f in facts) {
       member(f.member, f);
-      out.writeln('  IFactEmitterOf<${f.type}>? _\$${f.member};');
+      out.writeln('  IFactSayerOf<${f.type}>? _\$${f.member};');
     }
     if (facts.isNotEmpty) {
       out
         ..writeln()
         ..writeln(
-          '  void _\$say<T>(String fact, IFactEmitterOf<T>? e, T payload, '
+          '  void _\$say<T>(String fact, IFactSayerOf<T>? e, T payload, '
           'Principal? by) {',
         )
         ..writeln('    if (e == null) {')

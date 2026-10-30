@@ -76,7 +76,7 @@ final class Lamps extends Owner {
 
   bool lit = false;
   late final IStateWriterOf<bool> _on;
-  late final IFactEmitterOf<Turn> _purred;
+  late final IFactSayerOf<Turn> _purred;
 
   @override
   void define(IRawParticipant p) {
@@ -406,11 +406,9 @@ void main() {
     );
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
-    final purred =
-        GeneratedWords(p).fact(Purr.purred).define()
-            as FactEmitterOf<({bool on})>;
-    purred.emit((on: true), cause: const Cause(someone));
-    purred.emit((on: false), cause: const Cause(crew));
+    final purred = GeneratedWords(p).fact(Purr.purred).define();
+    purred.say((on: true), by: someone);
+    purred.say((on: false), by: crew);
     await p.flush();
     await settle();
     expect(r.recent('kittens.purred').single.cause.by, someone);
@@ -430,7 +428,7 @@ void main() {
     final purr = p.defineFact(
       FactDescriptor('kittens.purred', type: const BoolType()),
     );
-    expect(() => purr.emit(1), throwsA(isA<TypeMismatch>()));
+    expect(() => purr.say(1), throwsA(isA<TypeMismatch>()));
     await p.flush();
     await settle();
     expect(errors, isEmpty, reason: 'nothing went to the host');

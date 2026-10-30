@@ -222,8 +222,8 @@ void main() {
       );
 
       group('a subscription', () {
-        late RawFactEmitter party;
-        late RawFactEmitter cheer;
+        late RawFactSayer party;
+        late RawFactSayer cheer;
         late RegistryMirror mirror;
         final seen = <Tick>[];
 
@@ -260,8 +260,8 @@ void main() {
           for (final write in <void Function()>[
             () => f.focus.set('main'),
             () => f.locked.set(true),
-            () => party.emit(1),
-            () => cheer.emit(2),
+            () => party.say(1),
+            () => cheer.say(2),
             () => f.chime.set(-6, key: 'front'),
             () => f.locked.set(false),
             () => f.focus.set('break'),
@@ -324,7 +324,7 @@ void main() {
           expect(mirror.read('house.focus'), isNull);
           expect(link.session.states, {'door.locked'});
           expect(link.session.facts, isEmpty);
-          party.emit(1);
+          party.say(1);
           await settle();
           expect(seen.expand((t) => t.facts), isEmpty);
           noGaps();
@@ -448,7 +448,7 @@ void main() {
             addTearDown(sub.cancel);
           }
           await settle();
-          whisper.emit('psst', id: 'w1');
+          whisper.say('psst', id: 'w1');
           await settle();
           expect(heard, {
             'other': <Object?>[],
@@ -521,8 +521,8 @@ void main() {
             FactDescriptor('x.party', type: const IntType()),
             by: owner,
           );
-          party.emit(1);
-          party.emit(2);
+          party.say(1);
+          party.say(2);
           final late = Link.open(f.r, user, wire: wire);
           addTearDown(late.close);
           expect(
@@ -682,9 +682,9 @@ void main() {
           await k.client.define(
             FactDescriptor('kittens.adopted', type: const AnyType()),
           );
-          expect(await k.client.emit('kittens.adopted', {'name': 'Tom'}), true);
+          expect(await k.client.say('kittens.adopted', {'name': 'Tom'}), true);
           expect(
-            await k.client.emit(
+            await k.client.say(
               'kittens.adopted',
               {'name': 'Bo'},
               id: 'f1',
@@ -693,20 +693,20 @@ void main() {
             true,
           );
           expect(
-            await k.client.emit('kittens.adopted', {}, id: 'f1', by: visitor),
+            await k.client.say('kittens.adopted', {}, id: 'f1', by: visitor),
             false,
           );
           expect(f.r.recent('kittens.adopted').last.cause.by, visitor);
           expect(
-            await status(k.client.emit('porch.party', {})),
+            await status(k.client.say('porch.party', {})),
             RpcStatus.permissionDenied,
           );
           expect(
-            await status(k.client.emit('kittens.adopted', {}, by: user)),
+            await status(k.client.say('kittens.adopted', {}, by: user)),
             RpcStatus.permissionDenied,
           );
           expect(
-            await status(k.client.emit('door.nothing', {})),
+            await status(k.client.say('door.nothing', {})),
             RpcStatus.notFound,
           );
         });
@@ -715,7 +715,7 @@ void main() {
           await k.client.define(
             FactDescriptor('kittens.adopted', type: const AnyType()),
           );
-          await k.client.emit('kittens.adopted', {});
+          await k.client.say('kittens.adopted', {});
           final fact = f.r.recent('kittens.adopted').single;
           await lamps();
           await k.client.call('kittens.lights.set', {

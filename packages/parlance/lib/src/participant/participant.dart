@@ -556,10 +556,10 @@ final class GeneratedFact<T> {
   final IFactWord<T> _word;
 
   /// Defines it as the participant's own; [readers] as a state's.
-  IFactEmitterOf<T> define({
+  IFactSayerOf<T> define({
     Callers? readers,
     Map<String, Object?> meta = const {},
-  }) => FactEmitterOf(
+  }) => FactSayerOf(
     _p.defineFact(
       FactDescriptor(
         _word.name,

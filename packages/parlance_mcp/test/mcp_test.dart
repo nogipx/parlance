@@ -24,7 +24,7 @@ final class Board extends Fixture {
     );
   }
 
-  late final RawFactEmitter party;
+  late final RawFactSayer party;
 }
 
 /// A client of an MCP session in memory: sends requests, reads answers.
@@ -221,7 +221,7 @@ void main() {
             ),
             by: owner,
           )
-          .emit('psst');
+          .say('psst');
       expect(
         (await c.call('recent_facts', {'fact': 'house.whisper'})).error,
         isTrue,
@@ -333,7 +333,7 @@ void main() {
     });
 
     test('recent facts', () async {
-      f.party.emit({'from': 'a', 'visitors': 3});
+      f.party.say({'from': 'a', 'visitors': 3});
       await pumpEventQueue();
       final facts =
           await c.json('recent_facts', {'fact': 'porch.party'}) as List;
@@ -382,7 +382,7 @@ void main() {
       expect(await c.json('read', {'state': 'house.focus'}), 'test');
       final why = await c.json('why', {'state': 'house.focus'}) as Map;
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
-      f.party.emit({'from': 'b', 'visitors': 1});
+      f.party.say({'from': 'b', 'visitors': 1});
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(
         (await c.json('recent_facts', {'fact': 'porch.party'}) as List),

@@ -191,7 +191,7 @@ void main() {
       final heard = <Object?>[];
       final sub = view.facts('x.party').listen((m) => heard.add(m.payload));
       await settle();
-      party.emit(5);
+      party.say(5);
       await settle();
       expect(heard, [5]);
       expect(

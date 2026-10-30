@@ -29,11 +29,11 @@ abstract class _Member {
   bool get _closed;
 }
 
-/// Commits the writes of its states and the emits of its facts in ticks
+/// Commits the writes of its states and what its facts say in ticks
 /// (SPEC §21.1).
 ///
-/// A write or emit outside [batch] is a tick of its own; [batch] makes
-/// everything written in it one tick. Every committed change and emit gets
+/// A write or a saying outside [batch] is a tick of its own; [batch] makes
+/// everything written in it one tick. Every committed change and saying gets
 /// the next [seq]. A state or fact made without a hub has one of its own.
 final class LocalHub {
   /// [onCommit] sees every tick synchronously, before [ticks] delivers it:
@@ -46,7 +46,7 @@ final class LocalHub {
   int _depth = 0;
   bool _committing = false;
   final LinkedHashMap<(_Member, Object?), _Write> _pending = LinkedHashMap();
-  final List<_Emit> _emits = [];
+  final List<_Say> _said = [];
   final StreamController<LocalTick> _ticks = StreamController.broadcast();
 
   /// The seq of the last commit.
@@ -66,7 +66,7 @@ final class LocalHub {
     // is committed whole or not at all, never the half written before the
     // throw.
     final before = _pending.isEmpty ? null : LinkedHashMap.of(_pending);
-    final emitted = _emits.isEmpty ? null : List.of(_emits);
+    final said = _said.isEmpty ? null : List.of(_said);
     _depth++;
     var done = false;
     try {
@@ -85,9 +85,9 @@ final class LocalHub {
             if (!e.key.$1._closed) _pending[e.key] = e.value;
           }
         }
-        _emits.clear();
-        if (emitted != null) {
-          _emits.addAll(emitted.where((e) => !e.member._closed));
+        _said.clear();
+        if (said != null) {
+          _said.addAll(said.where((e) => !e.member._closed));
         }
       }
       _depth--;
@@ -106,8 +106,8 @@ final class LocalHub {
     _after();
   }
 
-  void _emit(_Member m, Object? value, Object? tag) {
-    _emits.add(_Emit(m, value, tag));
+  void _say(_Member m, Object? value, Object? tag) {
+    _said.add(_Say(m, value, tag));
     _after();
   }
 
@@ -129,18 +129,18 @@ final class LocalHub {
 
   void _drop(_Member m) {
     _pending.removeWhere((k, _) => identical(k.$1, m));
-    _emits.removeWhere((e) => identical(e.member, m));
+    _said.removeWhere((e) => identical(e.member, m));
   }
 
   void _commit() {
     if (_committing) return;
     _committing = true;
     try {
-      while (_pending.isNotEmpty || _emits.isNotEmpty) {
+      while (_pending.isNotEmpty || _said.isNotEmpty) {
         final writes = [..._pending.entries];
-        final emits = [..._emits];
+        final saying = [..._said];
         _pending.clear();
-        _emits.clear();
+        _said.clear();
         final changes = <LocalStateChange>[];
         for (final MapEntry(key: (m, key), value: w) in writes) {
           final applied = (m as _Store)._apply(key, w);
@@ -158,8 +158,8 @@ final class LocalHub {
           );
         }
         final facts = [
-          for (final e in emits)
-            LocalFactEmit._(
+          for (final e in saying)
+            LocalFactSaid._(
               seq: ++_seq,
               fact: e.member,
               value: e.value,
@@ -192,8 +192,8 @@ final class _Write {
   final Object? tag;
 }
 
-final class _Emit {
-  _Emit(this.member, this.value, this.tag);
+final class _Say {
+  _Say(this.member, this.value, this.tag);
   final _Member member;
   final Object? value;
   final Object? tag;
@@ -211,7 +211,7 @@ final class LocalTick {
   final int from;
   final int to;
   final List<LocalStateChange> changes;
-  final List<LocalFactEmit> facts;
+  final List<LocalFactSaid> facts;
 }
 
 /// A committed change of a state's value.
@@ -241,9 +241,9 @@ final class LocalStateChange {
   final Object? tag;
 }
 
-/// A committed emit of a fact.
-final class LocalFactEmit {
-  const LocalFactEmit._({
+/// What a fact said, committed.
+final class LocalFactSaid {
+  const LocalFactSaid._({
     required this.seq,
     required this.fact,
     required this.value,
@@ -485,30 +485,27 @@ Stream<V?> _watch<V>(_Member state, Object? key, V? Function() now) =>
       out.onCancel = sub.cancel;
     });
 
-/// What happened, said once, keeping no value (SPEC §21.3).
-///
-/// One emitter, or as many as claim it when [open].
+/// What happened, said once, keeping no value (SPEC §21.3), by its one
+/// sayer.
 final class LocalFact<T> implements _Member {
-  LocalFact({LocalHub? hub, this.open = false}) : hub = hub ?? LocalHub();
+  LocalFact({LocalHub? hub}) : hub = hub ?? LocalHub();
 
   @override
   final LocalHub hub;
 
-  /// Whether more than one emitter may claim it.
-  final bool open;
-  int _emitters = 0;
+  int _sayers = 0;
   @override
   bool _closed = false;
 
-  /// An emitter; a second one fails unless [open].
-  LocalFactEmitter<T> claim() {
+  /// Its sayer; a second one fails while the first is held.
+  LocalFactSayer<T> claim() {
     if (_closed) throw StateError('the fact is closed');
-    if (!open && _emitters > 0) throw StateError('the fact has an emitter');
-    _emitters++;
-    return LocalFactEmitter._(this);
+    if (_sayers > 0) throw StateError('the fact has a sayer');
+    _sayers++;
+    return LocalFactSayer._(this);
   }
 
-  /// Emits as they are committed.
+  /// What it says, as it is committed.
   Stream<T> get stream => hub.ticks.expand(
     (t) => [
       for (final e in t.facts)
@@ -516,33 +513,33 @@ final class LocalFact<T> implements _Member {
     ],
   );
 
-  /// Drops its waiting emits and lets no one emit again.
+  /// Drops what waits to be said and lets no one say again.
   void close() {
     _closed = true;
     hub._drop(this);
   }
 }
 
-/// An emit handle of a [LocalFact].
-final class LocalFactEmitter<T> implements IHandle {
-  LocalFactEmitter._(this._fact);
+/// The sayer of a [LocalFact].
+final class LocalFactSayer<T> implements IHandle {
+  LocalFactSayer._(this._fact);
 
   final LocalFact<T> _fact;
   bool _live = true;
 
-  /// Emits [value]; [tag] goes with it, unread.
-  void emit(T value, {Object? tag}) {
+  /// Says [value]; [tag] goes with it, unread.
+  void say(T value, {Object? tag}) {
     if (!_live || _fact._closed) {
-      throw StateError('this emitter was released');
+      throw StateError('this sayer was released');
     }
-    _fact.hub._emit(_fact, value, tag);
+    _fact.hub._say(_fact, value, tag);
   }
 
   @override
   void dispose() {
     if (!_live) return;
     _live = false;
-    _fact._emitters--;
+    _fact._sayers--;
   }
 }
 

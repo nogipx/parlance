@@ -54,7 +54,7 @@ void main() {
         .listen((f) => heard.add(f.payload));
     await guest.settle();
     await pumpEventQueue();
-    old.emit(1);
+    old.say(1);
     await pumpEventQueue();
     old.dispose();
     final now = owner.raw.defineFact(
@@ -64,7 +64,7 @@ void main() {
     for (var i = 0; i < 10; i++) {
       await pumpEventQueue();
     }
-    now.emit(2);
+    now.say(2);
     for (var i = 0; i < 10; i++) {
       await pumpEventQueue();
     }

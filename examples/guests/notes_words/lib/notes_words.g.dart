@@ -77,9 +77,9 @@ abstract class NotesOwnerBase implements IOwner {
   /// written by `set` and `remove`.
   final Single<List<Note>> all = Single<List<Note>>();
 
-  IFactEmitterOf<NotesAdded>? _$added;
+  IFactSayerOf<NotesAdded>? _$added;
 
-  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       IOwner.said(this, fact, payload);
     } else {

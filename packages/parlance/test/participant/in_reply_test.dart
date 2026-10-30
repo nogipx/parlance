@@ -55,7 +55,7 @@ void main() {
             before.set(1);
             await Future<void>.delayed(Duration.zero);
             after.set(2);
-            said.emit(3);
+            said.say(3);
             await p.raw.call('deck.inner', {});
           },
         );

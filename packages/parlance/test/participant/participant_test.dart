@@ -184,10 +184,7 @@ void main() {
       );
       final a = GeneratedWords(lock).fact(OrderFact.placed).define();
       expect(
-        () => (a as FactEmitterOf<Order>).emit((
-          id: 'o',
-          status: 'new',
-        ), cause: const Cause(someone)),
+        () => a.say((id: 'o', status: 'new'), by: someone),
         throwsA(isA<StateError>()),
       );
       lock.dispose();
@@ -199,9 +196,10 @@ void main() {
               call.by.kind == 'visitor' ? null : 'visitors only',
         ),
       );
-      (GeneratedWords(voice).fact(OrderFact.placed).define()
-              as FactEmitterOf<Order>)
-          .emit((id: 'o', status: 'new'), cause: const Cause(someone));
+      GeneratedWords(voice).fact(OrderFact.placed).define().say((
+        id: 'o',
+        status: 'new',
+      ), by: someone);
       expect(r.recent('orders.placed').single.cause.by, someone);
     });
 

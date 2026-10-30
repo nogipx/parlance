@@ -103,7 +103,7 @@ final class _Fact implements IFactHandle {
   /// Says [payload]. True: whether the registry took it (a repeat of [id]
   /// is dropped there) is not known when it is said.
   @override
-  bool emit(Object? payload, {String? id, Cause? cause}) {
+  bool say(Object? payload, {String? id, Cause? cause}) {
     if (_p._disposed) return false;
     final speaker = _by ?? _p.who;
     cause ??= inReplyAs(speaker);

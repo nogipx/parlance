@@ -67,7 +67,7 @@ void main() {
     );
     r.defineCommand(
       CommandDescriptor('x.say', callers: Callers.only(['user'])),
-      (c) => said.emit('hi', cause: c.causeFor(owner)),
+      (c) => said.say('hi', cause: c.causeFor(owner)),
     );
     r.defineCommand(
       CommandDescriptor('x.answer', callers: Callers.only(['user'])),
@@ -108,7 +108,7 @@ void main() {
       );
       r.defineCommand(
         CommandDescriptor('x.say', callers: Callers.only(['user'])),
-        (c) => said.emit('hi', cause: c.causeFor(owner)),
+        (c) => said.say('hi', cause: c.causeFor(owner)),
       );
       r.defineQuery(
         QueryDescriptor(

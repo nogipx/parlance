@@ -87,7 +87,7 @@ export 'src/registry/words.dart'
         IFactWord,
         Fact,
         IStateWriterOf,
-        IFactEmitterOf,
+        IFactSayerOf,
         Keyed,
         Single,
         IStateOf,

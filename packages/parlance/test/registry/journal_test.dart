@@ -21,7 +21,7 @@ void main() {
     r.defineCommand(
       CommandDescriptor('intercom.say', callers: Callers.only(['user'])),
       (c) {
-        said.emit('!clip', cause: c.causeFor(owner));
+        said.say('!clip', cause: c.causeFor(owner));
         clipped.set('before', cause: c.causeFor(owner));
       },
     );

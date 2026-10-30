@@ -63,7 +63,7 @@ final class Thermostat extends Owner {
   Thermostat() : super(vocabulary: 'thermostat');
 
   late final IStateWriterOf<bool> _heating;
-  late final IFactEmitterOf<Power> _adjusted;
+  late final IFactSayerOf<Power> _adjusted;
 
   @override
   void define(IRawParticipant p) {

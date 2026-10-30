@@ -109,7 +109,7 @@ void main() {
         expect(a.value, 1);
         expect(a.has, isFalse);
         wb.set('k', 2);
-        e.emit('done');
+        e.say('done');
       });
       await settle();
 
@@ -145,7 +145,7 @@ void main() {
       expect(
         () => hub.batch(() {
           w.set(1);
-          say.emit(1);
+          say.say(1);
           throw StateError('midway');
         }),
         throwsStateError,
@@ -186,23 +186,20 @@ void main() {
   });
 
   group('LocalFact', () {
-    test('one emitter unless open', () {
-      final closed = LocalFact<int>();
-      closed.claim();
-      expect(closed.claim, throwsStateError);
-      final open = LocalFact<int>(open: true);
-      open.claim();
-      expect(open.claim, returnsNormally);
+    test('one sayer', () {
+      final fact = LocalFact<int>();
+      fact.claim();
+      expect(fact.claim, throwsStateError);
     });
 
-    test('emits reach the stream, with no value kept', () async {
+    test('what is said reaches the stream, with no value kept', () async {
       final s = LocalFact<int>();
       final e = s.claim();
       final seen = <int>[];
       final sub = s.stream.listen(seen.add);
       e
-        ..emit(1)
-        ..emit(2);
+        ..say(1)
+        ..say(2);
       await settle();
       expect(seen, [1, 2]);
       await sub.cancel();

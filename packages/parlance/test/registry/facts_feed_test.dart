@@ -7,7 +7,7 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 void main() {
   late Fixture f;
-  late RawFactEmitter party;
+  late RawFactSayer party;
 
   setUp(() {
     f = Fixture();
@@ -33,7 +33,7 @@ void main() {
         by: const Principal('deck'),
       );
       for (final (i, id) in ['s1', 's2', 's3'].indexed) {
-        said.emit(i, id: id);
+        said.say(i, id: id);
       }
       await pumpEventQueue();
       expect(r.recentFact('s1'), isNull, reason: 'past recentPerFact');
@@ -44,8 +44,8 @@ void main() {
     test('a repeated id is dropped', () async {
       final seen = <FactMessage>[];
       f.r.facts(fact: 'porch.party').listen(seen.add);
-      expect(party.emit({'from': 'a', 'visitors': 3}, id: 'r1'), isTrue);
-      expect(party.emit({'from': 'a', 'visitors': 3}, id: 'r1'), isFalse);
+      expect(party.say({'from': 'a', 'visitors': 3}, id: 'r1'), isTrue);
+      expect(party.say({'from': 'a', 'visitors': 3}, id: 'r1'), isFalse);
       await pumpEventQueue();
       expect(seen.single.id, 'r1');
       expect(seen.single.cause.by, const Principal('plugin', 'gate'));
@@ -58,14 +58,14 @@ void main() {
           FactDescriptor('x.ping', type: const AnyType()),
           by: owner,
         );
-        expect(e.emit(1, id: 'p'), isTrue);
+        expect(e.say(1, id: 'p'), isTrue);
         t.elapse(const Duration(minutes: 11));
-        expect(e.emit(1, id: 'p'), isTrue);
+        expect(e.say(1, id: 'p'), isTrue);
       });
     });
 
     test('payloads are checked', () {
-      expect(() => party.emit({'from': 'a'}), throwsA(isA<TypeMismatch>()));
+      expect(() => party.say({'from': 'a'}), throwsA(isA<TypeMismatch>()));
     });
 
     test('recent keeps the last ones per fact', () {
@@ -75,7 +75,7 @@ void main() {
         by: owner,
       );
       for (var i = 0; i < 5; i++) {
-        e.emit(i);
+        e.say(i);
       }
       expect([for (final m in r.recent('x.n')) m.payload], [3, 4]);
       expect([for (final m in r.recent('x.n', 1)) m.payload], [4]);
@@ -86,7 +86,7 @@ void main() {
       f.r.ticks.listen(ticks.add);
       f.r.batch(() {
         f.locked.set(true);
-        party.emit({'from': 'a', 'visitors': 1});
+        party.say({'from': 'a', 'visitors': 1});
       });
       await pumpEventQueue();
       final t = ticks.single;
@@ -114,7 +114,7 @@ void main() {
       f.locked.set(true);
       final mark = f.r.seq;
       f.focus.set('main');
-      party.emit({'from': 'a', 'visitors': 1});
+      party.say({'from': 'a', 'visitors': 1});
       final items = <FeedItem>[];
       final sub = f.r.feed(epoch: f.r.epoch, since: mark).listen(items.add);
       await pumpEventQueue();
@@ -180,7 +180,7 @@ void main() {
       );
       w.set({'text': 'x' * 4000});
       w.set({'text': 'y' * 4000});
-      f.emit({'text': 'z' * 4000});
+      f.say({'text': 'z' * 4000});
       expect(r.recent('x.big'), hasLength(1));
       final feed = r.feed(epoch: r.epoch, since: r.seq - 1);
       final items = <FeedItem>[];

@@ -114,7 +114,7 @@ void main() {
     late IRawParticipant orders;
     late GeneratedWords asking;
     late IStateWriterOf<String> note;
-    late IFactEmitterOf<String> said;
+    late IFactSayerOf<String> said;
     void join() {
       orders = r.participant(owner, vocabularies: [WordSet.open('orders')]);
       asking = GeneratedWords(r.participant(asker));

@@ -48,7 +48,7 @@ void main() {
         expect(
           () => p.batch(() {
             volume.set(2);
-            said.emit(2);
+            said.say(2);
             throw StateError('no');
           }),
           throwsStateError,

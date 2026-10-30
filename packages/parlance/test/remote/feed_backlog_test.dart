@@ -58,7 +58,7 @@ void main() {
     for (var i = 1; i <= n; i++) {
       p.batch(() {
         at.set(i);
-        said.emit(i);
+        said.say(i);
       });
       await pumpEventQueue();
     }

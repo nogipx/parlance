@@ -117,9 +117,9 @@ abstract class BoardOwnerBase implements IOwner {
   /// written by `set` and `remove`.
   final Single<Object?> anything = Single<Object?>();
 
-  IFactEmitterOf<Note>? _$seen;
+  IFactSayerOf<Note>? _$seen;
 
-  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       IOwner.said(this, fact, payload);
     } else {

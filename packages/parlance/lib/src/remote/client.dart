@@ -292,7 +292,7 @@ final class ParlanceClient {
   );
 
   /// Applies [ops] in their order as one tick (SPEC §22.4); an answer per
-  /// op: `{}`, `{taken}` for an emit, or `{error, message}`.
+  /// op: `{}`, `{taken}` for a fact said, or `{error, message}`.
   Future<List<Map<String, Object?>>> apply(
     List<Map<String, Object?>> ops, {
     RpcContext? context,
@@ -310,7 +310,7 @@ final class ParlanceClient {
   /// Says [fact]: the session's own, or an open one it produces; [by] when
   /// the host lets it say it for someone else. False when [id] was said
   /// already.
-  Future<bool> emit(
+  Future<bool> say(
     String fact,
     Object? payload, {
     String? id,

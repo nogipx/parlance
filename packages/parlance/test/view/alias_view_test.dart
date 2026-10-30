@@ -34,7 +34,7 @@ void main() {
       final heard = <Object?>[];
       p.raw.facts('a.told').listen((f) => heard.add(f.payload));
       await host.settle();
-      said.emit(7);
+      said.say(7);
       await host.settle();
       expect(heard, [7]);
     },

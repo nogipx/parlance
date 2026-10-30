@@ -30,7 +30,7 @@ final class House {
     );
     p.defineCommand(
       CommandDescriptor('intercom.say', callers: Callers.only(['visitor'])),
-      (c) => line.emit('!clip', cause: c.causeFor(house)),
+      (c) => line.say('!clip', cause: c.causeFor(house)),
     );
     p.defineCommand(
       CommandDescriptor(
@@ -198,7 +198,7 @@ call intercom.say by visitor/gate.7 -> done
       (_) {},
     );
     final w = JournalWriter(r.journal, dir: dir);
-    said.emit('a', id: 'f1');
+    said.say('a', id: 'f1');
     await pumpEventQueue();
     // As if the registry had forgotten f1: a conversation of its own.
     await r

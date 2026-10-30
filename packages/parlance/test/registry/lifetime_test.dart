@@ -87,8 +87,8 @@ void main() {
   test('no recent facts are asked for by a count of none or less', () {
     final r = Registry();
     r.defineFact(FactDescriptor('a.f', type: const IntType()), by: owner)
-      ..emit(1)
-      ..emit(2);
+      ..say(1)
+      ..say(2);
     expect(r.recent('a.f', 0), isEmpty);
     expect(r.recent('a.f', -3), isEmpty);
   });

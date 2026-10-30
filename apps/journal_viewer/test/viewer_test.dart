@@ -28,7 +28,7 @@ Future<String> journalLines() async {
   );
   p.defineCommand(
     CommandDescriptor('chat.say', callers: Callers.only(['viewer'])),
-    (c) => line.emit('!clip', cause: c.causeFor(studio)),
+    (c) => line.say('!clip', cause: c.causeFor(studio)),
   );
   var n = 0;
   p.defineCommand(

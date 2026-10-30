@@ -607,9 +607,9 @@ final class Registry implements ITypeContext {
 
   final LinkedHashMap<String, DateTime> _seenFacts = LinkedHashMap();
 
-  bool _emit(
+  bool _say(
     FactDescriptor d,
-    LocalFactEmitter<Object?> emitter,
+    LocalFactSayer<Object?> sayer,
     Object? payload,
     String id,
     Cause cause, {
@@ -630,7 +630,7 @@ final class Registry implements ITypeContext {
     if (_seenFacts.length > dedupLimit) {
       _seenFacts.remove(_seenFacts.keys.first);
     }
-    emitter.emit(v, tag: (id, cause));
+    sayer.say(v, tag: (id, cause));
     return true;
   }
 

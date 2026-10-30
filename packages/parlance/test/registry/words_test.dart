@@ -119,7 +119,7 @@ void main() {
   late GeneratedWords house;
   late GeneratedWords asUser;
   late IStateWriterOf<Tune> tune;
-  late IFactEmitterOf<Tune> tuned;
+  late IFactSayerOf<Tune> tuned;
   setUp(() {
     f = Fixture();
     house = GeneratedWords(

@@ -20,7 +20,7 @@ void main() {
     );
     r.defineCommand(
       CommandDescriptor('intercom.say', callers: Callers.only(['user'])),
-      (c) => said.emit('!clip', cause: c.causeFor(owner)),
+      (c) => said.say('!clip', cause: c.causeFor(owner)),
     );
     r.defineCommand(
       CommandDescriptor('clip.save', callers: Callers.only(['user'])),
@@ -68,7 +68,7 @@ void main() {
     );
     r.defineCommand(
       CommandDescriptor('intercom.say', callers: Callers.only(['visitor'])),
-      (c) => said.emit('!clip', cause: c.causeFor(owner)),
+      (c) => said.say('!clip', cause: c.causeFor(owner)),
     );
     r.defineCommand(
       CommandDescriptor('clip.save', callers: Callers.only(['plugin'])),

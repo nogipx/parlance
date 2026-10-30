@@ -628,7 +628,7 @@ final class _OwnState implements IStateHandle {
 final class _OwnFact implements IFactHandle {
   _OwnFact(this._p, this._raw);
   final LocalParticipant _p;
-  final RawFactEmitter _raw;
+  final RawFactSayer _raw;
 
   @override
   FactDescriptor get descriptor => _raw.descriptor;
@@ -637,7 +637,7 @@ final class _OwnFact implements IFactHandle {
   Shape<Object?>? get shape => _raw.shape;
 
   @override
-  bool emit(Object? payload, {String? id, Cause? cause}) {
+  bool say(Object? payload, {String? id, Cause? cause}) {
     final p = _p;
     if (p._disposed) return false;
     if (cause != null && cause.by != p.who && !p._wholeOf(cause.by)) {
@@ -651,7 +651,7 @@ final class _OwnFact implements IFactHandle {
     }
     cause ??= inReplyAs(p.who);
     final own = cause == null || cause.by == p.who || p._wholeOf(cause.by);
-    return _raw.emit(payload, id: id, cause: own ? p._as(cause) : cause);
+    return _raw.say(payload, id: id, cause: own ? p._as(cause) : cause);
   }
 
   @override

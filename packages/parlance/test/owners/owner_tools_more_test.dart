@@ -94,7 +94,7 @@ final class _Bell implements IOwner {
     );
   }
 
-  late IFactEmitterOf<String> _rang;
+  late IFactSayerOf<String> _rang;
 
   /// A ring from outside, which may come twice.
   bool ring(String id, String who) => once(id: id, say: () => _rang.say(who));

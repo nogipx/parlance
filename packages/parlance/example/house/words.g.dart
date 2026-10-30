@@ -159,10 +159,10 @@ abstract class HouseOwnerBase implements IOwner {
   /// written by `set` and `remove`.
   final Single<bool> locked = Single<bool>();
 
-  IFactEmitterOf<HouseRang>? _$rang;
-  IFactEmitterOf<HouseMotion>? _$motion;
+  IFactSayerOf<HouseRang>? _$rang;
+  IFactSayerOf<HouseMotion>? _$motion;
 
-  void _$say<T>(String fact, IFactEmitterOf<T>? e, T payload, Principal? by) {
+  void _$say<T>(String fact, IFactSayerOf<T>? e, T payload, Principal? by) {
     if (e == null) {
       IOwner.said(this, fact, payload);
     } else {

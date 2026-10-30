@@ -185,7 +185,7 @@ final class TestHost {
   }
 
   /// A stand-in speaker of another module's fact [word].
-  IFactEmitterOf<T> standInFact<T>(IFactWord<T> word) =>
+  IFactSayerOf<T> standInFact<T>(IFactWord<T> word) =>
       GeneratedWords(_standInFor(word.name)).fact(word).define();
 
   /// The values [word] (of [key]) was given, in order, as committed: null

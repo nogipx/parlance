@@ -14,7 +14,7 @@ void main() {
 
     hub.batch(() {
       goneWriter.set(1);
-      saying.emit(1);
+      saying.say(1);
       keptWriter.set(1);
       expect(
         () => hub.batch(() {
