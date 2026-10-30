@@ -84,7 +84,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`failed`** (§9, §19): the handler said no (`failCall(why)`, a `HandlerFailed`) or threw, or its answer did not pass `returns`.
 - **`cancelled`** (§9): its caller cancelled it (`cancel:`) and stopped waiting. As `timedOut`: not run if its handler had not begun; else the handler is told (`call.expired`) and what it does stands, its end recorded late.
 - **`timedOut`** (§9): no answer within the deadline. Not an end: the handler is told (`call.expired`); what it then does stands, and its end comes as a second call record marked `late`.
-- **`lost`** (§9, §14): the answer did not come back over remote; whether it ran is unknown, and a retry with the id runs it at most once.
+- **`lost`** (§9, §14): the answer did not come back over remote, from the registry or to it from the owner serving the call across a connection; whether it ran is unknown, and a retry with the id runs it at most once.
 - **Call record** (§9): every finished call (request, cause, stages passed, result, timings) on `registry.calls`. `callStarts` tells a call as its handler begins (`CallStarted`), `running` the ones in flight now.
 - **Journal** (§9.3): `registry.journal`, what happened at the level of use, in one order: calls begun and ended (refused too), facts said, writes in a conversation; each entry with `epoch`, `n`, `conversation` and, with spans, `trace`. The registry keeps none of it; a host writes it (`parlance_journal`).
 - **Guard** (§10): a synchronous check asked on every call that reaches its stage; returns a denial reason or nothing.  Who passes it is the guard's to say: there is no override (philosophy, §7).

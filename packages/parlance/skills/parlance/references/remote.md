@@ -72,7 +72,7 @@ A parlance keeps what is so, not what happened: states are its memory, facts pas
 | a fact | host → participant | at most once, in order with the ticks. After a drop, the facts of the retained ticks come; past them a snapshot says `factsLost: true`, and those facts are gone: a remote participant tells it on `errors` (`factsLost`, `{op: feed}`) |
 | a fact | participant → host | once, while within the dedup window (§6.3). Said while away, it waits and is sent when back, with its id, so the host drops one it took before the drop. It keeps the last `keepAway` (`join(keepAway:)`, 1000); past them the oldest go and `errors` tells how many (`{op: emit}`, `dropped`) once it is back |
 | a call | participant → host | once per id, within the dedup window (§9). An answer lost on the way is `lost`: it may have run; a retry with the id runs it at most once and answers how it ended. A call made while away is `lost` and not sent |
-| a call | host → participant (its command) | the handler runs once per call; a connection that drops while it runs fails the call (`its owner did not answer`); the registry does not call again |
+| a call | host → participant (its command) | the handler runs once per call; a connection that drops while it runs, or an answer later than its deadline and five minutes, ends the call `lost` (`its owner did not answer`): it may have run, what it wrote stands, and a retry with the id answers that; the registry does not call again |
 
 In one process every message is delivered as it is committed: a listener that comes later gets a state's value now, and no fact said before it listened (`recent(fact, n)` keeps the last ones to look at, not to deliver).
 

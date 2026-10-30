@@ -14,6 +14,20 @@ typedef WhyNot = String? Function();
 /// committed state; makes no calls.
 typedef GuardCheck = String? Function(PendingCall call);
 
+/// Thrown by a handler whose answer could not come back (the owner serving
+/// it across a connection went, or held it past its while): the call ends
+/// `lost` ([CallLost]), not `failed`, since it may have run, what it wrote
+/// committed. The library's.
+final class AnswerLost implements Exception {
+  const AnswerLost(this.how);
+
+  /// How the way to the owner broke.
+  final String how;
+
+  @override
+  String toString() => 'no answer came back: $how';
+}
+
 /// Where errors of guards and timers go.
 typedef ErrorSink = void Function(Object error, StackTrace stack);
 

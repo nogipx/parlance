@@ -606,7 +606,8 @@ final class CallCancelled extends CallResult<Never> {
   String toString() => 'cancelled';
 }
 
-/// No answer came back: the way to the registry broke. Whether the call
+/// No answer came back: the way to the registry broke, or the way from it
+/// to the owner serving the call across a connection. Whether the call
 /// ran is unknown; a retry with [id] runs it at most once.
 final class CallLost extends CallResult<Never> {
   const CallLost(this.id, this.how);

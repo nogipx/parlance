@@ -817,6 +817,48 @@ void main() {
       await h.close();
     }
   });
+
+  test('a call whose owner across a connection goes before it answers '
+      'ends lost, not failed: it may have run, what it wrote stands', () async {
+    final p = await join();
+    final mark = p.defineState(
+      StateDescriptor('kittens.mark', type: const BoolType()),
+    );
+    final never = Completer<void>();
+    p.defineCommand(
+      CommandDescriptor('kittens.slow', callers: Callers.anyone),
+      (call) async {
+        mark.set(true);
+        await never.future;
+      },
+    );
+    await p.flush();
+    final r1 = r.participant(crew).call('kittens.slow', const {}, id: 's1');
+    await settle();
+    expect(r.read('kittens.mark'), isTrue, reason: 'it ran');
+    await host!.close();
+    expect(await r1, isA<CallLost>());
+  });
+
+  test('a guest\'s attach the host refuses is all or none, as in the '
+      'host\'s process: its owners are withdrawn, and it throws', () async {
+    final (c, srv) = RpcChannelTransport.memoryPair();
+    final h = host = RpcPeerEndpoint(transport: srv);
+    session = r
+        .participant(kittens, vocabularies: [WordSet.open('kittens')])
+        .serve(h, limits: const SessionLimits(words: 1));
+    h.start();
+    connection = RpcClientConnection(
+      transportFactory: (_) async => c,
+      shouldReconnect: (_) => false,
+    );
+    final p = await RemoteParticipant.join(connection!);
+    final lamps = Lamps();
+    await expectLater(p.attach([lamps]), throwsStateError);
+    await settle();
+    expect(r.stateDescriptor('kittens.lamp'), isNull, reason: 'withdrawn');
+    await p.dispose();
+  });
 }
 
 enum _Focus<T> implements IStateWord<T> {

@@ -287,9 +287,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       case RpcClientOffline() || RpcClientConnecting():
         if (_online && log.isEnabled(RpcLogLevel.info)) log.info('offline');
         _online = false;
+        _setAside();
       case RpcClientDisconnected(:final reason):
         // The connection gave up: nothing it asks reaches the registry.
         _online = false;
+        _setAside();
         _fail(const {'op': 'join'}, 'lost', 'the connection gave up: $reason');
       default:
     }
@@ -536,6 +538,20 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     });
   }
 
+  /// Away: of [sent] and what waits, what it said waits to go again, its
+  /// ids letting the registry drop one it took; the rest a new session
+  /// gets as it stands, not twice.
+  void _setAside([List<Map<String, Object?>> sent = const []]) {
+    final said = [
+      for (final op in [...sent, ..._queue])
+        if (op['op'] == 'emit') op,
+      ..._away,
+    ];
+    _queue.clear();
+    _away.clear();
+    said.forEach(_keepAway);
+  }
+
   /// The facts said while away, oldest first, to send when back.
   final ListQueue<Map<String, Object?>> _away = ListQueue();
 
@@ -550,7 +566,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   /// Completes when the registry has answered all it asked so far: what
   /// it asks after the call is not waited for, so a flush ends however
-  /// much is written meanwhile.
+  /// much is written meanwhile. Away, at once: what it asked a new session
+  /// gets as it stands when it is back.
   Future<void> flush() async {
     final asked = Set<Map<String, Object?>>.identity()
       ..addAll(_queue)
@@ -609,14 +626,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           // has as it stands.
           _online = false;
           _rejoinLater();
-          final said = [
-            for (final op in [...ops, ..._queue])
-              if (op['op'] == 'emit') op,
-            ..._away,
-          ];
-          _queue.clear();
-          _away.clear();
-          said.forEach(_keepAway);
+          _setAside(ops);
         } else {
           for (final op in ops) {
             _fail(op, 'lost', '$e');
@@ -1230,12 +1240,42 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   late final OwnerGroup _group = OwnerGroup(this);
 
+  /// All or none, as in the host's process: when the host refuses to
+  /// define a word or a kind of one of [owners], those attached here are
+  /// withdrawn, and it completes with the error ([NotPermitted] for one it
+  /// may not define).
   @override
-  Future<void> attach(Iterable<IOwner> owners) {
+  Future<void> attach(Iterable<IOwner> owners) async {
     _live();
-    _group.attach(owners);
-    return flush();
+    final list = [...owners];
+    _group.attach(list);
+    final speakers = {
+      for (final o in list) OwnerParticipant(o).participant.who,
+    };
+    ParticipantError? refused;
+    final sub = errors.listen((e) {
+      if (e.op['op'] case 'define' || 'kind'
+          when speakers.contains(_speakerOf(e.op))) {
+        refused ??= e;
+      }
+    });
+    try {
+      await flush();
+    } finally {
+      await sub.cancel();
+    }
+    if (refused case final e?) {
+      _group.withdraw(list);
+      await flush();
+      throw e.code == ParticipantErrorCode.notPermitted
+          ? NotPermitted(e.why)
+          : StateError('$e');
+    }
   }
+
+  /// Who asked [op]: an owner of it ([_asOf]), or itself.
+  Principal _speakerOf(Map<String, Object?> op) =>
+      op['as'] == null ? who : Principal.fromJson(op['as']);
 
   @override
   void sync() => _group.sync();

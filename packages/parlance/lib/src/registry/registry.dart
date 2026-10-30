@@ -1039,7 +1039,7 @@ final class Registry implements ITypeContext {
       span.event(event, level: RpcLogLevel.warning);
       final late = work.then(
         answered,
-        onError: (Object e, StackTrace s) => CallFailed(e, s),
+        onError: (Object e, StackTrace s) => _ended(id, e, s),
       );
       unawaited(
         late.then((r) {
@@ -1067,7 +1067,7 @@ final class Registry implements ITypeContext {
     } on TimeoutException {
       result = stop(const CallTimedOut(), 'timed out');
     } catch (e, s) {
-      result = CallFailed(e, s);
+      result = _ended(id, e, s);
     }
     if (result is! CallTimedOut && result is! CallCancelled) {
       _running.remove(id);
@@ -1075,6 +1075,11 @@ final class Registry implements ITypeContext {
     }
     return finish(result);
   }
+
+  /// How a call [id] whose handler threw [e] ended: `lost` when its answer
+  /// could not come back ([AnswerLost]), else `failed`.
+  static CallResult<Object?> _ended(String id, Object e, StackTrace s) =>
+      e is AnswerLost ? CallLost(id, e.how) : CallFailed(e, s);
 
   // --- Lifetime --------------------------------------------------------------
 

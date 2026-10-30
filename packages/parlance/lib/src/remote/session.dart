@@ -143,7 +143,7 @@ final class RemoteSession extends ParlanceContractPeer
   final Registry registry;
 
   /// How long past its deadline a call of the session's own command waits
-  /// for the owner's late end (SPEC §9): after it, the call ends `failed`.
+  /// for the owner's late end (SPEC §9): after it, the call ends `lost`.
   static const lateEnds = Duration(minutes: 5);
 
   /// How much the part across may hold here (SPEC §14): what it asks past
@@ -518,7 +518,10 @@ final class RemoteSession extends ParlanceContractPeer
     for (final f in [..._feeds]) {
       if (f.listened) f.catchUp(seq);
     }
-    return WireCallReply(result.toJson(), epoch: registry.epoch, seq: seq);
+    // Lost on the way to its owner: retried by the id the part across
+    // gave it, not the registry's.
+    final told = result is CallLost ? CallLost(request.id, result.how) : result;
+    return WireCallReply(told.toJson(), epoch: registry.epoch, seq: seq);
   }
 
   @override
@@ -978,7 +981,8 @@ final class RemoteSession extends ParlanceContractPeer
       if (served.error case final why?) throw _Failed(why);
       return served.value;
     } on RpcStatusException catch (e) {
-      throw _Failed('its owner did not answer: ${e.message}');
+      // No answer came: it may have run, what it wrote committed.
+      throw AnswerLost('its owner did not answer: ${e.message}');
     } finally {
       expiry.dispose();
       _serving.remove(c.id);

@@ -524,6 +524,14 @@ final class OwnerGroup {
     _sync(cores);
   }
 
+  /// Withdraws [owners], the last first: what one attached could not
+  /// define elsewhere (a guest's host refused it).
+  void withdraw(Iterable<IOwner> owners) {
+    for (final o in [...owners].reversed) {
+      if (_cores.containsKey(o)) _end(o);
+    }
+  }
+
   /// Writes what every owner has now, as one tick.
   void sync() => _sync([..._cores.values]);
 
