@@ -17,14 +17,14 @@ part 'player.g.dart';
 
 @Vocabulary('player')
 abstract class Player {
-  @StateWord()
+  @StateWord('volume')
   @Range(min: 0, max: 100)
   int get volume;
 
-  @CommandWord(name: 'volume.set')
+  @CommandWord('set_volume')
   void setVolume({@Range(min: 0, max: 100) required int volume});
 
-  @FactWord()
+  @FactWord('clipped')
   void clipped({required int volume});
 }
 ```

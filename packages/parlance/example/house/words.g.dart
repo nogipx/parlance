@@ -8,10 +8,10 @@ part of 'words.dart';
 
 /// The states of [House].
 enum HouseState<T> implements IStateWord<T> {
-  light<bool>('house.light.on', Plain(BoolType()), key: 'room'),
-  heat<num>('house.heat.target', Plain(NumType(min: 10, max: 28))),
+  light<bool>('house.light', Plain(BoolType()), key: 'room'),
+  heat<num>('house.heat', Plain(NumType(min: 10, max: 28))),
   mode<Mode>('house.mode', EnumShape(Mode.values)),
-  locked<bool>('house.door.locked', Plain(BoolType()));
+  locked<bool>('house.locked', Plain(BoolType()));
 
   const HouseState(this.name, this.shape, {this.key});
   @override
@@ -25,7 +25,7 @@ enum HouseState<T> implements IStateWord<T> {
 /// The commands of [House].
 enum HouseCommand<P, R> implements ICommandWord<P, R> {
   setLight<HouseSetLight, void>(
-    'house.light.set',
+    'house.set_light',
     RecordShape<HouseSetLight>(
       {'room': Part(Plain(ChoiceType('room'))), 'on': Part(Plain(BoolType()))},
       to: _$HouseSetLightTo,
@@ -35,7 +35,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
     null,
   ),
   setHeat<HouseSetHeat, void>(
-    'house.heat.set',
+    'house.set_heat',
     RecordShape<HouseSetHeat>(
       {'target': Part(Plain(NumType(min: 10, max: 28)))},
       to: _$HouseSetHeatTo,
@@ -45,7 +45,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
     null,
   ),
   setMode<HouseSetMode, void>(
-    'house.mode.set',
+    'house.set_mode',
     RecordShape<HouseSetMode>(
       {'mode': Part(EnumShape(Mode.values))},
       to: _$HouseSetModeTo,
@@ -55,7 +55,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
     null,
   ),
   lock<HouseLock, void>(
-    'house.door.lock',
+    'house.lock',
     RecordShape<HouseLock>(
       {'on': Part(Plain(BoolType()))},
       to: _$HouseLockTo,
@@ -99,7 +99,7 @@ enum HouseQuery<P, R> implements IQueryWord<P, R> {
 /// The facts of [House].
 enum HouseFact<T> implements IFactWord<T> {
   rang<HouseRang>(
-    'house.doorbell.rang',
+    'house.rang',
     RecordShape<HouseRang>(
       {'who': Part(Plain(TextType()))},
       to: _$HouseRangTo,
@@ -108,7 +108,7 @@ enum HouseFact<T> implements IFactWord<T> {
     ),
   ),
   motion<HouseMotion>(
-    'house.motion.seen',
+    'house.motion',
     RecordShape<HouseMotion>(
       {'room': Part(Plain(TextType()))},
       to: _$HouseMotionTo,
@@ -140,11 +140,11 @@ abstract class HouseOwnerBase implements IOwner {
     IOwner.made(this, define: _$define, write: _$write, words: houseWords);
   }
 
-  /// house.light.on, by room: what this owner set of each,
+  /// house.light, by room: what this owner set of each,
   /// read by `of`, written by `set` and `remove`.
   final Keyed<bool> light = Keyed<bool>();
 
-  /// house.heat.target: what this owner set last, read by `value`,
+  /// house.heat: what this owner set last, read by `value`,
   /// written by `set` and `remove`.
   final Single<num> heat = Single<num>();
 
@@ -152,7 +152,7 @@ abstract class HouseOwnerBase implements IOwner {
   /// written by `set` and `remove`.
   final Single<Mode> mode = Single<Mode>();
 
-  /// house.door.locked: what this owner set last, read by `value`,
+  /// house.locked: what this owner set last, read by `value`,
   /// written by `set` and `remove`.
   final Single<bool> locked = Single<bool>();
 
@@ -206,68 +206,68 @@ abstract class HouseOwnerBase implements IOwner {
     Single.write(locked);
   }
 
-  /// house.doorbell.rang: said by `say`.
+  /// house.rang: said by `say`.
   late final HouseRangFact rang = HouseRangFact._(this);
 
-  /// house.motion.seen: said by `say`.
+  /// house.motion: said by `say`.
   late final HouseMotionFact motion = HouseMotionFact._(this);
 
-  /// Serves house.light.set.
+  /// Serves house.set_light.
   void setLight({required String room, required bool on});
 
-  /// Serves house.heat.set.
+  /// Serves house.set_heat.
   void setHeat({required num target});
 
-  /// Serves house.mode.set.
+  /// Serves house.set_mode.
   void setMode({required Mode mode});
 
-  /// Serves house.door.lock.
+  /// Serves house.lock.
   void lock({required bool on});
 
-  /// Why house.door.lock cannot run now; null when it can.
+  /// Why house.lock cannot run now; null when it can.
   String? whyNotLock();
 
   /// Answers house.rooms.
   List<String> rooms({required bool lit});
 }
 
-/// house.doorbell.rang, as [HouseOwnerBase] says it.
+/// house.rang, as [HouseOwnerBase] says it.
 final class HouseRangFact {
   HouseRangFact._(this._base);
   final HouseOwnerBase _base;
 
-  /// Says house.doorbell.rang; on behalf of [by], when given.
+  /// Says house.rang; on behalf of [by], when given.
   void say({required String who, Principal? by}) =>
-      _base._$say('house.doorbell.rang', _base._$rang, (who: who), by);
+      _base._$say('house.rang', _base._$rang, (who: who), by);
 }
 
-/// house.motion.seen, as [HouseOwnerBase] says it.
+/// house.motion, as [HouseOwnerBase] says it.
 final class HouseMotionFact {
   HouseMotionFact._(this._base);
   final HouseOwnerBase _base;
 
-  /// Says house.motion.seen; on behalf of [by], when given.
+  /// Says house.motion; on behalf of [by], when given.
   void say({required String room, Principal? by}) =>
-      _base._$say('house.motion.seen', _base._$motion, (room: room), by);
+      _base._$say('house.motion', _base._$motion, (room: room), by);
 }
 
 /// The words of [House] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
 /// place. [HouseClient] is them over a participant.
 abstract interface class IHouseClient {
-  /// house.light.on of [room] now.
+  /// house.light of [room] now.
   bool? lightOf(String room);
 
-  /// house.light.on of every room, by key.
+  /// house.light of every room, by key.
   Map<String, bool> get lightAll;
 
-  /// house.light.on of [room] now, then on every change.
+  /// house.light of [room] now, then on every change.
   Stream<bool?> lightChanges(String room);
 
-  /// house.heat.target now.
+  /// house.heat now.
   num? get heat;
 
-  /// house.heat.target now, then whenever it changes.
+  /// house.heat now, then whenever it changes.
   Stream<num?> get heatChanges;
 
   /// house.mode now.
@@ -276,31 +276,31 @@ abstract interface class IHouseClient {
   /// house.mode now, then whenever it changes.
   Stream<Mode?> get modeChanges;
 
-  /// house.door.locked now.
+  /// house.locked now.
   bool? get locked;
 
-  /// house.door.locked now, then whenever it changes.
+  /// house.locked now, then whenever it changes.
   Stream<bool?> get lockedChanges;
 
-  /// Calls house.light.set; a call not done throws [CallNotDone].
+  /// Calls house.set_light; a call not done throws [CallNotDone].
   Future<void> setLight({required String room, required bool on});
 
-  /// Calls house.heat.set; a call not done throws [CallNotDone].
+  /// Calls house.set_heat; a call not done throws [CallNotDone].
   Future<void> setHeat({required num target});
 
-  /// Calls house.mode.set; a call not done throws [CallNotDone].
+  /// Calls house.set_mode; a call not done throws [CallNotDone].
   Future<void> setMode({required Mode mode});
 
-  /// Calls house.door.lock; a call not done throws [CallNotDone].
+  /// Calls house.lock; a call not done throws [CallNotDone].
   Future<void> lock({required bool on});
 
   /// Asks house.rooms; a call not done throws [CallNotDone].
   Future<List<String>> rooms({required bool lit});
 
-  /// house.doorbell.rang, as it is said from now on: what it says.
+  /// house.rang, as it is said from now on: what it says.
   Stream<({String who})> get rang;
 
-  /// house.motion.seen, as it is said from now on: what it says.
+  /// house.motion, as it is said from now on: what it says.
   Stream<({String room})> get motion;
 
   /// Whether [word] is there for the participant now, as this code was built
@@ -430,12 +430,12 @@ final class HouseClient implements IHouseClient {
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(houseWords.words);
 
-  /// house.doorbell.rang, as it is said from now on: its payload, and
+  /// house.rang, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<HouseRang>> get rangFacts =>
       _$words.later(() => _$words.fact(HouseFact.rang).stream);
 
-  /// house.motion.seen, as it is said from now on: its payload, and
+  /// house.motion, as it is said from now on: its payload, and
   /// the message (its id, its cause) to follow it from.
   Stream<Fact<HouseMotion>> get motionFacts =>
       _$words.later(() => _$words.fact(HouseFact.motion).stream);

@@ -1,11 +1,11 @@
 # parlance glossary
 
-Every term the package uses, what it means, and where its contract is (§n, as in the other references and `SPEC §n` in the code). The examples are a house's (`example/house`): `house.heat.target`, `house.light`, `house.light.set`.
+Every term the package uses, what it means, and where its contract is (§n, as in the other references and `SPEC §n` in the code). The examples are a house's (`example/house`): `house.heat`, `house.light`, `house.set_light`.
 
 ## Values, names, types
 
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
-- **Name** (§1): lower-case words split by `.`, joined within by `_` or `-`, `house.light.set`, `house.door.left_open`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
+- **Name** (§1): a word's address, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first words are the owner's vocabulary (§22.1); ownership is by handle, not by name.
 - **Key** (§1): the entity id a keyed state's value belongs to (`kitchen` in `house.light[kitchen]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `custom`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.

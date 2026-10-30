@@ -25,16 +25,24 @@ final class Vocabulary {
 
 /// A state: a getter, its type the value's (`int get volume;`).
 final class StateWord {
-  const StateWord({
-    this.name,
+  const StateWord(
+    this.name, {
+    this.version,
     this.keyOf,
     this.readers,
     this.meta = const {},
   });
 
-  /// Its name after the vocabulary's; by default the member's in snake case;
-  /// `''` names the vocabulary itself (`signal`, beside `signal.raise`).
-  final String? name;
+  /// Its name in the vocabulary, always said, so a member renamed in Dart
+  /// keeps its word: one word, from a letter, of lower-case letters,
+  /// digits, `_` and `-` (`set_light`), no `.`; the word is
+  /// `<vocabulary>.<name>`, and `''` names the vocabulary itself (`signal`,
+  /// beside `signal.raise`).
+  final String name;
+
+  /// Its version past the first: the word is `<vocabulary>.<name>.v<N>`, a
+  /// new word beside the old one (SPEC §1).
+  final int? version;
 
   /// The choices its keys are of, for a keyed state: one value per key,
   /// the keys those its owner gives (`choices`), as `@ChoiceOf` names them.
@@ -50,14 +58,24 @@ final class StateWord {
 /// A command: a method, its named parameters the params, its return type
 /// what it answers (`void` for nothing).
 final class CommandWord {
-  const CommandWord({
-    this.name,
+  const CommandWord(
+    this.name, {
+    this.version,
     this.callers,
     this.deadline,
     this.whyNot = false,
     this.meta = const {},
   });
-  final String? name;
+  /// Its name in the vocabulary, always said, so a member renamed in Dart
+  /// keeps its word: one word, from a letter, of lower-case letters,
+  /// digits, `_` and `-` (`set_light`), no `.`; the word is
+  /// `<vocabulary>.<name>`, and `''` names the vocabulary itself (`signal`,
+  /// beside `signal.raise`).
+  final String name;
+
+  /// Its version past the first: the word is `<vocabulary>.<name>.v<N>`, a
+  /// new word beside the old one (SPEC §1).
+  final int? version;
 
   /// What editors show of it, as its descriptor's.
   final Map<String, Object?> meta;
@@ -75,14 +93,24 @@ final class CommandWord {
 /// A query (SPEC §6.6): a method, its named parameters the params, its
 /// return type the answer.
 final class QueryWord {
-  const QueryWord({
-    this.name,
+  const QueryWord(
+    this.name, {
+    this.version,
     this.askers,
     this.deadline,
     this.whyNot = false,
     this.meta = const {},
   });
-  final String? name;
+  /// Its name in the vocabulary, always said, so a member renamed in Dart
+  /// keeps its word: one word, from a letter, of lower-case letters,
+  /// digits, `_` and `-` (`set_light`), no `.`; the word is
+  /// `<vocabulary>.<name>`, and `''` names the vocabulary itself (`signal`,
+  /// beside `signal.raise`).
+  final String name;
+
+  /// Its version past the first: the word is `<vocabulary>.<name>.v<N>`, a
+  /// new word beside the old one (SPEC §1).
+  final int? version;
   final Map<String, Object?> meta;
 
   /// Who may ask it, when not who may read (SPEC §6.6).
@@ -96,8 +124,22 @@ final class QueryWord {
 /// A fact: a method returning `void`, its named parameters the payload, or
 /// its one positional parameter the payload itself.
 final class FactWord {
-  const FactWord({this.name, this.readers, this.meta = const {}});
-  final String? name;
+  const FactWord(
+    this.name, {
+    this.version,
+    this.readers,
+    this.meta = const {},
+  });
+  /// Its name in the vocabulary, always said, so a member renamed in Dart
+  /// keeps its word: one word, from a letter, of lower-case letters,
+  /// digits, `_` and `-` (`set_light`), no `.`; the word is
+  /// `<vocabulary>.<name>`, and `''` names the vocabulary itself (`signal`,
+  /// beside `signal.raise`).
+  final String name;
+
+  /// Its version past the first: the word is `<vocabulary>.<name>.v<N>`, a
+  /// new word beside the old one (SPEC §1).
+  final int? version;
   final Map<String, Object?> meta;
 
   /// Who may hear it, when not the participant's default (SPEC §22.2).

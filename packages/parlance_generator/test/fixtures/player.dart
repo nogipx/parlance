@@ -38,31 +38,29 @@ final class Artist {
 /// A player's words, written once.
 @Vocabulary('player')
 abstract class Player {
-  @StateWord(
-    meta: {
+  @StateWord('volume', meta: {
       'label': 'Volume',
       'steps': [0, 50, 100],
-    },
-  )
+    })
   @Range(min: 0, max: 100)
   int get volume;
 
-  @StateWord()
+  @StateWord('repeat')
   Repeat get repeat;
 
-  @StateWord()
+  @StateWord('playing')
   Track? get playing;
 
   /// Each speaker's level, by speaker.
-  @StateWord(name: 'speaker.level', keyOf: 'speaker')
+  @StateWord('speaker_level', keyOf: 'speaker')
   @Range(min: 0, max: 1)
   num get speakerLevel;
 
-  @CommandWord(name: 'volume.set')
+  @CommandWord('volume_set')
   void setVolume({@Range(min: 0, max: 100) required int volume});
 
   /// Cannot play while nothing is loaded.
-  @CommandWord(whyNot: true, deadline: Duration(seconds: 5))
+  @CommandWord('play', whyNot: true, deadline: Duration(seconds: 5))
   Future<void> play({
     required Track track,
     Repeat repeat = Repeat.off,
@@ -70,18 +68,18 @@ abstract class Player {
   });
 
   /// Answers how many tracks it skipped.
-  @CommandWord()
+  @CommandWord('skip')
   int skip({int count = 1});
 
-  @CommandWord(callers: Callers({'listener': Access.allow}))
+  @CommandWord('stop', callers: Callers({'listener': Access.allow}))
   void stop();
 
-  @QueryWord(askers: Callers({'*': Access.allow}))
+  @QueryWord('search', askers: Callers({'*': Access.allow}))
   List<Track> search({@Length(max: 40) required String text, int? limit});
 
-  @FactWord()
+  @FactWord('clipped')
   void clipped({required int volume});
 
-  @FactWord()
+  @FactWord('finished')
   void finished(Track track);
 }

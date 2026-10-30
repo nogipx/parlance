@@ -23,36 +23,36 @@ typedef Action = ({
 @Vocabulary('note')
 abstract class Board {
   /// The notes up, by id: a word named as its vocabulary.
-  @StateWord(name: '', keyOf: 'note')
+  @StateWord('', keyOf: 'note')
   Note get notes;
 
   /// Anything at all.
-  @StateWord()
+  @StateWord('anything')
   Object? get anything;
 
   /// Puts a note up; answers its id.
-  @CommandWord()
+  @CommandWord('put')
   ({String id}) put({
     @Describe('Its id; else a new one.') String? id,
     required Note note,
   });
 
   /// Takes a note down after a while.
-  @CommandWord()
+  @CommandWord('expire')
   void expire({
     @ChoiceOf('note') required String id,
     @FieldName('in') @Millis(max: 60000) required int ms,
   });
 
   /// Pins some notes: `@ChoiceOf` on a list names its items.
-  @CommandWord()
+  @CommandWord('pin')
   void pin({@ChoiceOf('note') @Length(max: 3) required List<String> ids});
 
   /// How many read it; null when no one knows.
-  @CommandWord()
+  @CommandWord('count')
   void count({required int? readers});
 
   /// A note someone looked at.
-  @FactWord()
+  @FactWord('seen')
   void seen(Note note);
 }

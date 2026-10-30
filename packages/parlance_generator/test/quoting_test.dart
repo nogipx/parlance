@@ -30,7 +30,7 @@ part 'words.g.dart';
 
 @Vocabulary('orders')
 abstract class Orders {
-  @CommandWord()
+  @CommandWord("say")
   void say({
     @Describe('''one 'line'
 two \$lines, \\ and\r\nthree''')
@@ -75,11 +75,11 @@ part 'words.g.dart';
 
 @Vocabulary('orders')
 abstract class Orders {
-  @CommandWord(callers: who.crew)
+  @CommandWord("cancel", callers: who.crew)
   void cancel();
-  @CommandWord(callers: who.Who.staff)
+  @CommandWord("close", callers: who.Who.staff)
   void close();
-  @StateWord()
+  @StateWord("mode")
   who.Mode get mode;
 }
 ''',
@@ -124,7 +124,7 @@ part 'words.g.dart';
 
 @Vocabulary('orders')
 abstract class Orders {
-  @CommandWord()
+  @CommandWord("zoom")
   void zoom({num ratio = double.infinity});
 }
 ''');
@@ -157,9 +157,9 @@ part 'words.g.dart';
 
 @Vocabulary('orders')
 abstract class Orders {
-  @StateWord()
+  @StateWord("from")
   a.Point get from;
-  @StateWord()
+  @StateWord("to")
   b.Point get to;
 }
 ''',
@@ -197,7 +197,7 @@ part 'words.g.dart';
 
 @Vocabulary('orders')
 abstract class Orders {
-  @StateWord()
+  @StateWord("place")
   Nowhere get place;
 }
 ''');

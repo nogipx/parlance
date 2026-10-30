@@ -6,12 +6,15 @@ part 'notes.g.dart';
 @Vocabulary('notes')
 abstract class Notes {
   /// How many notes there are.
-  @StateWord()
+  @StateWord('count')
   @Range(min: 0)
   int get count;
 
   /// Adds a note.
-  @CommandWord(callers: Callers({'user': Access.allow, 'agent': Access.allow}))
+  @CommandWord(
+    'add',
+    callers: Callers({'user': Access.allow, 'agent': Access.allow}),
+  )
   void add({@Length(max: 500) required String text});
 }
 

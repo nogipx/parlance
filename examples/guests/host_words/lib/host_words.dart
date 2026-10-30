@@ -11,10 +11,10 @@ part 'host_words.g.dart';
 @Vocabulary('app')
 abstract class App {
   /// Whether the app is dark now.
-  @StateWord()
+  @StateWord('dark')
   bool get dark;
 
   /// Shows a short message over everything.
-  @CommandWord()
+  @CommandWord('toast')
   void toast({@Length(max: 80) required String text});
 }

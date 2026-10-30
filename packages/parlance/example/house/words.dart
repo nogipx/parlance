@@ -46,46 +46,46 @@ enum Mode { home, away, night }
 @Vocabulary('house')
 abstract class House {
   /// Whether a room's light is on, by room.
-  @StateWord(name: 'light.on', keyOf: 'room')
+  @StateWord('light', keyOf: 'room')
   bool get light;
 
   /// The heating's target, °C.
-  @StateWord(name: 'heat.target')
+  @StateWord('heat')
   @Range(min: 10, max: 28)
   num get heat;
 
-  @StateWord()
+  @StateWord('mode')
   Mode get mode;
 
-  @StateWord(name: 'door.locked')
+  @StateWord('locked')
   bool get locked;
 
   /// Anyone may light a room; a guest's call is shown in an editor.
-  @CommandWord(name: 'light.set', callers: Who.anyone)
+  @CommandWord('set_light', callers: Who.anyone)
   void setLight({@ChoiceOf('room') required String room, required bool on});
 
-  @CommandWord(name: 'heat.set')
+  @CommandWord('set_heat')
   void setHeat({@Range(min: 10, max: 28) required num target});
 
-  @CommandWord(name: 'mode.set')
+  @CommandWord('set_mode')
   void setMode({required Mode mode});
 
   /// Locks (on) or unlocks the door; it says why it cannot, before anyone
   /// tries.
-  @CommandWord(name: 'door.lock', whyNot: true)
+  @CommandWord('lock', whyNot: true)
   void lock({required bool on});
 
   /// The rooms whose light is on ([lit]) or off: a question that changes
   /// nothing.
-  @QueryWord()
+  @QueryWord('rooms')
   List<String> rooms({required bool lit});
 
   /// Someone rang the doorbell.
-  @FactWord(name: 'doorbell.rang')
+  @FactWord('rang')
   void rang({required String who});
 
   /// A sensor saw someone in a room.
-  @FactWord(name: 'motion.seen')
+  @FactWord('motion')
   void motion({required String room});
 }
 
@@ -93,9 +93,9 @@ abstract class House {
 /// while a visit is (a scope, `main.dart`).
 @Vocabulary('visit')
 abstract class Visit {
-  @StateWord()
+  @StateWord('guests')
   List<String> get guests;
 
-  @CommandWord()
+  @CommandWord('leave')
   void leave({required String who});
 }

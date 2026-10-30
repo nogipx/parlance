@@ -60,7 +60,7 @@
       }
     }
   },
-  "player.speaker.level": {
+  "player.speaker_level": {
     "is": "state",
     "type": {
       "type": "num",
@@ -69,7 +69,7 @@
     },
     "key": "speaker"
   },
-  "player.volume.set": {
+  "player.volume_set": {
     "is": "command",
     "params": {
       "type": "object",

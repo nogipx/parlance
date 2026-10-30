@@ -17,32 +17,31 @@ part 'player.g.dart';
 
 @Vocabulary('player')
 abstract class Player {
-  @StateWord()
+  @StateWord('volume')
   @Range(min: 0, max: 100)
   int get volume;
 
-  @CommandWord(name: 'volume.set')
+  @CommandWord('set_volume')
   void setVolume({@Range(min: 0, max: 100) required int volume});
 
-  @QueryWord()
+  @QueryWord('search')
   List<Track> search({@Length(max: 40) required String text, int? limit});
 
-  @FactWord()
+  @FactWord('finished')
   void finished(Track track);
 }
 ```
 
-- **Words.** A getter marked `@StateWord(name:, keyOf:)` is a state, its type the value's (`keyOf`: the choices its keys are of, for a keyed state). A method marked `@CommandWord` is a command: its named parameters the params, its return type the answer (`void`, `Future<void>`: none). `@QueryWord`: a query (§6.6), its return type required. `@FactWord`: a fact returning `void`, its named parameters the payload, or its one positional parameter the payload itself. An abstract member marked with none is refused, so no word is forgotten.
+- **Words.** A getter marked `@StateWord('name', keyOf:)` is a state (its name in the vocabulary always said, one word, no `.`; `version: 2` for a word beside an older one), its type the value's (`keyOf`: the choices its keys are of, for a keyed state). A method marked `@CommandWord` is a command: its named parameters the params, its return type the answer (`void`, `Future<void>`: none). `@QueryWord`: a query (§6.6), its return type required. `@FactWord`: a fact returning `void`, its named parameters the payload, or its one positional parameter the payload itself. An abstract member marked with none is refused, so no word is forgotten.
 - **Names.** `<vocabulary>.<name>`; `name` by default is the member's in snake case (`setVolume`: `set_volume`); `name: ''` is the vocabulary itself (`signal`, beside `signal.raise`). Two members of one name are refused, as is a name that is not dotted lowercase.
 - **One library, several vocabularies.** A library may say several, each class in a part of it (`_index.dart`: `part 'house.dart'; part 'garden.dart'; part '_index.g.dart';`): their words go into its one `.g.dart`, and what they share (a record's shape) is made once.
 - **One vocabulary, one owner.** Every word of a vocabulary is named in it, with no way out: the name tells whose word it is and which file says it, and a module cannot take words of another's vocabulary by its own declaration. A part with words under two first names is two vocabularies (and two owners), or one vocabulary with nested names (`record.replay.*`); a participant may hold several, none inside another (§22.1).
 - **Types.** `bool`, `int`, `num`, `String`, a Dart enum, `List<T>`, `Map<String, T>`, `T?`, `Object?` (any value, null too), a record of named fields, and a class that serializes itself (a `fromJson` constructor and a `toJson` method: json_serializable, freezed), as `JsonShape` with its type read from its fields (§23.2). `double` is refused: JSON does not keep `1.0` apart from `1`, so a number is `num` or `int`. Anything else is refused with the types it may be.
 - **Records.** A record of named fields is an object (`RecordShape`), made once per typedef and named after it (`typedef Note = ({...})`: `_$NoteShape`), its fields in the order the typedef says them. A record keeps no annotations of its own, so they are read from the typedef's fields: `@Describe`, `@FieldName`, `@Default` and the bounds, as a parameter has them. A nullable field may be left out. An unnamed record (`({String id}) put(...)`) is named after where it is.
-- **Meta.** `meta:` on any word (`@StateWord(meta: {'label': 'Muted'})`): what editors show of it, its descriptor's; JSON only.
+- **Meta.** `meta:` on any word (`@StateWord('muted', meta: {'label': 'Muted'})`): what editors show of it, its descriptor's; JSON only.
 - **Constants by name.** A constant the class names (`callers: Who.crew`, `@Range(min: minDb)`, `key: inputKind`, `meta: labels`) is named in the generated code too, so it follows the constant; only a literal is copied.
 - **Bounds.** `@Range(min:, max:)` on a number, `@Length(max:)` on a text (its length), a list (its items) or a map (its entries), `@ChoiceOf(kind)` on a text that names an entity (§3). On a state's getter they bound the value; on a parameter, that param. `@Fallback()` on one value of an enum a word carries makes it what a value added later reads as (§25.2): `enum Mode { on, off, @Fallback() other }`.
 - **Params.** Each parameter is a field of the params record. One that is not required, or has a default, may be left out (`optional`); its shape is the value's. One required and nullable must be said, null being a value of its own (`Nullable`). A default is the field's default in the schema (a bool, a number, a text, an enum value, or a list or a map of them). `@Describe('...')` says what it is, for people and agents; `@FieldName('in')` names it in JSON when its Dart name cannot be (`in` is Dart's); `@Millis(max:)` makes an `int` of milliseconds a duration. No parameters: `()` and `RecordShape.none`.
-- **Facts.** `@FactWord(open: true)`: others may say it too, beside its owner (§7).
 
 ### 23.2 What it makes
 

@@ -91,7 +91,7 @@ void main() {
     expect(() => volume.set(150), throwsA(isA<TypeMismatch>()));
     final level = p.raw.state(PlayerState.speakerLevel).define();
     level.set(0.5, key: 'left');
-    expect(r.stateDescriptor('player.speaker.level')!.key, 'speaker');
+    expect(r.stateDescriptor('player.speaker_level')!.key, 'speaker');
     expect(asAnn.raw.state(PlayerState.speakerLevel).read(key: 'left'), 0.5);
   });
 
@@ -221,8 +221,8 @@ void main() {
       'player.volume',
       'player.repeat',
       'player.playing',
-      'player.speaker.level',
-      'player.volume.set',
+      'player.speaker_level',
+      'player.volume_set',
       'player.play',
       'player.skip',
       'player.stop',

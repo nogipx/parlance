@@ -48,11 +48,11 @@ $body
 
   final cases = {
     'a number as double': (
-      '@StateWord() double get total;',
+      '@StateWord("total") double get total;',
       'num or int, not double',
     ),
     'positional params of a command': (
-      '@CommandWord() void cancel(String id);',
+      '@CommandWord("cancel") void cancel(String id);',
       'params are named parameters',
     ),
     'an abstract member that says no word': (
@@ -60,49 +60,54 @@ $body
       'count is abstract but no word',
     ),
     'two members of one name': (
-      '@CommandWord(name: "cancel") void a();\n'
-          '@CommandWord(name: "cancel") void b();',
+      '@CommandWord("cancel") void a();\n'
+          '@CommandWord("cancel") void b();',
       'orders.cancel is said twice',
     ),
     'a query that answers nothing': (
-      '@QueryWord() void page();',
+      '@QueryWord("page") void page();',
       'a query answers',
     ),
     'a type a word cannot carry': (
-      '@StateWord() Set<int> get any;',
+      '@StateWord("any") Set<int> get any;',
       'Set<int> is no type a word can carry',
     ),
     'a bad name': (
-      '@StateWord(name: "Big") int get big;',
-      'big: "orders.Big" is no word name',
+      '@StateWord("Big") int get big;',
+      'big: "Big" is no name of a word',
     ),
     'a name joined by a space': (
-      '@StateWord(name: "muted talk") bool get mutedTalk;',
-      'joined by _ or -',
+      '@StateWord("muted talk") bool get mutedTalk;',
+      'of lower-case letters, digits, _ and -',
     ),
-    'a version not last': (
-      '@CommandWord(name: "v2.cancel") void cancel();',
-      'a version is the last word only',
+    'a dot in a name': (
+      '@CommandWord("order.cancel") void cancel();',
+      'no .; a version is version: 2',
+    ),
+    'a first version said': (
+      '@CommandWord("cancel", version: 1) void cancel();',
+      'a version past the first is 2 or more',
     ),
     'a word named as what every object has': (
-      '@StateWord() int get hashCode;',
+      '@StateWord("hash_code") int get hashCode;',
       'hashCode is a name every owner base has',
     ),
     'a fact with a param named by': (
-      '@FactWord() void spoke({required String by});',
+      '@FactWord("spoke") void spoke({required String by});',
       "a fact's param is not named by",
     ),
     'two members of the owner base of one name': (
-      '@CommandWord(whyNot: true) void go();\n'
-          '@CommandWord() void whyNotGo();',
+      '@CommandWord("go", whyNot: true) void go();\n'
+          '@CommandWord("why_not_go") void whyNotGo();',
       'whyNotGo is had twice by OrdersOwnerBase',
     ),
     'a word named as what the owner base keeps it said': (
-      '@StateWord() int get said;',
+      '@StateWord("said") int get said;',
       'said is a name every owner base has',
     ),
     'two members of the client of one name': (
-      '@StateWord() int get total;\n@CommandWord() void totalChanges();',
+      '@StateWord("total") int get total;\n'
+          '@CommandWord("total_changes") void totalChanges();',
       'totalChanges is had twice by OrdersClient',
     ),
   };
@@ -115,14 +120,14 @@ $body
 
   test('it refuses a kind that is no name', () async {
     final logs = await errorsOf(
-      "@CommandWord() void go({@ChoiceOf('a.b') required String room});",
+      "@CommandWord('go') void go({@ChoiceOf('a.b') required String room});",
     );
     expect(logs.join('\n'), contains('choices "a.b" is no name'));
   });
 
   test('it refuses an enum with two fallbacks', () async {
     final logs = await errorsOf(
-      '@StateWord() Mode get mode;',
+      '@StateWord("mode") Mode get mode;',
       'enum Mode { @Fallback() a, @Fallback() b }',
     );
     expect(logs.join('\n'), contains('one value at most is its @Fallback'));

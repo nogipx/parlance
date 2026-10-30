@@ -15,8 +15,8 @@ import 'package:source_gen/source_gen.dart';
 
 /// What a name is (SPEC §1), as the generator tells it.
 const _nameRule =
-    'lower-case words split by ., each from a letter, joined by _ or - '
-    '(house.door.left_open); a version, if any, last (.v2)';
+    'one word, from a letter, of lower-case letters, digits, _ and - '
+    '(door_left_open), no .; a version is version: 2, not in the name';
 
 const _state = TypeChecker.typeNamed(StateWord, inPackage: 'parlance');
 const _command = TypeChecker.typeNamed(CommandWord, inPackage: 'parlance');
@@ -400,9 +400,25 @@ final class _Emitter {
   );
 
   String _name(Element e, ConstantReader r) {
-    final own = r.peek('name')?.stringValue ?? _snake(e.displayName);
+    final own = r.peek('name')!.stringValue;
+    // One word: the vocabulary's and the version's are the only dots.
+    if (own.isNotEmpty && !RegExp(r'^[a-z][a-z0-9_-]*$').hasMatch(own)) {
+      throw InvalidGenerationSourceError(
+        '${e.displayName}: "$own" is no name of a word: $_nameRule',
+        element: e,
+      );
+    }
+    final version = r.peek('version')?.intValue;
+    if (version != null && version < 2) {
+      throw InvalidGenerationSourceError(
+        '${e.displayName}: version $version: a version past the first is 2 '
+        'or more; the first has none',
+        element: e,
+      );
+    }
     // '' is the vocabulary itself: `signal`, beside `signal.raise`.
-    final name = own.isEmpty ? vocabulary : '$vocabulary.$own';
+    final base = own.isEmpty ? vocabulary : '$vocabulary.$own';
+    final name = version == null ? base : '$base.v$version';
     try {
       checkWordName(name);
     } on ArgumentError catch (x) {
@@ -1621,10 +1637,6 @@ enum ${_c}Fact<T> implements IFactWord<T> {
     return t.getDisplayString();
   }
 }
-
-String _snake(String s) => s
-    .replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]!.toLowerCase()}')
-    .replaceFirst(RegExp('^_'), '');
 
 String _pascal(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 

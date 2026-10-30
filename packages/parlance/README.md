@@ -12,10 +12,10 @@ A vocabulary is made of **words**: a name and a type. There are four kinds, like
 
 | Kind | Means | Example | You |
 | --- | --- | --- | --- |
-| **state** | what is so now | `house.heat.target`, `house.light` | read and watch it; only its owner writes it |
-| **command** | a request to do something | `house.light.set`, `house.door.lock` | call it; exactly one handler answers |
+| **state** | what is so now | `house.heat`, `house.light` | read and watch it; only its owner writes it |
+| **command** | a request to do something | `house.set_light`, `house.lock` | call it; exactly one handler answers |
 | **query** | a question that changes nothing | `orders.page`, `catalog.search` | ask it, again if need be; nothing of it is kept |
-| **fact** | what happened | `house.doorbell.rang`, `house.motion` | hear it; nothing is kept after it is said |
+| **fact** | what happened | `house.rang`, `house.motion` | hear it; nothing is kept after it is said |
 
 A **query** is a command that only answers: a question by params that no state holds. It changes nothing, so it is safe to ask again, and the registry keeps nothing of it.
 
@@ -36,7 +36,7 @@ Every word has an **owner**, the part that defined it. Nobody changes someone el
 Around the words:
 
 - **Who speaks.** Every write and call is made by a principal (`resident/ann`, `module/visit`, `guest/bob`), and every command says who may call it. A refusal says why: not permitted, unavailable now, denied by a guard.
-- **Why it is so.** Every change carries its cause: who acted and the call it answered. The same causes make the traces: with a log, every call is a span, the calls it led to its children, across the network too. `explain('house.light')` answers *"the house's devices wrote it, answering `house.light.set` that ann called"*.
+- **Why it is so.** Every change carries its cause: who acted and the call it answered. The same causes make the traces: with a log, every call is a span, the calls it led to its children, across the network too. `explain('house.light')` answers *"the house's devices wrote it, answering `house.set_light` that ann called"*.
 - **Words are a public API.** Plugins, agents and the calls a host stores name them, so a renamed word keeps its old name as an alias and nothing that named it breaks.
 
 ## One way, small or large

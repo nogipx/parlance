@@ -14,14 +14,14 @@ typedef Note = ({String id, String text});
 @Vocabulary('notes')
 abstract class Notes {
   /// Every note, the newest last.
-  @StateWord()
+  @StateWord('all')
   List<Note> get all;
 
   /// Adds a note.
-  @CommandWord()
+  @CommandWord('add')
   void add({@Length(max: 200) required String text});
 
   /// A note was added.
-  @FactWord()
+  @FactWord('added')
   void added({required String id, required String text});
 }

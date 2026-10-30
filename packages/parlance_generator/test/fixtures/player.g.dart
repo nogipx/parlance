@@ -56,7 +56,7 @@ enum PlayerState<T> implements IStateWord<T> {
     ),
   ),
   speakerLevel<num>(
-    'player.speaker.level',
+    'player.speaker_level',
     Plain(NumType(min: 0, max: 1)),
     key: 'speaker',
   );
@@ -73,7 +73,7 @@ enum PlayerState<T> implements IStateWord<T> {
 /// The commands of [Player].
 enum PlayerCommand<P, R> implements ICommandWord<P, R> {
   setVolume<PlayerSetVolume, void>(
-    'player.volume.set',
+    'player.volume_set',
     RecordShape<PlayerSetVolume>(
       {'volume': Part(Plain(IntType(min: 0, max: 100)))},
       to: _$PlayerSetVolumeTo,
@@ -233,7 +233,7 @@ abstract class PlayerOwnerBase implements IOwner {
   /// written by `set` and `remove`.
   final Single<Track?> playing = Single<Track?>();
 
-  /// player.speaker.level, by speaker: what this owner set of each,
+  /// player.speaker_level, by speaker: what this owner set of each,
   /// read by `of`, written by `set` and `remove`.
   final Keyed<num> speakerLevel = Keyed<num>();
 
@@ -314,7 +314,7 @@ abstract class PlayerOwnerBase implements IOwner {
   /// player.finished: said by `say`.
   late final PlayerFinishedFact finished = PlayerFinishedFact._(this);
 
-  /// Serves player.volume.set.
+  /// Serves player.volume_set.
   void setVolume({required int volume});
 
   /// Serves player.play.
@@ -379,16 +379,16 @@ abstract interface class IPlayerClient {
   /// player.playing now, then whenever it changes.
   Stream<Track?> get playingChanges;
 
-  /// player.speaker.level of [speaker] now.
+  /// player.speaker_level of [speaker] now.
   num? speakerLevelOf(String speaker);
 
-  /// player.speaker.level of every speaker, by key.
+  /// player.speaker_level of every speaker, by key.
   Map<String, num> get speakerLevelAll;
 
-  /// player.speaker.level of [speaker] now, then on every change.
+  /// player.speaker_level of [speaker] now, then on every change.
   Stream<num?> speakerLevelChanges(String speaker);
 
-  /// Calls player.volume.set; a call not done throws [CallNotDone].
+  /// Calls player.volume_set; a call not done throws [CallNotDone].
   Future<void> setVolume({required int volume});
 
   /// Calls player.play; a call not done throws [CallNotDone].
