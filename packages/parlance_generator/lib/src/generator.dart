@@ -29,7 +29,7 @@ const _ref = TypeChecker.typeNamed(ChoiceOf, inPackage: 'parlance');
 const _describe = TypeChecker.typeNamed(Describe, inPackage: 'parlance');
 const _fieldName = TypeChecker.typeNamed(FieldName, inPackage: 'parlance');
 const _default = TypeChecker.typeNamed(Default, inPackage: 'parlance');
-const _millis = TypeChecker.typeNamed(Millis, inPackage: 'parlance');
+const _longest = TypeChecker.typeNamed(Longest, inPackage: 'parlance');
 const _fallback = TypeChecker.typeNamed(Fallback, inPackage: 'parlance');
 
 /// Makes the typed words (SPEC §18, §23) of a class marked `@Vocabulary`:
@@ -1210,7 +1210,7 @@ final class _Emitter {
     final range = note(_range);
     final length = note(_length);
     final ref = note(_ref);
-    final millis = note(_millis);
+    final longest = note(_longest);
     final max = length == null
         ? null
         : _code(
@@ -1232,9 +1232,20 @@ final class _Emitter {
     }
 
     if (t.isDartCoreBool) return 'Plain(BoolType())';
-    if (t.isDartCoreInt && millis != null) {
-      final max = ConstantReader(millis).peek('max');
-      return 'Plain(DurationType(${max == null ? '' : 'max: ${_code(max.objectValue, '${max.intValue}')}'}))';
+    if (t is InterfaceType &&
+        t.element.name == 'Duration' &&
+        t.element.library.isDartCore) {
+      if (longest == null) return 'DurationShape()';
+      final us = ConstantReader(
+        longest,
+      ).read('max').objectValue.getField('inMicroseconds')?.toIntValue();
+      return 'DurationShape(max: Duration(microseconds: $us))';
+    }
+    if (longest != null) {
+      throw InvalidGenerationSourceError(
+        '$where: @Longest bounds a Duration',
+        element: on,
+      );
     }
     if (t.isDartCoreInt) return 'Plain(${bounds('IntType')})';
     if (t.isDartCoreDouble) {

@@ -96,6 +96,10 @@ $body
       '@StateWord("hash_code") int get hashCode;',
       'hashCode is a name every owner base has',
     ),
+    'a bound of a duration on what is no Duration': (
+      '@CommandWord("wait") void wait({@Longest(Duration(seconds: 1)) required int ms});',
+      '@Longest bounds a Duration',
+    ),
     'a fact with a param named by': (
       '@FactWord("spoke") void spoke({required String by});',
       "a fact's param is not named by",

@@ -187,10 +187,11 @@ final class Default {
   final Object? value;
 }
 
-/// An `int` of milliseconds: a duration (SPEC §2), at most [max].
-final class Millis {
-  const Millis({this.max});
-  final int? max;
+/// The longest a [Duration] may be (SPEC §2): on a parameter or a field
+/// of the type `Duration`, kept as whole milliseconds.
+final class Longest {
+  const Longest(this.max);
+  final Duration max;
 }
 
 /// The value of an enum a value added after the code was built reads as

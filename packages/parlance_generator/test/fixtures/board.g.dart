@@ -44,7 +44,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
     RecordShape<BoardExpire>(
       {
         'id': Part(Plain(ChoiceType('note'))),
-        'in': Part(Plain(DurationType(max: 60000))),
+        'in': Part(DurationShape(max: Duration(microseconds: 60000000))),
       },
       to: _$BoardExpireTo,
       from: _$BoardExpireFrom,
@@ -135,7 +135,9 @@ abstract class BoardOwnerBase implements IOwner {
     Single.attach(anything, p.state(BoardState.anything).define());
     _$seen = p.fact(BoardFact.seen).define();
     p.command(BoardCommand.put).serve((x) => put(id: x.id, note: x.note));
-    p.command(BoardCommand.expire).serve((x) => expire(id: x.id, ms: x.ms));
+    p
+        .command(BoardCommand.expire)
+        .serve((x) => expire(id: x.id, after: x.after));
     p.command(BoardCommand.pin).serve((x) => pin(ids: x.ids));
     p.command(BoardCommand.count).serve((x) => count(readers: x.readers));
   }
@@ -156,7 +158,7 @@ abstract class BoardOwnerBase implements IOwner {
   ({String id}) put({String? id, required Note note});
 
   /// Serves note.expire.
-  void expire({required String id, required int ms});
+  void expire({required String id, required Duration after});
 
   /// Serves note.pin.
   void pin({required List<String> ids});
@@ -189,7 +191,7 @@ abstract interface class IBoardClient {
   Future<({String id})> put({String? id, required Note note});
 
   /// Calls note.expire; a call not done throws [CallNotDone].
-  Future<void> expire({required String id, required int ms});
+  Future<void> expire({required String id, required Duration after});
 
   /// Calls note.pin; a call not done throws [CallNotDone].
   Future<void> pin({required List<String> ids});
@@ -249,8 +251,11 @@ final class BoardClient implements IBoardClient {
   }
 
   @override
-  Future<void> expire({required String id, required int ms}) async {
-    final r = await _$words.command(BoardCommand.expire).call((id: id, ms: ms));
+  Future<void> expire({required String id, required Duration after}) async {
+    final r = await _$words.command(BoardCommand.expire).call((
+      id: id,
+      after: after,
+    ));
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
@@ -383,16 +388,19 @@ Map<String, Object?> _$BoardPutValueTo(({String id}) v) => {'id': v.id};
 
 Object? _$BoardPutValueAt(({String id}) v, int i) => v.id;
 
-typedef BoardExpire = ({String id, int ms});
+typedef BoardExpire = ({String id, Duration after});
 
-Map<String, Object?> _$BoardExpireTo(BoardExpire p) => {'id': p.id, 'in': p.ms};
+Map<String, Object?> _$BoardExpireTo(BoardExpire p) => {
+  'id': p.id,
+  'in': p.after,
+};
 
 BoardExpire _$BoardExpireFrom(Map<String, Object?> m) =>
-    (id: m['id']! as String, ms: m['in']! as int);
+    (id: m['id']! as String, after: m['in']! as Duration);
 
 Object? _$BoardExpireAt(BoardExpire p, int i) => switch (i) {
   0 => p.id,
-  _ => p.ms,
+  _ => p.after,
 };
 
 typedef BoardPin = ({List<String> ids});

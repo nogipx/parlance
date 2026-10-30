@@ -45,6 +45,7 @@ export 'src/registry/shapes.dart'
         RecordShape,
         Part,
         EnumShape,
+        DurationShape,
         JsonShape,
         UnionShape,
         UnknownValue;

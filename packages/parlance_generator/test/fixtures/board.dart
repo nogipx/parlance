@@ -41,7 +41,7 @@ abstract class Board {
   @CommandWord('expire')
   void expire({
     @ChoiceOf('note') required String id,
-    @FieldName('in') @Millis(max: 60000) required int ms,
+    @FieldName('in') @Longest(Duration(minutes: 1)) required Duration after,
   });
 
   /// Pins some notes: `@ChoiceOf` on a list names its items.

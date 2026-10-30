@@ -13,7 +13,7 @@ final class Pinboard extends BoardOwnerBase {
   }
 
   final Map<String, Note> up = {};
-  final List<int> expiries = [];
+  final List<Duration> expiries = [];
 
   @override
   ({String id}) put({String? id, required Note note}) {
@@ -24,7 +24,8 @@ final class Pinboard extends BoardOwnerBase {
   }
 
   @override
-  void expire({required String id, required int ms}) => expiries.add(ms);
+  void expire({required String id, required Duration after}) =>
+      expiries.add(after);
 
   @override
   void count({required int? readers}) {}
@@ -160,7 +161,7 @@ void main() {
     });
     final done = await asAnn.raw.call('note.expire', {'id': 'n1', 'in': 500});
     expect(done.ok, isTrue, reason: '$done');
-    expect(board.expiries, [500]);
+    expect(board.expiries, [const Duration(milliseconds: 500)]);
     final long = await asAnn.raw.call('note.expire', {'id': 'n1', 'in': 60001});
     expect((long as CallRefused).code, Refusal.invalidParams);
   });

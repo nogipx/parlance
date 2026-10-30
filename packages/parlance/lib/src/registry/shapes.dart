@@ -249,6 +249,36 @@ final class EnumShape<E extends Enum> extends Shape<E> {
   int weigh(E value) => 16 + value.name.length;
 }
 
+/// A Dart [Duration], kept as its whole milliseconds (SPEC §2), at most
+/// [max].
+final class DurationShape extends Shape<Duration> {
+  const DurationShape({this.max});
+
+  /// The longest it may be.
+  final Duration? max;
+
+  @override
+  DurationType get type => DurationType(max: max?.inMilliseconds);
+
+  @override
+  Object? toJson(Duration value) => value.inMilliseconds;
+
+  @override
+  Duration fromJson(Object? json) => Duration(milliseconds: json! as int);
+
+  @override
+  Duration check(Duration value, ITypeContext ctx, {Duration? was}) {
+    type.check(value.inMilliseconds, ctx);
+    return value;
+  }
+
+  @override
+  bool equals(Duration a, Duration b) => a == b;
+
+  @override
+  int weigh(Duration value) => 8;
+}
+
 /// A list of [item]s.
 final class ListShape<T> extends Shape<List<T>> {
   const ListShape(this.item, {this.maxItems});
