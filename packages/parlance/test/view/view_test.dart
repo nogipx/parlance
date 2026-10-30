@@ -218,7 +218,7 @@ void main() {
       final go = f.r.defineCommand(
         CommandDescriptor('x.go', callers: Callers.only(['user'])),
         (_) {},
-        available: () => f.r.read('door.locked') == true ? 'locked' : null,
+        whyNot: () => f.r.read('door.locked') == true ? 'locked' : null,
       );
       await after();
       expect(view.status('x.go'), const WordReady());

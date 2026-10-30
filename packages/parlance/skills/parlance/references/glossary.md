@@ -50,7 +50,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Callers** (§6.2): selectors with `allow`, `warn` or `deny`; who matches none is denied.
 - **`warn`** (§6.2): allowed, but an editor tells the author who can now call it (any guest, say).
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
-- **Availability** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyUnavailable(command)` asks without calling, so a button can be grey with the reason.
+- **WhyNot** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyNot(command)` asks without calling, so a button can be grey with the reason.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.
 - **Emit handle** (§6.3): what says a fact (`RawFactSayer`, typed `FactSayerOf<T>`).
 - **Producer** (§6.3, §14): who says a fact: its owner, the one that defined it.

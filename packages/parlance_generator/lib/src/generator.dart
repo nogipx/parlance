@@ -176,7 +176,7 @@ final class _Word {
   final List<String> options = [];
 
   /// Whether the owner base asks `whyNot<Member>()` before a call.
-  bool available = false;
+  bool whyNot = false;
 }
 
 final class _State extends _Word {
@@ -470,7 +470,7 @@ final class _Emitter {
       final us = _micros(o);
       w.options.add('deadline: const Duration(microseconds: $us)');
     }
-    w.available = r.peek('whyNot')?.boolValue ?? false;
+    w.whyNot = r.peek('whyNot')?.boolValue ?? false;
   }
 
   /// A word's `meta`, when it has one.
@@ -827,7 +827,7 @@ final class _Emitter {
 
     String opts(_Word w) => [
       ...w.options,
-      if (w.available) 'whyNot: whyNot${_pascal(w.member)}',
+      if (w.whyNot) 'whyNot: whyNot${_pascal(w.member)}',
     ].join(', ');
     String args(_Callable c, String of) => [
       for (final p in (c.element as MethodElement).formalParameters)
@@ -993,7 +993,7 @@ final class _Emitter {
         ..writeln()
         ..writeln('  /// Serves ${c.name}.')
         ..writeln('  ${c.declared} ${c.member}($signature);');
-      if (c.available) {
+      if (c.whyNot) {
         member('whyNot${_pascal(c.member)}', c);
         out
           ..writeln()
@@ -1009,7 +1009,7 @@ final class _Emitter {
         ..writeln()
         ..writeln('  /// Answers ${q.name}.')
         ..writeln('  ${q.declared} ${q.member}($signature);');
-      if (q.available) {
+      if (q.whyNot) {
         member('whyNot${_pascal(q.member)}', q);
         out
           ..writeln()

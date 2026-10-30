@@ -1,12 +1,12 @@
 part of 'participant.dart';
 
 final class _Command {
-  _Command(this.d, this.handler, this.available, this.as);
+  _Command(this.d, this.handler, this.whyNot, this.as);
 
   /// A command's or a query's.
   final CallableDescriptor d;
   final CommandHandler handler;
-  final Availability? available;
+  final WhyNot? whyNot;
 
   /// The owner that defined it; null for the participant itself.
   final Principal? as;

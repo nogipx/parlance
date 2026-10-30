@@ -116,19 +116,19 @@ final class _OfOwner implements IRawParticipant {
   IHandle defineCommand(
     CommandDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
-  }) => _root._defineCommand(d, handler, available, who);
+  }) => _root._defineCommand(d, handler, whyNot, who);
 
   @override
   IHandle defineQuery(
     QueryDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
-  }) => _root._defineCommand(d, handler, available, who);
+  }) => _root._defineCommand(d, handler, whyNot, who);
 
   @override
   IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) =>
@@ -145,11 +145,10 @@ final class _OfOwner implements IRawParticipant {
   void choicesChanged(String name) => _root.choicesChanged(name);
 
   @override
-  void availabilityChanged(String command) =>
-      _root.availabilityChanged(command);
+  void whyNotChanged(String command) => _root.whyNotChanged(command);
 
   @override
-  void availabilityMayHaveChanged() => _root._checkAvailability();
+  void whyNotMayHaveChanged() => _root._checkWhyNot();
 
   @override
   void batch(void Function() writes) => _root.batch(writes);

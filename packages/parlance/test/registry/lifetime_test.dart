@@ -133,7 +133,7 @@ void main() {
     r.defineCommand(
       CommandDescriptor('a.go', callers: Callers.only(['user'])),
       (_) {},
-      available: () => why,
+      whyNot: () => why,
     );
     r.addAskedGuard('slow', (_) async {
       why = 'it stopped';

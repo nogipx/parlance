@@ -103,7 +103,7 @@ void main() {
       deck.defineCommand(
         CommandDescriptor('lamp.turn', callers: Callers.only(['widlet'])),
         (_) {},
-        available: () {
+        whyNot: () {
           asked++;
           return null;
         },

@@ -207,7 +207,7 @@ final class _Core {
       final p = participant;
       if (group == null || p == null) return;
       if (choices.isNotEmpty) p.batch(_relist);
-      p.raw.availabilityMayHaveChanged();
+      p.raw.whyNotMayHaveChanged();
     });
   }
 

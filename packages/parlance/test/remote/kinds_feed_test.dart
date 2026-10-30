@@ -29,7 +29,7 @@ void main() {
         callers: Callers.only(['agent']),
       ),
       (_) {},
-      available: () => rooms.length > 1 ? null : 'only one room',
+      whyNot: () => rooms.length > 1 ? null : 'only one room',
     );
   });
   tearDown(() async {

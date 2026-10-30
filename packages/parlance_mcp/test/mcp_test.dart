@@ -113,7 +113,7 @@ void main() {
     f.r.defineCommand(
       CommandDescriptor('x.go', callers: Callers.only(['agent'])),
       (_) {},
-      available: () => why,
+      whyNot: () => why,
     );
     final c = Client(f.r.participant(agent), commandTools: true);
     addTearDown(c.close);

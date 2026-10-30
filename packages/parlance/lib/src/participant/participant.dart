@@ -270,7 +270,7 @@ abstract interface class IRawParticipant
   IHandle defineCommand(
     CommandDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
   });
@@ -280,7 +280,7 @@ abstract interface class IRawParticipant
   IHandle defineQuery(
     QueryDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
   });
@@ -304,13 +304,13 @@ abstract interface class IRawParticipant
   /// The choices of [name], ones it gives, changed.
   void choicesChanged(String name);
 
-  /// The availability check of [command], its own, would answer otherwise
+  /// The whyNot of [command], its own, would answer otherwise
   /// now, though no tick says so: it reads what the registry does not keep.
-  void availabilityChanged(String command);
+  void whyNotChanged(String command);
 
-  /// The availability checks of all its commands may answer otherwise
+  /// The whyNot of each of its commands may answer otherwise
   /// now: each is asked again, and a status told where it changed.
-  void availabilityMayHaveChanged();
+  void whyNotMayHaveChanged();
 
   /// It for its owner [name] (SPEC §22.3): speaking as `who.ofOwner(name)`
   /// (`home@house`), in the same vocabularies with the same rights, so
@@ -603,7 +603,7 @@ final class GeneratedCommand<P, R> {
       meta: meta,
     ),
     _word.serve((params) => _served(_p, handler(params))),
-    available: whyNot,
+    whyNot: whyNot,
     params: _word.params,
     returns: _word.returns,
   );
@@ -639,7 +639,7 @@ final class GeneratedQuery<P, R> {
       meta: meta,
     ),
     _word.serve((params) => _served(_p, handler(params))),
-    available: whyNot,
+    whyNot: whyNot,
     params: _word.params,
     returns: _word.returns,
   );

@@ -8,7 +8,7 @@ typedef CommandHandler = FutureOr<dynamic> Function(CommandCall call);
 
 /// Null when a command can run now, else why not (SPEC §6.2). Synchronous;
 /// reads committed state.
-typedef Availability = String? Function();
+typedef WhyNot = String? Function();
 
 /// Null when [call] may go on, else why not (SPEC §10). Synchronous; reads
 /// committed state; makes no calls.

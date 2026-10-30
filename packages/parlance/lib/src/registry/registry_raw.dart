@@ -11,8 +11,8 @@ extension RawRegistry on Registry {
   /// it (its participants) goes first.
   void beforeDispose(void Function() f) => _beforeDispose.add(f);
 
-  /// [command]'s availability may have changed without a tick (SPEC §6.5).
-  void availabilityChanged(String command) {
+  /// [command]'s whyNot may answer otherwise without a tick (SPEC §6.5).
+  void whyNotChanged(String command) {
     _availabilityMoved++;
     if (!_availability.isClosed) _availability.add(canonical(command));
   }
@@ -20,10 +20,10 @@ extension RawRegistry on Registry {
   /// Why [command] cannot run now (it is not there, or its owner says it
   /// is unavailable), or null when it can. Guards are not asked: they judge
   /// a call, not a command.
-  String? whyUnavailable(String command) {
+  String? whyNot(String command) {
     final c = _commands[canonical(command)];
     if (c == null) return 'no command $command';
-    return c.available?.call();
+    return c.whyNot?.call();
   }
 
   /// Whether [by] can use the word [name] now (SPEC §6.5): missing from
@@ -33,7 +33,7 @@ extension RawRegistry on Registry {
     final n = canonical(name);
     if (_commands[n] case final c?) {
       if (!c.descriptor.callers.allows(by)) return const WordNotPermitted();
-      if (c.available?.call() case final why?) return WordUnavailable(why);
+      if (c.whyNot?.call() case final why?) return WordUnavailable(why);
       return const WordReady();
     }
     if (!_states.containsKey(n) && !_facts.containsKey(n)) {
@@ -43,7 +43,7 @@ extension RawRegistry on Registry {
   }
 
   /// [statusOf] now, then whenever it changes: a word comes or goes, an
-  /// old name moves, or a tick changes what a command's availability check
+  /// old name moves, or a tick changes what a command's whyNot
   /// reads.
   Stream<WordStatus> statusChanges(String name, {required Principal by}) {
     late StreamController<WordStatus> out;
@@ -64,7 +64,7 @@ extension RawRegistry on Registry {
         // It ends with the registry.
         catalog = catalogChanges.listen((_) => tell(), onDone: out.close);
         ticks = this.ticks.listen((_) => tell());
-        availability = availabilityChanges.listen((_) => tell());
+        availability = whyNotChanges.listen((_) => tell());
       },
       onCancel: () async {
         await catalog?.cancel();
@@ -100,7 +100,7 @@ extension RawRegistry on Registry {
 
   /// The commands that cannot run now, and why their owners say so.
   Map<String, String> get unavailable => {
-    for (final name in _commands.keys) name: ?whyUnavailable(name),
+    for (final name in _commands.keys) name: ?whyNot(name),
   };
 
   /// [unavailable] as it is after the last tick: what every session's
@@ -166,7 +166,7 @@ extension RawRegistry on Registry {
   IHandle defineCommand(
     CommandDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
@@ -177,7 +177,7 @@ extension RawRegistry on Registry {
       d,
       local,
       local.serve(handler),
-      available,
+      whyNot,
       params: params,
       returns: returns,
     );
@@ -190,7 +190,7 @@ extension RawRegistry on Registry {
   IHandle defineQuery(
     QueryDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
@@ -201,7 +201,7 @@ extension RawRegistry on Registry {
       d,
       local,
       local.serve(handler),
-      available,
+      whyNot,
       params: params,
       returns: returns,
     );

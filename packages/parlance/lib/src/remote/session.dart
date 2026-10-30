@@ -724,13 +724,13 @@ final class RemoteSession extends ParlanceContractPeer
             _commands[d.name] = p.defineCommand(
               d,
               _serve,
-              available: () => _unavailable[d.name],
+              whyNot: () => _unavailable[d.name],
             );
           case QueryDescriptor():
             _commands[d.name] = p.defineQuery(
               d,
               _serve,
-              available: () => _unavailable[d.name],
+              whyNot: () => _unavailable[d.name],
             );
         }
       });
@@ -836,7 +836,7 @@ final class RemoteSession extends ParlanceContractPeer
     }
     if (_unavailable[command] == why) return;
     why == null ? _unavailable.remove(command) : _unavailable[command] = why;
-    registry.availabilityChanged(command);
+    registry.whyNotChanged(command);
   }
 
   /// The choices of [name], as the wire says them ([entities]).

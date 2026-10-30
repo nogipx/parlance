@@ -211,7 +211,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           : 'the host sent what cannot be read; following again from now: $e',
     );
     p._mirror.follow(client);
-    p._changes = p._mirror.changes.listen((_) => p._checkAvailability());
+    p._changes = p._mirror.changes.listen((_) => p._checkWhyNot());
     // It has joined when its view is live: the feed's first snapshot came.
     if (!p._mirror.synced) {
       await p._mirror.changes
@@ -311,7 +311,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
         _droppedAway = 0;
       }
       _mirror.follow(_client);
-      _checkAvailability();
+      _checkWhyNot();
       _retryAfter = _firstRetry;
       await flush();
     } on Object {
@@ -481,7 +481,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _scheduled = false;
       // What it wrote may change what its commands say of themselves:
       // told in the same tick.
-      _checkAvailability();
+      _checkWhyNot();
       unawaited(flush());
     });
   }
@@ -928,30 +928,30 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   IHandle defineCommand(
     CommandDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
-  }) => _defineCommand(d, handler, available, null);
+  }) => _defineCommand(d, handler, whyNot, null);
 
   @override
   IHandle defineQuery(
     QueryDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
-  }) => _defineCommand(d, handler, available, null);
+  }) => _defineCommand(d, handler, whyNot, null);
 
   /// A command or a query of its own, or of [as], one of its owners.
   IHandle _defineCommand(
     CallableDescriptor d,
     CommandHandler handler,
-    Availability? available,
+    WhyNot? whyNot,
     Principal? as,
   ) {
     _mayDefine(d);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
-    final c = _Command(d, serving(handler), available, as);
+    final c = _Command(d, serving(handler), whyNot, as);
     _commands[d.name] = c;
     return Disposer(() {
       if (_commands[d.name] != c) return;
@@ -1069,21 +1069,21 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   @override
-  void availabilityChanged(String command) {
+  void whyNotChanged(String command) {
     if (!_commands.containsKey(command)) {
       throw NotPermitted('$command is not $who\'s command');
     }
-    _checkAvailability();
+    _checkWhyNot();
   }
 
   @override
-  void availabilityMayHaveChanged() => _checkAvailability();
+  void whyNotMayHaveChanged() => _checkWhyNot();
 
   /// Tells the host what its commands' checks say now, where it changed.
-  void _checkAvailability() {
+  void _checkWhyNot() {
     if (_disposed) return;
     for (final c in _commands.values) {
-      final check = c.available;
+      final check = c.whyNot;
       if (check == null) continue;
       final why = check();
       if (c.told && why == c.why) continue;

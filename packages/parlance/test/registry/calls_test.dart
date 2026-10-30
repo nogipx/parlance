@@ -49,7 +49,7 @@ void main() {
     f.r.defineCommand(
       CommandDescriptor('x.go', callers: Callers.only(['user'])),
       (_) {},
-      available: () => why.isEmpty ? null : why,
+      whyNot: () => why.isEmpty ? null : why,
     );
     expect(await f.r.call('x.go', {}, by: user), refused(Refusal.unavailable));
     why = '';
@@ -353,12 +353,12 @@ void main() {
     f.r.defineCommand(
       CommandDescriptor('x.go', callers: Callers.only(['user'])),
       (_) {},
-      available: () => why.isEmpty ? null : why,
+      whyNot: () => why.isEmpty ? null : why,
     );
-    expect(f.r.whyUnavailable('x.go'), 'offline');
+    expect(f.r.whyNot('x.go'), 'offline');
     why = '';
-    expect(f.r.whyUnavailable('x.go'), isNull);
-    expect(f.r.whyUnavailable('nope'), 'no command nope');
+    expect(f.r.whyNot('x.go'), isNull);
+    expect(f.r.whyNot('nope'), 'no command nope');
   });
 
   test('a result says why not in words, and nothing when done', () async {

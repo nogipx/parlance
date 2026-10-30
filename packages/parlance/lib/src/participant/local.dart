@@ -199,7 +199,7 @@ final class LocalParticipant implements IRawParticipant {
   /// The commands it defined: its guards judge their calls only.
   final Set<String> _commands = {};
 
-  /// Its commands and queries with an availability check.
+  /// Its commands and queries with a whyNot.
   final Set<String> _checked = {};
 
   /// The names of the choices it gives.
@@ -429,7 +429,7 @@ final class LocalParticipant implements IRawParticipant {
   IHandle defineCommand(
     CommandDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
@@ -437,12 +437,12 @@ final class LocalParticipant implements IRawParticipant {
     final h = _r.defineCommand(
       d,
       serving(handler),
-      available: available,
+      whyNot: whyNot,
       params: params,
       returns: returns,
     );
     _commands.add(d.name);
-    if (available != null) _checked.add(d.name);
+    if (whyNot != null) _checked.add(d.name);
     return _keepDoing(() {
       _commands.remove(d.name);
       _checked.remove(d.name);
@@ -454,7 +454,7 @@ final class LocalParticipant implements IRawParticipant {
   IHandle defineQuery(
     QueryDescriptor d,
     CommandHandler handler, {
-    Availability? available,
+    WhyNot? whyNot,
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
@@ -462,12 +462,12 @@ final class LocalParticipant implements IRawParticipant {
     final h = _r.defineQuery(
       d,
       serving(handler),
-      available: available,
+      whyNot: whyNot,
       params: params,
       returns: returns,
     );
     _commands.add(d.name);
-    if (available != null) _checked.add(d.name);
+    if (whyNot != null) _checked.add(d.name);
     return _keepDoing(() {
       _commands.remove(d.name);
       _checked.remove(d.name);
@@ -523,19 +523,19 @@ final class LocalParticipant implements IRawParticipant {
   }
 
   @override
-  void availabilityChanged(String command) {
+  void whyNotChanged(String command) {
     _live();
     if (!_commands.contains(_r.canonical(command))) {
       throw NotPermitted('$command is not $who\'s command');
     }
-    _r.availabilityChanged(command);
+    _r.whyNotChanged(command);
   }
 
   @override
-  void availabilityMayHaveChanged() {
+  void whyNotMayHaveChanged() {
     if (_disposed) return;
     for (final c in _checked) {
-      _r.availabilityChanged(c);
+      _r.whyNotChanged(c);
     }
   }
 

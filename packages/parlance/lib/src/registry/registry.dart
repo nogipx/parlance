@@ -194,10 +194,10 @@ final class Registry implements ITypeContext {
   /// it after every tick, and the checks are asked once for all of them.
   ({int seq, int moved, Map<String, String> why})? _unavailableNow;
 
-  /// Commands whose availability check would answer otherwise now, though
+  /// Commands whose whyNot would answer otherwise now, though
   /// no tick says so: an owner across a connection told it, or one whose
   /// check reads what the registry does not keep.
-  Stream<String> get availabilityChanges => _availability.stream;
+  Stream<String> get whyNotChanges => _availability.stream;
 
   /// Every descriptor there is now.
   List<Descriptor> get catalog => [
@@ -961,7 +961,7 @@ final class Registry implements ITypeContext {
         CallRefused(Refusal.notPermitted, '${cause.by} may not call $command'),
       );
     }
-    if (entry.available?.call() case final why?) {
+    if (entry.whyNot?.call() case final why?) {
       return finish(CallRefused(Refusal.unavailable, why));
     }
     // The guards are judged here, not in a method of their own: with none
@@ -1011,7 +1011,7 @@ final class Registry implements ITypeContext {
       return finish(CallRefused(Refusal.unknownCommand, '$command is gone'));
     }
     if (asked) {
-      if (entry.available?.call() case final why?) {
+      if (entry.whyNot?.call() case final why?) {
         return finish(CallRefused(Refusal.unavailable, why));
       }
     }

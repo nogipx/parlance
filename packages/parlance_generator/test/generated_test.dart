@@ -369,7 +369,7 @@ void main() {
       );
       expect(deck.stopped, 1);
       deck.library.clear();
-      p.raw.ofOwner('player').raw.availabilityChanged('player.play');
+      p.raw.ofOwner('player').raw.whyNotChanged('player.play');
       final play = await GeneratedWords(asAnn.raw)
           .command(PlayerCommand.play)
           .call((track: const Track(title: 'A'), repeat: Repeat.off, on: null));

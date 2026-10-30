@@ -188,7 +188,7 @@ final class _CommandEntry {
     this.descriptor,
     this.local,
     this.serving,
-    this.available, {
+    this.whyNot, {
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) : params = params != null && params.keptAsIs
@@ -210,7 +210,7 @@ final class _CommandEntry {
   bool get query => descriptor is QueryDescriptor;
   final LocalCommand<CommandCall, Object?> local;
   final IHandle serving;
-  final Availability? available;
+  final WhyNot? whyNot;
 }
 
 final class _FactEntry {
