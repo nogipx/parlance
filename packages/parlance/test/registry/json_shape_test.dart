@@ -1,7 +1,6 @@
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const owner = Principal('host');
 
@@ -61,13 +60,22 @@ Map<String, Object?> _toJson(Order o) => o.toJson();
 
 void main() {
   late Registry r;
-  setUp(() => r = Registry());
+  late GeneratedWords orders;
+  setUp(() {
+    r = Registry();
+    orders = GeneratedWords(
+      r.participant(owner, vocabularies: [WordSet.open('orders')]),
+    );
+  });
   tearDown(() => r.dispose());
 
   test('a class that serializes itself is a state as it is', () {
-    final last = r.state(Orders.last).define(by: owner);
+    final last = orders.state(Orders.last).define();
     last.set(const Order('o1', Address('Riga')));
-    expect(r.state(Orders.last).read(), const Order('o1', Address('Riga')));
+    expect(
+      orders.stateOf(Orders.last).value,
+      const Order('o1', Address('Riga')),
+    );
     expect(r.read('orders.last'), {
       'id': 'o1',
       'to': {'city': 'Riga'},
@@ -79,7 +87,7 @@ void main() {
   });
 
   test('its toJson must give JSON all the way down', () {
-    final last = r.state(Orders.last).define(by: owner);
+    final last = orders.state(Orders.last).define();
     expect(
       () => last.set(const Order('o2', Address('Oslo'), explicit: false)),
       throwsA(
@@ -93,11 +101,8 @@ void main() {
   });
 
   test('without a type any object passes, and lists of them work', () {
-    r
-        .state(Orders.loose)
-        .define(by: owner)
-        .set(const Order('o3', Address('Pori')));
-    expect(r.state(Orders.loose).read()!.to.city, 'Pori');
+    orders.state(Orders.loose).define().set(const Order('o3', Address('Pori')));
+    expect(orders.stateOf(Orders.loose).value!.to.city, 'Pori');
     const list = ListShape(JsonShape(from: Order.fromJson, to: _toJson));
     final json = list.toJson(const [Order('a', Address('x'))]);
     expect(list.fromJson(json), const [Order('a', Address('x'))]);

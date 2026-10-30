@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const owner = Principal('module', 'orders');
 const asker = Principal('module', 'cart');
@@ -111,27 +110,20 @@ void main() {
     );
   });
 
-  test(
-    'typed on the registry: asked by everyone unless its askers say',
-    () async {
-      r.query(OrdersQuery.page).define((c) => ['p${c.params.from}']);
-      expect(r.queryDescriptor('orders.page'), isNotNull);
-      final a = await r.query(OrdersQuery.page).ask((from: 1), by: asker);
-      expect((a as CallDone<List<String>>).value, ['p1']);
-      final viaView = await LocalView(
-        r,
-        by: asker,
-      ).query(OrdersQuery.page).ask((from: 2));
-      expect((viaView as CallDone<List<String>>).value, ['p2']);
-    },
-  );
-
   group('a query changes nothing', () {
-    late StateWriterOf<String> note;
-    late FactEmitterOf<String> said;
+    late IRawParticipant orders;
+    late GeneratedWords asking;
+    late IStateWriterOf<String> note;
+    late IFactEmitterOf<String> said;
+    void join() {
+      orders = r.participant(owner, vocabularies: [WordSet.open('orders')]);
+      asking = GeneratedWords(r.participant(asker));
+    }
+
     setUp(() {
-      note = r.state(_Note.text).define(by: owner)..set('before');
-      said = r.fact(_Said.it).define(by: owner);
+      join();
+      note = GeneratedWords(orders).state(_Note.text).define()..set('before');
+      said = GeneratedWords(orders).fact(_Said.it).define();
       r.defineCommand(
         CommandDescriptor('orders.touch', callers: Callers.anyone),
         (_) {},
@@ -142,12 +134,12 @@ void main() {
     Future<CallResult<List<String>>> askWith(
       FutureOr<void> Function() effect,
     ) async {
-      final h = r.query(OrdersQuery.page).define((q) async {
+      final h = GeneratedWords(orders).query(OrdersQuery.page).serve((_) async {
         await effect();
         return const [];
       });
       try {
-        return await r.query(OrdersQuery.page).ask((from: 0), by: asker);
+        return await asking.query(OrdersQuery.page).ask((from: 0));
       } finally {
         h.dispose();
       }
@@ -176,10 +168,11 @@ void main() {
     test(
       'a fact or a command from it is refused; another query it may ask',
       () async {
-        expect(await askWith(() => said.emit('hi')), isA<CallFailed>());
+        expect(await askWith(() => said.say('hi')), isA<CallFailed>());
         expect(r.recent('orders.said'), isEmpty);
         r.dispose();
         r = Registry();
+        join();
         r.defineCommand(
           CommandDescriptor('orders.touch', callers: Callers.anyone),
           (_) {},
@@ -196,18 +189,11 @@ void main() {
           () => r.call('orders.touch', {}, by: owner),
         );
         expect(calling.why, contains('call orders.touch'));
-        r.query(OrdersQuery.page).define((q) async {
-          final n = await r.call(
-            'orders.count',
-            {},
-            by: owner,
-            cause: q.askingFor(owner),
-          );
+        GeneratedWords(orders).query(OrdersQuery.page).serve((_) async {
+          final n = await orders.call('orders.count', {});
           return ['${(n as CallDone).value}'];
         });
-        final nested = await r.query(OrdersQuery.page).ask((
-          from: 0,
-        ), by: asker);
+        final nested = await asking.query(OrdersQuery.page).ask((from: 0));
         expect((nested as CallDone<List<String>>).value, ['3']);
       },
     );

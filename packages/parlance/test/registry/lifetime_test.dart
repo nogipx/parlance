@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const owner = Principal('host', 'house');
 const user = Principal('user', 'local');
@@ -119,10 +118,12 @@ void main() {
 
   test('a null value of a state that may be null is read with the rest', () {
     final r = Registry();
-    final w = r.state(Maybe.level).define(by: owner);
+    final w = GeneratedWords(
+      r.participant(owner, vocabularies: [WordSet.open('a')]),
+    ).state(Maybe.level).define();
     w.set(null, key: 'a');
     w.set(3, key: 'b');
-    expect(r.state(Maybe.level).readAll(), {'a': null, 'b': 3});
+    expect(r.readAll(Maybe.level.name), {'a': null, 'b': 3});
   });
 
   test('a call whose asked guard took a while is refused when its command '

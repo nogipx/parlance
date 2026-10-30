@@ -9,7 +9,6 @@ import 'dart:convert';
 
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const host = Principal('host', 'bench');
 
@@ -155,8 +154,11 @@ Future<void> main() async {
   print('--- a typed document, rewritten whole ---');
   for (final sections in [100, 1000]) {
     final r = Registry(onError: (e, _) => throw e);
-    final w = r.state(RtState.task).define(by: host);
-    final s = r.state(RtState.task);
+    final words = GeneratedWords(
+      r.participant(host, vocabularies: [WordSet.open('rt')]),
+    );
+    final w = words.state(RtState.task).define();
+    final s = words.stateOf(RtState.task);
     final a = makeTask(sections, 1), b = makeTask(sections, 2);
     final kb = utf8.encode(jsonEncode(taskShape.toJson(a))).length ~/ 1024;
     w.set(a);
@@ -169,13 +171,13 @@ Future<void> main() async {
     sw
       ..reset()
       ..start();
-    s.read();
+    s.value;
     final first = sw.elapsedMicroseconds;
     sw
       ..reset()
       ..start();
     for (var i = 0; i < n; i++) {
-      s.read();
+      s.value;
     }
     final again = sw.elapsedMicroseconds;
     print(
@@ -189,7 +191,10 @@ Future<void> main() async {
     // 10k checks as a keyed state; one toggled per write: each write is a
     // change, of what that check holds now.
     final r = Registry(onError: (e, _) => throw e);
-    final w = r.state(RtState.check).define(by: host);
+    final words = GeneratedWords(
+      r.participant(host, vocabularies: [WordSet.open('rt')]),
+    );
+    final w = words.state(RtState.check).define();
     final checks = makeTask(500, 1).sections.expand((s) => s.checks).toList();
     final passed = [for (final c in checks) c.passed];
     r.batch(() {
@@ -243,13 +248,16 @@ Future<void> main() async {
   for (final watchers in [0, 10, 100, 1000]) {
     // Peers' cursors: each widget watches one peer, every peer moves.
     final r = Registry(onError: (e, _) => throw e);
-    final w = r.state(RtState.cursor).define(by: host);
-    final s = r.state(RtState.cursor);
+    final words = GeneratedWords(
+      r.participant(host, vocabularies: [WordSet.open('rt')]),
+    );
+    final w = words.state(RtState.cursor).define();
+    final s = words.keyedOf(RtState.cursor);
     const peers = 1000;
     var heard = 0;
     final subs = [
       for (var p = 0; p < watchers; p++)
-        s.watch(key: 'p$p').listen((_) => heard++),
+        s.changesOf('p$p').listen((_) => heard++),
     ];
     await Future<void>.delayed(Duration.zero);
     heard = 0;

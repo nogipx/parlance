@@ -3,7 +3,6 @@ import 'package:test/test.dart';
 
 import 'fixture.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 enum Level { low, high }
 
@@ -117,58 +116,66 @@ enum TestFact<T> implements IFactWord<T> {
 
 void main() {
   late Fixture f;
-  late StateWriterOf<Tune> tune;
-  late FactEmitterOf<Tune> tuned;
+  late GeneratedWords house;
+  late GeneratedWords asUser;
+  late IStateWriterOf<Tune> tune;
+  late IFactEmitterOf<Tune> tuned;
   setUp(() {
     f = Fixture();
-    f.r.state(TestState.level).define(by: owner);
-    tune = f.r.state(TestState.tune).define(by: owner);
-    tuned = f.r.fact(TestFact.tuned).define(by: owner);
-    f.r.command(TestCommand.tune).define((c) {
-      tune.set(c.params, key: c.params.input, cause: c.causeFor(owner));
-      tuned.emit(c.params, cause: c.causeFor(owner));
-      return (inputs: [c.params.input]);
+    house = GeneratedWords(
+      f.r.participant(owner, vocabularies: [WordSet.open('test')]),
+    );
+    asUser = GeneratedWords(f.r.participant(user));
+    house.state(TestState.level).define();
+    tune = house.state(TestState.tune).define();
+    tuned = house.fact(TestFact.tuned).define();
+    house.command(TestCommand.tune).serve((params) {
+      tune.set(params, key: params.input);
+      tuned.say(params);
+      return (inputs: [params.input]);
     }, callers: Callers.only(['user']));
-    f.r
+    house
         .command(TestCommand.reset)
-        .define((c) {}, callers: Callers.only(['user']));
+        .serve((_) {}, callers: Callers.only(['user']));
   });
   tearDown(() => f.r.dispose());
 
   test(
     'a typed call goes in as JSON and its answer comes back typed',
     () async {
-      final r = await f.r.command(TestCommand.tune).call((
+      final r = await asUser.command(TestCommand.tune).call((
         input: 'front',
         db: -6,
         level: Level.high,
-      ), by: user);
+      ));
       expect((r as CallDone<Heard>).value.inputs, ['front']);
       expect(f.r.read('test.tune', key: 'front'), {
         'input': 'front',
         'db': -6,
         'level': 'high',
       });
-      expect(f.r.state(TestState.tune).read(key: 'front')?.level, Level.high);
+      expect(asUser.keyedOf(TestState.tune).of('front')?.level, Level.high);
     },
   );
 
   test('what is wrong is refused as by name, typed for any answer', () async {
-    final r = await f.r.command(TestCommand.tune).call((
+    final r = await asUser.command(TestCommand.tune).call((
       input: 'nope',
       db: 0,
       level: null,
-    ), by: user);
+    ));
     expect(
       r,
       isA<CallRefused>().having((x) => x.code, 'code', Refusal.invalidParams),
     );
     expect(
-      await f.r.command(TestCommand.reset).call((), by: visitor),
+      await GeneratedWords(
+        f.r.participant(visitor),
+      ).command(TestCommand.reset).call(()),
       isA<CallRefused>(),
     );
     expect(
-      await f.r.command(TestCommand.reset).call((), by: user),
+      await asUser.command(TestCommand.reset).call(()),
       isA<CallDone<void>>(),
     );
   });
@@ -186,44 +193,47 @@ void main() {
 
   test('states and facts read and stream typed', () async {
     final facts = <Fact<Tune>>[];
-    f.r.fact(TestFact.tuned).facts.listen(facts.add);
+    asUser.factOf(TestFact.tuned).facts.listen(facts.add);
     final levels = <Level?>[];
-    f.r.state(TestState.level).watch().listen(levels.add);
-    await f.r.command(TestCommand.tune).call((
+    asUser.stateOf(TestState.level).changes.listen(levels.add);
+    await asUser.command(TestCommand.tune).call((
       input: 'front',
       db: 3,
       level: null,
-    ), by: user);
+    ));
     await pumpEventQueue();
     expect(facts.single.payload, (input: 'front', db: 3, level: null));
     expect(facts.single.cause.parent, isNotNull);
-    expect(f.r.fact(TestFact.tuned).recent().single.payload.db, 3);
+    expect(
+      (await asUser.factOf(TestFact.tuned).recent(1)).single.payload.db,
+      3,
+    );
     expect(levels, [null]);
-    expect(f.r.state(TestState.tune).readAll().keys, ['front']);
+    expect(asUser.keyedOf(TestState.tune).keys, ['front']);
   });
 
   test('a nullable state takes none, a list, and none again', () async {
-    final only = f.r.state(NullableState.only).define(by: owner);
+    final only = house.state(NullableState.only).define();
     only.set(null);
-    f.r
+    house
         .command(NullableCommand.setOnly)
-        .define(
-          (c) => only.set(c.params.apps, cause: c.causeFor(owner)),
+        .serve(
+          (params) => only.set(params.apps),
           callers: Callers.only(['user', 'system']),
         );
     expect(f.r.has('test.only'), isTrue);
-    expect(f.r.state(NullableState.only).read(), isNull);
+    expect(asUser.stateOf(NullableState.only).value, isNull);
     expect(
-      await f.r.command(NullableCommand.setOnly).call((apps: []), by: user),
+      await asUser.command(NullableCommand.setOnly).call((apps: [])),
       isA<CallDone<void>>(),
     );
-    expect(f.r.state(NullableState.only).read(), isEmpty);
+    expect(asUser.stateOf(NullableState.only).value, isEmpty);
     // A typed call says null: every app again.
     expect(_only.toJson((apps: null)), {'apps': null});
     expect(
-      await f.r.command(NullableCommand.setOnly).call((apps: null), by: user),
+      await asUser.command(NullableCommand.setOnly).call((apps: null)),
       isA<CallDone<void>>(),
     );
-    expect(f.r.state(NullableState.only).read(), isNull);
+    expect(asUser.stateOf(NullableState.only).value, isNull);
   });
 }

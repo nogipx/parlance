@@ -6,7 +6,6 @@ import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/participant/owner.dart' show Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 const me = Principal('host');
 
@@ -128,7 +127,7 @@ void main() {
     final owners = module([dials, Other()]);
     await pumpEventQueue();
     expect(ticks, hasLength(1));
-    expect(r.state(Level.of).readAll(), {'a': 1, 'b': 2});
+    expect(r.readAll(Level.of.name), {'a': 1, 'b': 2});
     owners.dispose();
     expect(r.stateDescriptor('test.level'), isNull);
     expect(r.stateDescriptor('test.on'), isNull);
@@ -145,7 +144,7 @@ void main() {
     r.batch(dials.sync);
     await pumpEventQueue();
     expect(changes.whereType<KindChanged>().map((c) => c.kind), ['dial']);
-    expect(r.state(Level.of).readAll(), {'b': 2, 'c': 3});
+    expect(r.readAll(Level.of.name), {'b': 2, 'c': 3});
     changes.clear();
     r.batch(dials.sync);
     await pumpEventQueue();
@@ -164,7 +163,16 @@ void main() {
       throwsStateError,
     );
     final h = Handles()..dispose();
-    expect(() => h.keep(r.state(_Flag.on).define(by: me)), throwsStateError);
+    expect(
+      () => h.keep(
+        r.defineState(
+          StateDescriptor(_Flag.on.name, type: _Flag.on.shape.type),
+          by: me,
+          shape: _Flag.on.shape,
+        ),
+      ),
+      throwsStateError,
+    );
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'o still has it');
   });
 
@@ -260,8 +268,8 @@ void main() {
     await pumpEventQueue();
     expect(dials.synced, 2, reason: 'once for the turn');
     expect(ticks, hasLength(1), reason: 'one tick for both');
-    expect(r.state(Level.of).read(key: 'a'), 5);
-    expect(r.state(_Flag.on).read(), isTrue);
+    expect(r.readAs(Level.of.name, Level.of.shape, key: 'a'), 5);
+    expect(r.readAs(_Flag.on.name, _Flag.on.shape), isTrue);
   });
 
   test('a scope is a participant: going, it leaves nothing of itself, its '
@@ -278,15 +286,19 @@ void main() {
     await pumpEventQueue();
     expect(r.stateDescriptor('test.level'), isNull);
     expect(r.stateDescriptor('test.on'), isNull, reason: 'the part went');
-    expect(r.state(Level.of).readAll(), isEmpty);
+    expect(r.readAll(Level.of.name), isEmpty);
     expect(r.hasKind('dial'), isFalse);
     expect(statuses.last, const WordMissing());
     // What it writes after it went (code still running then) is not
     // written, and throws nothing.
     dials.dials['a'] = 9;
     dials.sync();
-    expect(r.state(Level.of).readAll(), isEmpty, reason: 'withdrawn');
+    expect(r.readAll(Level.of.name), isEmpty, reason: 'withdrawn');
     module([Dials()]);
-    expect(r.state(Level.of).read(key: 'a'), 1, reason: 'the next session');
+    expect(
+      r.readAs(Level.of.name, Level.of.shape, key: 'a'),
+      1,
+      reason: 'the next session',
+    );
   });
 }

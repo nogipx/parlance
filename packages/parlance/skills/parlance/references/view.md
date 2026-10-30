@@ -32,11 +32,11 @@ remote (`tools.dart`). An app's screen takes a client (§23.5), not this.
 - As a shape has them (§18): `readAs(state, shape, {key})`,
   `factsAs(fact, shape)`, `callAs(command, params, shape)`: in this process
   a word the registry keeps by that shape is the Dart value itself, both
-  ways; else JSON decoded, or encoded for the call. The typed handles
-  below go through them.
-- Typed (§18): `view.state(word).read()`, `.readAll()`, `.watch()` (now, then whenever it changes, deduplicated; a remote view keeps the state while it is listened to); an old name of a word (§6.4) is told the word's changes and hears its facts, here and across a connection;
-  `view.command(word).call(params)`; `view.fact(word).facts`,
-  `.recent(count)`; `.status`, `.statusChanges` on each.
+  ways; else JSON decoded, or encoded for the call. A view has no typed
+  handles of its own: typed words are `GeneratedWords`' alone (a client's
+  `stateOf`, `keyedOf`, `factOf`), and they read through these. An old
+  name of a word (§6.4) is told the word's changes and hears its facts,
+  here and across a connection.
 
 ## LocalView(registry, by:)
 

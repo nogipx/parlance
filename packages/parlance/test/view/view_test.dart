@@ -77,7 +77,7 @@ void main() {
       f.locked.set(true);
       await settle();
       expect(told, [1], reason: 'the focus is not what it asked for');
-      expect(view.state(_State.locked).read(), isTrue);
+      expect(view.readAs(_State.locked.name, _State.locked.shape), isTrue);
 
       final r = await view.call('house.show', {'room': 'break'});
       expect(r, isA<CallDone<Object?>>());
@@ -308,7 +308,7 @@ void main() {
     });
     await view.call('door.lock', {'on': true});
     await done.future;
-    expect(view.state(_State.locked).read(), isTrue);
+    expect(view.readAs(_State.locked.name, _State.locked.shape), isTrue);
     await sub.cancel();
   });
 }

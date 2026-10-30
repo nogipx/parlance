@@ -218,60 +218,6 @@ extension QueryAnswers<P, R> on IQueryWord<P, R> {
   };
 }
 
-/// The registry through typed words. The word fixes the types: a call is
-/// made on what `command(word)` gives, so its params can only be the
-/// word's.
-extension TypedRegistry on Registry {
-  StateOf<T> state<T>(IStateWord<T> word) => StateOf._(this, word);
-  CommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
-      CommandOf._(this, word);
-  QueryOf<P, R> query<P, R>(IQueryWord<P, R> word) => QueryOf._(this, word);
-  FactOf<T> fact<T>(IFactWord<T> word) => FactOf._(this, word);
-}
-
-/// A state, typed.
-final class StateOf<T> {
-  StateOf._(this.registry, this.word);
-
-  final Registry registry;
-  final IStateWord<T> word;
-
-  /// Defines it, with [by] its only writer.
-  StateWriterOf<T> define({
-    required Principal by,
-    Callers? readers,
-    Map<String, Object?> meta = const {},
-  }) => StateWriterOf(
-    registry.defineState(
-      StateDescriptor(
-        word.name,
-        type: word.shape.type,
-        key: word.key,
-        readers: readers,
-        meta: meta,
-      ),
-      by: by,
-      shape: word.shape,
-    ),
-    word.shape,
-  );
-
-  /// Its value (of [key]); null when there is none.
-  T? read({String? key}) => registry.readAs(word.name, word.shape, key: key);
-
-  bool has({String? key}) => registry.has(word.name, key: key);
-
-  /// Every value, by key; a null one too, of a state that may be null.
-  Map<String?, T> readAll() => {
-    for (final e in registry.readAll(word.name).entries)
-      if (e.value != null || null is T) e.key: word.shape.fromJson(e.value),
-  };
-
-  /// Its value now, then on every change.
-  Stream<T?> watch({String? key}) =>
-      registry.watchAs(word.name, word.shape, key: key);
-}
-
 /// The only write handle of a typed state.
 ///
 /// What a base the generator made writes a state through (SPEC §23.4):
@@ -530,102 +476,6 @@ final class QueryAsk<P> {
   LogSpanHandle get span => raw.span;
 }
 
-/// A command, typed.
-final class CommandOf<P, R> {
-  CommandOf._(this.registry, this.word);
-
-  final Registry registry;
-  final ICommandWord<P, R> word;
-
-  /// Defines it with its [handler] (SPEC §6.2).
-  IHandle define(
-    FutureOr<R> Function(CommandCallOf<P> call) handler, {
-    required Callers callers,
-    Duration deadline = const Duration(seconds: 30),
-    Map<String, Object?> meta = const {},
-    Availability? available,
-  }) => registry.defineCommand(
-    CommandDescriptor(
-      word.name,
-      params: word.params.type,
-      returns: word.returns?.type,
-      callers: callers,
-      deadline: deadline,
-      meta: meta,
-    ),
-    word.serve(handler),
-    available: available,
-    params: word.params,
-    returns: word.returns,
-  );
-
-  /// Calls it with [params] on behalf of [by] (SPEC §9).
-  Future<CallResult<R>> call(
-    P params, {
-    required Principal by,
-    String? id,
-    Cause? cause,
-  }) async {
-    final r = await registry.callKept(
-      word.name,
-      Kept(params, word.params),
-      by: by,
-      id: id,
-      cause: cause,
-    );
-    return word.answer(r);
-  }
-
-  /// Why it cannot run now; null when it can.
-  String? whyUnavailable() => registry.whyUnavailable(word.name);
-}
-
-/// A query, typed (SPEC §6.6): defined by its owner, asked by anyone its
-/// askers let.
-final class QueryOf<P, R> {
-  QueryOf._(this.registry, this.word);
-
-  final Registry registry;
-  final IQueryWord<P, R> word;
-
-  /// Defines it with its [handler]; [askers] who may ask, everyone when
-  /// not said, as anyone may read a state that names no readers.
-  IHandle define(
-    FutureOr<R> Function(QueryAsk<P> ask) handler, {
-    Callers? askers,
-    Duration deadline = const Duration(seconds: 30),
-    Map<String, Object?> meta = const {},
-    Availability? available,
-  }) => registry.defineQuery(
-    word.describeWith(
-      askers: askers ?? Callers.anyone,
-      deadline: deadline,
-      meta: meta,
-    ),
-    word.serve(handler),
-    available: available,
-    params: word.params,
-    returns: word.returns,
-  );
-
-  /// Asks it with [params] on behalf of [by]; asking again asks again.
-  Future<CallResult<R>> ask(
-    P params, {
-    required Principal by,
-    Cause? cause,
-  }) async => word.answer(
-    await registry.callKept(
-      word.name,
-      Kept(params, word.params),
-      by: by,
-      cause: cause,
-    ),
-  );
-
-  /// Why it cannot be asked now; null when it can.
-  String? whyUnavailable() => registry.whyUnavailable(word.name);
-}
-
 /// A committed fact, its payload typed.
 final class Fact<T> {
   const Fact._(this.payload, this._message);
@@ -651,44 +501,6 @@ Fact<T> factIn<T>(T payload, FactMessage message) => Fact._(payload, message);
 extension RawFact<T> on Fact<T> {
   FactMessage get message => _message;
   Cause get cause => _message.cause;
-}
-
-/// A fact, typed.
-final class FactOf<T> {
-  FactOf._(this.registry, this.word);
-
-  final Registry registry;
-  final IFactWord<T> word;
-
-  /// Defines it, with [by] its producer.
-  FactEmitterOf<T> define({
-    required Principal by,
-    Callers? readers,
-    Map<String, Object?> meta = const {},
-  }) => FactEmitterOf(
-    registry.defineFact(
-      FactDescriptor(
-        word.name,
-        type: word.shape.type,
-        readers: readers,
-        meta: meta,
-      ),
-      by: by,
-      shape: word.shape,
-    ),
-    word.shape,
-  );
-
-  Fact<T> _decode(FactMessage m) => factIn(word.shape.fromJson(m.payload), m);
-
-  /// Its facts as they are committed.
-  Stream<Fact<T>> get facts =>
-      registry.factsAs(word.name, word.shape).map((f) => factIn(f.$1, f.$2));
-
-  /// The last [n], oldest first.
-  List<Fact<T>> recent([int? n]) => [
-    for (final m in registry.recent(word.name, n)) _decode(m),
-  ];
 }
 
 /// An emit handle of a typed fact.

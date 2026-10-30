@@ -28,7 +28,6 @@ library;
 
 import 'package:parlance/src/core/core.dart';
 import 'package:parlance/tools.dart';
-import 'package:parlance/src/registry/words.dart' show TypedRegistry;
 
 typedef Item = ({String id, String title, bool done});
 
@@ -170,8 +169,11 @@ Future<void> main() async {
     final state = LocalState<Item>();
     final w = state.claim();
     final r = Registry(onError: (e, _) => throw e);
-    final s = r.state(BenchState.item).define(by: host);
-    final reader = r.state(BenchState.item);
+    final words = GeneratedWords(
+      r.participant(host, vocabularies: [WordSet.open('bench')]),
+    );
+    final s = words.state(BenchState.item).define();
+    final reader = words.stateOf(BenchState.item);
     final items = makeItems(2);
     row(
       'write',
@@ -182,7 +184,7 @@ Future<void> main() async {
     row(
       'read',
       measure(200000, (_) => sink = state.value),
-      measure(200000, (_) => sink = reader.read()),
+      measure(200000, (_) => sink = reader.value),
     );
     if (sink == null) print('');
   }
@@ -192,8 +194,11 @@ Future<void> main() async {
     final state = LocalState<List<Item>>();
     final w = state.claim();
     final r = Registry(onError: (e, _) => throw e);
-    final s = r.state(BenchState.items).define(by: host);
-    final reader = r.state(BenchState.items);
+    final words = GeneratedWords(
+      r.participant(host, vocabularies: [WordSet.open('bench')]),
+    );
+    final s = words.state(BenchState.items).define();
+    final reader = words.stateOf(BenchState.items);
     var a = makeItems(n);
     var b = makeItems(n);
     final ops = opsFor(n);
@@ -206,7 +211,7 @@ Future<void> main() async {
     row(
       'read',
       measure(ops, (_) => sink = state.value),
-      measure(ops, (_) => sink = reader.read()),
+      measure(ops, (_) => sink = reader.value),
     );
     if (sink == null) print('');
   }
@@ -215,17 +220,16 @@ Future<void> main() async {
   {
     final command = LocalCommand<Toggle, bool>()..serve((p) => p.done);
     final r = Registry(onError: (e, _) => throw e);
-    r
+    GeneratedWords(r.participant(host, vocabularies: [WordSet.open('bench')]))
         .command(BenchCommand.toggle)
-        .define((c) => c.params.done, callers: Callers.only(['user']));
-    final cmd = r.command(BenchCommand.toggle);
+        .serve((params) => params.done, callers: Callers.only(['user']));
+    final cmd = GeneratedWords(
+      r.participant(user),
+    ).command(BenchCommand.toggle);
     row(
       'call',
       await measureAsync(50000, (i) => command.call((id: 'a', done: i.isEven))),
-      await measureAsync(
-        50000,
-        (i) => cmd.call((id: 'a', done: i.isEven), by: user),
-      ),
+      await measureAsync(50000, (i) => cmd.call((id: 'a', done: i.isEven))),
     );
   }
 
