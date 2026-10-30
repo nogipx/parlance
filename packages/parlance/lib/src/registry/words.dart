@@ -175,7 +175,7 @@ extension QueryAnswers<P, R> on IQueryWord<P, R> {
   /// Its descriptor, with [askers] who may ask (SPEC §6.6).
   QueryDescriptor describeWith({
     required Callers askers,
-    Duration deadline = const Duration(seconds: 30),
+    Duration deadline = defaultDeadline,
     Map<String, Object?> meta = const {},
   }) => QueryDescriptor(
     name,

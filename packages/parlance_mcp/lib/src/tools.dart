@@ -351,6 +351,10 @@ McpResult _answer(CallResult<Object?> r, String id) => switch (r) {
     'why; call again with id "$id" to learn how it ended (it does not run '
     'twice).',
   ),
+  CallCancelled() => McpResult.error(
+    'cancelled by its caller; it may still happen. Call again with id '
+    '"$id" to learn how it ended (it does not run twice).',
+  ),
   CallLost(:final how) => McpResult.error(
     'no answer came back ($how): whether it ran is unknown. Call again '
     'with id "$id": it runs at most once.',

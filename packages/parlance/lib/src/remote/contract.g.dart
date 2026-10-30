@@ -436,11 +436,14 @@ class ParlanceOwnerContractNames {
   static String instance(String suffix) => '$service\_$suffix';
   static const serve = 'serve';
   static const judge = 'judge';
+  static const expire = 'expire';
 }
 
 class ParlanceOwnerContractCodecs {
   const ParlanceOwnerContractCodecs._();
+  static const codecRpcNull = RpcCodec<RpcNull>(RpcNull.fromJson);
   static const codecWireJson = RpcCodec<WireJson>(WireJson.fromJson);
+  static const codecWireName = RpcCodec<WireName>(WireName.fromJson);
   static const codecWireServe = RpcCodec<WireServe>(WireServe.fromJson);
   static const codecWireServed = RpcCodec<WireServed>(WireServed.fromJson);
 }
@@ -472,6 +475,12 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
       requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
       responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
     );
+    addUnaryMethod<WireName, RpcNull>(
+      methodName: ParlanceOwnerContractNames.expire,
+      handler: onExpire,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireName,
+      responseCodec: ParlanceOwnerContractCodecs.codecRpcNull,
+    );
   }
 
   @override
@@ -496,9 +505,22 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
     );
   }
 
+  @override
+  Future<RpcNull> expire(WireName request, {RpcContext? context}) {
+    return callUnary<WireName, RpcNull>(
+      methodName: ParlanceOwnerContractNames.expire,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireName,
+      responseCodec: ParlanceOwnerContractCodecs.codecRpcNull,
+      request: request,
+      context: context,
+    );
+  }
+
   Future<WireServed> onServe(WireServe request, {RpcContext? context});
 
   Future<WireJson> onJudge(WireJson request, {RpcContext? context});
+
+  Future<RpcNull> onExpire(WireName request, {RpcContext? context});
 }
 
 class ParlanceOwnerContractPeerCaller extends RpcPeerContract
@@ -534,6 +556,17 @@ class ParlanceOwnerContractPeerCaller extends RpcPeerContract
       methodName: ParlanceOwnerContractNames.judge,
       requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
       responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<RpcNull> expire(WireName request, {RpcContext? context}) {
+    return callUnary<WireName, RpcNull>(
+      methodName: ParlanceOwnerContractNames.expire,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireName,
+      responseCodec: ParlanceOwnerContractCodecs.codecRpcNull,
       request: request,
       context: context,
     );

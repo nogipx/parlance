@@ -135,8 +135,9 @@ abstract interface class IKittensClient {
   /// kittens.lamp: its value now, and its changes.
   IStateOf<bool> get lamp;
 
-  /// Calls kittens.turn; a call not done throws [CallNotDone].
-  Future<void> turn({required bool on});
+  /// Calls kittens.turn; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> turn({required bool on, CancellationToken? cancel});
 
   /// kittens.purred: what it says from now on, and its messages.
   IFactOf<KittensPurred> get purred;
@@ -174,8 +175,10 @@ final class _$KittensClient implements IKittensClient {
   IStateOf<bool> get lamp => _$words.stateOf(KittensState.lamp);
 
   @override
-  Future<void> turn({required bool on}) async {
-    final r = await _$words.command(KittensCommand.turn).call((on: on));
+  Future<void> turn({required bool on, CancellationToken? cancel}) async {
+    final r = await _$words.command(KittensCommand.turn).call((
+      on: on,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

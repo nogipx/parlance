@@ -155,4 +155,10 @@ final class _Served extends ParlanceOwnerContractPeer {
   @override
   Future<WireJson> onJudge(WireJson request, {RpcContext? context}) async =>
       _p._judge(request.json);
+
+  @override
+  Future<RpcNull> onExpire(WireName request, {RpcContext? context}) async {
+    _p._expire(request.name);
+    return const RpcNull();
+  }
 }

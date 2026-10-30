@@ -241,12 +241,16 @@ abstract interface class IRawParticipant
 
   /// Calls [command] as [who]. A handler's nested call passes [cause]
   /// (`call.causeFor(who)`), so it follows from the call being served.
+  /// When [cancel] is cancelled first, it answers `cancelled`
+  /// ([CallCancelled]): not run if its handler had not begun, its handler
+  /// told (`expired`) if it had.
   @override
   Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   });
 
   /// [call] with [params] as [shape] has them (SPEC §18).
@@ -257,6 +261,7 @@ abstract interface class IRawParticipant
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   });
 
   /// Defines a state of its own, with [who] its only writer; readers
@@ -590,7 +595,7 @@ final class GeneratedCommand<P, R> {
   IHandle serve(
     FutureOr<R> Function(P params) handler, {
     Callers? callers,
-    Duration deadline = const Duration(seconds: 30),
+    Duration deadline = defaultDeadline,
     Map<String, Object?> meta = const {},
     String? Function()? whyNot,
   }) => _p.defineCommand(
@@ -609,9 +614,15 @@ final class GeneratedCommand<P, R> {
   );
 
   /// Calls it with [params] as the participant, under [id] when given (a
-  /// retry with the same id runs once).
-  Future<CallResult<R>> call(P params, {String? id}) async =>
-      _word.answer(await _p.callAs(_word.name, params, _word.params, id: id));
+  /// retry with the same id runs once). When [cancel] is cancelled first,
+  /// it answers `cancelled` ([CallCancelled]).
+  Future<CallResult<R>> call(
+    P params, {
+    String? id,
+    CancellationToken? cancel,
+  }) async => _word.answer(
+    await _p.callAs(_word.name, params, _word.params, id: id, cancel: cancel),
+  );
 }
 
 /// A query as the generated owner base serves it and its client asks it
@@ -629,7 +640,7 @@ final class GeneratedQuery<P, R> {
   IHandle serve(
     FutureOr<R> Function(P params) handler, {
     Callers? askers,
-    Duration deadline = const Duration(seconds: 30),
+    Duration deadline = defaultDeadline,
     Map<String, Object?> meta = const {},
     String? Function()? whyNot,
   }) => _p.defineQuery(
@@ -644,7 +655,11 @@ final class GeneratedQuery<P, R> {
     returns: _word.returns,
   );
 
-  /// Asks it as the participant; asking again asks again.
-  Future<CallResult<R>> ask(P params) async =>
-      _word.answer(await _p.callAs(_word.name, params, _word.params));
+  /// Asks it as the participant; asking again asks again. When [cancel]
+  /// is cancelled first, it answers `cancelled` ([CallCancelled]): a query
+  /// changes nothing, so nothing of it stands.
+  Future<CallResult<R>> ask(P params, {CancellationToken? cancel}) async =>
+      _word.answer(
+        await _p.callAs(_word.name, params, _word.params, cancel: cancel),
+      );
 }

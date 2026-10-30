@@ -3,7 +3,7 @@ part of 'session.dart';
 /// One feed of a session ([RemoteSession.onFeed]): the registry's feed as
 /// the session follows it, handed to the connection as fast as it takes it.
 /// It applies backpressure, so a slow client pauses it: what waits is held,
-/// and ticks held past the session's `feedBacklog` are dropped.
+/// and ticks held past the session's `SessionLimits.backlog` are dropped.
 final class _Feed {
   _Feed(this._s, WireFeedRequest request)
     : _last = request.since,
@@ -53,6 +53,10 @@ final class _Feed {
   bool _behind = false;
   bool _factsDropped = false;
 
+  /// A subscription's values went with what it held: it follows again from
+  /// a snapshot, which has every state it carries.
+  bool _valuesDropped = false;
+
   Registry get _registry => _s.registry;
 
   void _listen() {
@@ -75,9 +79,11 @@ final class _Feed {
     }
   }
 
-  /// Too far behind: what it holds of ticks goes, the rest stays (the
-  /// catalog last told, a subscription's values), and the feed follows
-  /// again from the last seq sent once the client takes more.
+  /// Too far behind: what it holds of ticks and values goes, the rest
+  /// stays (the catalog last told, what cannot run), and the feed follows
+  /// again once the client takes more: from the last seq sent, or, values
+  /// gone, from a snapshot. What it holds stays within the backlog, however
+  /// often the part across subscribes.
   void _drop() {
     _factsDropped |= _held.any(
       (i) =>
@@ -91,10 +97,9 @@ final class _Feed {
       'kind' => 'kind ${i.$1.json['name']}',
       _ => null,
     };
+    _valuesDropped |= _held.any((i) => i.$1.kind == 'values');
     final lastOf = {for (final i in _held) ?last(i): i};
-    _held.retainWhere(
-      (i) => i.$1.kind == 'values' || (last(i) != null && lastOf[last(i)] == i),
-    );
+    _held.retainWhere((i) => last(i) != null && lastOf[last(i)] == i);
     if (!_behind) {
       _behind = true;
       unawaited(_items?.cancel());
@@ -105,7 +110,7 @@ final class _Feed {
   void send(WireFeedItem item, [int? seq]) {
     if (!out.isPaused && _held.isEmpty) return _hand((item, seq));
     _held.add((item, seq));
-    if (_held.length > _s.feedBacklog) _drop();
+    if (_s.limits.backlog case final max? when _held.length > max) _drop();
   }
 
   /// Tells the client, by an empty tick, that the ticks it was not sent
@@ -139,6 +144,11 @@ final class _Feed {
     }
     if (_held.isEmpty && _behind && !out.isPaused) {
       _behind = false;
+      if (_valuesDropped) {
+        _valuesDropped = false;
+        _sent = null;
+        _sentEpoch = null;
+      }
       _last = _sent;
       _follow();
     }
@@ -212,9 +222,10 @@ final class _Feed {
     await _catalog?.cancel();
   }
 
-  /// The session ended: nothing more goes to it.
-  Future<void> end() async {
+  /// The session ended: [last] goes, what it held does not, nothing after.
+  Future<void> end([WireFeedItem? last]) async {
     await _stop();
+    if (last != null) out.add(last);
     await out.close();
   }
 }

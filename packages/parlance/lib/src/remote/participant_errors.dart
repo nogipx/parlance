@@ -104,7 +104,8 @@ enum ParticipantErrorCode {
   /// The host could not do it now.
   unavailable,
 
-  /// No answer came: the connection broke, or gave up.
+  /// No answer came: the connection broke, or gave up; or the host ended
+  /// its session (`{op: join}`), and it does not join again.
   lost,
 
   /// Facts said while away were dropped, past those it keeps.

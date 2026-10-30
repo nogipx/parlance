@@ -75,8 +75,7 @@ void main() {
               'the vocabulary player',
             ),
             contains(
-              'host.participant(player, '
-              'vocabularies: [playerWords]).serve(endpoint)',
+              'host.serve(player, endpoint, vocabularies: [playerWords])',
             ),
           ),
         ),

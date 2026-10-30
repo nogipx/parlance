@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance_mcp/parlance_mcp.dart';
-import 'package:parlance/app.dart' show ServeAcross;
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
@@ -366,7 +365,7 @@ void main() {
       final (client, server) = RpcChannelTransport.memoryPair();
       responder = RpcPeerEndpoint(transport: server);
       // What the session keeps is the tools' to see.
-      session = f.host.participant(agent).raw.serve(responder) as RemoteSession;
+      session = f.host.serve(agent, responder) as RemoteSession;
       responder.start();
       connection = RpcClientConnection(
         transportFactory: (_) async => client,
@@ -377,7 +376,7 @@ void main() {
     });
     tearDown(() async {
       await c.close();
-      await p.close();
+      await p.dispose();
       await connection.dispose();
       session.dispose();
       await responder.close();

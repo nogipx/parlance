@@ -152,7 +152,7 @@ void main() {
       p.sync();
       await p.flush();
       expect(r.read('kittens.lamp'), true);
-      await p.close();
+      await p.dispose();
       expect(r.stateDescriptor('kittens.lamp'), isNull);
     },
   );
@@ -452,7 +452,7 @@ void main() {
     final done = await r.call('kittens.turn', {'on': true}, by: crew);
     expect(done.ok, isTrue, reason: '$done');
     expect(lamps.lit, isTrue);
-    await p.close();
+    await p.dispose();
     expect(identical(p.endpoint, guest), isTrue);
     s.dispose();
     await guest.close();
@@ -503,7 +503,9 @@ void main() {
       'the session carries everything instead', () async {
     final (c, srv) = RpcChannelTransport.memoryPair();
     final h = RpcPeerEndpoint(transport: srv);
-    final s = r.participant(kittens).serve(h, maxSubscription: 3);
+    final s = r
+        .participant(kittens)
+        .serve(h, limits: const SessionLimits(subscription: 3));
     h.start();
     final connection = RpcClientConnection(
       transportFactory: (_) async => c,
@@ -526,7 +528,7 @@ void main() {
     for (final w in watching) {
       await w.cancel();
     }
-    await p.close();
+    await p.dispose();
     await connection.dispose();
     s.dispose();
     await h.close();
@@ -669,7 +671,7 @@ void main() {
     p.attach([Lamps()]);
     await p.flush();
     expect(r.commandDescriptor('kittens.turn'), isNotNull);
-    await p.close();
+    await p.dispose();
     expect(r.commandDescriptor('kittens.turn'), isNull);
     expect(r.stateDescriptor('kittens.lamp'), isNull);
   });
@@ -747,7 +749,7 @@ void main() {
     expect(errors.single.code, ParticipantErrorCode.dropped);
     expect(errors.single.why, contains('1 facts'));
 
-    await p.close();
+    await p.dispose();
     await connection.dispose();
     for (final s in sessions) {
       s.dispose();
@@ -806,7 +808,7 @@ void main() {
     expect(served.ok, isTrue, reason: '$served');
     expect(lamps.lit, isFalse, reason: 'served over the new connection');
 
-    await p.close();
+    await p.dispose();
     await connection.dispose();
     for (final s in sessions) {
       s.dispose();

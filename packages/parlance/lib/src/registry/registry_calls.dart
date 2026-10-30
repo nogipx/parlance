@@ -88,10 +88,12 @@ final class CommandCall {
 
   Principal get by => cause.by;
 
-  /// Completes when the deadline passes: the caller was answered
-  /// `timedOut`. What the handler does after still stands (and its end is
-  /// recorded as late), so a handler that can stop stops here.
-  final Future<void> expired;
+  /// Cancelled when the deadline passes or the caller cancels: it was
+  /// answered `timedOut` or `cancelled`. What the handler does after still
+  /// stands (and its end is recorded as late), so a handler that can stop
+  /// stops here (`expired.isCancelled`), and gives it on as `cancel:` to
+  /// what it calls in turn.
+  final CancellationToken expired;
 
   /// The cause of what the handler does on behalf of [by]: nested calls
   /// and writes. Its parent is this call.

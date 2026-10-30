@@ -170,7 +170,7 @@ void main() {
         b.raw.builtAgainst(Built.values);
         await settled(b);
         if (b is RemoteParticipant) {
-          await b.close();
+          await b.dispose();
         } else {
           b.dispose();
         }
@@ -303,7 +303,7 @@ void main() {
     }
     expect(r.mismatches, [const Mismatch(guest, 'deck.volume', higher)]);
 
-    await p.close();
+    await p.dispose();
     await connection.dispose();
     for (final s in sessions) {
       s.dispose();

@@ -25,6 +25,7 @@ export 'src/participant/participant.dart'
         GeneratedFact;
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
+export 'src/registry/cancellation.dart';
 export 'src/registry/descriptors.dart' show Callers, Access, Choice;
 export 'src/registry/messages.dart'
     show
@@ -33,6 +34,7 @@ export 'src/registry/messages.dart'
         CallRefused,
         CallFailed,
         CallTimedOut,
+        CallCancelled,
         CallLost,
         Refusal,
         WordStatus,

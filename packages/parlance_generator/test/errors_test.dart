@@ -51,6 +51,10 @@ $body
       '@StateWord("total") double get total;',
       'num or int, not double',
     ),
+    'a param named cancel': (
+      '@CommandWord("go") void go({required bool cancel});',
+      'names a param cancel',
+    ),
     'positional params of a command': (
       '@CommandWord("cancel") void cancel(String id);',
       'params are named parameters',

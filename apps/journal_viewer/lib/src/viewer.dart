@@ -239,12 +239,13 @@ final class Viewer extends ChangeNotifier {
 }
 
 /// How a call ended, in one word: `done`, `refused`, `failed`, `timedOut`,
-/// `lost`; null while it runs.
+/// `cancelled`, `lost`; null while it runs.
 String? outcomeOf(JournalNode n) => switch (n.end?.call.result) {
   null => null,
   CallDone() => n.end!.call.late ? 'late' : 'done',
   CallRefused() => 'refused',
   CallFailed() => 'failed',
   CallTimedOut() => 'timedOut',
+  CallCancelled() => 'cancelled',
   CallLost() => 'lost',
 };

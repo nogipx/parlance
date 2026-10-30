@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
-import 'package:parlance/app.dart' show ServeAcross;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
@@ -154,7 +153,9 @@ void main() {
   test('a participant of owners here is not served across a connection', () {
     final (_, h) = RpcChannelTransport.memoryPair();
     expect(
-      () => module([Dials()]).serve(RpcPeerEndpoint(transport: h)),
+      () => r
+          .participant(me, owners: [Dials()])
+          .serve(RpcPeerEndpoint(transport: h)),
       throwsA(
         isA<StateError>().having(
           (e) => e.message,

@@ -98,6 +98,6 @@
 
 - У `IParticipant` нет ни чтения и вызовов по имени, ни типизированных слов: часть пользуется клиентом `I<Class>Client(participant)`, владелец — своей базой. Сгенерированный код обращается к словам через одну дверь, `GeneratedWords(participant)` (для клиента владельца `GeneratedWords.of(owner)`) в `schema.dart`.
 - Ручного `Owner` нет: тесты пакета пишут владельцев на сгенерированных базах, у каждого владельца есть словарь. `StateWordOf` ушёл из `schema.dart` в инструменты.
-- `host.serve` убран: участник всегда `host.participant(...)`, с владельцами (`owners:`) здесь или `.serve(endpoint)` через соединение. `TestHost` построен на `Host`, его гости входят через `Host.join`.
+- Участник здесь — `host.participant(who, owners: [...])`, гость через соединение — `host.serve(who, endpoint, vocabularies: [...])` (2026-10-30, после ревью абстракций: прежнее `host.participant(...).serve(endpoint)` проверяло во время работы то, что тип мог запретить, — владельцев здесь и участника, который уже что-то сделал). `TestHost` построен на `Host`, его гости входят через `Host.join`.
 - `OwnerTools.guardAll(id, (command, by) => why)` — правило владельца на все команды его участника, без сырого `addGuard`.
 - Библиотеки: `schema.dart` и `app.dart` (заморожены), `testing.dart`, и одна незамороженная `tools.dart` вместо `registry`, `participant`, `remote` и `view`.

@@ -43,7 +43,7 @@ void main() {
           ),
           returnsNormally,
         );
-        await p.close();
+        await p.dispose();
         await host.close();
       },
     );

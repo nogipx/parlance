@@ -1,5 +1,5 @@
 import 'package:parlance/app.dart';
-import 'package:parlance/tools.dart' show RawAccess;
+import 'package:parlance/tools.dart' show HostRegistry, RawAccess;
 import 'package:test/test.dart';
 
 import 'fixtures/clock.dart';

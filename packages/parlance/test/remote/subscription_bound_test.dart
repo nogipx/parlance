@@ -37,13 +37,13 @@ void main() {
     return r;
   }
 
-  /// The guest's end of a session of [r], served with [maxSubscription].
-  RpcPeerEndpoint serve(Registry r, {int maxSubscription = 4096}) {
+  /// The guest's end of a session of [r], served with [subscription].
+  RpcPeerEndpoint serve(Registry r, {int subscription = 4096}) {
     final (g, h) = RpcChannelTransport.pair();
     final host = RpcPeerEndpoint(transport: h);
     r
         .participant(const Principal('widlet', 'b'))
-        .serve(host, maxSubscription: maxSubscription);
+        .serve(host, limits: SessionLimits(subscription: subscription));
     host.start();
     final own = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([host, own]);
@@ -53,9 +53,7 @@ void main() {
   test('asked past its bound, a session carries everything, and the '
       'participant says so', () async {
     final r = deckOf(['deck.s1', 'deck.s2', 'deck.s3']);
-    final p = await RemoteParticipant.joinEndpoint(
-      serve(r, maxSubscription: 2),
-    );
+    final p = await RemoteParticipant.joinEndpoint(serve(r, subscription: 2));
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
     expect(await p.fetch('deck.s1'), {null: 1});
@@ -67,7 +65,7 @@ void main() {
     expect(errors.single.op['op'], 'subscribe');
     await s2.cancel();
     await s3.cancel();
-    await p.close();
+    await p.dispose();
   });
 
   test(
@@ -125,7 +123,7 @@ void main() {
       await pumpEventQueue();
       expect(asked - before, 1, reason: 'three feeds, one answer');
       for (final g in guests) {
-        await g.close();
+        await g.dispose();
       }
     },
   );

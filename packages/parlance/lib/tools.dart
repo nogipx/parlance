@@ -12,6 +12,7 @@
 /// remote.md, view.md).
 library;
 
+export 'src/host.dart' show HostRegistry;
 export 'src/registry/cause.dart' show Principal, Cause, Origin;
 export 'src/registry/compat.dart'
     show
@@ -47,6 +48,8 @@ export 'src/participant/local.dart'
         Participants,
         registryOf,
         takeForServing,
+        mayServe,
+        EndSession,
         builtAgainstSchemas,
         forgetBuiltAgainst;
 export 'src/participant/owner.dart' hide OwnerGroup;

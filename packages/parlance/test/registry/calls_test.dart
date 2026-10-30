@@ -236,7 +236,7 @@ void main() {
           deadline: const Duration(seconds: 1),
         ),
         (c) async {
-          unawaited(c.expired.then((_) => told = true));
+          unawaited(c.expired.whenCancelled.then((_) => told = true));
           await Future<void>.delayed(const Duration(seconds: 3));
           w.set(true, cause: c.causeFor(owner));
         },

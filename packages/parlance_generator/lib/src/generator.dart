@@ -640,19 +640,33 @@ final class _Emitter {
       for (final c in words) {
         member(c.member, c);
         final ps = (c.element as MethodElement).formalParameters;
-        final signature = ps.isEmpty ? '' : '{${ps.map(_param).join(', ')}}';
+        // Each call takes its own token: the name is the library's.
+        for (final p in ps) {
+          if (p.displayName == 'cancel') {
+            throw InvalidGenerationSourceError(
+              '${c.member} names a param cancel, the name its client\'s '
+              'methods take a CancellationToken by: name it otherwise',
+              element: p,
+            );
+          }
+        }
+        final signature =
+            '{${[...ps.map(_param), 'CancellationToken? cancel'].join(', ')}}';
         final record = _recordOf(ps);
         final how = kind == 'Command' ? 'command' : 'query';
         final act = kind == 'Command' ? 'call' : 'ask';
         all.add((
           docs: [
             '${kind == 'Command' ? 'Calls' : 'Asks'} ${c.name}; a call not '
-                'done throws [CallNotDone].',
+                'done throws [CallNotDone]. [cancel] cancels this call:',
+            'once cancelled, it throws [CallNotDone] of `CallCancelled`.',
           ],
           signature: 'Future<${c.returns}> ${c.member}($signature)',
           body:
               'async {\n'
-              '    final r = await _\$words.$how($_c$kind.${c.member}).$act($record);\n'
+              '    final r = await _\$words\n'
+              '        .$how($_c$kind.${c.member})\n'
+              '        .$act($record, cancel: cancel);\n'
               '    if (r case CallDone(:final value)) return value;\n'
               '    throw CallNotDone(r);\n'
               '  }',
@@ -705,18 +719,25 @@ final class _Emitter {
       ..writeln('/// a connection. Made, it tells the registry the code was')
       ..writeln('/// built against them, for it to say where one is defined')
       ..writeln('/// otherwise (SPEC §6.9).')
-      ..writeln('final class _\$${_c}Client implements I${_c}Client {')
-      ..writeln('  _\$${_c}Client(IParticipant participant)')
-      ..writeln('    : _\$words = GeneratedWords(participant) {')
-      ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
-      ..writeln('  }')
-      ..writeln()
-      ..writeln('  _\$${_c}Client._of(IOwner owner)')
-      ..writeln('    : _\$words = GeneratedWords.of(owner) {')
-      ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
-      ..writeln('  }')
-      ..writeln()
-      ..writeln('  final GeneratedWords _\$words;');
+      ..writeln('final class _\$${_c}Client implements I${_c}Client {');
+    for (final (name, param, words) in [
+      (
+        '_\$${_c}Client',
+        'IParticipant participant',
+        'GeneratedWords(participant)',
+      ),
+      ('_\$${_c}Client._of', 'IOwner owner', 'GeneratedWords.of(owner)'),
+    ]) {
+      out
+        ..writeln('  $name($param)')
+        ..writeln('    : _\$words = $words {')
+        ..writeln(
+          '    _\$words.builtAgainst($_words.words, from: $_words.from);',
+        )
+        ..writeln('  }')
+        ..writeln();
+    }
+    out.writeln('  final GeneratedWords _\$words;');
     for (final m in all) {
       out
         ..writeln()

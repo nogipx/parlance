@@ -71,6 +71,13 @@ final class RemoteUnavailable extends RemoteFeed {
   final Map<String, String> unavailable;
 }
 
+/// The host ended the session, the connection still up ([why]): the last
+/// item of its feed. The part across does not join again.
+final class RemoteEnded extends RemoteFeed {
+  const RemoteEnded(this.why);
+  final String why;
+}
+
 /// The session subscribed ([ParlanceClient.subscribe]): the values of the
 /// states its feed carries now and did not, and which it carries ([keep];
 /// null for all). The ticks after keep them.
@@ -152,6 +159,7 @@ final class ParlanceClient {
       Map<String, String>.from(i.json['unavailable']! as Map),
     ),
     'tick' => RemoteTick(Tick.fromJson(i.json)),
+    'ended' => RemoteEnded(i.json['why'] as String? ?? ''),
     // An item of a newer protocol this client does not know.
     _ => null,
   };
@@ -221,6 +229,11 @@ final class ParlanceClient {
         seq: reply.seq,
       );
     } on Object catch (e) {
+      // Its caller cancelled it: the host's registry was told, and answers
+      // a retry with the id how it ended.
+      if (context?.isCancelled ?? false) {
+        return (result: const CallCancelled(), epoch: null, seq: null);
+      }
       if (e is RpcStatusException && answeredBySession(e.statusCode)) {
         // The session answered, and not with a result: it refused what was
         // asked of it (a part that is not its own), or failed itself.

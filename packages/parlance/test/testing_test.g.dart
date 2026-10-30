@@ -187,8 +187,9 @@ abstract interface class IHeaterClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory IHeaterClient.of(IOwner owner) = _$HeaterClient._of;
 
-  /// Calls heater.set_power; a call not done throws [CallNotDone].
-  Future<void> setPower({required bool on});
+  /// Calls heater.set_power; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> setPower({required bool on, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -220,8 +221,10 @@ final class _$HeaterClient implements IHeaterClient {
   final GeneratedWords _$words;
 
   @override
-  Future<void> setPower({required bool on}) async {
-    final r = await _$words.command(HeaterCommand.setPower).call((on: on));
+  Future<void> setPower({required bool on, CancellationToken? cancel}) async {
+    final r = await _$words.command(HeaterCommand.setPower).call((
+      on: on,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

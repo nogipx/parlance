@@ -18,7 +18,9 @@ void main() {
     r = Registry(limits: HostLimits(retainTicks: retainTicks));
     final (_, s) = RpcChannelTransport.memoryPair();
     endpoint = RpcPeerEndpoint(transport: s);
-    session = r.participant(visitor).serve(endpoint, feedBacklog: 4);
+    session = r
+        .participant(visitor)
+        .serve(endpoint, limits: const SessionLimits(backlog: 4));
   }
 
   tearDown(() async {
@@ -103,4 +105,36 @@ void main() {
       reason: 'what it held past its backlog went',
     );
   });
+
+  test(
+    'a client subscribing again and again while it takes nothing holds '
+    'no more than its backlog, and gets what it carries from a snapshot',
+    () async {
+      await open(retainTicks: 1000);
+      final p = r.participant(host, vocabularies: [WordSet.open('box')]);
+      for (final n in ['a', 'b']) {
+        p
+            .defineState(
+              StateDescriptor(
+                'box.$n',
+                type: const IntType(),
+                readers: Callers.anyone,
+              ),
+            )
+            .set(1);
+      }
+      final got = await slowly(() async {
+        for (var i = 0; i < 50; i++) {
+          await session.onSubscribe(
+            WireSubscribe(states: [i.isEven ? 'box.a' : 'box.b']),
+          );
+        }
+      });
+      expect(got.where((i) => i.kind == 'values').length, lessThanOrEqualTo(4));
+      final last = Snapshot.fromJson(
+        got.lastWhere((i) => i.kind == 'snapshot').json,
+      );
+      expect(last.states.keys, ['box.b'], reason: 'the last subscription');
+    },
+  );
 }

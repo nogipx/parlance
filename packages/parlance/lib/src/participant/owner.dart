@@ -151,8 +151,8 @@ final class _Core {
       '${w.name}, but the host did not grant its participant $whole that '
       'vocabulary (it has ${given.isEmpty ? 'none' : given.join(', ')}). '
       'The host grants it where it serves the participant: '
-      'host.participant($whole, vocabularies: '
-      '[${w.dartName ?? 'the WordSet of ${w.name}'}]).serve(endpoint)',
+      'host.serve($whole, endpoint, vocabularies: '
+      '[${w.dartName ?? 'the WordSet of ${w.name}'}])',
     );
   }
 
@@ -289,6 +289,15 @@ extension OwnerTools on IOwner {
   /// Who it answers where this runs: on whose behalf the call its handler
   /// serves came, or the fact it [hear]s; null where it answers nothing.
   Principal? get by => answering;
+
+  /// The token of the call its handler serves, where this runs: cancelled
+  /// when the call expired (its caller cancelled it, or its deadline
+  /// passed). Its caller was answered then; what the handler does after
+  /// still stands, so one that can stop stops here (`expired!.isCancelled`).
+  /// Given on as `cancel:`, what it calls in turn ends with its call; its
+  /// own `cancel()` cancels those, never its caller's call. Null where it
+  /// serves no call (a fact it hears, its own act).
+  CancellationToken? get expired => answerExpired;
 
   /// Runs [act] as the owner's own act, not an answer: what it writes,
   /// says and calls there, and in a timer it starts there, follows from

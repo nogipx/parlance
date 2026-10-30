@@ -13,7 +13,7 @@ How widlet guests (Dart, compiled to WASM) and their host share words: every gue
 What it shows (`fvm dart run bin/demo.dart` and `fvm dart test` in `host`):
 
 1. **Typed across guests.** The board pins a note: the notes guest stores it, the board shows it (it watches `notes.all`) and hears `notes.added`, the app toasts. JSON goes on the wire; both ends have types.
-2. **The host sees it all.** `explain('notes.all')` on the host's registry (`host.registry`): the notes guest's part wrote it, following the board's call.
+2. **The host sees it all.** `explain('notes.all')` on the host's registry (`host.registry`, from `tools.dart`): the notes guest's part wrote it, following the board's call.
 3. **A guest of another version.** A notes guest that defines `notes.add` and `notes.all` otherwise: the board is told every difference at once (`WordMismatch`, §6.5), before it calls or reads.
 4. **Guests come and go.** Started in any order; a guest unloaded takes its words, the board sees them missing; one loaded again brings them back.
 5. **Boundaries.** A guest defines in its own vocabulary only; the board's and the notes guest's pubspecs name no other guest.

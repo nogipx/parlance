@@ -186,17 +186,29 @@ abstract interface class IBoardClient {
   /// note.anything: its value now, and its changes.
   IStateOf<Object?> get anything;
 
-  /// Calls note.put; a call not done throws [CallNotDone].
-  Future<({String id})> put({String? id, required Note note});
+  /// Calls note.put; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<({String id})> put({
+    String? id,
+    required Note note,
+    CancellationToken? cancel,
+  });
 
-  /// Calls note.expire; a call not done throws [CallNotDone].
-  Future<void> expire({required String id, required Duration after});
+  /// Calls note.expire; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> expire({
+    required String id,
+    required Duration after,
+    CancellationToken? cancel,
+  });
 
-  /// Calls note.pin; a call not done throws [CallNotDone].
-  Future<void> pin({required List<String> ids});
+  /// Calls note.pin; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> pin({required List<String> ids, CancellationToken? cancel});
 
-  /// Calls note.count; a call not done throws [CallNotDone].
-  Future<void> count({required int? readers});
+  /// Calls note.count; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> count({required int? readers, CancellationToken? cancel});
 
   /// note.seen: what it says from now on, and its messages.
   IFactOf<Note> get seen;
@@ -237,37 +249,50 @@ final class _$BoardClient implements IBoardClient {
   IStateOf<Object?> get anything => _$words.stateOf(BoardState.anything);
 
   @override
-  Future<({String id})> put({String? id, required Note note}) async {
+  Future<({String id})> put({
+    String? id,
+    required Note note,
+    CancellationToken? cancel,
+  }) async {
     final r = await _$words.command(BoardCommand.put).call((
       id: id,
       note: note,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> expire({required String id, required Duration after}) async {
+  Future<void> expire({
+    required String id,
+    required Duration after,
+    CancellationToken? cancel,
+  }) async {
     final r = await _$words.command(BoardCommand.expire).call((
       id: id,
       after: after,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> pin({required List<String> ids}) async {
-    final r = await _$words.command(BoardCommand.pin).call((ids: ids));
+  Future<void> pin({
+    required List<String> ids,
+    CancellationToken? cancel,
+  }) async {
+    final r = await _$words.command(BoardCommand.pin).call((
+      ids: ids,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> count({required int? readers}) async {
+  Future<void> count({required int? readers, CancellationToken? cancel}) async {
     final r = await _$words.command(BoardCommand.count).call((
       readers: readers,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

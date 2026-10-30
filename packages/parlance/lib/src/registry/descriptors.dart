@@ -207,6 +207,9 @@ sealed class CallableDescriptor extends Descriptor {
   final Duration deadline;
 }
 
+/// How long a handler may take when its word does not say (SPEC §9).
+const defaultDeadline = Duration(seconds: 30);
+
 /// A request one handler serves (SPEC §6.2): it may change something.
 final class CommandDescriptor extends CallableDescriptor {
   CommandDescriptor(
@@ -214,7 +217,7 @@ final class CommandDescriptor extends CallableDescriptor {
     RecordType params = const RecordType({}),
     super.returns,
     required super.callers,
-    super.deadline = const Duration(seconds: 30),
+    super.deadline = defaultDeadline,
     Map<String, Object?> meta = const {},
   }) : super(name, meta, params: params);
 
@@ -224,7 +227,9 @@ final class CommandDescriptor extends CallableDescriptor {
         params: RecordType.fromJson(m['params']),
         returns: m['returns'] == null ? null : ValueType.fromJson(m['returns']),
         callers: Callers.fromJson(m['callers']),
-        deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
+        deadline: Duration(
+          milliseconds: m['deadline'] as int? ?? defaultDeadline.inMilliseconds,
+        ),
         meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
       );
 
@@ -248,7 +253,7 @@ final class QueryDescriptor extends CallableDescriptor {
     RecordType params = const RecordType({}),
     required ValueType<Object?> returns,
     required Callers askers,
-    Duration deadline = const Duration(seconds: 30),
+    Duration deadline = defaultDeadline,
     Map<String, Object?> meta = const {},
   }) : super(
          name,
@@ -264,7 +269,9 @@ final class QueryDescriptor extends CallableDescriptor {
     params: RecordType.fromJson(m['params']),
     returns: ValueType.fromJson(m['returns']),
     askers: Callers.fromJson(m['askers']),
-    deadline: Duration(milliseconds: m['deadline'] as int? ?? 30000),
+    deadline: Duration(
+      milliseconds: m['deadline'] as int? ?? defaultDeadline.inMilliseconds,
+    ),
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 

@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:parlance/app.dart' show Host, IRemoteSession, ServeAcross;
+import 'package:parlance/app.dart' show Host, IRemoteSession;
 import 'package:parlance/tools.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_socket/rpc_dart_socket.dart';
@@ -47,7 +47,7 @@ void main() {
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
         mode: RpcPeerMode((endpoint) {
-          final s = host.participant(agent).raw.serve(endpoint);
+          final s = host.serve(agent, endpoint);
           sessions.add(s);
         }),
       );
@@ -166,9 +166,7 @@ void main() {
           .timeout(const Duration(seconds: 30));
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
-        mode: RpcPeerMode(
-          (endpoint) => host.participant(agent).raw.serve(endpoint),
-        ),
+        mode: RpcPeerMode((endpoint) => host.serve(agent, endpoint)),
       );
       await server.start();
       addTearDown(server.stop);

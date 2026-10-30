@@ -13,48 +13,49 @@ import 'remote/session.dart';
 
 /// What a host's `main` makes (SPEC §22): the registry of its process,
 /// seen only as what `main` does with it. It makes the participants of the
-/// app's parts (served across a connection, `serve`), says the old names of
-/// words and the types the app adds, and ends it all.
+/// app's parts in this process ([participant]) and serves those across a
+/// connection ([serve]), says the old names of words, and ends it all.
 ///
 /// Frozen (`app.dart`): what it shows is never taken away; only the
 /// library makes one, so it may grow. The registry itself, for the
 /// library's tools (a journal, an agent's session, an inspector), is
-/// [registry], which promises nothing.
+/// `host.registry` in `package:parlance/tools.dart`, which promises
+/// nothing.
 final class Host {
   Host({
     Clock? clock,
     LogScope? log,
     void Function(Object error, StackTrace stack)? onError,
     HostLimits limits = const HostLimits(),
-  }) : registry = Registry(
+  }) : _registry = Registry(
          clock: clock,
          log: log,
          onError: onError,
          limits: limits,
        );
 
-  /// The registry underneath, for the library's tools: not frozen, what it
-  /// shows changes as the library does (`package:parlance/tools.dart`).
-  final Registry registry;
+  final Registry _registry;
 
-  /// A participant of a part of the app, speaking as [who] (SPEC §22),
-  /// its [owners] attached: each speaks as [who] of that owner, named by
-  /// its vocabulary (`home@house`), and owns that vocabulary's words, none
-  /// other's. It does what [rights] let it beyond, and its words name
-  /// [access]'s readers and callers when they name none. One participant
-  /// per principal: a second one of [who] is refused while the first
-  /// lives.
+  /// A participant of a part of the app in this process, speaking as
+  /// [who] (SPEC §22), its [owners] attached: each speaks as [who] of that
+  /// owner, named by its vocabulary (`home@house`), and owns that
+  /// vocabulary's words, none other's. [vocabularies] grants more, whose
+  /// words come at run time (`WordSet.open`). It does what [rights] let it
+  /// beyond, and its words name [access]'s readers and callers when they
+  /// name none.
   ///
-  /// A participant served across a connection ([ServeAcross.serve]) has
-  /// its owners at the other end: [vocabularies] grants the words they may
-  /// own there, since the host does not see them.
+  /// A vocabulary is one participant's: one another live participant has
+  /// is refused ([NotPermitted]), unless that one is a session of [who]
+  /// whose connection went unseen ([serve]): it ends, and this one takes
+  /// its place. Several participants may speak as one principal, each in
+  /// vocabularies of its own.
   IParticipant participant(
     Principal who, {
     Iterable<IOwner> owners = const [],
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
-  }) => registry.participant(
+  }) => _registry.participant(
     who,
     owners: owners,
     vocabularies: vocabularies,
@@ -62,19 +63,56 @@ final class Host {
     access: access,
   );
 
+  /// Serves a participant speaking as [who] to the part at the other end
+  /// of [endpoint], which joins ([join], [joinEndpoint]) (SPEC §14, §22.4):
+  /// it reads, calls and owns words as [who], and nothing more. Its owners
+  /// are at the other end, where the host does not see them: [vocabularies]
+  /// grants the words they may own. [rights] and [access] are as
+  /// [participant]'s; what it asks past [limits] is refused.
+  ///
+  /// The session ends when its connection goes, by its `dispose` (the part
+  /// across is told, and does not join again), or with the host. A session
+  /// of [who] in one of [vocabularies] whose connection went unseen (a
+  /// link half open) ends, and this one takes its place, as an MQTT broker
+  /// takes a client's over. One endpoint serves one session.
+  IRemoteSession serve(
+    Principal who,
+    RpcPeerEndpoint endpoint, {
+    Iterable<WordSet> vocabularies = const [],
+    ParticipantRights rights = ParticipantRights.none,
+    WordAccess access = WordAccess.none,
+    SessionLimits limits = const SessionLimits(),
+    LogScope? log,
+  }) {
+    final p = _registry.participant(
+      who,
+      vocabularies: vocabularies,
+      rights: rights,
+      access: access,
+    );
+    try {
+      return p.serve(endpoint, limits: limits, log: log);
+    } on Object {
+      p.dispose();
+      rethrow;
+    }
+  }
+
   /// Says [old] is a name of the word [to] (SPEC §6.4): what asks by the
   /// old name gets the word, until the handle is disposed.
-  IHandle alias(String old, String to) => registry.alias(old, to);
+  IHandle alias(String old, String to) => _registry.alias(old, to);
 
   /// Ends every participant and session, the last made first, and the
-  /// registry.
-  Future<void> dispose() => registry.dispose();
+  /// registry. The parts across are not told: their connections go with
+  /// the host, and they join the next one.
+  Future<void> dispose() => _registry.dispose();
 
   /// Joins a host across [connection], from another process (SPEC §22.4):
   /// the participant the host serves there, the same as one in the host's
   /// process ([IRemoteParticipant]), rejoining after a drop. [onParticipantError] is
   /// told what the host refused, as [IRemoteParticipant.errors] is;
   /// [requires] names the protocol's features it cannot work without.
+  /// [HostUnreachable] when the host gives it no view of the registry.
   static Future<IRemoteParticipant> join(
     RpcClientConnection connection, {
     void Function(ParticipantError error)? onParticipantError,
@@ -105,20 +143,8 @@ final class Host {
   );
 }
 
-/// A participant of a host served across a connection (SPEC §14, §22.4):
-/// the part at the other end, which joins ([Host.join]), speaks as it, with
-/// what it was given, and nothing more.
-extension ServeAcross on IParticipant {
-  /// Serves this participant across [endpoint]: the part there reads,
-  /// calls and owns words as it; what it asks past [limits] is refused.
-  /// The participant is the session's from then on, and goes with it. Only
-  /// a new participant of a host is served, and once ([StateError]).
-  IRemoteSession serve(
-    RpcPeerEndpoint endpoint, {
-    SessionLimits limits = const SessionLimits(),
-    LogScope? log,
-  }) => switch (this) {
-    final LocalParticipant p => p.serve(endpoint, limits: limits, log: log),
-    _ => throw StateError('$who is no participant of a host to serve'),
-  };
+/// The registry underneath a [Host], for the library's tools: not frozen,
+/// what it shows changes as the library does.
+extension HostRegistry on Host {
+  Registry get registry => _registry;
 }

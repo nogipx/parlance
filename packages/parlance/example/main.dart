@@ -12,7 +12,8 @@ import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/app.dart';
-import 'package:parlance/tools.dart' show JournalEntry, JournalFact;
+import 'package:parlance/tools.dart'
+    show HostRegistry, JournalEntry, JournalFact;
 
 import 'house/house.dart';
 import 'house/visit.dart';
@@ -201,7 +202,7 @@ final class Phone {
     final (c, s) = RpcChannelTransport.memoryPair();
     // The host decides who the connection is, when it accepts it.
     final host = RpcPeerEndpoint(transport: s);
-    final session = house.participant(principal).serve(host);
+    final session = house.serve(principal, host);
     host.start();
     // In memory the connection does not come back once lost; over a socket
     // the factory would dial again, and the phone would join again.
@@ -219,7 +220,7 @@ final class Phone {
   final RpcPeerEndpoint _host;
 
   Future<void> close() async {
-    part.dispose();
+    await part.dispose();
     await _connection.dispose();
     _session.dispose();
     await _host.close();

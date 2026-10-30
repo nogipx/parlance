@@ -94,8 +94,9 @@ abstract interface class INotesClient {
   /// notes.count: its value now, and its changes.
   IStateOf<int> get count;
 
-  /// Calls notes.add; a call not done throws [CallNotDone].
-  Future<void> add({required String text});
+  /// Calls notes.add; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> add({required String text, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -130,8 +131,10 @@ final class _$NotesClient implements INotesClient {
   IStateOf<int> get count => _$words.stateOf(NotesState.count);
 
   @override
-  Future<void> add({required String text}) async {
-    final r = await _$words.command(NotesCommand.add).call((text: text));
+  Future<void> add({required String text, CancellationToken? cancel}) async {
+    final r = await _$words.command(NotesCommand.add).call((
+      text: text,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

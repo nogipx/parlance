@@ -118,7 +118,7 @@ Future<void> calls(bool wire) async {
     'call, answered at once:    ${us(one, n)} each waited for, '
     '${us(sw.elapsedMicroseconds, n)} each of $n sent together',
   );
-  await g.close();
+  await g.dispose();
   await host.close();
 }
 
@@ -163,7 +163,7 @@ Future<void> writes(bool wire) async {
     'guest writes its own:      ${us(one, n)} each flushed, '
     '${us(many, keys)} each of $keys as they come',
   );
-  await g.close();
+  await g.dispose();
   await host.close();
 }
 
@@ -210,7 +210,7 @@ Future<void> fanOut(bool wire, int n) async {
     await s.cancel();
   }
   for (final g in guests) {
-    await g.close();
+    await g.dispose();
   }
   await host.close();
 }
@@ -277,7 +277,7 @@ Future<void> entities(
     await s.cancel();
   }
   for (final g in guests) {
-    await g.close();
+    await g.dispose();
   }
   await host.close();
 }

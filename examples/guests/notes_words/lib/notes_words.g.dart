@@ -128,8 +128,9 @@ abstract interface class INotesClient {
   /// notes.all: its value now, and its changes.
   IStateOf<List<Note>> get all;
 
-  /// Calls notes.add; a call not done throws [CallNotDone].
-  Future<void> add({required String text});
+  /// Calls notes.add; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> add({required String text, CancellationToken? cancel});
 
   /// notes.added: what it says from now on, and its messages.
   IFactOf<NotesAdded> get added;
@@ -167,8 +168,10 @@ final class _$NotesClient implements INotesClient {
   IStateOf<List<Note>> get all => _$words.stateOf(NotesState.all);
 
   @override
-  Future<void> add({required String text}) async {
-    final r = await _$words.command(NotesCommand.add).call((text: text));
+  Future<void> add({required String text, CancellationToken? cancel}) async {
+    final r = await _$words.command(NotesCommand.add).call((
+      text: text,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

@@ -485,14 +485,24 @@ extension RawRegistry on Registry {
   /// Calls [command] on behalf of [by] (SPEC §9). A repeated [id] within
   /// the dedup window answers the first call's result without running it
   /// again. A call made by a handler passes [cause]; without it,
-  /// the call starts a new chain.
+  /// the call starts a new chain. When [cancel] is cancelled first, the
+  /// call answers `cancelled` ([CallCancelled]); cancelled already, it does
+  /// not run.
   Future<CallResult<Object?>> call(
     String command,
     Map<String, Object?> params, {
     required Principal by,
     String? id,
     Cause? cause,
-  }) => callKept(command, Kept.json(params), by: by, id: id, cause: cause);
+    CancellationToken? cancel,
+  }) => callKept(
+    command,
+    Kept.json(params),
+    by: by,
+    id: id,
+    cause: cause,
+    cancel: cancel,
+  );
 
   /// [call] with [params] as their shape has them (SPEC §18): a command
   /// that keeps its params by that shape takes them as they are.
@@ -502,6 +512,7 @@ extension RawRegistry on Registry {
     required Principal by,
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   }) {
     final asked = command;
     command = canonical(command);
@@ -514,7 +525,14 @@ extension RawRegistry on Registry {
     if (!query) refuseInQuery('call $command');
     if (query) {
       // A query only answers: nothing to hold an id to, nothing to record.
-      return _run(callId, command, params, cause, record: false);
+      return _run(
+        callId,
+        command,
+        params,
+        cause,
+        record: false,
+        cancel: cancel,
+      );
     }
     final now = clock.now();
     _forget(_calls, (c) => c.at, now);
@@ -531,9 +549,10 @@ extension RawRegistry on Registry {
           ),
         );
       }
-      return seen.result;
+      // A retry stops waiting when it cancels; the first call goes on.
+      return _orCancelled(seen.result, cancel);
     }
-    final result = _run(callId, command, params, cause);
+    final result = _run(callId, command, params, cause, cancel: cancel);
     // Only an id the caller gave can be given again: one made here is
     // nobody's to retry with.
     if (id != null) {

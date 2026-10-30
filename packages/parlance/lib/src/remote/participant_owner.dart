@@ -74,7 +74,15 @@ final class _OfOwner implements IRawParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-  }) => _root._call(command, params, id: id, cause: cause, as: who);
+    CancellationToken? cancel,
+  }) => _root._call(
+    command,
+    params,
+    id: id,
+    cause: cause,
+    as: who,
+    cancel: cancel,
+  );
 
   @override
   Future<CallResult<Object?>> callAs(
@@ -83,11 +91,13 @@ final class _OfOwner implements IRawParticipant {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   }) => call(
     command,
     shape.toJson(params)! as Map<String, Object?>,
     id: id,
     cause: cause,
+    cancel: cancel,
   );
 
   @override

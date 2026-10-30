@@ -61,6 +61,12 @@ abstract interface class IRemoteParticipant implements IParticipant {
   /// What the host refused of what it asked, and words it was built
   /// against otherwise than the host has them (`mismatch`).
   Stream<ParticipantError> get errors;
+
+  /// Withdraws its owners and everything it defined at the host, then
+  /// closes: completes once it is closed, what it asked last answered (a
+  /// `main` awaits it before it exits or joins again).
+  @override
+  Future<void> dispose();
 }
 
 final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
@@ -103,7 +109,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   ///
   /// [requires]: the features of the protocol it cannot do without (SPEC
   /// §14); a host that does not speak one is refused
-  /// ([ProtocolMismatch]), on joining and on joining again.
+  /// ([ProtocolMismatch]), on joining and on joining again. One whose
+  /// host gives no view of the registry in time is [HostUnreachable].
   static Future<RemoteParticipant> join(
     RpcClientConnection connection, {
     void Function(ParticipantError error)? onParticipantError,
@@ -140,7 +147,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Joins the registry over [endpoint], one made elsewhere that does not
   /// come back once lost (a guest's in a wasm or JavaScript runtime): the
   /// same participant, but with no connection to join again over. The
-  /// endpoint stays the caller's: [close] does not close it.
+  /// endpoint stays the caller's: [dispose] does not close it.
   static Future<RemoteParticipant> joinEndpoint(
     RpcPeerEndpoint endpoint, {
     void Function(ParticipantError error)? onParticipantError,
@@ -210,13 +217,24 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
                 'following the feed until it joins again: $e'
           : 'the host sent what cannot be read; following again from now: $e',
     );
+    p._mirror.onEnded = p._endedByHost;
     p._mirror.follow(client);
     p._changes = p._mirror.changes.listen((_) => p._checkWhyNot());
     // It has joined when its view is live: the feed's first snapshot came.
+    // None in time, it has no view to read: it does not join.
     if (!p._mirror.synced) {
-      await p._mirror.changes
-          .firstWhere((_) => p._mirror.synced)
-          .timeout(const Duration(seconds: 10), onTimeout: () {});
+      try {
+        await p._mirror.changes
+            .firstWhere((_) => p._mirror.synced)
+            .timeout(client.timeout);
+      } on Object {
+        p._ownsEndpoint = false;
+        await p.dispose();
+        throw HostUnreachable(
+          'the host gave no view of the registry within '
+          '${client.timeout.inSeconds} s',
+        );
+      }
     }
     return p;
   }
@@ -230,7 +248,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     );
   }
 
-  /// Whether [close] closes [endpoint]: its own, made on a connection.
+  /// Whether [dispose] closes [endpoint]: its own, made on a connection.
   bool _ownsEndpoint = true;
 
   StreamSubscription<RpcClientConnectionState>? _connection;
@@ -252,7 +270,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   void _onConnection(RpcClientConnectionState s) {
     switch (s) {
       case RpcClientOnline():
-        if (!_online) unawaited(_rejoin());
+        if (!_online && !_ended) unawaited(_rejoin());
       case RpcClientOffline() || RpcClientConnecting():
         if (_online && log.isEnabled(RpcLogLevel.info)) log.info('offline');
         _online = false;
@@ -267,7 +285,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Joins the host's new session: what it has defined, as it stands now,
   /// as one tick; then what it said while away.
   Future<void> _rejoin() async {
-    if (_rejoining || _disposed) return;
+    if (_rejoining || _disposed || _ended) return;
     _rejoining = true;
     try {
       final d = await _client.describe();
@@ -324,11 +342,29 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     }
   }
 
+  /// Whether the host ended its session, the connection still up: what it
+  /// asks reaches the registry no more, and it does not join again.
+  bool _ended = false;
+
+  void _endedByHost(String why) {
+    if (_ended || _disposed) return;
+    _ended = true;
+    _online = false;
+    _retry?.cancel();
+    _retry = null;
+    _queue.clear();
+    _away.clear();
+    if (log.isEnabled(RpcLogLevel.info)) {
+      log.info('ended by the host', data: {'why': why});
+    }
+    _fail(const {'op': 'join'}, 'lost', 'the host ended its session: $why');
+  }
+
   /// Joins again after a while, each time later, while the connection is
   /// up and the session is not: no state of the connection will change to
   /// say so.
   void _rejoinLater() {
-    if (_disposed || _retry != null || _joined == null) return;
+    if (_disposed || _ended || _retry != null || _joined == null) return;
     _retry = Timer(_retryAfter, () {
       _retry = null;
       if (_disposed || _online) return;
@@ -471,7 +507,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     // Away, only what it says waits: the rest a new session gets as it
     // stands then.
     if (!_online) {
-      if (op['op'] == 'emit') _keepAway(op);
+      if (op['op'] == 'emit' && !_ended) _keepAway(op);
       return;
     }
     _queue.add(op);
@@ -552,7 +588,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           for (final op in ops) {
             _fail(op, e.statusCode.name, e.message);
           }
-        } else if (!_disposed) {
+        } else if (!_disposed && !_ended) {
           // The connection dropped: a new session gets what it defined as
           // it stands; what it said goes again after, its ids letting the
           // registry drop one it took. What it asked besides is in what it
@@ -774,7 +810,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
-  }) => _call(command, params, id: id, cause: cause);
+    CancellationToken? cancel,
+  }) => _call(command, params, id: id, cause: cause, cancel: cancel);
 
   /// Across a connection the params go as JSON.
   @override
@@ -784,11 +821,13 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   }) => call(
     command,
     shape.toJson(params)! as Map<String, Object?>,
     id: id,
     cause: cause,
+    cancel: cancel,
   );
 
   Future<CallResult<Object?>> _call(
@@ -797,6 +836,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     String? id,
     Cause? cause,
     Principal? as,
+    CancellationToken? cancel,
   }) async {
     _live();
     final c = _as(cause, as);
@@ -804,17 +844,33 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     if (answeringQuery() != null && !_isQuery(command)) {
       refuseInQuery('call $command');
     }
+    // The cancel goes across as the call's own: the host's registry hears
+    // it, and the wait here ends with it.
+    final token = RpcCancellationToken();
+    if (cancel != null) {
+      unawaited(
+        cancel.whenCancelled.then(
+          (_) => token.cancel('cancelled by its caller'),
+        ),
+      );
+    }
     await flush();
     // What its listeners asked for reaches the host before the call, so
     // what the call writes comes back on the feed.
     if (_online) await _view.settled;
+    // Cancelled before it went: it does not run.
+    if (cancel?.isCancelled ?? false) return const CallCancelled();
     final r = await _client.callAt(
       command,
       params,
       id: id,
       parent: c?.parent,
       as: as,
+      context: cancel == null
+          ? null
+          : RpcContext.empty().withCancellation(token),
     );
+    if (r.result is CallCancelled) return r.result;
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
       await _mirror.reach(epoch, seq);
     }
@@ -1187,13 +1243,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     await Future<void>.delayed(Duration.zero);
   }
 
-  @override
-  void dispose() => unawaited(close());
-
   /// Withdraws its words, guards and choices, stops its mirror and closes its
-  /// endpoint; completes once it is closed. What `dispose` does, awaited:
-  /// the library's and its tools'.
-  Future<void> close() async {
+  /// endpoint; completes once it is closed.
+  @override
+  Future<void> dispose() async {
     if (_disposed) return;
     _retry?.cancel();
     _retry = null;
@@ -1256,16 +1309,18 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
         'conversation': cause.conversationOf(request.id),
       });
     }
-    // Its deadline passes, unless the call ends first: no timer stays for
-    // a call that is over.
-    final expired = Completer<void>();
-    final deadline = Timer(c.d.deadline, expired.complete);
+    // Its deadline passes, or the host says it expired (its caller
+    // cancelled it), unless the call ends first: no timer stays for a call
+    // that is over.
+    final expired = CancellationToken();
+    final deadline = Timer(c.d.deadline, expired.cancel);
+    _expiring[request.id] = expired;
     final call = CommandCall(
       request.id,
       request.command,
       request.params,
       cause,
-      expired.future,
+      expired,
       span: span,
     );
     try {
@@ -1283,8 +1338,17 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       return WireServed.failed('$e');
     } finally {
       deadline.cancel();
+      _expiring.remove(request.id);
     }
   }
+
+  /// The calls it serves now, by id: what tells each its handler that it
+  /// expired.
+  final Map<String, CancellationToken> _expiring = {};
+
+  /// The host says the call [id] expired: its caller cancelled it, or its
+  /// deadline passed there.
+  void _expire(String id) => _expiring[id]?.cancel();
 
   WireJson _judge(Map<String, Object?> m) {
     final g = _guards[m['guard']];

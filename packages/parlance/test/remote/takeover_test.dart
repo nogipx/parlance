@@ -62,7 +62,7 @@ void main() {
     await settle();
     expect(r.read('kittens.lamp'), true);
 
-    await p.close();
+    await p.dispose();
     await connection.dispose();
     for (final s in sessions) {
       s.dispose();

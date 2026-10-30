@@ -189,7 +189,7 @@ void main() {
           n == 0 ? [catalog(), snapshot(1), badTick] : [catalog(), snapshot(2)],
     );
     final p = await RemoteParticipant.joinEndpoint(own);
-    addTearDown(p.close);
+    addTearDown(p.dispose);
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
     await until(() => errors.isNotEmpty);

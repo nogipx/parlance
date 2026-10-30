@@ -61,19 +61,21 @@ extension Participants on Registry {
     // A session of the same principal holding them is one whose
     // connection went and was not seen to (a link half open, its host
     // told late): a new session of the part takes its place, as an MQTT
-    // broker takes a client's session over (SPEC §14). Another
-    // principal's is refused below.
-    for (final old in {
-      for (final ns in names)
-        if (taken[ns] case final p? when p.who == who && p._end != null) p,
-    }) {
-      old._end!();
-    }
+    // broker takes a client's session over (SPEC §14). Taken over only
+    // once its vocabularies are free of others: a refusal leaves the old
+    // as it was. An owner that cannot define its words fails after.
+    bool takesOver(LocalParticipant p) => p.who == who && p._end != null;
     for (final ns in names) {
       checkVocabularyName(ns);
-      if (taken[ns] case final p?) {
+      if (taken[ns] case final p? when !takesOver(p)) {
         throw NotPermitted('vocabulary $ns is ${p.who}\'s');
       }
+    }
+    for (final old in {
+      for (final ns in names)
+        if (taken[ns] case final p? when takesOver(p)) p,
+    }) {
+      old._end!('a new session of $who took its place', tell: true);
     }
     final p = LocalParticipant._(
       this,
@@ -106,7 +108,11 @@ Set<LocalParticipant> _aliveIn(Registry r) => _alive[r] ??= () {
   final alive = <LocalParticipant>{};
   r.beforeDispose(() {
     for (final p in [...alive].reversed) {
-      (p._end ?? p.dispose)();
+      if (p._end case final end?) {
+        end('the host ended', tell: false);
+      } else {
+        p.dispose();
+      }
     }
   });
   return alive;
@@ -134,20 +140,32 @@ void builtAgainstSchemas(
 /// a connection it stands for went, though its session stays.
 void forgetBuiltAgainst(LocalParticipant p) => p._forgetBuilt();
 
+/// Ends a session for [why]; [tell]: the part across is told, and does
+/// not join again.
+typedef EndSession = void Function(String why, {required bool tell});
+
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
 /// guards, choices or owners would go with the session. [end] ends
 /// the session, when a new one of the same principal takes its place
 /// ([Participants.participant]). Not exported.
-void takeForServing(LocalParticipant p, {required void Function() end}) {
+void takeForServing(LocalParticipant p, {required EndSession end}) {
+  mayServe(p);
+  p._served = true;
+  p._end = end;
+}
+
+/// Refuses ([StateError]) to serve [p] when [takeForServing] would, taking
+/// nothing: what a session checks before it registers on its endpoint.
+void mayServe(LocalParticipant p) {
   p._live();
   if (p._served) throw StateError('${p.who} is served already');
   if (p._group.owners.isNotEmpty) {
     throw StateError(
       '${p.who} has owners here: a participant served has its owners at the '
-      'other end, its vocabularies granted (host.participant(who, '
-      'vocabularies: [...]).serve(endpoint))',
+      'other end, its vocabularies granted (host.serve(who, endpoint, '
+      'vocabularies: [...]))',
     );
   }
   if (p._handles.isNotEmpty || p._ofOwners.isNotEmpty) {
@@ -156,8 +174,6 @@ void takeForServing(LocalParticipant p, {required void Function() end}) {
       'the session',
     );
   }
-  p._served = true;
-  p._end = end;
 }
 
 final class LocalParticipant implements IRawParticipant {
@@ -208,7 +224,7 @@ final class LocalParticipant implements IRawParticipant {
   bool _served = false;
 
   /// Ends the session that serves it; null while none does.
-  void Function()? _end;
+  EndSession? _end;
 
   @override
   Clock get clock => _r.clock;
@@ -348,10 +364,11 @@ final class LocalParticipant implements IRawParticipant {
     Map<String, Object?> params, {
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   }) {
     _live();
     final c = _as(cause);
-    return _r.call(command, params, by: who, id: id, cause: c);
+    return _r.call(command, params, by: who, id: id, cause: c, cancel: cancel);
   }
 
   @override
@@ -361,6 +378,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?> shape, {
     String? id,
     Cause? cause,
+    CancellationToken? cancel,
   }) {
     _live();
     return _r.callKept(
@@ -369,6 +387,7 @@ final class LocalParticipant implements IRawParticipant {
       by: who,
       id: id,
       cause: _as(cause),
+      cancel: cancel,
     );
   }
 

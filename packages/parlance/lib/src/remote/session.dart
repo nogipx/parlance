@@ -32,25 +32,29 @@ extension ServeParticipant on LocalParticipant {
   RemoteSession serve(
     RpcPeerEndpoint endpoint, {
     String? session,
-    int feedBacklog = 256,
-    int maxSubscription = 4096,
     SessionLimits limits = const SessionLimits(),
     LogScope? log,
     Set<String>? features,
   }) {
-    late final RemoteSession s;
-    takeForServing(this, end: () => s._takenOver());
-    s = RemoteSession._(
+    // Checked, registered, then taken: one refused, or an endpoint that
+    // serves a session already, leaves the participant as it was.
+    mayServe(this);
+    final s = RemoteSession._(
       endpoint,
       this,
       session: session,
-      feedBacklog: feedBacklog,
-      maxSubscription: maxSubscription,
       limits: limits,
       log: log,
       features: features,
     );
-    endpoint.registerServiceContract(s);
+    try {
+      endpoint.registerServiceContract(s);
+    } on Object {
+      s._unregistered();
+      rethrow;
+    }
+    takeForServing(this, end: s._end);
+    s._opened();
     return s;
   }
 }
@@ -88,8 +92,6 @@ final class RemoteSession extends ParlanceContractPeer
     super.endpoint,
     LocalParticipant participant, {
     String? session,
-    this.feedBacklog = 256,
-    this.maxSubscription = 4096,
     this.limits = const SessionLimits(),
     LogScope? log,
     Set<String>? features,
@@ -103,7 +105,6 @@ final class RemoteSession extends ParlanceContractPeer
       'session': this.session,
       'principal': principal.selector,
     });
-    if (this.log.isEnabled(RpcLogLevel.info)) this.log.info('session opened');
     _renames = registry.catalogChanges.listen((c) {
       if (c is AliasChanged || c is DescriptorAdded || c is DescriptorRemoved) {
         if (_askedStates != null || _askedFacts != null) _carry(_subscription);
@@ -121,11 +122,19 @@ final class RemoteSession extends ParlanceContractPeer
 
   StreamSubscription<Object?>? _gone;
 
-  void _connectionGone() {
-    if (_closed) return;
-    if (log.isEnabled(RpcLogLevel.info)) log.info('connection gone');
-    dispose();
+  void _opened() {
+    if (log.isEnabled(RpcLogLevel.info)) log.info('session opened');
   }
+
+  /// Its endpoint refused it: it lets go of what it listened to, and of
+  /// nothing of its participant's.
+  void _unregistered() {
+    _closed = true;
+    unawaited(_renames?.cancel());
+    unawaited(_gone?.cancel());
+  }
+
+  void _connectionGone() => _end('its connection went', tell: false);
 
   /// Where the session logs: when it opens and ends, what it was denied;
   /// the registry's `sessions` unless given.
@@ -133,20 +142,9 @@ final class RemoteSession extends ParlanceContractPeer
 
   final Registry registry;
 
-  /// How many items a feed holds for a client slower than the registry
-  /// (SPEC §14): past it, the ticks held are dropped and the feed takes up
-  /// again from the last one sent, as the registry still has it, or from a
-  /// snapshot.
-  final int feedBacklog;
-
   /// How long past its deadline a call of the session's own command waits
   /// for the owner's late end (SPEC §9): after it, the call ends `failed`.
   static const lateEnds = Duration(minutes: 5);
-
-  /// How many names one subscription may ask for, states and facts
-  /// together: a peer naming more is refused (`resourceExhausted`), so a
-  /// session holds no more for it than this.
-  final int maxSubscription;
 
   /// How much the part across may hold here (SPEC §14): what it asks past
   /// them is refused, the rest it holds staying.
@@ -313,9 +311,23 @@ final class RemoteSession extends ParlanceContractPeer
   bool _carries(String state) =>
       (_stateFilter?.contains(state) ?? true) && _reads(state);
 
+  /// [rpc], the cancel of a call the part across made, as the registry
+  /// takes it.
+  static CancellationToken? _tokenOf(RpcCancellationToken? rpc) {
+    if (rpc == null) return null;
+    final t = CancellationToken();
+    if (rpc.isCancelled) return t..cancel();
+    rpc.cancelled.then((_) => t.cancel());
+    return t;
+  }
+
+  /// What of the protocol the part across speaks, as its feed asked.
+  Set<String> _peerSpeaks = const {};
+
   @override
   Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context}) {
     _open();
+    _peerSpeaks = {...?request.features};
     final feed = _Feed(this, request);
     _feeds.add(feed);
     return feed.out.stream;
@@ -355,11 +367,8 @@ final class RemoteSession extends ParlanceContractPeer
   }) async {
     _open();
     final asked = (request.states?.length ?? 0) + (request.facts?.length ?? 0);
-    if (asked > maxSubscription) {
-      throw RpcStatusException(
-        RpcStatus.resourceExhausted,
-        'a subscription asks for at most $maxSubscription names, not $asked',
-      );
+    if (limits.subscription case final max? when asked > max) {
+      _exhausted('a subscription asks for at most $max names, not $asked');
     }
     _askedStates = request.states?.toSet();
     _askedFacts = request.facts?.toSet();
@@ -501,6 +510,8 @@ final class RemoteSession extends ParlanceContractPeer
         by: by,
         id: '${principal.selector}#${request.id}',
         cause: _cause(parent: request.parent, by: by),
+        // The part across cancelled it, or went: rpc_dart trips its token.
+        cancel: _tokenOf(context?.cancellationToken),
       );
     } finally {
       _calling--;
@@ -622,7 +633,7 @@ final class RemoteSession extends ParlanceContractPeer
       case 'define':
         _define(_descriptor(_obj(m['descriptor'])), acting);
       case 'undefine':
-        _undefine(m['name']! as String);
+        _undefine(m['name']! as String, acting);
       case 'set' || 'remove':
         _write(
           m['state']! as String,
@@ -644,7 +655,7 @@ final class RemoteSession extends ParlanceContractPeer
           ),
         };
       case 'available':
-        _available(m['command']! as String, m['why'] as String?);
+        _available(m['command']! as String, m['why'] as String?, acting);
       case 'kind':
         _choicesOf(
           m['name']! as String,
@@ -652,7 +663,11 @@ final class RemoteSession extends ParlanceContractPeer
           acting,
         );
       case 'unkind':
-        _choices.remove(m['name'])?.handle.dispose();
+        if (_choices[m['name']] case final c?) {
+          _mayTouch(c.acting.who, acting, 'the choices of ${m['name']}');
+          _choices.remove(m['name']);
+          c.handle.dispose();
+        }
       case 'guard':
         _guard(m['id']! as String, acting: acting);
       case 'unguard':
@@ -710,6 +725,16 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
+  /// Who defined each of its words: the session, or one of its owners.
+  final Map<String, Principal> _definedBy = {};
+
+  /// Refuses [acting] what [by] has, unless it is [by], or the session's
+  /// whole, which acts for each of its owners.
+  void _mayTouch(Principal by, LocalParticipant? acting, String what) {
+    final who = (acting ?? _p).who;
+    if (who != by && who != principal) _deny('$what is $by\'s, not $who\'s');
+  }
+
   void _define(Descriptor d, [LocalParticipant? acting]) {
     final p = acting ?? _p;
     final words = _states.length + _facts.length + _commands.length;
@@ -736,13 +761,15 @@ final class RemoteSession extends ParlanceContractPeer
               whyNot: () => _unavailable[d.name],
             );
         }
+        _definedBy[d.name] = p.who;
       });
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }
   }
 
-  void _undefine(String name) {
+  void _undefine(String name, [LocalParticipant? acting]) {
+    if (_definedBy[name] case final by?) _mayTouch(by, acting, name);
     final h =
         _states.remove(name) ?? _facts.remove(name) ?? _commands.remove(name);
     if (h == null) {
@@ -751,6 +778,7 @@ final class RemoteSession extends ParlanceContractPeer
         'the session defined no $name',
       );
     }
+    _definedBy.remove(name);
     _unavailable.remove(name);
     for (final b in (_bytes.remove(name) ?? const {}).values) {
       _bytesHeld -= b;
@@ -785,9 +813,11 @@ final class RemoteSession extends ParlanceContractPeer
       );
     }
     try {
-      remove
-          ? w.remove(key: key, cause: cause)
-          : w.set(value, key: key, cause: cause);
+      _permitted(
+        () => remove
+            ? w.remove(key: key, cause: cause)
+            : w.set(value, key: key, cause: cause),
+      );
       _bytesHeld += weight - had;
       if (remove) {
         _bytes[state]?.remove(key);
@@ -833,10 +863,11 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
-  void _available(String command, String? why) {
+  void _available(String command, String? why, [LocalParticipant? acting]) {
     if (!_commands.containsKey(command)) {
       _deny('$command is not the session\'s own');
     }
+    if (_definedBy[command] case final by?) _mayTouch(by, acting, command);
     if (_unavailable[command] == why) return;
     why == null ? _unavailable.remove(command) : _unavailable[command] = why;
     registry.whyNotChanged(command);
@@ -915,6 +946,15 @@ final class RemoteSession extends ParlanceContractPeer
   /// Serves a call of a command of the session's: the participant does.
   Future<Object?> _serve(CommandCall c) async {
     _serving[c.id] = c;
+    // Expired here (its caller cancelled it, or its deadline passed): the
+    // participant is told, so its handler can stop; its answer still comes.
+    unawaited(
+      c.expired.whenCancelled.then((_) {
+        if (!_closed && _peerSpeaks.contains('cancel')) {
+          return _owner.expire(WireName(c.id)).then((_) {}, onError: (_) {});
+        }
+      }),
+    );
     try {
       final deadline = registry.callableDescriptor(c.command)?.deadline;
       final served = await _owner.serve(
@@ -930,7 +970,7 @@ final class RemoteSession extends ParlanceContractPeer
         // recorded late, as a handler's in this process is, up to a while
         // past it (a peer cannot hold a call open for good).
         context: RpcContext.empty().withTimeout(
-          (deadline ?? const Duration(seconds: 30)) + lateEnds,
+          (deadline ?? defaultDeadline) + lateEnds,
         ),
       );
       if (served.error case final why?) throw _Failed(why);
@@ -942,15 +982,6 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
-  /// A new session of its principal took its place: this one's connection
-  /// is gone, though not seen to (SPEC §14).
-  void _takenOver() {
-    if (log.isEnabled(RpcLogLevel.info)) {
-      log.info('taken over by a new session');
-    }
-    dispose();
-  }
-
   @override
   Principal get who => principal;
 
@@ -959,13 +990,21 @@ final class RemoteSession extends ParlanceContractPeer
   @override
   Future<void> get ended => _ended.future;
 
-  /// Ends the session: its words go, its calls are refused.
+  /// Ends the session: its words go, its calls are refused, and the part
+  /// across is told, and does not join again.
   @override
-  void dispose() {
+  void dispose() => _end('the host closed it', tell: true);
+
+  /// Ends the session for [why]; [tell]: the part across is told by an
+  /// `ended` item, the last of its feeds, and does not join again. Not told
+  /// when its connection went, or the host ends: it joins the next one.
+  void _end(String why, {required bool tell}) {
     if (_closed) return;
     _closed = true;
     _ended.complete();
-    if (log.isEnabled(RpcLogLevel.info)) log.info('session closed');
+    if (log.isEnabled(RpcLogLevel.info)) {
+      log.info('session ended', data: {'why': why});
+    }
     unawaited(_catalogUse?.cancel());
     unawaited(_renames?.cancel());
     unawaited(_gone?.cancel());
@@ -979,14 +1018,16 @@ final class RemoteSession extends ParlanceContractPeer
     _commands.clear();
     _facts.clear();
     _states.clear();
+    _definedBy.clear();
     _choices.clear();
     _guards.clear();
     _unavailable.clear();
     _listenTo(const {});
     _p.dispose();
     // Its feeds end: nothing more goes to a session that ended.
+    final last = tell ? WireFeedItem('ended', {'why': why}) : null;
     for (final f in [..._feeds]) {
-      unawaited(f.end());
+      unawaited(f.end(f.listened ? last : null));
     }
     _feeds.clear();
   }
@@ -1013,6 +1054,8 @@ final class SessionLimits {
     this.guards = 16,
     this.choices = 1000,
     this.calls = 16,
+    this.subscription = 4096,
+    this.backlog = 256,
   });
 
   /// No bounds.
@@ -1022,6 +1065,8 @@ final class SessionLimits {
     guards: null,
     choices: null,
     calls: null,
+    subscription: null,
+    backlog: null,
   );
 
   /// About how many bytes the values it writes take together, as JSON,
@@ -1042,4 +1087,14 @@ final class SessionLimits {
   /// How many of its calls wait for an answer at once; one past them is
   /// refused (`unavailable`) and runs nowhere.
   final int? calls;
+
+  /// How many names one subscription may ask for, states and facts
+  /// together: one naming more is refused, what it carried before staying.
+  final int? subscription;
+
+  /// How many items a feed holds for a client slower than the registry:
+  /// past it, the ticks and values held are dropped, and the feed takes up
+  /// again from the last one sent, as the registry still has it, or from a
+  /// snapshot. Nothing is refused.
+  final int? backlog;
 }

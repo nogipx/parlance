@@ -40,7 +40,7 @@ void main() {
       own,
       onParticipantError: errors.add,
     );
-    addTearDown(p.close);
+    addTearDown(p.dispose);
     return (p, errors);
   }
 

@@ -89,8 +89,9 @@ abstract interface class IAppClient {
   /// app.dark: its value now, and its changes.
   IStateOf<bool> get dark;
 
-  /// Calls app.toast; a call not done throws [CallNotDone].
-  Future<void> toast({required String text});
+  /// Calls app.toast; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> toast({required String text, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -125,8 +126,10 @@ final class _$AppClient implements IAppClient {
   IStateOf<bool> get dark => _$words.stateOf(AppState.dark);
 
   @override
-  Future<void> toast({required String text}) async {
-    final r = await _$words.command(AppCommand.toast).call((text: text));
+  Future<void> toast({required String text, CancellationToken? cancel}) async {
+    final r = await _$words.command(AppCommand.toast).call((
+      text: text,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

@@ -7,7 +7,7 @@ import 'package:notes_guest/notes_guest.dart';
 import 'package:notes_words/notes_words.dart';
 import 'package:parlance/app.dart';
 import 'package:parlance/tools.dart'
-    show RawAccess, CommandDescriptor, StateDescriptor;
+    show HostRegistry, RawAccess, CommandDescriptor, StateDescriptor;
 import 'package:test/test.dart';
 
 /// Two guests of one host: the notes guest gives its words, the board
@@ -119,7 +119,7 @@ void main() {
     host.unload('notes');
     await p.settle();
     expect(INotesClient(p).status(NotesCommand.add), const WordMissing());
-    notes.dispose();
+    await notes.dispose();
     await b.close();
   });
 

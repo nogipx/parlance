@@ -94,7 +94,7 @@ Future<void> main(List<String> args) async {
 
   await session.done;
   await changes?.cancel();
-  await joined?.close();
+  await joined?.dispose();
   await connection.dispose();
 }
 

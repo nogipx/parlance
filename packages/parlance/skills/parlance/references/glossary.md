@@ -79,9 +79,10 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Calls
 
 - **Call** (§9): `call(name, params, by:, id?)`. Stages, the first refusal ends it: dedup, lookup, params, policy (callers), availability, guards, handler.
-- **CallResult** (§9): how a call ended: `done(value)`, `refused(code, why, guard?)`, `failed(error)`, `timedOut`, `lost(id, how)`. Data, not exceptions. `why` tells any end but `done` in words.
+- **CallResult** (§9): how a call ended: `done(value)`, `refused(code, why, guard?)`, `failed(error)`, `timedOut`, `cancelled`, `lost(id, how)`. Data, not exceptions. `why` tells any end but `done` in words.
 - **Refusal codes** (§9): `unknownCommand`, `invalidParams`, `notPermitted`, `unavailable`, `denied`, `idConflict`.
 - **`failed`** (§9, §19): the handler said no (`failCall(why)`, a `HandlerFailed`) or threw, or its answer did not pass `returns`.
+- **`cancelled`** (§9): its caller cancelled it (`cancel:`) and stopped waiting. As `timedOut`: not run if its handler had not begun; else the handler is told (`call.expired`) and what it does stands, its end recorded late.
 - **`timedOut`** (§9): no answer within the deadline. Not an end: the handler is told (`call.expired`); what it then does stands, and its end comes as a second call record marked `late`.
 - **`lost`** (§9, §14): the answer did not come back over remote; whether it ran is unknown, and a retry with the id runs it at most once.
 - **Call record** (§9): every finished call (request, cause, stages passed, result, timings) on `registry.calls`. `callStarts` tells a call as its handler begins (`CallStarted`), `running` the ones in flight now.
@@ -118,7 +119,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Remote (§14)
 
-- **Session**: one connection with one principal, fixed by the host when it accepts it: a participant the host made and serves on it (`participant.serve(endpoint)`, a `RemoteSession`, one per connection). Its words go with it.
+- **Session**: one connection with one principal, fixed by the host when it accepts it: a participant the host made and serves on it (`host.serve(who, endpoint)`, a `RemoteSession`, one per connection). Its words go with it.
 - **`RemoteSession`**: the registry's side of a session: `hears`, `close`.
 - **Remote participant** (`RemoteParticipant`): a part across a connection, the only way across; the registry calls its commands over the same connection.
 - **Parent** (§14): the call a session is serving, or a fact the registry keeps, that what it does follows from.

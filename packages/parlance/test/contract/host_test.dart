@@ -48,12 +48,11 @@ void main() {
         addTearDown(host.dispose);
         final (g, h) = RpcChannelTransport.memoryPair();
         final atHost = RpcPeerEndpoint(transport: h);
-        final session = host
-            .participant(
-              const Principal('guest', 'echo'),
-              vocabularies: [WordSet.open('echo')],
-            )
-            .serve(atHost);
+        final session = host.serve(
+          const Principal('guest', 'echo'),
+          atHost,
+          vocabularies: [WordSet.open('echo')],
+        );
         atHost.start();
         expect(session.who, const Principal('guest', 'echo'));
 
@@ -72,9 +71,35 @@ void main() {
         await session.ended.timeout(const Duration(seconds: 2));
         expect(ended, isTrue);
         expect(GeneratedWords(user).status(_Command.ping), isA<WordMissing>());
-        guest.dispose();
+        await guest.dispose();
         await atHost.close();
       },
     );
   }
+
+  test('an endpoint serves one session: a second is refused, and leaves '
+      'nothing of it', () async {
+    final host = Host();
+    addTearDown(host.dispose);
+    final (_, h) = RpcChannelTransport.memoryPair();
+    final atHost = RpcPeerEndpoint(transport: h);
+    addTearDown(atHost.close);
+    host.serve(const Principal('guest', 'a'), atHost);
+    expect(
+      () => host.serve(
+        const Principal('guest', 'b'),
+        atHost,
+        vocabularies: [WordSet.open('b')],
+      ),
+      throwsA(anything),
+    );
+    expect(
+      () => host.participant(
+        const Principal('other'),
+        vocabularies: [WordSet.open('b')],
+      ),
+      returnsNormally,
+      reason: 'the vocabulary it was to have is free',
+    );
+  });
 }

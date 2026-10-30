@@ -495,6 +495,7 @@ sealed class CallResult<R> {
       return CallLost(id, m['reason'] as String? ?? '');
     }
     if (m['timedOut'] == true) return const CallTimedOut();
+    if (m['cancelled'] == true) return const CallCancelled();
     return CallFailed('an end this side does not know: $m');
   }
 
@@ -507,6 +508,7 @@ sealed class CallResult<R> {
     CallRefused(:final why) => why,
     CallFailed(:final error) => '$error',
     CallTimedOut() => 'no answer within its deadline; it may still happen',
+    CallCancelled() => 'its caller cancelled it; it may still happen',
     CallLost(:final how) => 'no answer came back ($how); retry with its id',
   };
 
@@ -519,6 +521,7 @@ sealed class CallResult<R> {
     },
     CallFailed(:final error) => {'failed': '$error'},
     CallTimedOut() => {'timedOut': true},
+    CallCancelled() => {'cancelled': true},
     CallLost(:final id, :final how) => {'lost': id, 'reason': how},
   };
 }
@@ -589,6 +592,18 @@ final class CallTimedOut extends CallResult<Never> {
 
   @override
   String toString() => 'timedOut';
+}
+
+/// Its caller cancelled it (`cancel:`) and stopped waiting. It is not a
+/// failure, nor that it did not happen: cancelled before its handler
+/// began, it did not run; after, the handler was told (`expired`), and
+/// what it did stands, as when it times out. Its end is recorded as a late
+/// call record, and a retry with the same id answers it.
+final class CallCancelled extends CallResult<Never> {
+  const CallCancelled();
+
+  @override
+  String toString() => 'cancelled';
 }
 
 /// No answer came back: the way to the registry broke. Whether the call

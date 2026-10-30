@@ -22,6 +22,9 @@ import 'shapes.dart';
 import 'tracing.dart';
 import 'types.dart';
 import 'uses.dart';
+import 'cancellation.dart';
+
+export 'cancellation.dart';
 
 part 'registry_calls.dart';
 part 'registry_words.dart';
@@ -77,6 +80,23 @@ final class HostLimits {
   /// (`guest`), so many guests do not grow it, and no use goes unseen.
   final int usersPerWord;
 }
+
+/// What a caller's cancel answers in place of a handler's answer: no
+/// answer can be it.
+final Object _cancelledMark = Object();
+
+/// [result], or `cancelled` when [cancel] is cancelled first.
+Future<CallResult<Object?>> _orCancelled(
+  Future<CallResult<Object?>> result,
+  CancellationToken? cancel,
+) => cancel == null
+    ? result
+    : Future.any([
+        result,
+        cancel.whenCancelled.then<CallResult<Object?>>(
+          (_) => const CallCancelled(),
+        ),
+      ]);
 
 /// The registry: the vocabulary, its values, calls, guards and the feed (SPEC §§5–12).
 ///
@@ -857,6 +877,7 @@ final class Registry implements ITypeContext {
     Kept rawParams,
     Cause cause, {
     bool record = true,
+    CancellationToken? cancel,
   }) async {
     final started = clock.now();
     var params = rawParams;
@@ -970,6 +991,11 @@ final class Registry implements ITypeContext {
         return finish(CallRefused(Refusal.unavailable, why));
       }
     }
+    // Cancelled before its handler began: it does not run.
+    if (cancel?.isCancelled ?? false) return finish(const CallCancelled());
+    // What the caller's cancel says, once it came: a mark, as a handler's
+    // answer can be anything.
+    final stopped = cancel?.whenCancelled.then<Object?>((_) => _cancelledMark);
 
     CallResult<Object?> answered(Object? answer) {
       if (entry.returns case final t?) {
@@ -984,7 +1010,7 @@ final class Registry implements ITypeContext {
       return const CallDone(null);
     }
 
-    final expired = Completer<void>();
+    final expired = CancellationToken();
     final span = _trace.open(id, command, params, cause, query: entry.query);
     final returns = entry.returns;
     final served = CommandCall._kept(
@@ -992,7 +1018,7 @@ final class Registry implements ITypeContext {
       command,
       params,
       cause,
-      expired.future,
+      expired,
       returns is JsonValue ? null : returns,
       span: span,
     );
@@ -1013,15 +1039,11 @@ final class Registry implements ITypeContext {
           ? asQuery(command, () => entry.local.call(served))
           : entry.local.call(served),
     );
-    CallResult<Object?> result;
-    try {
-      result = answered(await work.timeout(d.deadline));
-    } on TimeoutException {
-      result = const CallTimedOut();
-      expired.complete();
-      span.event('timed out', level: RpcLogLevel.warning);
-      // The handler goes on: its end is recorded as late, and a retry with
-      // the call's id answers it.
+    // The handler goes on after its caller stopped waiting: its end is
+    // recorded as late, and a retry with the call's id answers it.
+    CallResult<Object?> stop(CallResult<Object?> why, String event) {
+      expired.cancel();
+      span.event(event, level: RpcLogLevel.warning);
       unawaited(
         work
             .then(
@@ -1037,10 +1059,23 @@ final class Registry implements ITypeContext {
               finish(r, late: true);
             }),
       );
+      return why;
+    }
+
+    CallResult<Object?> result;
+    try {
+      final first =
+          await (stopped == null ? work : Future.any<Object?>([work, stopped]))
+              .timeout(d.deadline);
+      result = identical(first, _cancelledMark)
+          ? stop(const CallCancelled(), 'cancelled')
+          : answered(first);
+    } on TimeoutException {
+      result = stop(const CallTimedOut(), 'timed out');
     } catch (e, s) {
       result = CallFailed(e, s);
     }
-    if (result is! CallTimedOut) {
+    if (result is! CallTimedOut && result is! CallCancelled) {
       _running.remove(id);
       _trace.close(id, span, result, query: entry.query);
     }

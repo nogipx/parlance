@@ -26,7 +26,7 @@ void main() {
     p = await RemoteParticipant.joinEndpoint(own);
   });
   tearDown(() async {
-    await p.close();
+    await p.dispose();
     for (final e in opened) {
       await e.close();
     }

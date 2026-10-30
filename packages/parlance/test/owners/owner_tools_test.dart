@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:parlance/app.dart';
-import 'package:parlance/tools.dart' show OwnerParticipant;
+import 'package:parlance/tools.dart' show HostRegistry, OwnerParticipant;
 import 'package:test/test.dart';
 
 part 'owner_tools_test.g.dart';

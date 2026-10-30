@@ -19,6 +19,12 @@ const parlanceFeatures = {
   // A feed whose client speaks it tells the entities of a kind that
   // changed as a `kind` item, not the whole catalog again.
   'kinds',
+  // A session `main` ends, the connection still up, tells the part across
+  // why by an `ended` item, the last of its feeds: it does not join again.
+  'ended',
+  // A call's caller may cancel it (`cancelled`), and a host tells the
+  // participant serving a call that it expired (`expire`).
+  'cancel',
 };
 
 Map<String, Object?> _obj(Object? v) =>
@@ -429,4 +435,10 @@ abstract class IParlanceOwnerContract {
   /// `{why}`, null to let it pass.
   @RpcMethod.unary(name: 'judge')
   Future<WireJson> judge(WireJson request, {RpcContext? context});
+
+  /// Tells the participant a call it serves expired (feature `cancel`):
+  /// its caller cancelled it, or its deadline passed. The handler is told
+  /// (`expired`); its answer still comes, and is recorded late.
+  @RpcMethod.unary(name: 'expire')
+  Future<RpcNull> expire(WireName request, {RpcContext? context});
 }

@@ -375,24 +375,34 @@ abstract interface class IPlayerClient {
   /// player.speaker_level, by speaker: each value, and its changes.
   IKeyedOf<num> get speakerLevel;
 
-  /// Calls player.volume_set; a call not done throws [CallNotDone].
-  Future<void> setVolume({required int volume});
+  /// Calls player.volume_set; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> setVolume({required int volume, CancellationToken? cancel});
 
-  /// Calls player.play; a call not done throws [CallNotDone].
+  /// Calls player.play; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
   Future<void> play({
     required Track track,
     Repeat repeat = Repeat.off,
     String? on,
+    CancellationToken? cancel,
   });
 
-  /// Calls player.skip; a call not done throws [CallNotDone].
-  Future<int> skip({int count = 1});
+  /// Calls player.skip; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<int> skip({int count = 1, CancellationToken? cancel});
 
-  /// Calls player.stop; a call not done throws [CallNotDone].
-  Future<void> stop();
+  /// Calls player.stop; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> stop({CancellationToken? cancel});
 
-  /// Asks player.search; a call not done throws [CallNotDone].
-  Future<List<Track>> search({required String text, int? limit});
+  /// Asks player.search; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<List<Track>> search({
+    required String text,
+    int? limit,
+    CancellationToken? cancel,
+  });
 
   /// player.clipped: what it says from now on, and its messages.
   IFactOf<PlayerClipped> get clipped;
@@ -442,10 +452,13 @@ final class _$PlayerClient implements IPlayerClient {
   IKeyedOf<num> get speakerLevel => _$words.keyedOf(PlayerState.speakerLevel);
 
   @override
-  Future<void> setVolume({required int volume}) async {
+  Future<void> setVolume({
+    required int volume,
+    CancellationToken? cancel,
+  }) async {
     final r = await _$words.command(PlayerCommand.setVolume).call((
       volume: volume,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
@@ -455,36 +468,45 @@ final class _$PlayerClient implements IPlayerClient {
     required Track track,
     Repeat repeat = Repeat.off,
     String? on,
+    CancellationToken? cancel,
   }) async {
     final r = await _$words.command(PlayerCommand.play).call((
       track: track,
       repeat: repeat,
       on: on,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<int> skip({int count = 1}) async {
-    final r = await _$words.command(PlayerCommand.skip).call((count: count));
+  Future<int> skip({int count = 1, CancellationToken? cancel}) async {
+    final r = await _$words.command(PlayerCommand.skip).call((
+      count: count,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> stop() async {
-    final r = await _$words.command(PlayerCommand.stop).call(());
+  Future<void> stop({CancellationToken? cancel}) async {
+    final r = await _$words
+        .command(PlayerCommand.stop)
+        .call((), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<List<Track>> search({required String text, int? limit}) async {
+  Future<List<Track>> search({
+    required String text,
+    int? limit,
+    CancellationToken? cancel,
+  }) async {
     final r = await _$words.query(PlayerQuery.search).ask((
       text: text,
       limit: limit,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

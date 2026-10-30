@@ -792,6 +792,11 @@ final class RemoteOwner extends ParlanceOwnerContractPeer {
   Future<WireJson> onJudge(WireJson request, {RpcContext? context}) async =>
       const WireJson({});
 
+  /// Its handlers do not stop: a call expired runs on.
+  @override
+  Future<RpcNull> onExpire(WireName request, {RpcContext? context}) async =>
+      const RpcNull();
+
   @override
   Future<WireServed> onServe(WireServe request, {RpcContext? context}) async {
     final handler = _handlers[request.command];

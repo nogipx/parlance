@@ -1,7 +1,7 @@
 /// What an app's `main` uses, in the host's process or in another that
 /// joins it, besides what its words and owners do (`schema.dart`, exported
 /// here too): the [Host], the rights of its participants, the sessions it
-/// serves them in across a connection, the join from the other end
+/// serves across a connection ([Host.serve]), the join from the other end
 /// ([Host.join]), and what they tell of errors.
 ///
 /// It is frozen as `schema.dart` is (SPEC §14, §22, docs/план-api.md):
@@ -14,7 +14,7 @@ library;
 export 'package:rpc_dart/logger.dart' show LogScope;
 
 export 'schema.dart';
-export 'src/host.dart' show Host, ServeAcross;
+export 'src/host.dart' show Host;
 export 'src/registry/registry.dart' show HostLimits;
 export 'src/participant/participant.dart'
     show

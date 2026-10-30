@@ -91,7 +91,7 @@ void main() {
     expect(errors.map((e) => e.code), [ParticipantErrorCode.mismatch]);
     expect(errors.single.op, {'op': 'built', 'word': 'deck.volume'});
     expect(p.status('deck.volume'), const WordReady());
-    await p.close();
+    await p.dispose();
   });
 
   test('a host that speaks it is told', () async {
@@ -99,7 +99,7 @@ void main() {
     p.builtAgainst(Built.values);
     await p.flush();
     expect(r.mismatches.single.word, 'deck.volume');
-    await p.close();
+    await p.dispose();
   });
 
   test('a feature a guest does not know is passed over', () async {
@@ -107,6 +107,6 @@ void main() {
     p.builtAgainst(Built.values);
     await p.flush();
     expect(r.mismatches, hasLength(1));
-    await p.close();
+    await p.dispose();
   });
 }

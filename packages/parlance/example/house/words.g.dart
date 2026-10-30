@@ -267,20 +267,29 @@ abstract interface class IHouseClient {
   /// house.locked: its value now, and its changes.
   IStateOf<bool> get locked;
 
-  /// Calls house.set_light; a call not done throws [CallNotDone].
-  Future<void> setLight({required String room, required bool on});
+  /// Calls house.set_light; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> setLight({
+    required String room,
+    required bool on,
+    CancellationToken? cancel,
+  });
 
-  /// Calls house.set_heat; a call not done throws [CallNotDone].
-  Future<void> setHeat({required num target});
+  /// Calls house.set_heat; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> setHeat({required num target, CancellationToken? cancel});
 
-  /// Calls house.set_mode; a call not done throws [CallNotDone].
-  Future<void> setMode({required Mode mode});
+  /// Calls house.set_mode; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> setMode({required Mode mode, CancellationToken? cancel});
 
-  /// Calls house.lock; a call not done throws [CallNotDone].
-  Future<void> lock({required bool on});
+  /// Calls house.lock; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> lock({required bool on, CancellationToken? cancel});
 
-  /// Asks house.rooms; a call not done throws [CallNotDone].
-  Future<List<String>> rooms({required bool lit});
+  /// Asks house.rooms; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<List<String>> rooms({required bool lit, CancellationToken? cancel});
 
   /// house.rang: what it says from now on, and its messages.
   IFactOf<HouseRang> get rang;
@@ -330,41 +339,54 @@ final class _$HouseClient implements IHouseClient {
   IStateOf<bool> get locked => _$words.stateOf(HouseState.locked);
 
   @override
-  Future<void> setLight({required String room, required bool on}) async {
+  Future<void> setLight({
+    required String room,
+    required bool on,
+    CancellationToken? cancel,
+  }) async {
     final r = await _$words.command(HouseCommand.setLight).call((
       room: room,
       on: on,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> setHeat({required num target}) async {
+  Future<void> setHeat({required num target, CancellationToken? cancel}) async {
     final r = await _$words.command(HouseCommand.setHeat).call((
       target: target,
-    ));
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> setMode({required Mode mode}) async {
-    final r = await _$words.command(HouseCommand.setMode).call((mode: mode));
+  Future<void> setMode({required Mode mode, CancellationToken? cancel}) async {
+    final r = await _$words.command(HouseCommand.setMode).call((
+      mode: mode,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<void> lock({required bool on}) async {
-    final r = await _$words.command(HouseCommand.lock).call((on: on));
+  Future<void> lock({required bool on, CancellationToken? cancel}) async {
+    final r = await _$words.command(HouseCommand.lock).call((
+      on: on,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
 
   @override
-  Future<List<String>> rooms({required bool lit}) async {
-    final r = await _$words.query(HouseQuery.rooms).ask((lit: lit));
+  Future<List<String>> rooms({
+    required bool lit,
+    CancellationToken? cancel,
+  }) async {
+    final r = await _$words.query(HouseQuery.rooms).ask((
+      lit: lit,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
@@ -550,8 +572,9 @@ abstract interface class IVisitClient {
   /// visit.guests: its value now, and its changes.
   IStateOf<List<String>> get guests;
 
-  /// Calls visit.leave; a call not done throws [CallNotDone].
-  Future<void> leave({required String who});
+  /// Calls visit.leave; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> leave({required String who, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -586,8 +609,10 @@ final class _$VisitClient implements IVisitClient {
   IStateOf<List<String>> get guests => _$words.stateOf(VisitState.guests);
 
   @override
-  Future<void> leave({required String who}) async {
-    final r = await _$words.command(VisitCommand.leave).call((who: who));
+  Future<void> leave({required String who, CancellationToken? cancel}) async {
+    final r = await _$words.command(VisitCommand.leave).call((
+      who: who,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

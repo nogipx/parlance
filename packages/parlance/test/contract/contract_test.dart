@@ -1,10 +1,11 @@
 import 'package:parlance/app.dart';
+import 'package:parlance/tools.dart' show HostRegistry;
 import 'package:test/test.dart';
 
 /// The behaviour the frozen libraries promise (docs/план-api.md, Г): what
 /// an app may build on and no release changes. Written with `app.dart`
 /// alone, so what they need is what a developer is given; what they
-/// watch of the registry to tell, through its tools (`Host.registry`).
+/// watch of the registry to tell, through its tools (`host.registry`).
 enum _State<T> implements IStateWord<T> {
   level<int>('deck.level', PlainShape(IntType(min: 0, max: 100)));
 

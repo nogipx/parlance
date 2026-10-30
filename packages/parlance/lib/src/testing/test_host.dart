@@ -4,7 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../participant/local.dart';
-import '../participant/owner.dart' show IOwner;
+import '../participant/owner.dart' show IOwner, OwnerGroup;
 import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
@@ -84,8 +84,7 @@ final class TestHost {
   }
 
   /// The module under test across a connection, in memory: the host
-  /// serves it a participant made as [participant] makes one, and it
-  /// joins. The connection carries frames as bytes, encoded and decoded as
+  /// serves it ([Host.serve]), and it joins. The connection carries frames as bytes, encoded and decoded as
   /// across a process boundary, so what passes here passes over a real
   /// wire: a value that is no JSON fails here as it would there.
   Future<IRemoteParticipant> join(
@@ -96,12 +95,13 @@ final class TestHost {
   }) async {
     final (client, server) = RpcChannelTransport.pair();
     final host = RpcPeerEndpoint(transport: server);
-    final session = participant(
+    final session = _host.serve(
       who,
+      host,
       vocabularies: vocabularies,
       rights: rights,
       access: access,
-    ).serve(host);
+    );
     host.start();
     _sessions.add(session);
     _hosts.add(host);
@@ -162,13 +162,19 @@ final class TestHost {
   }
 
   /// A stand-in serving another module's command [word]: every call's
-  /// params are kept in [CommandStandIn.params]; it answers what [answer] gives, or
-  /// nothing. Anyone may call it, unless [callers] say otherwise.
+  /// params are kept in [CommandStandIn.params]; it answers what [answer]
+  /// gives, or nothing, when [word] may answer nothing ([ArgumentError]
+  /// otherwise). Anyone may call it, unless [callers] say otherwise.
   CommandStandIn<P, R> standInCommand<P, R>(
     ICommandWord<P, R> word, {
     FutureOr<R> Function(P params)? answer,
     Callers callers = Callers.anyone,
   }) {
+    if (answer == null && null is! R) {
+      throw ArgumentError(
+        '${word.name} answers $R, never nothing: give answer',
+      );
+    }
     final stub = CommandStandIn<P, R>._();
     GeneratedWords(_standInFor(word.name)).command(word).serve((params) {
       stub.params.add(params);
@@ -217,14 +223,19 @@ final class TestHost {
       if (c.command == registry.canonical(word.name)) c,
   ];
 
-  /// Lets what is under way come: ticks and call records delivered,
-  /// participants across a connection answered.
+  /// Lets what is under way come: participants across a connection
+  /// answered, owners done, ticks and call records delivered, until 20
+  /// turns of the event loop in a row bring nothing new. What waits on
+  /// time (a timer, a clock) is not waited for.
   Future<void> settle() async {
     for (final p in _remotes) {
       await p.settle();
     }
-    for (var i = 0; i < 20; i++) {
-      await Future<void>.delayed(Duration.zero);
+    var quiet = 0;
+    for (var i = 0; i < 1000 && quiet < 20; i++) {
+      final before = ticks.length + calls.length;
+      await OwnerGroup.idle();
+      quiet = ticks.length + calls.length == before ? quiet + 1 : 0;
     }
   }
 
@@ -234,7 +245,7 @@ final class TestHost {
   /// registry.
   Future<void> dispose() async {
     for (final p in _remotes) {
-      await (p as RemoteParticipant).close();
+      await p.dispose();
     }
     for (final c in _connections) {
       await c.dispose();

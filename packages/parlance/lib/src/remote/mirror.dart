@@ -259,6 +259,10 @@ final class RegistryMirror {
   /// following.
   void Function(Object error, {required bool gaveUp})? onMalformed;
 
+  /// Told when the host ended the session, the connection still up
+  /// ([RemoteEnded]): its feed ends after.
+  void Function(String why)? onEnded;
+
   /// How many times within a minute the copy follows again over what it
   /// could not read before it stops: a host that sends it every time is
   /// not asked for ever.
@@ -343,6 +347,9 @@ final class RegistryMirror {
         _seq = tick.to;
         _synced = true;
         _ticks.add(tick);
+      case RemoteEnded(:final why):
+        onEnded?.call(why);
+        return;
       case RemoteUnavailable(:final unavailable):
         _unavailable = unavailable;
         _statusChanges.add(null);

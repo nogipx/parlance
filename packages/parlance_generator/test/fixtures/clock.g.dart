@@ -91,8 +91,9 @@ abstract interface class IClockClient {
   /// clock.alarm: its value now, and its changes.
   IStateOf<DateTime> get alarm;
 
-  /// Calls clock.set_alarm; a call not done throws [CallNotDone].
-  Future<void> setAlarm({required DateTime at});
+  /// Calls clock.set_alarm; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> setAlarm({required DateTime at, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -127,8 +128,13 @@ final class _$ClockClient implements IClockClient {
   IStateOf<DateTime> get alarm => _$words.stateOf(ClockState.alarm);
 
   @override
-  Future<void> setAlarm({required DateTime at}) async {
-    final r = await _$words.command(ClockCommand.setAlarm).call((at: at));
+  Future<void> setAlarm({
+    required DateTime at,
+    CancellationToken? cancel,
+  }) async {
+    final r = await _$words.command(ClockCommand.setAlarm).call((
+      at: at,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

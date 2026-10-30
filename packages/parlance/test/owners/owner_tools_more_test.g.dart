@@ -76,8 +76,9 @@ abstract interface class IDialClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory IDialClient.of(IOwner owner) = _$DialClient._of;
 
-  /// Calls dial.set; a call not done throws [CallNotDone].
-  Future<void> set({required int to});
+  /// Calls dial.set; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> set({required int to, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -109,8 +110,10 @@ final class _$DialClient implements IDialClient {
   final GeneratedWords _$words;
 
   @override
-  Future<void> set({required int to}) async {
-    final r = await _$words.command(DialCommand.set).call((to: to));
+  Future<void> set({required int to, CancellationToken? cancel}) async {
+    final r = await _$words.command(DialCommand.set).call((
+      to: to,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
@@ -453,8 +456,9 @@ abstract interface class ILampsClient {
   /// lamps.lit, by bulb: each value, and its changes.
   IKeyedOf<bool> get lit;
 
-  /// Calls lamps.drop; a call not done throws [CallNotDone].
-  Future<void> drop({required String bulb});
+  /// Calls lamps.drop; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> drop({required String bulb, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -489,8 +493,10 @@ final class _$LampsClient implements ILampsClient {
   IKeyedOf<bool> get lit => _$words.keyedOf(LampsState.lit);
 
   @override
-  Future<void> drop({required String bulb}) async {
-    final r = await _$words.command(LampsCommand.drop).call((bulb: bulb));
+  Future<void> drop({required String bulb, CancellationToken? cancel}) async {
+    final r = await _$words.command(LampsCommand.drop).call((
+      bulb: bulb,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

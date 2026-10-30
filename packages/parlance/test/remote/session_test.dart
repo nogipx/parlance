@@ -106,6 +106,44 @@ void main() {
     },
   );
 
+  test("one owner of a session neither writes nor withdraws another's "
+      'word: refused as not permitted', () async {
+    final r = Registry();
+    final s = _session(r);
+    final a = plugin.ofOwner('a').toJson();
+    final b = plugin.ofOwner('b').toJson();
+    await s.onApply(
+      WireJson({
+        'ops': [
+          {
+            'op': 'define',
+            'descriptor': {
+              'is': 'state',
+              'name': 'plug.v',
+              'type': {'type': 'int'},
+            },
+            'as': a,
+          },
+        ],
+      }),
+    );
+    final answer = await s.onApply(
+      WireJson({
+        'ops': [
+          {'op': 'set', 'state': 'plug.v', 'value': 1, 'as': b},
+          {'op': 'undefine', 'name': 'plug.v', 'as': b},
+          {'op': 'set', 'state': 'plug.v', 'value': 2, 'as': a},
+        ],
+      }),
+    );
+    final results = answer.json['results']! as List;
+    expect((results[0] as Map)['error'], 'permissionDenied');
+    expect((results[1] as Map)['error'], 'permissionDenied');
+    expect(results[2], isEmpty);
+    expect(r.read('plug.v'), 2);
+    s.dispose();
+  });
+
   test('a session that ends ends its feeds', () async {
     final r = Registry();
     final other = r.defineState(
@@ -239,7 +277,7 @@ void main() {
     final owner = Ticking();
     p.attach([owner]);
     expect(owner.changed.hasListener, isTrue);
-    p.dispose();
+    await p.dispose();
     expect(owner.changed.hasListener, isFalse);
   });
 }

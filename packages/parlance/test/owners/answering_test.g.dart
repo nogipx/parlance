@@ -92,8 +92,9 @@ abstract interface class IRoomClient {
   /// room.lamp: its value now, and its changes.
   IStateOf<bool> get lamp;
 
-  /// Calls room.warm; a call not done throws [CallNotDone].
-  Future<void> warm();
+  /// Calls room.warm; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> warm({CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -131,8 +132,8 @@ final class _$RoomClient implements IRoomClient {
   IStateOf<bool> get lamp => _$words.stateOf(RoomState.lamp);
 
   @override
-  Future<void> warm() async {
-    final r = await _$words.command(RoomCommand.warm).call(());
+  Future<void> warm({CancellationToken? cancel}) async {
+    final r = await _$words.command(RoomCommand.warm).call((), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }

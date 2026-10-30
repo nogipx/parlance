@@ -208,8 +208,9 @@ abstract interface class ILightsClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory ILightsClient.of(IOwner owner) = _$LightsClient._of;
 
-  /// Calls light.on; a call not done throws [CallNotDone].
-  Future<void> on({required Room room});
+  /// Calls light.on; a call not done throws [CallNotDone]. [cancel] cancels this call:
+  /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
+  Future<void> on({required Room room, CancellationToken? cancel});
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -241,8 +242,10 @@ final class _$LightsClient implements ILightsClient {
   final GeneratedWords _$words;
 
   @override
-  Future<void> on({required Room room}) async {
-    final r = await _$words.command(LightsCommand.on).call((room: room));
+  Future<void> on({required Room room, CancellationToken? cancel}) async {
+    final r = await _$words.command(LightsCommand.on).call((
+      room: room,
+    ), cancel: cancel);
     if (r case CallDone(:final value)) return value;
     throw CallNotDone(r);
   }
