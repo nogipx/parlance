@@ -68,12 +68,11 @@ void main() {
       final r = Registry();
       addTearDown(r.dispose);
       final room = _Room();
-      r
-          .participant(
-            const Principal('room'),
-            vocabularies: [WordSet.open('room')],
-          )
-          .attach([room]);
+      r.participant(
+        const Principal('room'),
+        vocabularies: [WordSet.open('room')],
+        owners: [room],
+      );
       expect(room.caller, isNull, reason: 'outside a handler');
       await r.participant(user).call('room.warm', {}, id: 'w1');
       expect(room.warmedBy, user);
@@ -88,12 +87,11 @@ void main() {
     final r = Registry();
     addTearDown(r.dispose);
     final room = _Room();
-    r
-        .participant(
-          const Principal('room'),
-          vocabularies: [WordSet.open('room')],
-        )
-        .attach([room]);
+    r.participant(
+      const Principal('room'),
+      vocabularies: [WordSet.open('room')],
+      owners: [room],
+    );
     await pumpEventQueue();
     final ticks = <Tick>[];
     final sub = r.ticks.listen(ticks.add);

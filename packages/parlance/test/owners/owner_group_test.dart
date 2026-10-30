@@ -1,6 +1,6 @@
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/participant/owner.dart' show Owner;
+import 'package:parlance/src/participant/owner.dart' show IOwner, Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 const me = Principal('host');
@@ -30,18 +30,21 @@ final class Level extends Owner {
 
 void main() {
   late Registry r;
-  late LocalParticipant p;
-  setUp(() {
-    r = Registry();
-    p = r.participant(me, vocabularies: [const WordSet.open('mix')]);
-  });
+  setUp(() => r = Registry());
   tearDown(() => r.dispose());
+
+  /// The participant of [owners], in the vocabulary mix.
+  LocalParticipant mix(List<IOwner> owners) => r.participant(
+    me,
+    owners: owners,
+    vocabularies: [const WordSet.open('mix')],
+  );
 
   test('an owner whose sync throws writes nothing; the others write what '
       'they have', () {
     final good = Level('mix.a');
     final bad = Level('mix.b');
-    p.attach([good, bad]);
+    final p = mix([good, bad]);
     good.value = 1;
     bad
       ..value = 1
@@ -54,7 +57,7 @@ void main() {
   test('an owner disposed on its own is synced no more', () {
     final gone = Level('mix.a');
     final kept = Level('mix.b');
-    p.attach([gone, kept]);
+    final p = mix([gone, kept]);
     gone.dispose();
     kept.value = 2;
     p.sync();
@@ -62,27 +65,31 @@ void main() {
     expect(r.stateDescriptor('mix.a'), isNull);
   });
 
-  test('owners are attached all or none', () {
+  test('owners are attached all or none, and the participant goes with '
+      'them', () {
     expect(
-      () => p.attach([Level('mix.a'), Level('mix.b', defineFails: true)]),
+      () => mix([Level('mix.a'), Level('mix.b', defineFails: true)]),
       throwsStateError,
     );
     expect(r.stateDescriptor('mix.a'), isNull);
     expect(r.stateDescriptor('mix.b'), isNull);
-    p.attach([Level('mix.a')]);
-    expect(r.read('mix.a'), 0);
+    mix([Level('mix.a')]);
+    expect(r.read('mix.a'), 0, reason: 'its principal and mix are free');
   });
 
   test(
     'an owner attached elsewhere is refused before anything is attached',
     () {
       final twice = Level('mix.a');
-      p.attach([twice]);
-      final other = r.participant(
-        const Principal('other'),
-        vocabularies: [const WordSet.open('other')],
+      mix([twice]);
+      expect(
+        () => r.participant(
+          const Principal('other'),
+          owners: [Level('other.b'), twice],
+          vocabularies: [const WordSet.open('other')],
+        ),
+        throwsStateError,
       );
-      expect(() => other.attach([Level('other.b'), twice]), throwsStateError);
       expect(r.stateDescriptor('other.b'), isNull);
       expect(r.stateDescriptor('mix.a'), isNotNull);
     },

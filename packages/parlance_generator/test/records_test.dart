@@ -39,19 +39,17 @@ final class Pinboard extends BoardOwnerBase {
 /// named as its vocabulary; an open fact.
 void main() {
   late Registry r;
-  late IParticipant p;
   late Pinboard board;
   late IParticipant asAnn;
   setUp(() {
     r = Registry(onError: (e, st) => throw e);
     asAnn = r.participant(ann);
-    p = r.participant(
+    board = Pinboard();
+    r.participant(
       me,
-      vocabularies: [boardWords],
+      owners: [board],
       access: const WordAccess(call: anyone),
     );
-    board = Pinboard();
-    p.attach([board]);
   });
   tearDown(() => r.dispose());
 

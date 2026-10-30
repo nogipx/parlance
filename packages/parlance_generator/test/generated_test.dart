@@ -78,6 +78,16 @@ void main() {
   });
   tearDown(() => r.dispose());
 
+  /// [p] made again, [deck] its owner.
+  void attach(Deck deck) {
+    p.dispose();
+    p = r.participant(
+      me,
+      owners: [deck],
+      access: const WordAccess(call: anyone),
+    );
+  }
+
   test('states carry their values, a class through its toJson', () {
     final playing = p.raw.state(PlayerState.playing).define();
     const track = Track(title: 'Song', seconds: 200, artist: Artist('Ann'));
@@ -195,7 +205,7 @@ void main() {
     int? shown(IPlayerClient player) => player.volume.value;
 
     expect(shown(_StandIn()), 7);
-    p.attach([Deck()]);
+    attach(Deck());
     expect(shown(PlayerClient(asAnn)), 50);
     expect(
       PlayerClient(asAnn).mismatches,
@@ -261,7 +271,7 @@ void main() {
     late Deck deck;
     setUp(() {
       deck = Deck();
-      p.attach([deck]);
+      attach(deck);
     });
 
     test('defines every word, and an owner writes only its handlers', () {
@@ -361,7 +371,7 @@ void main() {
   group('the client', () {
     late PlayerClient asAnn;
     setUp(() {
-      p.attach([Deck()]);
+      attach(Deck());
       asAnn = PlayerClient(r.participant(ann));
     });
 

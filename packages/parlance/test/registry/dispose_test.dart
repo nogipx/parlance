@@ -40,12 +40,12 @@ void main() {
     'dispose ends its participants, their owners and its sessions',
     () async {
       final r = Registry();
+      final lamp = _Lamp();
       final p = r.participant(
         const Principal('lamp'),
+        owners: [lamp],
         vocabularies: [WordSet.open('lamp')],
       );
-      final lamp = _Lamp();
-      await p.attach([lamp]);
       final (g, h) = RpcChannelTransport.memoryPair();
       final host = RpcPeerEndpoint(transport: h);
       r.participant(const Principal('widlet', 'a')).serve(host);

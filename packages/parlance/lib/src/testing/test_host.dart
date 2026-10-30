@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 import '../participant/local.dart';
+import '../participant/owner.dart' show IOwner;
 import '../participant/participant.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
@@ -60,14 +61,17 @@ final class TestHost {
   final List<IRemoteParticipant> _remotes = [];
   final List<RpcClientConnection> _connections = [];
 
-  /// A participant for the module under test, as `main` would make it.
+  /// A participant for the module under test, its [owners] attached, as
+  /// `main` would make it.
   IParticipant participant(
     Principal who, {
+    Iterable<IOwner> owners = const [],
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
   }) => host.participant(
     who,
+    owners: owners,
     vocabularies: vocabularies,
     rights: rights,
     access: access,

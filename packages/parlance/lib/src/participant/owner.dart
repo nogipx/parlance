@@ -39,11 +39,11 @@ final class Handles implements IHandle {
   }
 }
 
-/// An owner of words (SPEC §6, §19, §23.4): what `main` attaches to a
-/// participant (`p.attach([Home(...)])`), to speak as the part named by
-/// its vocabulary (`house@house`; one of no words, as the participant
-/// itself); who that is, and what it may, `main` says when it makes the
-/// participant, never the owner.
+/// An owner of words (SPEC §6, §19, §23.4): what `main` gives a
+/// participant it makes (`host.participant(who, owners: [Home(...)])`),
+/// to speak as the part named by its vocabulary (`home@house`; one of no
+/// words, as the participant itself); who that is, and what it may,
+/// `main` says, never the owner.
 ///
 /// It has no members: what an owner does with the library it does by
 /// [OwnerTools], extensions, so no name of an owner's own is the
@@ -148,11 +148,11 @@ final class _Core {
     final whole = raw.whole.who;
     throw NotPermitted(
       '$type, attached as ${p.who}, owns the words of the vocabulary '
-      '${w.name}, but its participant $whole was not given that '
+      '${w.name}, but the host did not grant its participant $whole that '
       'vocabulary (it has ${given.isEmpty ? 'none' : given.join(', ')}). '
-      'A vocabulary is given where the participant is made: '
+      'The host grants it where it serves the participant: '
       'host.participant($whole, vocabularies: '
-      '[${w.dartName ?? 'the WordSet of ${w.name}'}])',
+      '[${w.dartName ?? 'the WordSet of ${w.name}'}]).serve(endpoint)',
     );
   }
 
@@ -223,7 +223,7 @@ final class _Core {
 /// owner needs none of it: its base, its tools and the clients it makes
 /// (`HouseClient.of(this)`) reach the participant for it.
 extension OwnerParticipant on IOwner {
-  /// The participant it speaks through: the part `main` named it by.
+  /// The participant it speaks through: the part named by its vocabulary.
   /// Throws while it is not attached: what needs it waits in
   /// [whenAttached].
   IParticipant get participant =>
@@ -502,6 +502,10 @@ final class _Choices {
   }
 }
 
+/// The vocabulary [o]'s words are in, as its base said it; null for an
+/// owner of no words.
+WordSet? wordsOf(IOwner o) => _Core.of(o).words;
+
 /// A handler of [part]'s answered: its owner lists its choices and asks
 /// its checks again.
 void ownerServed(IParticipant part) {
@@ -512,9 +516,8 @@ void ownerServed(IParticipant part) {
 
 /// The owners attached to one participant (SPEC §22.3): each to the part
 /// named by its vocabulary, synced as one tick, withdrawn with the
-/// participant. A
-/// participant's own; code reaches it through `IParticipant.attach` and
-/// `sync`.
+/// participant. A participant's own; code reaches it through the
+/// owners a participant is made with (a guest's `attach`) and `sync`.
 final class OwnerGroup {
   OwnerGroup(this.participant);
 

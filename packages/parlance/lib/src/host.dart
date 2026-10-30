@@ -3,6 +3,7 @@ import 'package:rpc_dart/rpc_dart.dart'
     show IRpcInterceptor, RpcClientConnection, RpcPeerEndpoint;
 
 import 'participant/local.dart';
+import 'participant/owner.dart' show IOwner;
 import 'participant/participant.dart';
 import 'registry/cause.dart';
 import 'registry/registry.dart';
@@ -82,18 +83,26 @@ final class Host {
   /// shows changes as the library does (`package:parlance/tools.dart`).
   final Registry registry;
 
-  /// A participant of a part of the app, speaking as [who] (SPEC §22):
-  /// it defines words only in [vocabularies], does what [rights] let it
-  /// beyond, and its words name [access]'s readers and callers when they
-  /// name none. One participant per principal: a second one of [who] is
-  /// refused while the first lives.
+  /// A participant of a part of the app, speaking as [who] (SPEC §22),
+  /// its [owners] attached: each speaks as the part named by its
+  /// vocabulary (`home@house`) and owns that vocabulary's words, none
+  /// other's. It does what [rights] let it beyond, and its words name
+  /// [access]'s readers and callers when they name none. One participant
+  /// per principal: a second one of [who] is refused while the first
+  /// lives.
+  ///
+  /// A participant served across a connection ([ServeAcross.serve]) has
+  /// its owners at the other end: [vocabularies] grants the words they may
+  /// own there, since the host does not see them.
   IParticipant participant(
     Principal who, {
+    Iterable<IOwner> owners = const [],
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
   }) => registry.participant(
     who,
+    owners: owners,
     vocabularies: vocabularies,
     rights: rights,
     access: access,

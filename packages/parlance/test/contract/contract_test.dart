@@ -62,12 +62,11 @@ void main() {
   setUp(() async {
     r = Host();
     deck = _Deck();
-    await r
-        .participant(
-          const Principal('deck'),
-          vocabularies: [WordSet.open('deck')],
-        )
-        .attach([deck]);
+    r.participant(
+      const Principal('deck'),
+      vocabularies: [WordSet.open('deck')],
+      owners: [deck],
+    );
     user = r.participant(const Principal('user', 'ann'));
   });
   tearDown(() => r.dispose());

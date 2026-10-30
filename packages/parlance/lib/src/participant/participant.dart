@@ -113,16 +113,6 @@ abstract interface class IParticipant implements IHandle {
   /// loop, across a connection once its copy reached the host.
   Future<void> settle();
 
-  /// Attaches [owners] (SPEC §22.3), each to the part named by its
-  /// vocabulary (`house@house`), so causes, records and `explain` tell
-  /// which owner did what; one of no words (a rule of the whole, a guard)
-  /// speaks as the participant. Two owners of one vocabulary are refused.
-  /// They go with it.
-  /// Completes when the registry has their words and what they set:
-  /// at once in the host's process, across a connection when the host
-  /// answered (what it refused told to its errors by then).
-  Future<void> attach(Iterable<IOwner> owners);
-
   /// Writes what every owner attached to it has now (what each
   /// `follow`s), as one tick.
   void sync();

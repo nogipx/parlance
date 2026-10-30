@@ -15,16 +15,18 @@ import 'participant.dart';
 
 /// Participants of a registry in this process (SPEC §22.1).
 extension Participants on Registry {
-  /// A participant speaking as [who], defining words only in its
-  /// [vocabularies] (SPEC §22.1, §23); one whose words come at run time is
-  /// `WordSet.open`. A word is named in its vocabulary: `orders.cancel` is
-  /// in `orders`. Two of [vocabularies] of one name, or one inside the
-  /// other (`orders` and `orders.archive`), are refused, so the words
-  /// named under a vocabulary are those of one owner. A vocabulary is one
-  /// participant's: one that another live participant has, or one inside
-  /// or around it, is refused.
+  /// A participant speaking as [who], with its [owners] attached (SPEC
+  /// §22.1, §22.3), each speaking as the part named by its vocabulary.
+  /// It defines words only in its owners' vocabularies and in
+  /// [vocabularies]: those whose owners are not here (a guest's, served
+  /// across a connection) or whose words come at run time (`WordSet.open`).
+  /// A word is named in its vocabulary: `orders.cancel` is in `orders`. A
+  /// vocabulary is one participant's, and one owner's: one given twice, or
+  /// that another live participant has, is refused. When an owner cannot
+  /// define its words, the participant goes and the error goes on.
   LocalParticipant participant(
     Principal who, {
+    Iterable<IOwner> owners = const [],
     Iterable<WordSet> vocabularies = const [],
     ParticipantRights rights = ParticipantRights.none,
     WordAccess access = WordAccess.none,
@@ -32,6 +34,15 @@ extension Participants on Registry {
     who.check();
     access.read?.check();
     access.call?.check();
+    final attached = [...owners];
+    // Each owner's vocabulary, unless said already: two owners of one are
+    // refused as they attach.
+    final said = {for (final v in vocabularies) v.name};
+    vocabularies = [
+      ...vocabularies,
+      for (final o in attached)
+        if (wordsOf(o) case final w? when said.add(w.name)) w,
+    ];
     for (final v in vocabularies) {
       v.check();
     }
@@ -75,6 +86,14 @@ extension Participants on Registry {
       taken[ns] = p;
     }
     _aliveIn(this).add(p);
+    if (attached.isNotEmpty) {
+      try {
+        p._group.attach(attached);
+      } catch (_) {
+        p.dispose();
+        rethrow;
+      }
+    }
     return p;
   }
 }
@@ -124,9 +143,14 @@ void forgetBuiltAgainst(LocalParticipant p) => p._forgetBuilt();
 void takeForServing(LocalParticipant p, {required void Function() end}) {
   p._live();
   if (p._served) throw StateError('${p.who} is served already');
-  if (p._handles.isNotEmpty ||
-      p._children.isNotEmpty ||
-      p._group.owners.isNotEmpty) {
+  if (p._group.owners.isNotEmpty) {
+    throw StateError(
+      '${p.who} has owners here: a participant served has its owners at the '
+      'other end, its vocabularies granted (host.participant(who, '
+      'vocabularies: [...]).serve(endpoint))',
+    );
+  }
+  if (p._handles.isNotEmpty || p._children.isNotEmpty) {
     throw StateError(
       '${p.who} did things in this process: serve a participant made for '
       'the session',
@@ -537,13 +561,6 @@ final class LocalParticipant implements IRawParticipant {
   Future<void> settle() => OwnerGroup.idle();
 
   late final OwnerGroup _group = OwnerGroup(this);
-
-  @override
-  Future<void> attach(Iterable<IOwner> owners) {
-    _live();
-    _group.attach(owners);
-    return Future.value();
-  }
 
   @override
   void sync() => _group.sync();

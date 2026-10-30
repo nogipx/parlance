@@ -33,12 +33,13 @@ Future<void> main() async {
   final devices = Devices();
   final house = Home(devices);
   // The house speaks through a participant main makes: who it is, its
-  // vocabulary (the name its words are named in, said once, in House), who calls its commands when a command does
-  // not say (the household), and that the doorbell says who rang (a fact
-  // on a visitor's behalf). The owner's code never says what it may.
+  // owner (which owns the vocabulary of House and speaks as home@house),
+  // who calls its commands when a command does not say (the household),
+  // and that the doorbell says who rang (a fact on a visitor's behalf).
+  // The owner's code never says what it may.
   final houseSide = host.participant(
     Who.home,
-    vocabularies: [houseWords],
+    owners: [house],
     access: const WordAccess(call: Who.household),
     rights: ParticipantRights(
       speakFor: (_, by, fact) => fact == HouseFact.rang.name
@@ -46,10 +47,6 @@ Future<void> main() async {
           : 'only the doorbell speaks for anyone',
     ),
   );
-  // The owner speaks as the participant's part named by its vocabulary:
-  // what it writes and says is told as home@house.
-  houseSide.attach([house]);
-
   // Ann and bob act through participants of their own, as every part does:
   // what each may call is what its principal may, and main hands out no
   // registry to act as anyone. Each uses the house through its client.
@@ -135,10 +132,9 @@ Future<void> main() async {
   // are there only meanwhile, and leave nothing behind.
   final visitSide = host.participant(
     Who.visit,
-    vocabularies: [visitWords],
+    owners: [GuestBook()],
     access: const WordAccess(call: Who.household),
   );
-  visitSide.attach([GuestBook()]);
   await annSide.settle();
   final visit = VisitClient(annSide);
   print('  during the visit: visit.guests ${visit.status(VisitState.guests)}');

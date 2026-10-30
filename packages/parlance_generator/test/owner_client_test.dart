@@ -34,18 +34,18 @@ void main() {
         '(${across ? 'on a guest' : 'here'})', () async {
       final host = TestHost();
       addTearDown(host.dispose);
-      await host
-          .participant(
-            const Principal('player'),
-            vocabularies: [playerWords],
-            access: const WordAccess(call: Callers({'*': Access.allow})),
-          )
-          .attach([Deck()]);
+      host.participant(
+        const Principal('player'),
+        owners: [Deck()],
+        access: const WordAccess(call: Callers({'*': Access.allow})),
+      );
       final fan = Fan();
-      final side = across
-          ? await host.join(const Principal('listener', 'ann'))
-          : host.participant(const Principal('listener', 'ann'));
-      await side.attach([fan]);
+      const listener = Principal('listener', 'ann');
+      if (across) {
+        await (await host.join(listener)).attach([fan]);
+      } else {
+        host.participant(listener, owners: [fan]);
+      }
       await host.settle();
 
       await fan.player.setVolume(volume: 95);
@@ -55,34 +55,31 @@ void main() {
     });
   }
 
-  for (final across in [false, true]) {
-    test('an owner where its vocabulary was not given is refused, told '
-        'what to give and where (${across ? 'on a guest' : 'here'})', () async {
-      final host = TestHost();
-      addTearDown(host.dispose);
-      const who = Principal('player');
-      final side = across ? await host.join(who) : host.participant(who);
-      expect(
-        () => side.attach([Deck()]),
-        throwsA(
-          isA<NotPermitted>().having(
-            (e) => '$e',
-            'message',
-            allOf(
-              contains(
-                'Deck, attached as player@player, owns the words of '
-                'the vocabulary player',
-              ),
-              contains(
-                'host.participant(player, '
-                'vocabularies: [playerWords])',
-              ),
+  test('an owner on a guest the host did not grant its vocabulary is '
+      'refused, told what to grant and where', () async {
+    final host = TestHost();
+    addTearDown(host.dispose);
+    final side = await host.join(const Principal('player'));
+    expect(
+      () => side.attach([Deck()]),
+      throwsA(
+        isA<NotPermitted>().having(
+          (e) => '$e',
+          'message',
+          allOf(
+            contains(
+              'Deck, attached as player@player, owns the words of '
+              'the vocabulary player',
+            ),
+            contains(
+              'host.participant(player, '
+              'vocabularies: [playerWords]).serve(endpoint)',
             ),
           ),
         ),
-      );
-    });
-  }
+      ),
+    );
+  });
 
   test('its client used before it is attached says so', () {
     expect(() => Fan().player.volume.value, throwsStateError);

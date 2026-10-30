@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:parlance/tools.dart';
+import 'package:parlance/app.dart' show ServeAcross;
+import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/participant/owner.dart' show Owner;
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
@@ -108,15 +110,21 @@ void main() {
   setUp(() => r = Registry(onError: (e, st) => throw e));
   tearDown(() => r.dispose());
 
-  /// The module's participant, as `main` makes it.
-  IParticipant module([Set<String> names = const {'test'}]) =>
-      r.participant(me, vocabularies: [for (final n in names) WordSet.open(n)]);
+  /// The module's participant of [owners], as `main` makes it.
+  IParticipant module([
+    List<IOwner> owners = const [],
+    Set<String> names = const {'test'},
+  ]) => r.participant(
+    me,
+    owners: owners,
+    vocabularies: [for (final n in names) WordSet.open(n)],
+  );
 
   test('owners define, sync as one tick, and withdraw their words', () async {
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
     final dials = Dials();
-    final owners = module()..attach([dials, Other()]);
+    final owners = module([dials, Other()]);
     await pumpEventQueue();
     expect(ticks, hasLength(1));
     expect(r.state(Level.of).readAll(), {'a': 1, 'b': 2});
@@ -128,7 +136,7 @@ void main() {
 
   test('a tracked kind announces a change and names what went', () async {
     final dials = Dials();
-    module().attach([dials]);
+    module([dials]);
     final changes = <CatalogChange>[];
     r.catalogChanges.listen(changes.add);
     dials.dials.remove('a');
@@ -145,16 +153,14 @@ void main() {
 
   test('an owner attaches once; handles withdrawn take no more', () {
     final o = Other();
-    final p = module()..attach([o]);
-    final elsewhere = r.participant(
-      const Principal('elsewhere'),
-      vocabularies: [WordSet.open('elsewhere')],
-    );
-    expect(() => elsewhere.attach([o]), throwsStateError);
+    module([o]);
     expect(
-      () => p.attach([Other()]),
+      () => r.participant(
+        const Principal('elsewhere'),
+        owners: [o],
+        vocabularies: [WordSet.open('elsewhere')],
+      ),
       throwsStateError,
-      reason: 'one owner to a name',
     );
     final h = Handles()..dispose();
     expect(() => h.keep(r.state(_Flag.on).define(by: me)), throwsStateError);
@@ -164,48 +170,55 @@ void main() {
   test(
     'an owner defines only in the vocabularies main gave its participant',
     () {
-      expect(
-        () => module({'dials'})..attach([Other()]),
-        throwsA(isA<NotPermitted>()),
-      );
+      expect(() => module([Other()], {'dials'}), throwsA(isA<NotPermitted>()));
       expect(r.stateDescriptor('test.on'), isNull);
     },
   );
 
   test('the participant main made says who reads the owners\' words', () {
-    r
-        .participant(
-          me,
-          vocabularies: [WordSet.open('test')],
-          access: WordAccess(read: Callers.only(['host'])),
-        )
-        .attach([Dials()]);
+    r.participant(
+      me,
+      vocabularies: [WordSet.open('test')],
+      access: WordAccess(read: Callers.only(['host'])),
+      owners: [Dials()],
+    );
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
   });
 
   test('going, a participant takes its owners with it, and its vocabulary '
       'is free again', () {
-    final p = module()..attach([Other()]);
+    final p = module([Other()]);
     p.dispose();
     expect(r.stateDescriptor('test.on'), isNull);
-    expect(() => p.attach([Other()]), throwsStateError);
-    module().attach([Other()]);
+    module([Other()]);
     expect(r.stateDescriptor('test.on'), isNotNull, reason: 'test is free');
   });
 
   test('an owner speaks as the part named by its vocabulary; one of no '
       'words as the participant', () async {
-    final p = module();
-    p.attach([Dials(), Other()]);
+    module([Dials(), Other()]);
     expect(r.lastChange('test.level', key: 'a')!.cause.by, me.child('test'));
     expect(r.lastChange('test.on'), isNull);
     expect(me.child('test').selector, 'host@test');
   });
 
-  test('two owners of one vocabulary are refused', () {
-    final p = module()..attach([Dials()]);
+  test('a participant of owners here is not served across a connection', () {
+    final (_, h) = RpcChannelTransport.memoryPair();
     expect(
-      () => p.attach([Dials()]),
+      () => module([Dials()]).serve(RpcPeerEndpoint(transport: h)),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('has its owners at the other end'),
+        ),
+      ),
+    );
+  });
+
+  test('two owners of one vocabulary are refused', () {
+    expect(
+      () => module([Dials(), Dials()]),
       throwsA(
         isA<StateError>().having(
           (e) => e.message,
@@ -219,7 +232,7 @@ void main() {
   test('an owner listens while attached, and stops when it goes', () async {
     final turns = StreamController<num>.broadcast();
     final knob = Knob(turns.stream);
-    final owners = module()..attach([knob]);
+    final owners = module([knob]);
     turns.add(1);
     await pumpEventQueue();
     expect(knob.heard, [1]);
@@ -233,7 +246,7 @@ void main() {
       'what one turn told, once and as one tick for the group', () async {
     final dials = Watched();
     final flag = Flagged();
-    module().attach([dials, flag]);
+    module([dials, flag]);
     expect(dials.synced, 1);
     final ticks = <Tick>[];
     r.ticks.listen(ticks.add);
@@ -252,12 +265,11 @@ void main() {
 
   test('a scope is a participant: going, it leaves nothing of itself, its '
       'words, values and kinds, and others see them missing', () async {
-    final p = module();
     final outsider = r.participant(const Principal('outsider'));
     final statuses = <WordStatus>[];
     outsider.statusChanges('test.level').listen(statuses.add);
     final dials = Dials();
-    p.attach([dials]);
+    final p = module([dials]);
     final part = p.child('dials');
     part.raw.state(_Flag.on).define().set(true);
     await pumpEventQueue();
@@ -273,7 +285,7 @@ void main() {
     dials.dials['a'] = 9;
     dials.sync();
     expect(r.state(Level.of).readAll(), isEmpty, reason: 'withdrawn');
-    module().attach([Dials()]);
+    module([Dials()]);
     expect(r.state(Level.of).read(key: 'a'), 1, reason: 'the next session');
   });
 }

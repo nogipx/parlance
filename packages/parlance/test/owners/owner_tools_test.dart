@@ -69,14 +69,17 @@ void main() {
   late _Lamp lamp;
   setUp(() {
     r = Host();
-    p = r.participant(
-      const Principal('lamp'),
-      vocabularies: [WordSet.open('lamp')],
-    );
     device = _Device();
     lamp = _Lamp(device);
   });
   tearDown(() => r.dispose());
+
+  /// The lamp's participant, the lamp attached.
+  void attach() => p = r.participant(
+    const Principal('lamp'),
+    owners: [lamp],
+    vocabularies: [WordSet.open('lamp')],
+  );
 
   test('nothing runs before it is attached; what waits runs once it is, '
       'after its words', () async {
@@ -87,7 +90,7 @@ void main() {
     expect(lamp.order, isEmpty);
 
     device.level = 3;
-    await p.attach([lamp]);
+    attach();
     await pumpEventQueue();
     expect(lamp.order, ['attached']);
     expect(lamp.pulls, 1);
@@ -98,7 +101,7 @@ void main() {
 
   test('it follows its model: on sync, and when the model tells it, once '
       'for all told in a turn', () async {
-    await p.attach([lamp]);
+    attach();
     p.sync();
     expect(lamp.pulls, 2);
 
@@ -111,7 +114,7 @@ void main() {
   });
 
   test('a follow said once attached runs at once', () async {
-    await p.attach([lamp]);
+    attach();
     var late_ = 0;
     lamp.follow(pull: () => late_++);
     expect(late_, 1);
@@ -120,14 +123,14 @@ void main() {
   });
 
   test('what it lets go of goes with it', () async {
-    await p.attach([lamp]);
+    attach();
     await r.dispose();
     expect(lamp.order, ['attached', 'gone']);
   });
 
   test('a name of its own is its own: the tool is reached by the '
       'extension', () async {
-    await p.attach([lamp]);
+    attach();
     expect(lamp.caller, 'its own caller');
     expect(OwnerTools(lamp).caller, isNull);
   });

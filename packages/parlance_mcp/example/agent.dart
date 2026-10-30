@@ -13,9 +13,7 @@ import 'notes.dart';
 
 Future<void> main() async {
   final host = Host();
-  host.participant(const Principal('notes'), vocabularies: [notesWords]).attach(
-    [Book()],
-  );
+  host.participant(const Principal('notes'), owners: [Book()]);
 
   // The curated tools, and with commandTools each command the agent may
   // call as a tool of its own, its schema made from the word.

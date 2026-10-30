@@ -50,12 +50,11 @@ void main() {
       rights: ParticipantRights(speakFor: (_, _, _) => null),
     );
     final rang = door.fact(_Fact.rang).define();
-    r
-        .participant(
-          const Principal('book'),
-          vocabularies: [WordSet.open('book')],
-        )
-        .attach([_Book()]);
+    r.participant(
+      const Principal('book'),
+      vocabularies: [WordSet.open('book')],
+      owners: [_Book()],
+    );
     await pumpEventQueue();
 
     rang.emitFor('ann', const Principal('guest', 'ann'));

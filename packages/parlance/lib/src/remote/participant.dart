@@ -50,6 +50,15 @@ part 'participant_part.dart';
 /// (`Host.join`): a participant, and what the host refused of what it
 /// asked. Frozen (`app.dart`); only the library makes one.
 abstract interface class IRemoteParticipant implements IParticipant {
+  /// Attaches [owners] (SPEC §22.3), each to the part named by its
+  /// vocabulary (`plugin/hydra@hydra`), so causes, records and `explain`
+  /// tell which owner did what; one of no words (a rule of the whole, a
+  /// guard) speaks as the participant. Each owns words only in what the
+  /// host granted ([vocabularies]); two owners of one vocabulary are
+  /// refused. They go with it. Completes when the host answered, what it
+  /// refused told to [errors] by then.
+  Future<void> attach(Iterable<IOwner> owners);
+
   /// What the host refused of what it asked, and words it was built
   /// against otherwise than the host has them (`mismatch`).
   Stream<ParticipantError> get errors;

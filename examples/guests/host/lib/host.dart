@@ -38,14 +38,10 @@ final class AppHost extends AppOwnerBase {
 /// The app's host and its words.
 final class Shell {
   Shell() {
-    unawaited(
-      host
-          .participant(
-            Who.app,
-            vocabularies: [appWords],
-            access: const WordAccess(call: Who.callers),
-          )
-          .attach([app]),
+    host.participant(
+      Who.app,
+      owners: [app],
+      access: const WordAccess(call: Who.callers),
     );
   }
 

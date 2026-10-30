@@ -92,9 +92,11 @@ void main() {
       'did is read back', () async {
     final outside = host.stateOf(Outside.temperature, 10);
     final heater = host.commandOf(Heater.power);
-    host.participant(me, vocabularies: [WordSet.open('thermostat')]).attach([
-      Thermostat(),
-    ]);
+    host.participant(
+      me,
+      vocabularies: [WordSet.open('thermostat')],
+      owners: [Thermostat()],
+    );
     await host.settle();
     outside.set(25);
     await host.settle();
