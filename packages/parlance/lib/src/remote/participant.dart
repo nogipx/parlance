@@ -70,6 +70,23 @@ abstract interface class IRemoteParticipant implements IParticipant {
   Future<void> dispose();
 }
 
+/// Where a [RemoteParticipant]'s session with its host stands (SPEC §14).
+enum _Life {
+  /// What it asks reaches the registry.
+  online,
+
+  /// A drop or a failed rejoin: nothing it asks reaches the registry; it
+  /// joins the host's new session when the connection is back.
+  away,
+
+  /// The host ended its session: nothing reaches the registry and it does
+  /// not join again.
+  ended,
+
+  /// [RemoteParticipant.dispose] ran. Terminal.
+  disposed,
+}
+
 final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   RemoteParticipant._(
     this.endpoint,
@@ -276,31 +293,45 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   static const _lastRetry = Duration(seconds: 30);
 
   /// Whether its session is there to ask: false from a drop until it has
-  /// joined the host's new session.
-  bool _online = true;
+  /// joined the host's new session. One state, not flags: a combination
+  /// like ended-but-online cannot arise. [_rejoining] and [_retry] belong
+  /// to away: a rejoin under way, one planned.
+  _Life _life = _Life.online;
+  bool get _online => _life == _Life.online;
+  bool get _ended => _life == _Life.ended;
+  bool get _disposed => _life == _Life.disposed;
+
+  /// A rejoin is under way.
   bool _rejoining = false;
 
   void _onConnection(RpcClientConnectionState s) {
     switch (s) {
       case RpcClientOnline():
-        if (!_online && !_ended) unawaited(_rejoin());
+        if (_life == _Life.away) unawaited(_rejoin());
       case RpcClientOffline() || RpcClientConnecting():
-        if (_online && log.isEnabled(RpcLogLevel.info)) log.info('offline');
-        _online = false;
+        if (_life == _Life.online) {
+          if (log.isEnabled(RpcLogLevel.info)) log.info('offline');
+          _life = _Life.away;
+        }
         _setAside();
       case RpcClientDisconnected(:final reason):
         // The connection gave up: nothing it asks reaches the registry.
-        _online = false;
+        if (_life == _Life.online) _life = _Life.away;
         _setAside();
         _fail(const {'op': 'join'}, 'lost', 'the connection gave up: $reason');
       default:
+        // A state of the connection this build does not know: not one it
+        // acts on, but no reason to look away.
+        if (log.isEnabled(RpcLogLevel.warning)) {
+          log.warning('unknown connection state', data: {'state': '$s'});
+        }
     }
   }
 
   /// Joins the host's new session: what it has defined, as it stands now,
   /// as one tick; then what it said while away.
   Future<void> _rejoin() async {
-    if (_rejoining || _disposed || _ended) return;
+    if (_rejoining || _life != _Life.away) return;
     _rejoining = true;
     try {
       final d = await _client.describe();
@@ -332,7 +363,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       for (final c in _commands.values) {
         c.told = false;
       }
-      _online = true;
+      _life = _Life.online;
       if (log.isEnabled(RpcLogLevel.info)) log.info('joined again');
       if (_droppedAway > 0) {
         _fail(
@@ -347,10 +378,15 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _checkWhyNot();
       _retryAfter = _firstRetry;
       await flush();
-    } on Object {
+    } on Object catch (e, s) {
       // Dropped again before it joined: the next time it is online, or,
-      // while the connection says it is, after a while.
-      _online = false;
+      // while the connection says it is, after a while. Not silent: a host
+      // that keeps refusing the rejoin is a failure the caller should see
+      // coming, not a loop that looks like peace.
+      if (log.isEnabled(RpcLogLevel.warning)) {
+        log.warning('rejoin failed; joining again later', error: e, stackTrace: s);
+      }
+      _life = _Life.away;
       _rejoinLater();
     } finally {
       _rejoining = false;
@@ -359,12 +395,9 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   /// Whether the host ended its session, the connection still up: what it
   /// asks reaches the registry no more, and it does not join again.
-  bool _ended = false;
-
   void _endedByHost(String why) {
     if (_ended || _disposed) return;
-    _ended = true;
-    _online = false;
+    _life = _Life.ended;
     _retry?.cancel();
     _retry = null;
     _queue.clear();
@@ -382,7 +415,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     if (_disposed || _ended || _retry != null || _joined == null) return;
     _retry = Timer(_retryAfter, () {
       _retry = null;
-      if (_disposed || _online) return;
+      if (_life != _Life.away) return;
       if (_joined?.currentState is! RpcClientOnline) return;
       unawaited(_rejoin());
     });
@@ -454,7 +487,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   final Map<String, ({Choices choices, Principal? as})> _choices = {};
 
   final Map<Principal, _OfOwner> _ofOwners = {};
-  bool _disposed = false;
 
   static Map<String, Object?> _asOf(Principal? as) => {'as': ?as?.toJson()};
 
@@ -593,7 +625,9 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
         await s;
         continue;
       }
-      if (!_online) return;
+      // Disposed, its last asks (the withdrawals) still go: dispose does
+      // not drop the connection, it closes it after they are sent.
+      if (!_online && !_disposed) return;
       final ops = [..._queue];
       _queue.clear();
       final done = Completer<void>();
@@ -624,7 +658,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           // it stands; what it said goes again after, its ids letting the
           // registry drop one it took. What it asked besides is in what it
           // has as it stands.
-          _online = false;
+          _life = _Life.away;
           _rejoinLater();
           _setAside(ops);
         } else {
@@ -1333,7 +1367,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     }
     final unbuilt = _built.forget();
     if (_speaks.contains('built')) unbuilt.forEach(_ask);
-    _disposed = true;
+    _life = _Life.disposed;
     for (final w in _watching.values) {
       unawaited(w.cancel());
     }
