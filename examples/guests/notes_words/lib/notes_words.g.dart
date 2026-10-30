@@ -105,12 +105,21 @@ abstract class NotesOwnerBase implements IOwner {
     Single.write(all);
   }
 
-  /// Says notes.added; on behalf of [by], when given.
-  void added({required String id, required String text, Principal? by}) =>
-      _$say('notes.added', _$added, (id: id, text: text), by);
+  /// notes.added: said by `say`.
+  late final NotesAddedFact added = NotesAddedFact._(this);
 
   /// Serves notes.add.
   void add({required String text});
+}
+
+/// notes.added, as [NotesOwnerBase] says it.
+final class NotesAddedFact {
+  NotesAddedFact._(this._base);
+  final NotesOwnerBase _base;
+
+  /// Says notes.added; on behalf of [by], when given.
+  void say({required String id, required String text, Principal? by}) =>
+      _base._$say('notes.added', _base._$added, (id: id, text: text), by);
 }
 
 /// The words of [Notes] as a consumer uses them: what a part

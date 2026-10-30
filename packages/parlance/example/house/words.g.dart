@@ -206,13 +206,11 @@ abstract class HouseOwnerBase implements IOwner {
     Single.write(locked);
   }
 
-  /// Says house.doorbell.rang; on behalf of [by], when given.
-  void rang({required String who, Principal? by}) =>
-      _$say('house.doorbell.rang', _$rang, (who: who), by);
+  /// house.doorbell.rang: said by `say`.
+  late final HouseRangFact rang = HouseRangFact._(this);
 
-  /// Says house.motion.seen; on behalf of [by], when given.
-  void motion({required String room, Principal? by}) =>
-      _$say('house.motion.seen', _$motion, (room: room), by);
+  /// house.motion.seen: said by `say`.
+  late final HouseMotionFact motion = HouseMotionFact._(this);
 
   /// Serves house.light.set.
   void setLight({required String room, required bool on});
@@ -231,6 +229,26 @@ abstract class HouseOwnerBase implements IOwner {
 
   /// Answers house.rooms.
   List<String> rooms({required bool lit});
+}
+
+/// house.doorbell.rang, as [HouseOwnerBase] says it.
+final class HouseRangFact {
+  HouseRangFact._(this._base);
+  final HouseOwnerBase _base;
+
+  /// Says house.doorbell.rang; on behalf of [by], when given.
+  void say({required String who, Principal? by}) =>
+      _base._$say('house.doorbell.rang', _base._$rang, (who: who), by);
+}
+
+/// house.motion.seen, as [HouseOwnerBase] says it.
+final class HouseMotionFact {
+  HouseMotionFact._(this._base);
+  final HouseOwnerBase _base;
+
+  /// Says house.motion.seen; on behalf of [by], when given.
+  void say({required String room, Principal? by}) =>
+      _base._$say('house.motion.seen', _base._$motion, (room: room), by);
 }
 
 /// The words of [House] as a consumer uses them: what a part

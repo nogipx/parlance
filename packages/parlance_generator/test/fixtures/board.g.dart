@@ -153,8 +153,8 @@ abstract class BoardOwnerBase implements IOwner {
     Single.write(anything);
   }
 
-  /// Says note.seen; on behalf of [by], when given.
-  void seen(Note note, {Principal? by}) => _$say('note.seen', _$seen, note, by);
+  /// note.seen: said by `say`.
+  late final BoardSeenFact seen = BoardSeenFact._(this);
 
   /// Serves note.put.
   ({String id}) put({String? id, required Note note});
@@ -167,6 +167,16 @@ abstract class BoardOwnerBase implements IOwner {
 
   /// Serves note.count.
   void count({required int? readers});
+}
+
+/// note.seen, as [BoardOwnerBase] says it.
+final class BoardSeenFact {
+  BoardSeenFact._(this._base);
+  final BoardOwnerBase _base;
+
+  /// Says note.seen; on behalf of [by], when given.
+  void say(Note note, {Principal? by}) =>
+      _base._$say('note.seen', _base._$seen, note, by);
 }
 
 /// The words of [Board] as a consumer uses them: what a part

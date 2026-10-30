@@ -108,5 +108,5 @@ final class Home extends HouseOwnerBase {
 
   /// The doorbell: [by] rang it, and the fact says so; its base says it
   /// (`rang`), as it says what the motion sensor sees (`motion`).
-  void ring(Principal by, String who) => rang(who: who, by: by);
+  void ring(Principal by, String who) => rang.say(who: who, by: by);
 }

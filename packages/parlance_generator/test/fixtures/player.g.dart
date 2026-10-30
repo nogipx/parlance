@@ -308,13 +308,11 @@ abstract class PlayerOwnerBase implements IOwner {
     Keyed.writeAll(speakerLevel);
   }
 
-  /// Says player.clipped; on behalf of [by], when given.
-  void clipped({required int volume, Principal? by}) =>
-      _$say('player.clipped', _$clipped, (volume: volume), by);
+  /// player.clipped: said by `say`.
+  late final PlayerClippedFact clipped = PlayerClippedFact._(this);
 
-  /// Says player.finished; on behalf of [by], when given.
-  void finished(Track track, {Principal? by}) =>
-      _$say('player.finished', _$finished, track, by);
+  /// player.finished: said by `say`.
+  late final PlayerFinishedFact finished = PlayerFinishedFact._(this);
 
   /// Serves player.volume.set.
   void setVolume({required int volume});
@@ -337,6 +335,26 @@ abstract class PlayerOwnerBase implements IOwner {
 
   /// Answers player.search.
   List<Track> search({required String text, int? limit});
+}
+
+/// player.clipped, as [PlayerOwnerBase] says it.
+final class PlayerClippedFact {
+  PlayerClippedFact._(this._base);
+  final PlayerOwnerBase _base;
+
+  /// Says player.clipped; on behalf of [by], when given.
+  void say({required int volume, Principal? by}) =>
+      _base._$say('player.clipped', _base._$clipped, (volume: volume), by);
+}
+
+/// player.finished, as [PlayerOwnerBase] says it.
+final class PlayerFinishedFact {
+  PlayerFinishedFact._(this._base);
+  final PlayerOwnerBase _base;
+
+  /// Says player.finished; on behalf of [by], when given.
+  void say(Track track, {Principal? by}) =>
+      _base._$say('player.finished', _base._$finished, track, by);
 }
 
 /// The words of [Player] as a consumer uses them: what a part

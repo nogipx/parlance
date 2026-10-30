@@ -20,7 +20,7 @@ final class Notebook extends NotesOwnerBase {
   void add({required String text}) {
     final note = (id: 'n${++_next}', text: text);
     all.set([...?all.value, note]);
-    added(id: note.id, text: note.text);
+    added.say(id: note.id, text: note.text);
   }
 }
 

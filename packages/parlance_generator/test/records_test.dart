@@ -200,7 +200,7 @@ void main() {
   });
 
   test('a fact of a record is said by its owner', () async {
-    board.seen((
+    board.seen.say((
       level: Level.info,
       text: 'seen',
       tags: const [],

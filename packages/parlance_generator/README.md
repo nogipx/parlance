@@ -40,7 +40,7 @@ final class Deck extends PlayerOwnerBase {
   @override
   void setVolume({required int volume}) {
     this.volume.set(volume);
-    if (volume > 90) clipped(volume: volume);
+    if (volume > 90) clipped.say(volume: volume);
   }
 }
 ```

@@ -813,6 +813,7 @@ final class _Emitter {
     List<_Callable> queries,
     List<_Fact> facts,
   ) {
+    final factClasses = StringBuffer();
     for (final w in [...states, ...commands, ...queries, ...facts]) {
       if (_ownerMembers.contains(w.member)) {
         throw InvalidGenerationSourceError(
@@ -974,12 +975,25 @@ final class _Emitter {
                 '{Principal? by}'
           : '{${[for (final p in ps) _param(p), 'Principal? by'].join(', ')}}';
       final payload = positional ? ps.single.displayName : _recordOf(ps);
+      // A fact is an object of the base, as a state is: said by `say`, its
+      // params the payload's.
+      final type = '$_c${_pascal(f.member)}Fact';
       out
+        ..writeln('  /// ${f.name}: said by `say`.')
+        ..writeln('  late final $type ${f.member} = $type._(this);')
+        ..writeln();
+      factClasses
+        ..writeln('/// ${f.name}, as [${_c}OwnerBase] says it.')
+        ..writeln('final class $type {')
+        ..writeln('  $type._(this._base);')
+        ..writeln('  final ${_c}OwnerBase _base;')
+        ..writeln()
         ..writeln('  /// Says ${f.name}; on behalf of [by], when given.')
         ..writeln(
-          "  void ${f.member}($signature) =>"
-          " _\$say(${_quote(f.name)}, _\$${f.member}, $payload, by);",
+          "  void say($signature) => _base._\$say(${_quote(f.name)}, "
+          "_base._\$${f.member}, $payload, by);",
         )
+        ..writeln('}')
         ..writeln();
     }
     for (final c in commands) {
@@ -1018,7 +1032,8 @@ final class _Emitter {
     }
     out
       ..writeln('}')
-      ..writeln();
+      ..writeln()
+      ..write(factClasses);
     return out.toString();
   }
 
