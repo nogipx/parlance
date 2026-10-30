@@ -364,7 +364,7 @@ void main() {
   test('an owner not attached keeps what it set and said, for a test', () {
     final deck = Deck()..setVolume(volume: 95);
     expect(deck.volume.value, 95);
-    expect(saidBy(deck), [('player.clipped', (volume: 95))]);
+    expect(saidBy(deck, PlayerFact.clipped), [(volume: 95)]);
     expect(deck.skip(count: 2), 2);
   });
 

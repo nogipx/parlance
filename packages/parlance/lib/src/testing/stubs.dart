@@ -5,6 +5,7 @@ import '../registry/cause.dart';
 import '../registry/ids.dart';
 import '../registry/messages.dart';
 import '../registry/words.dart';
+import 'test_host.dart' show TestHost;
 
 /// A state for a stand-in of a client (SPEC §24): what a test gives a part
 /// that takes `I<Class>Client`, its value set by the test.
@@ -125,7 +126,11 @@ final class FactStub<T> implements IFactOf<T> {
   }
 }
 
-/// What [owner] said while it was not attached, each fact's name and
-/// payload, in order: an owner made in a test and never attached is its
-/// own test double (`expect(saidBy(deck), [('player.clipped', ...)])`).
-List<(String, Object?)> saidBy(IOwner owner) => saidApart(owner);
+/// The payloads of [fact] [owner] said while it was not attached, in
+/// order, as [TestHost.said] reads them of a host: an owner made in a
+/// test and never attached is its own test double
+/// (`expect(saidBy(deck, PlayerFact.clipped), [(volume: 95)])`).
+List<T> saidBy<T>(IOwner owner, IFactWord<T> fact) => [
+  for (final (name, payload) in saidApart(owner))
+    if (name == fact.name) payload as T,
+];

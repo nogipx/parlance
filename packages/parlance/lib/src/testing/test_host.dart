@@ -20,7 +20,8 @@ import '../host.dart';
 ///
 /// The module under test gets a participant of its own ([participant], or
 /// [join] for one across a connection); the words of others it needs are
-/// stood in for by [standInState], [standInCommand], [standInFact]; what it did is read
+/// stood in for by [standInState], [standInKeyed], [standInCommand],
+/// [standInFact]; what it did is read
 /// back by [written], [said] and [calls] after [settle].
 final class TestHost {
   factory TestHost({Clock? clock, LogScope? log}) {
@@ -120,16 +121,33 @@ final class TestHost {
     );
   }
 
-  /// A stand-in owner of another module's state [word], holding [value];
-  /// write it again through what it answers.
-  IStateWriterOf<T> standInState<T>(
-    IStateWord<T> word,
-    T value, {
-    String? key,
-  }) {
-    final writer = _standInFor(word.name).state(word).define();
-    writer.set(value, key: key);
-    return writer;
+  /// A stand-in owner of another module's state [word], one with no key,
+  /// holding [value]: a [Single], as an owner keeps its own, set and
+  /// removed again by the test.
+  Single<T> standInState<T>(IStateWord<T> word, T value) {
+    if (word.key != null) {
+      throw ArgumentError('${word.name} is keyed: standInKeyed it');
+    }
+    final s = Single<T>()..set(value);
+    Single.attach(s, _standInFor(word.name).state(word).define());
+    Single.write(s);
+    return s;
+  }
+
+  /// A stand-in owner of another module's keyed state [word], holding
+  /// [values] by key: a [Keyed], as an owner keeps its own, set and
+  /// removed again by the test.
+  Keyed<T> standInKeyed<T>(IStateWord<T> word, Map<String, T> values) {
+    if (word.key == null) {
+      throw ArgumentError('${word.name} has no key: standInState it');
+    }
+    final k = Keyed<T>();
+    for (final MapEntry(:key, :value) in values.entries) {
+      k.set(key, value);
+    }
+    Keyed.attach(k, _standInFor(word.name).state(word).define());
+    Keyed.writeAll(k);
+    return k;
   }
 
   /// A stand-in serving another module's command [word]: every call's

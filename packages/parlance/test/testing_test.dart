@@ -143,4 +143,31 @@ void main() {
     ));
     expect(r, isA<CallFailed>());
   });
+
+  test('a stand-in state is kept as an owner keeps its own', () async {
+    final host = TestHost();
+    const lamp = StateWordOf<bool>(
+      'lamp.on',
+      PlainShape(BoolType()),
+      key: 'room',
+    );
+    final reader = host.participant(const Principal('module', 'reader'));
+    final outside = host.standInState(Outside.temperature, 10);
+    final lamps = host.standInKeyed(lamp, {'hall': true});
+    await host.settle();
+    expect(reader.raw.read('weather.outside'), 10);
+    expect(reader.raw.read('lamp.on', key: 'hall'), isTrue);
+    outside.set(12);
+    lamps
+      ..set('kitchen', false)
+      ..remove('hall');
+    await host.settle();
+    expect(host.written(Outside.temperature), [10, 12]);
+    expect(reader.raw.readAll('lamp.on'), {'kitchen': false});
+    expect(
+      () => host.standInKeyed(Outside.temperature, {}),
+      throwsArgumentError,
+    );
+    await host.dispose();
+  });
 }
