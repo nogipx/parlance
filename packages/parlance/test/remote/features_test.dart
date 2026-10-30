@@ -3,6 +3,7 @@ import 'package:parlance/src/remote/contract.dart'
     show parlanceFeatures, parlanceProtocol;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// The protocol grows by features, not by its major (SPEC §14): a host
 /// tells what it speaks, a participant uses only that, and refuses to join

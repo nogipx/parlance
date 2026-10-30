@@ -9,6 +9,7 @@ import 'package:test/test.dart';
 
 import '../registry/fixture.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// One connection: a session for [principal] on the registry, and a client.
 final class Link {

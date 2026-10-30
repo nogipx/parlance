@@ -1,3 +1,4 @@
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
@@ -39,20 +40,22 @@ final class Pinboard extends BoardOwnerBase {
 /// typedef; any value; a duration; a param named otherwise in JSON; a word
 /// named as its vocabulary; an open fact.
 void main() {
+  late Host host;
   late Registry r;
   late Pinboard board;
   late IParticipant asAnn;
   setUp(() {
-    r = Registry(onError: (e, st) => throw e);
-    asAnn = r.participant(ann);
+    host = Host(onError: (e, st) => throw e);
+    r = host.registry;
+    asAnn = host.participant(ann);
     board = Pinboard();
-    r.participant(
+    host.participant(
       me,
       owners: [board],
       access: const WordAccess(callers: anyone),
     );
   });
-  tearDown(() => r.dispose());
+  tearDown(() => host.dispose());
 
   test('a record is an object of its fields, in the order the typedef says '
       'them, each as annotated there', () {
@@ -136,7 +139,9 @@ void main() {
       'action': {'call': 'note.expire', 'params': <String, Object?>{}},
     });
     expect(
-      IBoardClient(r.participant(ann.ofOwner('reader'))).notes.of('n1')!.author,
+      IBoardClient(
+        host.participant(ann.ofOwner('reader')),
+      ).notes.of('n1')!.author,
       'Ann',
     );
   });

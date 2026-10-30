@@ -1,6 +1,7 @@
 import 'package:parlance/tools.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// A session ends when its connection goes (SPEC §14): the transport
 /// ends then, and the session with it, its words going, with no host code

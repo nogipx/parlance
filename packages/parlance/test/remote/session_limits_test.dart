@@ -4,6 +4,7 @@ import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// A part across a connection may be another's code, or code with a
 /// defect: a session bounds what it holds of the host's (SPEC §14). What

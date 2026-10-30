@@ -7,6 +7,35 @@ part of 'registry.dart';
 /// exported, so a host's code reaches the registry through participants
 /// only, as the one each part is.
 extension RawRegistry on Registry {
+  /// Makes [old] another name of the word [to] (SPEC §6.4): a word
+  /// renamed goes on answering to its old name, in calls, reads and facts,
+  /// so what names it (a plugin, an agent, a stored call) keeps working.
+  /// `describe` lists it under `aliases`. Dispose the handle to drop it.
+  IHandle alias(String old, String to) {
+    checkWordName(old, 'old');
+    final target = canonical(to);
+    if (_states.containsKey(old) ||
+        _commands.containsKey(old) ||
+        _facts.containsKey(old)) {
+      throw StateError('$old is a word itself');
+    }
+    if (_aliases.containsKey(old)) {
+      throw StateError('$old is an old name of ${_aliases[old]} already');
+    }
+    if (target == old) throw StateError('$old cannot stand for itself');
+    _aliases[old] = target;
+    // Old names of [old] now stand for its new one.
+    for (final e in _aliases.entries.toList()) {
+      if (e.value == old) _aliases[e.key] = target;
+    }
+    _announce(AliasChanged(old));
+    return Disposer(() {
+      if (_aliases.remove(old) == null) return;
+      _uses.forget(old);
+      _announce(AliasChanged(old));
+    });
+  }
+
   /// Runs [f] when the registry is disposed, before it closes: what holds
   /// it (its participants) goes first.
   void beforeDispose(void Function() f) => _beforeDispose.add(f);

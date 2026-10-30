@@ -3,6 +3,7 @@ import 'package:parlance/src/remote/client.dart' show ParlanceClient;
 import 'package:parlance/src/remote/mirror.dart' show RegistryMirror;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// What a session carries for a participant is bounded (SPEC §12, §14):
 /// asked past the bound, it carries everything rather than leave some of

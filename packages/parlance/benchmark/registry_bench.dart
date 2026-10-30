@@ -28,6 +28,7 @@ library;
 
 import 'package:parlance/src/core/core.dart';
 import 'package:parlance/tools.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 typedef Item = ({String id, String title, bool done});
 

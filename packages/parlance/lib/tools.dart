@@ -43,7 +43,12 @@ export 'src/registry/types.dart';
 export 'src/registry/words.dart'
     hide factIn, StateWriterOf, FactSayerOf, CommandAnswers, QueryAnswers;
 export 'src/participant/local.dart'
-    hide registryOf, takeForServing, builtAgainstSchemas, forgetBuiltAgainst;
+    hide
+        Participants,
+        registryOf,
+        takeForServing,
+        builtAgainstSchemas,
+        forgetBuiltAgainst;
 export 'src/participant/owner.dart' hide OwnerGroup;
 export 'src/participant/participant.dart'
     hide defineCallOf, speakForCallOf, WordAccessOf;

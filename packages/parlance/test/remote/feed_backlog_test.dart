@@ -4,6 +4,7 @@ import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/contract.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 const host = Principal('host');
 const visitor = Principal('visitor', 'slow');

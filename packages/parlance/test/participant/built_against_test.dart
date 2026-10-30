@@ -4,6 +4,7 @@ import 'package:parlance/testing.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// What a part was built against, told to the registry (SPEC §6.9): the
 /// registry says where a word is defined otherwise, as the part tells it

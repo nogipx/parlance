@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 import 'package:parlance_links/parlance_links.dart';
 import 'package:test/test.dart';
@@ -13,8 +14,8 @@ const user = Principal('user', 'local');
 /// run as it.
 final class Bench {
   Bench({Callers? callers}) {
-    s = registry.participant(house, vocabularies: [const WordSet.open('st')]);
-    p = registry.participant(plug, vocabularies: [const WordSet.open('plug')]);
+    s = host.participant(house, vocabularies: [const WordSet.open('st')]).raw;
+    p = host.participant(plug, vocabularies: [const WordSet.open('plug')]).raw;
     level = s.defineState(StateDescriptor('st.level', type: const IntType()));
     said = s.defineFact(
       FactDescriptor(
@@ -42,9 +43,10 @@ final class Bench {
     links = Links(p, vocabulary: 'plug', onError: (e, _) => errors.add(e));
   }
 
-  final registry = Registry();
-  late final LocalParticipant s;
-  late final LocalParticipant p;
+  final host = Host();
+  Registry get registry => host.registry;
+  late final IRawParticipant s;
+  late final IRawParticipant p;
   late final IStateHandle level;
   late final IFactHandle said;
   late final Links links;
@@ -53,7 +55,7 @@ final class Bench {
 
   Future<void> dispose() async {
     await links.dispose();
-    await registry.dispose();
+    await host.dispose();
   }
 }
 
@@ -338,7 +340,7 @@ void main() {
       },
     ]);
     await pump();
-    final desk = b.registry.participant(user);
+    final desk = b.host.participant(user).raw;
     expect(desk.read('plug.links.buttons'), [
       {'id': 'up', 'icon': 'up', 'label': 'Up', 'lit': false},
     ]);

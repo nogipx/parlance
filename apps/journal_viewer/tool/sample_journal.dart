@@ -9,18 +9,22 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 
 Future<void> main(List<String> args) async {
   final out = File(args.isEmpty ? 'journal-sample.jsonl' : args.first);
   final sink = out.openWrite();
-  final r = Registry();
+  final host = Host();
+  final r = host.registry;
   final sub = r.journal.listen((e) => sink.writeln(jsonEncode(e.toJson())));
   final rnd = Random(7);
   Future<void> wait(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
 
   const house = Principal('house');
-  final p = r.participant(house, vocabularies: [const WordSet.open('house')]);
+  final p = host
+      .participant(house, vocabularies: [const WordSet.open('house')])
+      .raw;
   final rang = p.defineFact(
     FactDescriptor(
       'house.doorbell.rang',
@@ -75,7 +79,7 @@ Future<void> main(List<String> args) async {
   // A module that answers the bell: the porch light, and the alarm when
   // someone says they are leaving (refused: only a resident arms it).
   const visit = Principal('module', 'visit');
-  final module = r.participant(visit);
+  final module = host.participant(visit).raw;
   module.facts('house.doorbell.rang').listen((f) async {
     final who = '${(f.payload as Map)['who']}';
     final cause = Cause(visit, parent: f.id);
@@ -86,9 +90,11 @@ Future<void> main(List<String> args) async {
   });
 
   final guests = ['bob', 'carol', 'dan', 'erin'];
-  final resident = r.participant(const Principal('resident', 'ann'));
+  final resident = host.participant(const Principal('resident', 'ann')).raw;
   for (var i = 0; i < 14; i++) {
-    final who = r.participant(Principal('guest', guests[i % guests.length]));
+    final who = host
+        .participant(Principal('guest', guests[i % guests.length]))
+        .raw;
     final name = switch (i % 5) {
       4 => '${guests[i % guests.length]}, leaving',
       _ => guests[i % guests.length],
@@ -101,7 +107,7 @@ Future<void> main(List<String> args) async {
   }
   await wait(800);
   await sub.cancel();
-  await r.dispose();
+  await host.dispose();
   await sink.close();
   stdout.writeln('wrote ${out.path}');
 }

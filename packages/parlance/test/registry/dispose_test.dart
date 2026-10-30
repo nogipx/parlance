@@ -3,6 +3,7 @@ import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/client.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 part 'dispose_test.g.dart';
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 import 'package:parlance/schema.dart';
 import 'package:test/test.dart';
@@ -61,26 +62,28 @@ final class Deck extends PlayerOwnerBase {
 /// The words made from `fixtures/player.dart` work as words written by
 /// hand: the registry takes them, checks them, and carries their values.
 void main() {
+  late Host host;
   late Registry r;
   late IParticipant p;
   late IParticipant asAnn;
   late IParticipant asBob;
   setUp(() {
-    r = Registry(onError: (e, st) => throw e);
-    asAnn = r.participant(ann);
-    asBob = r.participant(const Principal('guest', 'bob'));
-    p = r.participant(
+    host = Host(onError: (e, st) => throw e);
+    r = host.registry;
+    asAnn = host.participant(ann);
+    asBob = host.participant(const Principal('guest', 'bob'));
+    p = host.participant(
       me,
       vocabularies: [playerWords],
       access: const WordAccess(callers: anyone),
     );
   });
-  tearDown(() => r.dispose());
+  tearDown(() => host.dispose());
 
   /// [p] made again, [deck] its owner.
   void attach(Deck deck) {
     p.dispose();
-    p = r.participant(
+    p = host.participant(
       me,
       owners: [deck],
       access: const WordAccess(callers: anyone),
@@ -387,7 +390,7 @@ void main() {
     late IPlayerClient asAnn;
     setUp(() {
       attach(deck = Deck());
-      asAnn = IPlayerClient(r.participant(ann));
+      asAnn = IPlayerClient(host.participant(ann));
     });
 
     test('watches a keyed state whole: every key, as any comes, changes '
@@ -447,7 +450,7 @@ void main() {
 
     test('a call not done throws, with why', () async {
       final asGuest = IPlayerClient(
-        r.participant(const Principal('guest', 'bob')),
+        host.participant(const Principal('guest', 'bob')),
       );
       expect(asGuest.status(PlayerCommand.stop), const WordNotPermitted());
       await expectLater(

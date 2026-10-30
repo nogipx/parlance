@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:clock/clock.dart';
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 import 'package:parlance_journal/parlance_journal.dart';
 import 'package:rpc_dart/logger.dart';
@@ -14,14 +15,16 @@ const basics = Principal('plugin', 'basics');
 /// A house of a intercom line, a clip saved in answer and a cover only the
 /// user may set: what a journal of it keeps.
 final class House {
-  House({LogScope? log}) : r = Registry(log: log) {
-    final p = r.participant(
-      house,
-      vocabularies: [
-        const WordSet.open('intercom'),
-        const WordSet.open('clip'),
-      ],
-    );
+  House({LogScope? log}) : host = Host(log: log) {
+    final p = host
+        .participant(
+          house,
+          vocabularies: [
+            const WordSet.open('intercom'),
+            const WordSet.open('clip'),
+          ],
+        )
+        .raw;
     final line = p.defineFact(
       FactDescriptor('intercom.line', type: const TextType()),
     );
@@ -44,7 +47,7 @@ final class House {
       CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
       (_) {},
     );
-    final plugin = r.participant(basics);
+    final plugin = host.participant(basics).raw;
     plugin.facts('intercom.line').listen((f) async {
       await plugin.call('clip.save', {
         'len': 90,
@@ -54,10 +57,11 @@ final class House {
     last.set('none');
   }
 
-  final Registry r;
+  final Host host;
+  Registry get r => host.registry;
 
   Future<void> intercom(String id) async {
-    await r.participant(visitor).call('intercom.say', {}, id: id);
+    await host.participant(visitor).raw.call('intercom.say', {}, id: id);
     await pumpEventQueue();
   }
 }
@@ -190,8 +194,11 @@ call intercom.say by visitor/gate.7 -> done
 
   test('a cause made by hand whose parent the registry forgot still '
       'follows from it', () async {
-    final r = Registry();
-    final p = r.participant(house, vocabularies: [const WordSet.open('x')]);
+    final host = Host();
+    final r = host.registry;
+    final p = host
+        .participant(house, vocabularies: [const WordSet.open('x')])
+        .raw;
     final said = p.defineFact(FactDescriptor('x.said', type: const TextType()));
     p.defineCommand(
       CommandDescriptor('x.do', callers: Callers.only(['user'])),
@@ -201,15 +208,16 @@ call intercom.say by visitor/gate.7 -> done
     said.say('a', id: 'f1');
     await pumpEventQueue();
     // As if the registry had forgotten f1: a conversation of its own.
-    await r
+    await host
         .participant(user)
+        .raw
         .call(
           'x.do',
           {},
           cause: const Cause(user, parent: 'f1', conversation: 'other'),
         );
     await w.close();
-    await r.dispose();
+    await host.dispose();
     expect(JournalReader(dir).conversation('f1').map((e) => e.kind), [
       'fact',
       'start',
@@ -399,9 +407,11 @@ call intercom.say by visitor/gate.7 -> done
 
   test('a day whose file would not open is written once it opens', () async {
     var now = DateTime.utc(2026, 10, 27, 23);
-    final r = Registry(clock: Clock(() => now));
-    r
+    final host = Host(clock: Clock(() => now));
+    final r = host.registry;
+    host
         .participant(house, vocabularies: [const WordSet.open('clip')])
+        .raw
         .defineCommand(
           CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
           (_) {},
@@ -413,7 +423,7 @@ call intercom.say by visitor/gate.7 -> done
       onError: (e, _) => errors.add(e),
     );
     Future<void> cover(String id) async {
-      await r.participant(user).call('clip.cover', {}, id: id);
+      await host.participant(user).raw.call('clip.cover', {}, id: id);
       await pumpEventQueue();
     }
 
@@ -427,7 +437,7 @@ call intercom.say by visitor/gate.7 -> done
     blocked.deleteSync();
     await cover('c');
     await w.close();
-    await r.dispose();
+    await host.dispose();
     expect(errors, hasLength(failed), reason: 'it came back');
     expect(
       {for (final e in JournalReader(dir).days().entries) e.id},

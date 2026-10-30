@@ -2,6 +2,7 @@ import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// A flush waits for what was asked before it (SPEC §22.4), not for what
 /// comes after: none is left waiting behind the writes that follow it.

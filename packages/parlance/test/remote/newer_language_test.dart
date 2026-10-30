@@ -3,6 +3,8 @@ import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// What a newer parlance adds to the language (SPEC §14), met by an older
 /// one: a type, an access, a kind of word. A host does not know what its

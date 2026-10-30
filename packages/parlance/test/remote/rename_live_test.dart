@@ -1,6 +1,7 @@
 import 'package:parlance/tools.dart';
 import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// A word renamed while a part follows it by its old name (SPEC §6.4): the
 /// old name stands for the word, so the part goes on reading and hearing

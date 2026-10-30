@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:journal_viewer/main.dart';
 import 'package:journal_viewer/src/viewer.dart';
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 
 const studio = Principal('studio');
@@ -13,13 +14,16 @@ const basics = Principal('plugin', 'basics');
 /// A journal of two chat lines: each a call that says a fact, a plugin's
 /// call in answer that writes, and one it may not make.
 Future<String> journalLines() async {
-  final r = Registry();
+  final host = Host();
+  final r = host.registry;
   final lines = <String>[];
   final sub = r.journal.listen((e) => lines.add(jsonEncode(e.toJson())));
-  final p = r.participant(
-    studio,
-    vocabularies: [const WordSet.open('chat'), const WordSet.open('clip')],
-  );
+  final p = host
+      .participant(
+        studio,
+        vocabularies: [const WordSet.open('chat'), const WordSet.open('clip')],
+      )
+      .raw;
   final line = p.defineFact(
     FactDescriptor('chat.line', type: const TextType()),
   );
@@ -39,17 +43,17 @@ Future<String> journalLines() async {
     CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
     (_) {},
   );
-  final plugin = r.participant(basics);
+  final plugin = host.participant(basics).raw;
   plugin.facts('chat.line').listen((f) async {
     await plugin.call('clip.save', {}, cause: Cause(basics, parent: f.id));
     await plugin.call('clip.cover', {}, cause: Cause(basics, parent: f.id));
   });
   for (final id in ['irc:1', 'irc:2']) {
-    await r.participant(viewer).call('chat.say', {}, id: id);
+    await host.participant(viewer).raw.call('chat.say', {}, id: id);
     await Future<void>.delayed(const Duration(milliseconds: 20));
   }
   await sub.cancel();
-  await r.dispose();
+  await host.dispose();
   return '${lines.join('\n')}\n';
 }
 

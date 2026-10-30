@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 const owner = Principal('module', 'orders');
 const asker = Principal('module', 'cart');

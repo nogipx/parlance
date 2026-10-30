@@ -2,6 +2,7 @@ import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// A part whose connection went without its host seeing it (a link half
 /// open) comes back before its old session ends: the new session of the

@@ -73,6 +73,11 @@ abstract interface class IRemoteSession {
   /// its connection gone. Its words went with it.
   Future<void> get ended;
 
+  /// Whether the part across hears a fact [fact] matches: it subscribed
+  /// to it (without a subscription, every fact it may read), or read its
+  /// recent ones.
+  bool hears(bool Function(String fact) fact);
+
   /// Ends the session: its words go, its calls are refused.
   void dispose();
 }
@@ -289,9 +294,7 @@ final class RemoteSession extends ParlanceContractPeer
   Set<String>? get facts =>
       _factFilter == null ? null : Set.unmodifiable(_factFilter!);
 
-  /// Whether the session hears a fact that [fact] matches: its feeds carry
-  /// it (without a subscription, every fact it may hear), or it read the
-  /// recent of it.
+  @override
   bool hears(bool Function(String fact) fact) =>
       (_factFilter ??
               [

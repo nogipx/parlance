@@ -9,6 +9,7 @@ import 'dart:convert';
 
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 const host = Principal('host', 'bench');
 

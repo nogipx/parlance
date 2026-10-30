@@ -1,5 +1,6 @@
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// A word a typed owner defines in this process is kept as its Dart value
 /// (SPEC §18): what is written, said, sent and answered is the value

@@ -6,6 +6,7 @@ import 'package:parlance/app.dart' show ServeAcross;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
+import 'package:parlance/src/participant/local.dart' show Participants;
 
 part 'owners_test.g.dart';
 

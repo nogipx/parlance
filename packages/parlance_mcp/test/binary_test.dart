@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:parlance/app.dart' show Host, IRemoteSession, ServeAcross;
 import 'package:parlance/tools.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_socket/rpc_dart_socket.dart';
@@ -19,12 +20,15 @@ void main() {
     'parlance-mcp serves a host over a socket on stdio',
     timeout: const Timeout(Duration(minutes: 2)),
     () async {
-      final r = Registry();
+      final host = Host();
+      final r = host.registry;
       addTearDown(r.dispose);
-      final house = r.participant(
-        const Principal('house'),
-        vocabularies: [const WordSet.open('house')],
-      );
+      final house = host
+          .participant(
+            const Principal('house'),
+            vocabularies: [const WordSet.open('house')],
+          )
+          .raw;
       final focus = house.defineState(
         StateDescriptor('house.focus', type: const TextType()),
       );
@@ -39,11 +43,11 @@ void main() {
       final dir = Directory.systemTemp.createTempSync('sbmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
       final path = '${dir.path}/r.sock';
-      final sessions = <RemoteSession>[];
+      final sessions = <IRemoteSession>[];
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
         mode: RpcPeerMode((endpoint) {
-          final s = r.participant(agent).serve(endpoint);
+          final s = host.participant(agent).raw.serve(endpoint);
           sessions.add(s);
         }),
       );
@@ -116,7 +120,8 @@ void main() {
     'an agent given no tools while the host was away is told when it comes',
     timeout: const Timeout(Duration(minutes: 2)),
     () async {
-      final r = Registry();
+      final host = Host();
+      final r = host.registry;
       addTearDown(r.dispose);
       final dir = Directory.systemTemp.createTempSync('sbmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
@@ -161,7 +166,9 @@ void main() {
           .timeout(const Duration(seconds: 30));
       final server = RpcSocketServer(
         address: RpcSocketAddress.unix(path),
-        mode: RpcPeerMode((endpoint) => r.participant(agent).serve(endpoint)),
+        mode: RpcPeerMode(
+          (endpoint) => host.participant(agent).raw.serve(endpoint),
+        ),
       );
       await server.start();
       addTearDown(server.stop);

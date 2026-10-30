@@ -1,3 +1,4 @@
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
@@ -9,7 +10,7 @@ const owner = Principal('host', 'house');
 /// A small host: rooms and inputs, a focus room, a lock and keyed
 /// gains, all served by handlers that write what they are asked.
 base class Fixture {
-  Fixture({Registry? registry}) : r = registry ?? Registry(onError: _rethrow) {
+  Fixture() : host = Host(onError: _rethrow) {
     r.addChoices(
       Choices('room', list: () => [for (final s in rooms) Choice(s)]),
     );
@@ -76,7 +77,8 @@ base class Fixture {
     );
   }
 
-  final Registry r;
+  final Host host;
+  Registry get r => host.registry;
   final List<String> rooms = ['main', 'break', 'test'];
   final List<String> inputs = ['front', 'music'];
   late final RawStateWriter focus;

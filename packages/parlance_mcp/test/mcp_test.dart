@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance_mcp/parlance_mcp.dart';
+import 'package:parlance/app.dart' show ServeAcross;
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
@@ -11,7 +12,7 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// The registry fixture with a fact to hear.
 final class Board extends Fixture {
-  Board({super.registry}) {
+  Board() {
     party = r.defineFact(
       FactDescriptor(
         'porch.party',
@@ -115,7 +116,7 @@ void main() {
       (_) {},
       whyNot: () => why,
     );
-    final c = Client(f.r.participant(agent), commandTools: true);
+    final c = Client(f.host.participant(agent).raw, commandTools: true);
     addTearDown(c.close);
     final listed = await c.request('tools/list');
     expect('$listed', isNot(contains('not yet')));
@@ -140,7 +141,7 @@ void main() {
         (_) => ran.add(name),
       );
     }
-    final c = Client(f.r.participant(agent), commandTools: true);
+    final c = Client(f.host.participant(agent).raw, commandTools: true);
     addTearDown(c.close);
     final tools = await c.tools();
     expect(tools.toSet(), hasLength(tools.length), reason: 'each its own');
@@ -164,7 +165,7 @@ void main() {
         CommandDescriptor('x.slow', callers: Callers.only(['agent'])),
         (_) => slow.future,
       );
-      final c = Client(f.r.participant(agent));
+      final c = Client(f.host.participant(agent).raw);
       addTearDown(c.close);
       await c.tools();
       await c.tools();
@@ -185,7 +186,7 @@ void main() {
 
     setUp(() {
       f = Board();
-      c = Client(f.r.participant(agent));
+      c = Client(f.host.participant(agent).raw);
     });
     tearDown(() => c.close());
 
@@ -207,8 +208,13 @@ void main() {
       expect(all.error, isFalse);
       expect(all.text, isNot(contains('hush')));
       expect((await c.call('why', {'state': 'house.secret'})).error, isTrue);
-      expect(await f.r.participant(agent).fetch('house.secret'), isEmpty);
-      expect(await f.r.participant(user).fetch('house.secret'), {null: 'hush'});
+      expect(
+        await f.host.participant(agent).raw.fetch('house.secret'),
+        isEmpty,
+      );
+      expect(await f.host.participant(user).raw.fetch('house.secret'), {
+        null: 'hush',
+      });
     });
 
     test('a fact it may not hear: no recent of it', () async {
@@ -226,7 +232,10 @@ void main() {
         (await c.call('recent_facts', {'fact': 'house.whisper'})).error,
         isTrue,
       );
-      expect(await f.r.participant(agent).recent('house.whisper', 5), isEmpty);
+      expect(
+        await f.host.participant(agent).raw.recent('house.whisper', 5),
+        isEmpty,
+      );
     });
 
     test('an entity that tells the type of its value shows it', () async {
@@ -267,7 +276,10 @@ void main() {
     test('the curated tools, and no command tools unless asked', () async {
       final names = await c.tools();
       expect(names, ['describe', 'read', 'call', 'recent_facts', 'why']);
-      final withCommands = Client(f.r.participant(agent), commandTools: true);
+      final withCommands = Client(
+        f.host.participant(agent).raw,
+        commandTools: true,
+      );
       addTearDown(withCommands.close);
       expect(
         await withCommands.tools(),
@@ -353,7 +365,8 @@ void main() {
       f = Board();
       final (client, server) = RpcChannelTransport.memoryPair();
       responder = RpcPeerEndpoint(transport: server);
-      session = f.r.participant(agent).serve(responder);
+      // What the session keeps is the tools' to see.
+      session = f.host.participant(agent).raw.serve(responder) as RemoteSession;
       responder.start();
       connection = RpcClientConnection(
         transportFactory: (_) async => client,
