@@ -255,7 +255,7 @@ abstract class PlayerOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords.of(participant);
+    final p = GeneratedWords(participant);
     Single.attach(
       volume,
       p
@@ -417,14 +417,14 @@ abstract interface class IPlayerClient {
 /// otherwise (SPEC §6.9).
 final class PlayerClient implements IPlayerClient {
   PlayerClient(IParticipant participant)
-    : _$words = GeneratedWords.of(participant) {
+    : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  PlayerClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+  PlayerClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 

@@ -42,7 +42,7 @@ final class _Dial implements IOwner {
     );
     listen(stream: power, onData: (on) => this.on = on);
     whenAttached(
-      (p) => GeneratedWords.of(p)
+      (p) => GeneratedWords(p)
           .state(StateWordOf<int>('dial.$serial', const Plain(IntType())))
           .define()
           .set(7),
@@ -54,7 +54,7 @@ final class _Dial implements IOwner {
   int? at;
 
   void _define(IParticipant p) {
-    GeneratedWords.of(p)
+    GeneratedWords(p)
         .command(_Command.set)
         .serve(
           (x) => at = x.to,
@@ -90,7 +90,7 @@ final class _Bell implements IOwner {
   _Bell() {
     IOwner.made(
       this,
-      define: (p) => _rang = GeneratedWords.of(p).fact(_Fact.rang).define(),
+      define: (p) => _rang = GeneratedWords(p).fact(_Fact.rang).define(),
     );
   }
 
@@ -140,8 +140,8 @@ final class _Lamps implements IOwner {
     IOwner.made(
       this,
       define: (p) {
-        Keyed.attach(lit, GeneratedWords.of(p).state(_Lit.of).define());
-        GeneratedWords.of(p)
+        Keyed.attach(lit, GeneratedWords(p).state(_Lit.of).define());
+        GeneratedWords(p)
             .command(_Drop.of)
             .serve(
               (x) => bulbs.remove(x.bulb),
@@ -178,18 +178,16 @@ void main() {
       owners: [lamps],
     );
     final ann = r.participant(const Principal('user', 'ann'));
-    expect(GeneratedWords.of(ann).state(_Lit.of).readAll().keys, {'a', 'b'});
+    expect(GeneratedWords(ann).state(_Lit.of).readAll().keys, {'a', 'b'});
 
     expect(
-      await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'b')),
+      await GeneratedWords(ann).command(_Drop.of).call((bulb: 'b')),
       isA<CallDone<void>>(),
     );
     await ann.settle();
-    expect(GeneratedWords.of(ann).state(_Lit.of).readAll().keys, {'a'});
+    expect(GeneratedWords(ann).state(_Lit.of).readAll().keys, {'a'});
     expect(lamps.lit.keys, ['a']);
-    final gone = await GeneratedWords.of(
-      ann,
-    ).command(_Drop.of).call((bulb: 'b'));
+    final gone = await GeneratedWords(ann).command(_Drop.of).call((bulb: 'b'));
     expect(gone.why, contains('no bulb b'));
   });
 
@@ -202,7 +200,7 @@ void main() {
       owners: [_Lamps(listed: false)],
     );
     final ann = r.participant(const Principal('user', 'ann'));
-    final r1 = await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'a'));
+    final r1 = await GeneratedWords(ann).command(_Drop.of).call((bulb: 'a'));
     expect(r1.why, contains("choices(name: 'bulb', list: ...)"));
   });
 
@@ -218,7 +216,7 @@ void main() {
     );
     final heard = <String>[];
     final ann = r.participant(const Principal('user', 'ann'));
-    GeneratedWords.of(
+    GeneratedWords(
       ann,
     ).fact(_Fact.rang).stream.listen((f) => heard.add(f.payload));
     expect(bell.ring('e1', 'bob'), isTrue);
@@ -241,16 +239,14 @@ void main() {
     final admin = r.participant(const Principal('admin'));
 
     expect(
-      await GeneratedWords.of(ann).command(_Command.set).call((to: 3)),
+      await GeneratedWords(ann).command(_Command.set).call((to: 3)),
       isA<CallDone<void>>(),
     );
-    final far = await GeneratedWords.of(
-      ann,
-    ).command(_Command.set).call((to: 30));
+    final far = await GeneratedWords(ann).command(_Command.set).call((to: 30));
     expect(far, isA<CallRefused>());
     expect(far.why, contains('too far for user/ann'));
     expect(
-      await GeneratedWords.of(admin).command(_Command.set).call((to: 30)),
+      await GeneratedWords(admin).command(_Command.set).call((to: 30)),
       isA<CallDone<void>>(),
     );
   });
@@ -277,13 +273,13 @@ void main() {
       await host.settle();
       final agent = host.participant(const Principal('agent', 'a'));
       final ann = host.participant(const Principal('user', 'ann'));
-      final refused = await GeneratedWords.of(
+      final refused = await GeneratedWords(
         agent,
       ).command(_Command.set).call((to: 3));
       expect(refused, isA<CallRefused>(), reason: 'across: $across');
       expect(refused.why, contains('no agent calls dial.set'));
       expect(
-        await GeneratedWords.of(ann).command(_Command.set).call((to: 3)),
+        await GeneratedWords(ann).command(_Command.set).call((to: 3)),
         isA<CallDone<void>>(),
       );
     }
@@ -300,7 +296,7 @@ void main() {
     );
     final ann = r.participant(const Principal('user', 'ann'));
     final seen = <WordStatus>[];
-    final sub = GeneratedWords.of(
+    final sub = GeneratedWords(
       ann,
     ).command(_Command.set).statusChanges.listen(seen.add);
     await ann.settle();
@@ -308,15 +304,12 @@ void main() {
     power.add(false);
     await ann.settle();
     expect(
-      GeneratedWords.of(ann).command(_Command.set).status,
+      GeneratedWords(ann).command(_Command.set).status,
       isA<WordUnavailable>(),
     );
     power.add(true);
     await ann.settle();
-    expect(
-      GeneratedWords.of(ann).command(_Command.set).status,
-      isA<WordReady>(),
-    );
+    expect(GeneratedWords(ann).command(_Command.set).status, isA<WordReady>());
     await sub.cancel();
     expect(seen.whereType<WordUnavailable>(), hasLength(1));
   });
@@ -330,7 +323,7 @@ void main() {
       vocabularies: [WordSet.open('dial')],
     );
     expect(
-      GeneratedWords.of(
+      GeneratedWords(
         p,
       ).state(const StateWordOf<int>('dial.x1', Plain(IntType()))).read(),
       7,

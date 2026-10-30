@@ -697,7 +697,7 @@ final class _Emitter {
       ..writeln('/// otherwise (SPEC §6.9).')
       ..writeln('final class ${_c}Client implements I${_c}Client {')
       ..writeln('  ${_c}Client(IParticipant participant)')
-      ..writeln('    : _\$words = GeneratedWords.of(participant) {')
+      ..writeln('    : _\$words = GeneratedWords(participant) {')
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')
       ..writeln()
@@ -709,7 +709,7 @@ final class _Emitter {
       )
       ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
       ..writeln('  ${_c}Client.of(IOwner owner)')
-      ..writeln('    : _\$words = GeneratedWords.ofOwner(owner) {')
+      ..writeln('    : _\$words = GeneratedWords.of(owner) {')
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')
       ..writeln()
@@ -896,7 +896,7 @@ final class _Emitter {
     out
       ..writeln()
       ..writeln('  void _\$define(IParticipant participant) {')
-      ..writeln('    final p = GeneratedWords.of(participant);');
+      ..writeln('    final p = GeneratedWords(participant);');
     for (final st in states) {
       final define = 'p.state(${_c}State.${st.member}).define(${opts(st)})';
       out.writeln(

@@ -134,7 +134,7 @@ abstract class BoardOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords.of(participant);
+    final p = GeneratedWords(participant);
     Keyed.attach(notes, p.state(BoardState.notes).define());
     Single.attach(anything, p.state(BoardState.anything).define());
     _$seen = p.fact(BoardFact.seen).define();
@@ -223,14 +223,14 @@ abstract interface class IBoardClient {
 /// otherwise (SPEC §6.9).
 final class BoardClient implements IBoardClient {
   BoardClient(IParticipant participant)
-    : _$words = GeneratedWords.of(participant) {
+    : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  BoardClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+  BoardClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 

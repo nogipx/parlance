@@ -56,7 +56,7 @@ abstract class NotesOwnerBase implements IOwner {
   final Single<int> count = Single<int>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords.of(participant);
+    final p = GeneratedWords(participant);
     Single.attach(count, p.state(NotesState.count).define());
     p
         .command(NotesCommand.add)
@@ -107,14 +107,14 @@ abstract interface class INotesClient {
 /// otherwise (SPEC §6.9).
 final class NotesClient implements INotesClient {
   NotesClient(IParticipant participant)
-    : _$words = GeneratedWords.of(participant) {
+    : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  NotesClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+  NotesClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 

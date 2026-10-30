@@ -56,7 +56,7 @@ abstract class AppOwnerBase implements IOwner {
   final Single<bool> dark = Single<bool>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords.of(participant);
+    final p = GeneratedWords(participant);
     Single.attach(dark, p.state(AppState.dark).define());
     p.command(AppCommand.toast).serve((x) => toast(text: x.text));
   }
@@ -101,15 +101,14 @@ abstract interface class IAppClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class AppClient implements IAppClient {
-  AppClient(IParticipant participant)
-    : _$words = GeneratedWords.of(participant) {
+  AppClient(IParticipant participant) : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  AppClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+  AppClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 

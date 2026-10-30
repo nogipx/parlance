@@ -136,7 +136,7 @@ abstract interface class IParticipant implements IHandle {
 
 /// A participant as the library and its tools have it: all it does by
 /// name and descriptor, beside its typed words. Every participant the
-/// library makes is one ([IParticipantRaw.raw]). Not frozen: it changes
+/// library makes is one ([RawAccess.raw]). Not frozen: it changes
 /// as the library does.
 abstract interface class IRawParticipant
     implements IParticipant, IRegistryView {
@@ -262,7 +262,7 @@ FutureOr<R> _served<R>(IParticipant part, FutureOr<R> answer) {
 
 /// Every participant is raw underneath ([IRawParticipant]): the library's
 /// way in, and its tools'.
-extension IParticipantRaw on IParticipant {
+extension RawAccess on IParticipant {
   IRawParticipant get raw => this as IRawParticipant;
 }
 
@@ -275,7 +275,7 @@ final class GeneratedWords {
   GeneratedWords._(this._resolve, this._owner);
 
   /// The words through [participant].
-  static GeneratedWords of(IParticipant participant) {
+  factory GeneratedWords(IParticipant participant) {
     final raw = participant.raw;
     return GeneratedWords._(() => raw, null);
   }
@@ -284,7 +284,7 @@ final class GeneratedWords {
   /// they are used: an owner's client, made in its constructor. Used
   /// before it is attached, a read or a call throws a [StateError]; a
   /// stream waits until it is listened to ([later]).
-  static GeneratedWords ofOwner(IOwner owner) =>
+  static GeneratedWords of(IOwner owner) =>
       GeneratedWords._(() => OwnerParticipant(owner).participant.raw, owner);
 
   final IRawParticipant Function() _resolve;

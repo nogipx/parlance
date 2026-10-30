@@ -174,7 +174,7 @@ abstract class HouseOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords.of(participant);
+    final p = GeneratedWords(participant);
     Keyed.attach(light, p.state(HouseState.light).define());
     Single.attach(heat, p.state(HouseState.heat).define());
     Single.attach(mode, p.state(HouseState.mode).define());
@@ -307,14 +307,14 @@ abstract interface class IHouseClient {
 /// otherwise (SPEC §6.9).
 final class HouseClient implements IHouseClient {
   HouseClient(IParticipant participant)
-    : _$words = GeneratedWords.of(participant) {
+    : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  HouseClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+  HouseClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
@@ -520,7 +520,7 @@ abstract class VisitOwnerBase implements IOwner {
   final Single<List<String>> guests = Single<List<String>>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords.of(participant);
+    final p = GeneratedWords(participant);
     Single.attach(guests, p.state(VisitState.guests).define());
     p.command(VisitCommand.leave).serve((x) => leave(who: x.who));
   }
@@ -566,14 +566,14 @@ abstract interface class IVisitClient {
 /// otherwise (SPEC §6.9).
 final class VisitClient implements IVisitClient {
   VisitClient(IParticipant participant)
-    : _$words = GeneratedWords.of(participant) {
+    : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  VisitClient.of(IOwner owner) : _$words = GeneratedWords.ofOwner(owner) {
+  VisitClient.of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 

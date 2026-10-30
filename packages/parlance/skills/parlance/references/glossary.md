@@ -135,7 +135,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **IRegistryView** (`tools.dart`): what the client and tools read and call: values now, told when the states it draws change (`changes`), facts said from now on, `recent`, calls on behalf of one principal, `synced`.
 - **LocalView** (`tools.dart`): a view of a registry in the same process, as one principal.
-- **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords.of(participant)`; the generator's contract, not a way to write by hand.
+- **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords(participant)` (`GeneratedWords.of(owner)` for an owner's client); the generator's contract, not a way to write by hand.
 - **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
 - **`ProtocolMismatch`**, **`RegistryUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
 - **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, choices, calls in flight; on by default, `unbounded` for a trusted part; past one, that op is refused (`resourceExhausted`).

@@ -7,7 +7,7 @@ import 'package:notes_guest/notes_guest.dart';
 import 'package:notes_words/notes_words.dart';
 import 'package:parlance/app.dart';
 import 'package:parlance/tools.dart'
-    show IParticipantRaw, TypedParticipant, CommandDescriptor, StateDescriptor;
+    show RawAccess, TypedParticipant, CommandDescriptor, StateDescriptor;
 import 'package:test/test.dart';
 
 /// Two guests of one host: the notes guest gives its words, the board
