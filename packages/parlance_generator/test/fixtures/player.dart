@@ -54,7 +54,7 @@ abstract class Player {
   Track? get playing;
 
   /// Each speaker's level, by speaker.
-  @StateWord(name: 'speaker.level', key: 'speaker')
+  @StateWord(name: 'speaker.level', keyOf: 'speaker')
   @Range(min: 0, max: 1)
   num get speakerLevel;
 

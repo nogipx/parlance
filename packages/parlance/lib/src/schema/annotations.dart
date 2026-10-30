@@ -25,14 +25,20 @@ final class Vocabulary {
 
 /// A state: a getter, its type the value's (`int get volume;`).
 final class StateWord {
-  const StateWord({this.name, this.key, this.readers, this.meta = const {}});
+  const StateWord({
+    this.name,
+    this.keyOf,
+    this.readers,
+    this.meta = const {},
+  });
 
   /// Its name after the vocabulary's; by default the member's in snake case;
   /// `''` names the vocabulary itself (`signal`, beside `signal.raise`).
   final String? name;
 
-  /// The entity kind of its keys, for a keyed state.
-  final String? key;
+  /// The choices its keys are of, for a keyed state: one value per key,
+  /// the keys those its owner gives (`choices`), as `@ChoiceOf` names them.
+  final String? keyOf;
 
   /// Who may read it, when not the participant's default (SPEC §22.2).
   final Callers? readers;

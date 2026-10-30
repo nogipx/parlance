@@ -303,9 +303,9 @@ final class _Emitter {
               g,
               _dart(g.returnType),
               _shape(g.returnType, g, g.displayName),
-              r.peek('key')?.stringValue,
+              r.peek('keyOf')?.stringValue,
             )
-            ..keyCode = switch (r.peek('key')) {
+            ..keyCode = switch (r.peek('keyOf')) {
               final k? => _code(k.objectValue, _quote(k.stringValue)),
               null => null,
             };

@@ -2,6 +2,6 @@ part of '_index.dart';
 
 @Vocabulary('door')
 abstract class Doors {
-  @StateWord(key: 'door')
+  @StateWord(keyOf: 'door')
   Room get room;
 }

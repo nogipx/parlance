@@ -46,7 +46,7 @@ enum Mode { home, away, night }
 @Vocabulary('house')
 abstract class House {
   /// Whether a room's light is on, by room.
-  @StateWord(name: 'light.on', key: 'room')
+  @StateWord(name: 'light.on', keyOf: 'room')
   bool get light;
 
   /// The heating's target, °C.

@@ -23,7 +23,7 @@ typedef Action = ({
 @Vocabulary('note')
 abstract class Board {
   /// The notes up, by id: a word named as its vocabulary.
-  @StateWord(name: '', key: 'note')
+  @StateWord(name: '', keyOf: 'note')
   Note get notes;
 
   /// Anything at all.
