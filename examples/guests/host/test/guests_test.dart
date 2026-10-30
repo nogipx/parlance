@@ -33,8 +33,9 @@ void main() {
     (e) => startBoard(
       e,
       onError: (x) {
-        if (x.code == ParticipantErrorCode.mismatch)
+        if (x.code == ParticipantErrorCode.mismatch) {
           mismatches['${x.op['word']}'] = x.why;
+        }
       },
     ),
   );
@@ -96,7 +97,7 @@ void main() {
         mismatches['notes.all'],
         contains('type.item.type: was object, is text'),
       );
-      expect(NotesClient(p).mismatches.keys, {'notes.add', 'notes.all'});
+      expect(INotesClient(p).mismatches.keys, {'notes.add', 'notes.all'});
       // The host is told it too, as the board is.
       for (final m in host.host.registry.mismatches) {
         if (m.by != Who.widlet('board')) continue;
@@ -111,13 +112,13 @@ void main() {
   test('a guest that goes takes its words; one that comes again brings '
       'them, in any order', () async {
     final (p, b) = await board();
-    expect(NotesClient(p).status(NotesCommand.add), const WordMissing());
+    expect(INotesClient(p).status(NotesCommand.add), const WordMissing());
     final notes = await loadInMemory(host, 'notes', startNotes);
     await p.settle();
-    expect(NotesClient(p).status(NotesCommand.add), const WordReady());
+    expect(INotesClient(p).status(NotesCommand.add), const WordReady());
     host.unload('notes');
     await p.settle();
-    expect(NotesClient(p).status(NotesCommand.add), const WordMissing());
+    expect(INotesClient(p).status(NotesCommand.add), const WordMissing());
     notes.dispose();
     await b.close();
   });

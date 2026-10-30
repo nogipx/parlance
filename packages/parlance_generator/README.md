@@ -29,7 +29,7 @@ abstract class Player {
 }
 ```
 
-`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwnerBase` and the client, `IPlayerClient` with `PlayerClient` over a participant, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; each state is an object of the base (`volume.set(50)`, `volume.value`, `volume.remove()`), which keeps what it sets and writes it once attached, and what a handler does follows from its call:
+`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwnerBase` and the client, `IPlayerClient` (an interface, made by its factories) over a participant, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; each state is an object of the base (`volume.set(50)`, `volume.value`, `volume.remove()`), which keeps what it sets and writes it once attached, and what a handler does follows from its call:
 
 ```dart
 final class Deck extends PlayerOwnerBase {
@@ -50,7 +50,7 @@ final class Deck extends PlayerOwnerBase {
 Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `IPlayerClient.of(this)`, and hears it at once: `hear(fact: IPlayerClient.of(this).clipped, onData: ...)`.
 
 ```dart
-final IPlayerClient player = PlayerClient(participant); // a test gives a stand-in
+final IPlayerClient player = IPlayerClient(participant); // a test gives a stand-in
 player.volume.changes.listen(show);   // player.volume.value now
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```

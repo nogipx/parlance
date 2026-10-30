@@ -206,16 +206,16 @@ void main() {
 
     expect(shown(_StandIn()), 7);
     attach(Deck());
-    expect(shown(PlayerClient(asAnn)), 50);
+    expect(shown(IPlayerClient(asAnn)), 50);
     expect(
-      PlayerClient(asAnn).mismatches,
+      IPlayerClient(asAnn).mismatches,
       isEmpty,
       reason: 'the words met are the words it was built against',
     );
   });
 
   test('a client made tells the registry what it was built against', () {
-    PlayerClient(asAnn);
+    IPlayerClient(asAnn);
     expect(r.mismatches, isEmpty, reason: 'nothing there yet');
     p.raw.defineState(StateDescriptor('player.volume', type: const TextType()));
     expect(r.mismatches.map((m) => (m.by, m.word)), [(ann, 'player.volume')]);
@@ -370,10 +370,10 @@ void main() {
 
   group('the client', () {
     late Deck deck;
-    late PlayerClient asAnn;
+    late IPlayerClient asAnn;
     setUp(() {
       attach(deck = Deck());
-      asAnn = PlayerClient(r.participant(ann));
+      asAnn = IPlayerClient(r.participant(ann));
     });
 
     test('watches a keyed state whole: every key, as any comes, changes '
@@ -432,7 +432,7 @@ void main() {
     );
 
     test('a call not done throws, with why', () async {
-      final asGuest = PlayerClient(
+      final asGuest = IPlayerClient(
         r.participant(const Principal('guest', 'bob')),
       );
       expect(asGuest.status(PlayerCommand.stop), const WordNotPermitted());

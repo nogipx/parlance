@@ -179,12 +179,16 @@ final class BoardSeenFact {
 
 /// The words of [Board] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [BoardClient] is them over a participant.
+/// place.
 abstract interface class IBoardClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory IBoardClient(IParticipant participant) = _$BoardClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBoardClient.of(IOwner owner) = BoardClient._of;
+  factory IBoardClient.of(IOwner owner) = _$BoardClient._of;
 
   /// note, by note: each value, and its changes.
   IKeyedOf<Note> get notes;
@@ -224,13 +228,13 @@ abstract interface class IBoardClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class BoardClient implements IBoardClient {
-  BoardClient(IParticipant participant)
+final class _$BoardClient implements IBoardClient {
+  _$BoardClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
-  BoardClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$BoardClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 

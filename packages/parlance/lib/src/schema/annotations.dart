@@ -18,7 +18,7 @@ final class Vocabulary {
   /// handler to write per command and query.
   final bool owner;
 
-  /// Whether to make `<Class>Client` too (SPEC §23.5): the module's words
+  /// Whether to make `I<Class>Client` too (SPEC §23.5): the module's words
   /// as a consumer uses them, over any view, here or across a connection.
   final bool client;
 }

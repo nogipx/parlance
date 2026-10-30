@@ -52,8 +52,8 @@ Future<void> main() async {
   // registry to act as anyone. Each uses the house through its client.
   final annSide = host.participant(Who.ann);
   final bobSide = host.participant(Who.bob);
-  final ann = HouseClient(annSide);
-  final bob = HouseClient(bobSide);
+  final ann = IHouseClient(annSide);
+  final bob = IHouseClient(bobSide);
 
   // --- 1. Typed calls, and who may make them --------------------------------
 
@@ -87,7 +87,7 @@ Future<void> main() async {
     '${bob.status(HouseCommand.setHeat)}, '
     '${HouseCommand.setLight.name} '
     '${bob.status(HouseCommand.setLight)}, '
-    '${VisitState.guests.name} ${VisitClient(bobSide).status(VisitState.guests)}',
+    '${VisitState.guests.name} ${IVisitClient(bobSide).status(VisitState.guests)}',
   );
 
   // --- 2. A guard of the house -----------------------------------------------
@@ -97,7 +97,7 @@ Future<void> main() async {
   final agentSide = host.participant(Who.agent('night'));
   await show(
     'an agent unlocks at night',
-    () => HouseClient(agentSide).lock(on: false),
+    () => IHouseClient(agentSide).lock(on: false),
   );
   await show('ann unlocks at night', () => ann.lock(on: false));
   await ann.lock(on: true);
@@ -136,7 +136,7 @@ Future<void> main() async {
     access: const WordAccess(callers: Who.household),
   );
   await annSide.settle();
-  final visit = VisitClient(annSide);
+  final visit = IVisitClient(annSide);
   print('  during the visit: visit.guests ${visit.status(VisitState.guests)}');
   house.ring(Who.bob, 'bob');
   await annSide.settle();
@@ -157,7 +157,7 @@ Future<void> main() async {
   final phone = await Phone.join(host, Who.phone('ann-phone'));
   // It knows the house through the same client: getters and streams for
   // states, methods for commands, no word or record in sight.
-  final IHouseClient home = HouseClient(phone.part);
+  final IHouseClient home = IHouseClient(phone.part);
   final heats = home.heat.changes.listen((_) {});
   final modes = home.mode.changes.listen((_) {});
   await home.setHeat(target: 22);

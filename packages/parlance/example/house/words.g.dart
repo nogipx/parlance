@@ -252,12 +252,16 @@ final class HouseMotionFact {
 
 /// The words of [House] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [HouseClient] is them over a participant.
+/// place.
 abstract interface class IHouseClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory IHouseClient(IParticipant participant) = _$HouseClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IHouseClient.of(IOwner owner) = HouseClient._of;
+  factory IHouseClient.of(IOwner owner) = _$HouseClient._of;
 
   /// house.light, by room: each value, and its changes.
   IKeyedOf<bool> get light;
@@ -309,13 +313,13 @@ abstract interface class IHouseClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class HouseClient implements IHouseClient {
-  HouseClient(IParticipant participant)
+final class _$HouseClient implements IHouseClient {
+  _$HouseClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
-  HouseClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$HouseClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
@@ -540,12 +544,16 @@ abstract class VisitOwnerBase implements IOwner {
 
 /// The words of [Visit] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [VisitClient] is them over a participant.
+/// place.
 abstract interface class IVisitClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory IVisitClient(IParticipant participant) = _$VisitClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IVisitClient.of(IOwner owner) = VisitClient._of;
+  factory IVisitClient.of(IOwner owner) = _$VisitClient._of;
 
   /// visit.guests: its value now, and its changes.
   IStateOf<List<String>> get guests;
@@ -570,13 +578,13 @@ abstract interface class IVisitClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class VisitClient implements IVisitClient {
-  VisitClient(IParticipant participant)
+final class _$VisitClient implements IVisitClient {
+  _$VisitClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
-  VisitClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$VisitClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 

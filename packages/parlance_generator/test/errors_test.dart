@@ -111,7 +111,7 @@ $body
     ),
     'a word named as what every client has': (
       '@StateWord("status") int get status;',
-      'status is had twice by OrdersClient',
+      'status is had twice by IOrdersClient',
     ),
   };
   for (final MapEntry(key: what, value: (body, says)) in cases.entries) {

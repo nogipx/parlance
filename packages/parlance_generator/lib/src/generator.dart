@@ -562,12 +562,13 @@ final class _Emitter {
     return 'const Callers({${entries.join(', ')}})';
   }
 
-  /// `<Class>Client` (SPEC §23.5): the words as a consumer uses them, over
-  /// a participant, here or across a connection: states read and
+  /// `I<Class>Client` (SPEC §23.5): the words as a consumer uses them,
+  /// over a participant, here or across a connection: states read and
   /// watched, commands and queries as methods of the class's params that
   /// answer or throw [CallNotDone], facts as streams of their payloads.
-  /// What uses it takes `I<Class>Client`, the same members as an
-  /// interface, so a test or another source of the words stands in.
+  /// Made by its factories, `I<Class>Client(participant)` and
+  /// `I<Class>Client.of(owner)`, over a class of the library's own, so
+  /// what uses it names the interface alone and a test stands in.
   String _clientOf(
     List<_State> states,
     List<_Callable> commands,
@@ -584,7 +585,7 @@ final class _Emitter {
           }.contains(name) ||
           members.containsKey(name)) {
         throw InvalidGenerationSourceError(
-          '$name is had twice by ${_c}Client: name ${w.member} otherwise, or '
+          '$name is had twice by I${_c}Client: name ${w.member} otherwise, or '
           '@Vocabulary(client: false)',
           element: w.element,
         );
@@ -679,8 +680,16 @@ final class _Emitter {
     final out = StringBuffer()
       ..writeln('/// The words of [$_c] as a consumer uses them: what a part')
       ..writeln('/// that uses them takes, so a stand-in can be given in its')
-      ..writeln('/// place. [${_c}Client] is them over a participant.')
+      ..writeln('/// place.')
       ..writeln('abstract interface class I${_c}Client {')
+      ..writeln(
+        '  /// The words through [participant], here or across a connection:',
+      )
+      ..writeln('  /// what `main` gives a part that uses them.')
+      ..writeln(
+        '  factory I${_c}Client(IParticipant participant) = _\$${_c}Client;',
+      )
+      ..writeln()
       ..writeln(
         '  /// The words through the participant [owner] is attached to,',
       )
@@ -688,7 +697,7 @@ final class _Emitter {
         '  /// for an owner that uses them: made in its constructor, its',
       )
       ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
-      ..writeln('  factory I${_c}Client.of(IOwner owner) = ${_c}Client._of;')
+      ..writeln('  factory I${_c}Client.of(IOwner owner) = _\$${_c}Client._of;')
       ..writeln();
     for (final (i, m) in all.indexed) {
       if (i > 0) out.writeln();
@@ -704,13 +713,13 @@ final class _Emitter {
       ..writeln('/// a connection. Made, it tells the registry the code was')
       ..writeln('/// built against them, for it to say where one is defined')
       ..writeln('/// otherwise (SPEC §6.9).')
-      ..writeln('final class ${_c}Client implements I${_c}Client {')
-      ..writeln('  ${_c}Client(IParticipant participant)')
+      ..writeln('final class _\$${_c}Client implements I${_c}Client {')
+      ..writeln('  _\$${_c}Client(IParticipant participant)')
       ..writeln('    : _\$words = GeneratedWords(participant) {')
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')
       ..writeln()
-      ..writeln('  ${_c}Client._of(IOwner owner)')
+      ..writeln('  _\$${_c}Client._of(IOwner owner)')
       ..writeln('    : _\$words = GeneratedWords.of(owner) {')
       ..writeln('    _\$words.builtAgainst($_words.words, from: $_words.from);')
       ..writeln('  }')

@@ -45,5 +45,5 @@ Future<(IRemoteParticipant, Board)> startBoard(
   void Function(ParticipantError error)? onError,
 }) async {
   final p = await Host.joinEndpoint(endpoint, onParticipantError: onError);
-  return (p, Board(AppClient(p), NotesClient(p)));
+  return (p, Board(IAppClient(p), INotesClient(p)));
 }

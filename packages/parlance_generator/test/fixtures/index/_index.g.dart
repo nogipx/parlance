@@ -55,12 +55,16 @@ abstract class DoorsOwnerBase implements IOwner {
 
 /// The words of [Doors] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [DoorsClient] is them over a participant.
+/// place.
 abstract interface class IDoorsClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory IDoorsClient(IParticipant participant) = _$DoorsClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDoorsClient.of(IOwner owner) = DoorsClient._of;
+  factory IDoorsClient.of(IOwner owner) = _$DoorsClient._of;
 
   /// door.room, by door: each value, and its changes.
   IKeyedOf<Room> get room;
@@ -82,13 +86,13 @@ abstract interface class IDoorsClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class DoorsClient implements IDoorsClient {
-  DoorsClient(IParticipant participant)
+final class _$DoorsClient implements IDoorsClient {
+  _$DoorsClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
-  DoorsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$DoorsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
@@ -193,12 +197,16 @@ abstract class LightsOwnerBase implements IOwner {
 
 /// The words of [Lights] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [LightsClient] is them over a participant.
+/// place.
 abstract interface class ILightsClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory ILightsClient(IParticipant participant) = _$LightsClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ILightsClient.of(IOwner owner) = LightsClient._of;
+  factory ILightsClient.of(IOwner owner) = _$LightsClient._of;
 
   /// Calls light.on; a call not done throws [CallNotDone].
   Future<void> on({required Room room});
@@ -220,13 +228,13 @@ abstract interface class ILightsClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class LightsClient implements ILightsClient {
-  LightsClient(IParticipant participant)
+final class _$LightsClient implements ILightsClient {
+  _$LightsClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 
-  LightsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$LightsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 

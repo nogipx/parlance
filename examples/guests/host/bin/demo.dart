@@ -26,7 +26,7 @@ Future<void> main() async {
   await board.settle();
   print(
     'notes unloaded: notes.add is '
-    '${NotesClient(board).status(NotesCommand.add)}',
+    '${INotesClient(board).status(NotesCommand.add)}',
   );
 
   await b.close();

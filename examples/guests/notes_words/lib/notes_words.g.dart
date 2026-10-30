@@ -123,12 +123,16 @@ final class NotesAddedFact {
 
 /// The words of [Notes] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [NotesClient] is them over a participant.
+/// place.
 abstract interface class INotesClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory INotesClient(IParticipant participant) = _$NotesClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory INotesClient.of(IOwner owner) = NotesClient._of;
+  factory INotesClient.of(IOwner owner) = _$NotesClient._of;
 
   /// notes.all: its value now, and its changes.
   IStateOf<List<Note>> get all;
@@ -156,13 +160,13 @@ abstract interface class INotesClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class NotesClient implements INotesClient {
-  NotesClient(IParticipant participant)
+final class _$NotesClient implements INotesClient {
+  _$NotesClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
-  NotesClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$NotesClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 

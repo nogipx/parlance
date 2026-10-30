@@ -360,12 +360,16 @@ final class PlayerFinishedFact {
 
 /// The words of [Player] as a consumer uses them: what a part
 /// that uses them takes, so a stand-in can be given in its
-/// place. [PlayerClient] is them over a participant.
+/// place.
 abstract interface class IPlayerClient {
+  /// The words through [participant], here or across a connection:
+  /// what `main` gives a part that uses them.
+  factory IPlayerClient(IParticipant participant) = _$PlayerClient;
+
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IPlayerClient.of(IOwner owner) = PlayerClient._of;
+  factory IPlayerClient.of(IOwner owner) = _$PlayerClient._of;
 
   /// player.volume: its value now, and its changes.
   IStateOf<int> get volume;
@@ -421,13 +425,13 @@ abstract interface class IPlayerClient {
 /// a connection. Made, it tells the registry the code was
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
-final class PlayerClient implements IPlayerClient {
-  PlayerClient(IParticipant participant)
+final class _$PlayerClient implements IPlayerClient {
+  _$PlayerClient(IParticipant participant)
     : _$words = GeneratedWords(participant) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
-  PlayerClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$PlayerClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
