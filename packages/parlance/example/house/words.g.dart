@@ -284,6 +284,18 @@ abstract interface class IHouseClient {
 
   /// house.motion.seen, as it is said from now on: what it says.
   Stream<({String room})> get motion;
+
+  /// Whether [word] is there for the participant now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// Each word of [House] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<WordBreak>> get mismatches;
 }
 
 /// The words of [House] through a participant, here or across
@@ -390,16 +402,13 @@ final class HouseClient implements IHouseClient {
     () => _$words.fact(HouseFact.motion).stream.map((f) => f.payload),
   );
 
-  /// Whether [word] is there for the participant now, as this code was built
-  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => _$words.status(word);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
-  /// Each word of [House] there but not as this code was built against,
-  /// with where it breaks; empty when all keep their promises. For a
-  /// start in development: `assert(client.mismatches.isEmpty)`.
+  @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(houseWords.words);
 
@@ -574,6 +583,18 @@ abstract interface class IVisitClient {
 
   /// Calls visit.leave; a call not done throws [CallNotDone].
   Future<void> leave({required String who});
+
+  /// Whether [word] is there for the participant now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// Each word of [Visit] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<WordBreak>> get mismatches;
 }
 
 /// The words of [Visit] through a participant, here or across
@@ -609,16 +630,13 @@ final class VisitClient implements IVisitClient {
     throw CallNotDone(r);
   }
 
-  /// Whether [word] is there for the participant now, as this code was built
-  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => _$words.status(word);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
-  /// Each word of [Visit] there but not as this code was built against,
-  /// with where it breaks; empty when all keep their promises. For a
-  /// start in development: `assert(client.mismatches.isEmpty)`.
+  @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(visitWords.words);
 }

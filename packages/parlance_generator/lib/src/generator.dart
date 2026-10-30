@@ -568,11 +568,14 @@ final class _Emitter {
     }
 
     // Each member once: what it says, its signature, and its body in the
-    // client over a participant. The interface says only Dart's types and the
-    // vocabulary's own; what is parlance's (a word's status, a fact's
-    // message) is the client's alone.
+    // client over a participant. The interface says Dart's types, the
+    // vocabulary's own and a word's status; a fact's message (for an owner
+    // to follow from) is the client's alone.
     final all = <({List<String> docs, String signature, String body})>[];
-    final own = <({List<String> docs, String signature, String body})>[
+    final own = <({List<String> docs, String signature, String body})>[];
+    // Whether a word is there, in the interface too: a part that takes it
+    // asks before it calls.
+    final status = <({List<String> docs, String signature, String body})>[
       (
         docs: [
           'Whether [word] is there for the participant now, as this code was built',
@@ -685,6 +688,7 @@ final class _Emitter {
       ));
     }
 
+    all.addAll(status);
     final out = StringBuffer()
       ..writeln('/// The words of [$_c] as a consumer uses them: what a part')
       ..writeln('/// that uses them takes, so a stand-in can be given in its')

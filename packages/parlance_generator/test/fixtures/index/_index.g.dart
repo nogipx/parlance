@@ -65,6 +65,18 @@ abstract interface class IDoorsClient {
 
   /// door.room of [door] now, then on every change.
   Stream<Room?> roomChanges(String door);
+
+  /// Whether [word] is there for the participant now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// Each word of [Doors] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<WordBreak>> get mismatches;
 }
 
 /// The words of [Doors] through a participant, here or across
@@ -100,16 +112,13 @@ final class DoorsClient implements IDoorsClient {
   Stream<Room?> roomChanges(String door) =>
       _$words.later(() => _$words.state(DoorsState.room).watch(key: door));
 
-  /// Whether [word] is there for the participant now, as this code was built
-  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => _$words.status(word);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
-  /// Each word of [Doors] there but not as this code was built against,
-  /// with where it breaks; empty when all keep their promises. For a
-  /// start in development: `assert(client.mismatches.isEmpty)`.
+  @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(doorsWords.words);
 }
@@ -198,6 +207,18 @@ abstract class LightsOwnerBase implements IOwner {
 abstract interface class ILightsClient {
   /// Calls light.on; a call not done throws [CallNotDone].
   Future<void> on({required Room room});
+
+  /// Whether [word] is there for the participant now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// Each word of [Lights] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<WordBreak>> get mismatches;
 }
 
 /// The words of [Lights] through a participant, here or across
@@ -226,16 +247,13 @@ final class LightsClient implements ILightsClient {
     throw CallNotDone(r);
   }
 
-  /// Whether [word] is there for the participant now, as this code was built
-  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => _$words.status(word);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
-  /// Each word of [Lights] there but not as this code was built against,
-  /// with where it breaks; empty when all keep their promises. For a
-  /// start in development: `assert(client.mismatches.isEmpty)`.
+  @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(lightsWords.words);
 }

@@ -202,6 +202,18 @@ abstract interface class IBoardClient {
 
   /// note.seen, as it is said from now on: what it says.
   Stream<Note> get seen;
+
+  /// Whether [word] is there for the participant now, as this code was built
+  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  WordStatus status(IWord word);
+
+  /// [status], then whenever it changes.
+  Stream<WordStatus> statusChanges(IWord word);
+
+  /// Each word of [Board] there but not as this code was built against,
+  /// with where it breaks; empty when all keep their promises. For a
+  /// start in development: `assert(client.mismatches.isEmpty)`.
+  Map<String, List<WordBreak>> get mismatches;
 }
 
 /// The words of [Board] through a participant, here or across
@@ -282,16 +294,13 @@ final class BoardClient implements IBoardClient {
     () => _$words.fact(BoardFact.seen).stream.map((f) => f.payload),
   );
 
-  /// Whether [word] is there for the participant now, as this code was built
-  /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
+  @override
   WordStatus status(IWord word) => _$words.status(word);
 
-  /// [status], then whenever it changes.
+  @override
   Stream<WordStatus> statusChanges(IWord word) => _$words.statusChanges(word);
 
-  /// Each word of [Board] there but not as this code was built against,
-  /// with where it breaks; empty when all keep their promises. For a
-  /// start in development: `assert(client.mismatches.isEmpty)`.
+  @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(boardWords.words);
 
