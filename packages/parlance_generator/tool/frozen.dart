@@ -17,10 +17,9 @@ import 'dart:io';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
-import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart';
 
-const _frozen = ['schema.dart', 'app.dart'];
+import 'surface.dart';
 
 /// What an app's code or its generated code implements: a member added
 /// to it breaks every class that does, so it is never added to.
@@ -72,31 +71,6 @@ Future<void> main(List<String> args) async {
   exitCode = 1;
 }
 
-/// What the frozen libraries of the package at [root] show, a line for
-/// each name and each public member, with its signature.
-Future<Set<String>> surface(String root) async {
-  final paths = [for (final l in _frozen) '$root/lib/$l'];
-  final collection = AnalysisContextCollection(includedPaths: paths);
-  final lines = <String>{};
-  for (final (i, path) in paths.indexed) {
-    if (!File(path).existsSync()) continue;
-    final session = collection.contextFor(path).currentSession;
-    final lib = await session.getResolvedLibrary(path);
-    if (lib is! ResolvedLibraryResult) continue;
-    final of = _frozen[i];
-    for (final MapEntry(key: name, value: e)
-        in lib.element.exportNamespace.definedNames2.entries) {
-      lines.add('$of $name: ${e.displayString()}');
-      for (final m in _members(e)) {
-        if (m.isPrivate) continue;
-        final static = m is ExecutableElement && m.isStatic ? 'static ' : '';
-        lines.add('$of $name.$static${m.displayName}: ${m.displayString()}');
-      }
-    }
-  }
-  return lines;
-}
-
 /// Whether [line] is an instance member of what an app implements.
 bool _ofImplemented(String line) {
   final at = line.indexOf(' ') + 1;
@@ -106,18 +80,6 @@ bool _ofImplemented(String line) {
   return _implemented.contains(line.substring(at, dot)) &&
       !line.startsWith('static ', dot + 1);
 }
-
-Iterable<Element> _members(Element e) => switch (e) {
-  final InterfaceElement c => [
-    ...c.constructors,
-    ...c.getters,
-    ...c.setters,
-    ...c.methods,
-    if (c is EnumElement) ...c.constants,
-  ],
-  final ExtensionElement x => [...x.getters, ...x.setters, ...x.methods],
-  _ => const [],
-};
 
 /// The generated code of the fixtures as they were at [since], built with
 /// the library now: what does not build, by file.
