@@ -62,7 +62,7 @@ abstract class Player {
   void setVolume({@Range(min: 0, max: 100) required int volume});
 
   /// Cannot play while nothing is loaded.
-  @CommandWord(available: true, deadline: Duration(seconds: 5))
+  @CommandWord(whyNot: true, deadline: Duration(seconds: 5))
   Future<void> play({
     required Track track,
     Repeat repeat = Repeat.off,

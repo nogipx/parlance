@@ -72,7 +72,7 @@ abstract class House {
 
   /// Locks (on) or unlocks the door; it says why it cannot, before anyone
   /// tries.
-  @CommandWord(name: 'door.lock', available: true)
+  @CommandWord(name: 'door.lock', whyNot: true)
   void lock({required bool on});
 
   /// The rooms whose light is on ([lit]) or off: a question that changes

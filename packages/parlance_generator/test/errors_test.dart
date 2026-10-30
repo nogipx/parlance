@@ -93,7 +93,7 @@ $body
       "a fact's param is not named by",
     ),
     'two members of the owner base of one name': (
-      '@CommandWord(available: true) void go();\n'
+      '@CommandWord(whyNot: true) void go();\n'
           '@CommandWord() void whyNotGo();',
       'whyNotGo is had twice by OrdersOwnerBase',
     ),

@@ -48,7 +48,7 @@ final class CommandWord {
     this.name,
     this.callers,
     this.deadline,
-    this.available = false,
+    this.whyNot = false,
     this.meta = const {},
   });
   final String? name;
@@ -61,9 +61,9 @@ final class CommandWord {
 
   final Duration? deadline;
 
-  /// Whether it may be unavailable now: the owner base then asks a
+  /// Whether it may not run now: the owner base then asks a
   /// `whyNot<Member>()` it writes (SPEC §6.2).
-  final bool available;
+  final bool whyNot;
 }
 
 /// A query (SPEC §6.6): a method, its named parameters the params, its
@@ -73,7 +73,7 @@ final class QueryWord {
     this.name,
     this.askers,
     this.deadline,
-    this.available = false,
+    this.whyNot = false,
     this.meta = const {},
   });
   final String? name;
@@ -82,7 +82,9 @@ final class QueryWord {
   /// Who may ask it, when not who may read (SPEC §6.6).
   final Callers? askers;
   final Duration? deadline;
-  final bool available;
+
+  /// Whether it may not be asked now, as [CommandWord.whyNot] says.
+  final bool whyNot;
 }
 
 /// A fact: a method returning `void`, its named parameters the payload, or

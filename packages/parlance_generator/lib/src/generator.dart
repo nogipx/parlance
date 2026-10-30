@@ -453,7 +453,7 @@ final class _Emitter {
       final us = o.getField('inMicroseconds')?.toIntValue();
       w.options.add('deadline: const Duration(microseconds: $us)');
     }
-    w.available = r.peek('available')?.boolValue ?? false;
+    w.available = r.peek('whyNot')?.boolValue ?? false;
   }
 
   /// A word's `meta`, when it has one.
