@@ -126,17 +126,14 @@ final class NotesAddedFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [NotesClient] is them over a participant.
 abstract interface class INotesClient {
-  /// notes.all now.
-  List<Note>? get all;
-
-  /// notes.all now, then whenever it changes.
-  Stream<List<Note>?> get allChanges;
+  /// notes.all: its value now, and its changes.
+  IStateOf<List<Note>> get all;
 
   /// Calls notes.add; a call not done throws [CallNotDone].
   Future<void> add({required String text});
 
-  /// notes.added, as it is said from now on: what it says.
-  Stream<({String id, String text})> get added;
+  /// notes.added: what it says from now on, and its messages.
+  IFactOf<NotesAdded> get added;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -171,11 +168,7 @@ final class NotesClient implements INotesClient {
   final GeneratedWords _$words;
 
   @override
-  List<Note>? get all => _$words.state(NotesState.all).read();
-
-  @override
-  Stream<List<Note>?> get allChanges =>
-      _$words.later(() => _$words.state(NotesState.all).watch());
+  IStateOf<List<Note>> get all => _$words.stateOf(NotesState.all);
 
   @override
   Future<void> add({required String text}) async {
@@ -185,9 +178,7 @@ final class NotesClient implements INotesClient {
   }
 
   @override
-  Stream<({String id, String text})> get added => _$words.later(
-    () => _$words.fact(NotesFact.added).stream.map((f) => f.payload),
-  );
+  IFactOf<NotesAdded> get added => _$words.factOf(NotesFact.added);
 
   @override
   WordStatus status(IWord word) => _$words.status(word);
@@ -198,11 +189,6 @@ final class NotesClient implements INotesClient {
   @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(notesWords.words);
-
-  /// notes.added, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<NotesAdded>> get addedFacts =>
-      _$words.later(() => _$words.fact(NotesFact.added).stream);
 }
 
 /// The vocabulary of [Notes]: its name and every word, for

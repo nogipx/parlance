@@ -82,11 +82,8 @@ abstract class NotesOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [NotesClient] is them over a participant.
 abstract interface class INotesClient {
-  /// notes.count now.
-  int? get count;
-
-  /// notes.count now, then whenever it changes.
-  Stream<int?> get countChanges;
+  /// notes.count: its value now, and its changes.
+  IStateOf<int> get count;
 
   /// Calls notes.add; a call not done throws [CallNotDone].
   Future<void> add({required String text});
@@ -124,11 +121,7 @@ final class NotesClient implements INotesClient {
   final GeneratedWords _$words;
 
   @override
-  int? get count => _$words.state(NotesState.count).read();
-
-  @override
-  Stream<int?> get countChanges =>
-      _$words.later(() => _$words.state(NotesState.count).watch());
+  IStateOf<int> get count => _$words.stateOf(NotesState.count);
 
   @override
   Future<void> add({required String text}) async {

@@ -66,7 +66,7 @@ Future<void> main() async {
     'ann turns the kitchen light on',
     () => ann.setLight(room: 'kitchen', on: true),
   );
-  print('  kitchen light: ${ann.lightOf('kitchen')}');
+  print('  kitchen light: ${ann.light.of('kitchen')}');
   // Why it is on: on whose behalf the owner wrote it, the message that set
   // it going, and the call it was answering.
   final why = registry.explain(HouseState.light.name, key: 'kitchen');
@@ -120,12 +120,12 @@ Future<void> main() async {
   section('By hand');
   // Nobody called a command: the device changed, and the owner is synced
   // because it said where its changes come from.
-  final before = ann.lightOf('kitchen');
+  final before = ann.light.of('kitchen');
   devices.flip('kitchen');
   await annSide.settle();
   print(
     '  the kitchen switch flipped by hand: '
-    'from $before to ${ann.lightOf('kitchen')}',
+    'from $before to ${ann.light.of('kitchen')}',
   );
 
   // --- 5. A module beside the house, as a scope ----------------------------
@@ -144,7 +144,7 @@ Future<void> main() async {
   print('  during the visit: visit.guests ${visit.status(VisitState.guests)}');
   house.ring(Who.bob, 'bob');
   await annSide.settle();
-  print('  guests: ${visit.guests}');
+  print('  guests: ${visit.guests.value}');
   // The guest book wrote it, answering the ring: nobody passed where it
   // started, the registry gives it from the fact the book followed.
   final booked = registry.lastChange(VisitState.guests.name)!.cause;
@@ -162,12 +162,12 @@ Future<void> main() async {
   // It knows the house through the same client: getters and streams for
   // states, methods for commands, no word or record in sight.
   final IHouseClient home = HouseClient(phone.part);
-  final heats = home.heatChanges.listen((_) {});
-  final modes = home.modeChanges.listen((_) {});
+  final heats = home.heat.changes.listen((_) {});
+  final modes = home.mode.changes.listen((_) {});
   await home.setHeat(target: 22);
   print('  the phone sets the heating: done');
   // A call answers once the phone's copy has what it wrote.
-  print('  the phone sees: ${home.heat} °C, mode ${home.mode?.name}');
+  print('  the phone sees: ${home.heat.value} °C, mode ${home.mode.value?.name}');
   await show('the phone sets 40 °C', () => home.setHeat(target: 40));
   await heats.cancel();
   await modes.cancel();

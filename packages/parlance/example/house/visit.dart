@@ -13,7 +13,7 @@ final class GuestBook extends VisitOwnerBase {
   GuestBook() {
     guests.set(const []);
     hear(
-      HouseClient.of(this).rangFacts,
+      HouseClient.of(this).rang,
       (rang) => guests.set([...?guests.value, rang.who]),
     );
   }

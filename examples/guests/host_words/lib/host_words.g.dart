@@ -77,11 +77,8 @@ abstract class AppOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [AppClient] is them over a participant.
 abstract interface class IAppClient {
-  /// app.dark now.
-  bool? get dark;
-
-  /// app.dark now, then whenever it changes.
-  Stream<bool?> get darkChanges;
+  /// app.dark: its value now, and its changes.
+  IStateOf<bool> get dark;
 
   /// Calls app.toast; a call not done throws [CallNotDone].
   Future<void> toast({required String text});
@@ -119,11 +116,7 @@ final class AppClient implements IAppClient {
   final GeneratedWords _$words;
 
   @override
-  bool? get dark => _$words.state(AppState.dark).read();
-
-  @override
-  Stream<bool?> get darkChanges =>
-      _$words.later(() => _$words.state(AppState.dark).watch());
+  IStateOf<bool> get dark => _$words.stateOf(AppState.dark);
 
   @override
   Future<void> toast({required String text}) async {

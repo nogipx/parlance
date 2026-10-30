@@ -303,6 +303,15 @@ final class GeneratedWords {
   ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
       _resolve().query(word);
 
+  /// The state [word] as a part reads it ([IStateOf]).
+  IStateOf<T> stateOf<T>(IStateWord<T> word) => _StateOf(this, word);
+
+  /// The keyed state [word] as a part reads it ([IKeyedOf]).
+  IKeyedOf<T> keyedOf<T>(IStateWord<T> word) => _KeyedOf(this, word);
+
+  /// The fact [word] as a part hears it ([IFactOf]).
+  IFactOf<T> factOf<T>(IFactWord<T> word) => _FactOf(this, word);
+
   /// [make]'s stream, made when it is listened to: an owner's client hands
   /// out its streams before the owner is attached, and its tools listen
   /// to them once it is.
@@ -313,7 +322,9 @@ final class GeneratedWords {
   /// an owner's client once the owner is attached.
   void builtAgainst(Iterable<IWord> words, {String? from}) {
     if (_owner case final o?) {
-      OwnerParticipant(o).whenAttached((p) => p.raw.builtAgainst(words, from: from));
+      OwnerParticipant(
+        o,
+      ).whenAttached((p) => p.raw.builtAgainst(words, from: from));
     } else {
       _resolve().builtAgainst(words, from: from);
     }
@@ -329,6 +340,59 @@ final class GeneratedWords {
   /// Each of [words] there but not as this code was built against.
   Map<String, List<WordBreak>> mismatches(Iterable<IWord> words) =>
       wordMismatches(_resolve(), words);
+}
+
+final class _StateOf<T> implements IStateOf<T> {
+  _StateOf(this._w, this._word);
+  final GeneratedWords _w;
+  final IStateWord<T> _word;
+
+  @override
+  T? get value => _w.state(_word).read();
+
+  @override
+  Stream<T?> get changes => _w.later(() => _w.state(_word).watch());
+
+  @override
+  String toString() => '${_word.name} = $value';
+}
+
+final class _KeyedOf<T> implements IKeyedOf<T> {
+  _KeyedOf(this._w, this._word);
+  final GeneratedWords _w;
+  final IStateWord<T> _word;
+
+  @override
+  T? of(String key) => _w.state(_word).read(key: key);
+
+  @override
+  Map<String, T> get all => {
+    for (final MapEntry(:key, :value) in _w.state(_word).readAll().entries)
+      ?key: value,
+  };
+
+  @override
+  Stream<T?> changesOf(String key) =>
+      _w.later(() => _w.state(_word).watch(key: key));
+
+  @override
+  String toString() => '${_word.name} = $all';
+}
+
+final class _FactOf<T> implements IFactOf<T> {
+  _FactOf(this._w, this._word);
+  final GeneratedWords _w;
+  final IFactWord<T> _word;
+
+  @override
+  Stream<T> get stream =>
+      _w.later(() => _w.fact(_word).stream.map((f) => f.payload));
+
+  @override
+  Stream<Fact<T>> get facts => _w.later(() => _w.fact(_word).stream);
+
+  @override
+  String toString() => _word.name;
 }
 
 /// A stream made anew for each listener, when it listens.

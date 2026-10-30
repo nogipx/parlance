@@ -183,20 +183,11 @@ final class BoardSeenFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [BoardClient] is them over a participant.
 abstract interface class IBoardClient {
-  /// note of [note] now.
-  Note? notesOf(String note);
+  /// note, by note: each value, and its changes.
+  IKeyedOf<Note> get notes;
 
-  /// note of every note, by key.
-  Map<String, Note> get notesAll;
-
-  /// note of [note] now, then on every change.
-  Stream<Note?> notesChanges(String note);
-
-  /// note.anything now.
-  Object? get anything;
-
-  /// note.anything now, then whenever it changes.
-  Stream<Object?> get anythingChanges;
+  /// note.anything: its value now, and its changes.
+  IStateOf<Object?> get anything;
 
   /// Calls note.put; a call not done throws [CallNotDone].
   Future<({String id})> put({String? id, required Note note});
@@ -210,8 +201,8 @@ abstract interface class IBoardClient {
   /// Calls note.count; a call not done throws [CallNotDone].
   Future<void> count({required int? readers});
 
-  /// note.seen, as it is said from now on: what it says.
-  Stream<Note> get seen;
+  /// note.seen: what it says from now on, and its messages.
+  IFactOf<Note> get seen;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -246,25 +237,10 @@ final class BoardClient implements IBoardClient {
   final GeneratedWords _$words;
 
   @override
-  Note? notesOf(String note) => _$words.state(BoardState.notes).read(key: note);
+  IKeyedOf<Note> get notes => _$words.keyedOf(BoardState.notes);
 
   @override
-  Map<String, Note> get notesAll => {
-    for (final MapEntry(:key, :value)
-        in _$words.state(BoardState.notes).readAll().entries)
-      ?key: value,
-  };
-
-  @override
-  Stream<Note?> notesChanges(String note) =>
-      _$words.later(() => _$words.state(BoardState.notes).watch(key: note));
-
-  @override
-  Object? get anything => _$words.state(BoardState.anything).read();
-
-  @override
-  Stream<Object?> get anythingChanges =>
-      _$words.later(() => _$words.state(BoardState.anything).watch());
+  IStateOf<Object?> get anything => _$words.stateOf(BoardState.anything);
 
   @override
   Future<({String id})> put({String? id, required Note note}) async {
@@ -300,9 +276,7 @@ final class BoardClient implements IBoardClient {
   }
 
   @override
-  Stream<Note> get seen => _$words.later(
-    () => _$words.fact(BoardFact.seen).stream.map((f) => f.payload),
-  );
+  IFactOf<Note> get seen => _$words.factOf(BoardFact.seen);
 
   @override
   WordStatus status(IWord word) => _$words.status(word);
@@ -313,11 +287,6 @@ final class BoardClient implements IBoardClient {
   @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(boardWords.words);
-
-  /// note.seen, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<Note>> get seenFacts =>
-      _$words.later(() => _$words.fact(BoardFact.seen).stream);
 }
 
 /// The vocabulary of [Board]: its name and every word, for

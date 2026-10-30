@@ -4,4 +4,5 @@
 /// The contract: skills/parlance/references/testing.md (§24).
 library;
 
+export 'src/testing/stubs.dart';
 export 'src/testing/test_host.dart';

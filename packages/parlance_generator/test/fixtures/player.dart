@@ -38,10 +38,13 @@ final class Artist {
 /// A player's words, written once.
 @Vocabulary('player')
 abstract class Player {
-  @StateWord('volume', meta: {
+  @StateWord(
+    'volume',
+    meta: {
       'label': 'Volume',
       'steps': [0, 50, 100],
-    })
+    },
+  )
   @Range(min: 0, max: 100)
   int get volume;
 

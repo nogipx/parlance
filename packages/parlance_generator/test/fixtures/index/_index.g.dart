@@ -57,14 +57,8 @@ abstract class DoorsOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [DoorsClient] is them over a participant.
 abstract interface class IDoorsClient {
-  /// door.room of [door] now.
-  Room? roomOf(String door);
-
-  /// door.room of every door, by key.
-  Map<String, Room> get roomAll;
-
-  /// door.room of [door] now, then on every change.
-  Stream<Room?> roomChanges(String door);
+  /// door.room, by door: each value, and its changes.
+  IKeyedOf<Room> get room;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -99,18 +93,7 @@ final class DoorsClient implements IDoorsClient {
   final GeneratedWords _$words;
 
   @override
-  Room? roomOf(String door) => _$words.state(DoorsState.room).read(key: door);
-
-  @override
-  Map<String, Room> get roomAll => {
-    for (final MapEntry(:key, :value)
-        in _$words.state(DoorsState.room).readAll().entries)
-      ?key: value,
-  };
-
-  @override
-  Stream<Room?> roomChanges(String door) =>
-      _$words.later(() => _$words.state(DoorsState.room).watch(key: door));
+  IKeyedOf<Room> get room => _$words.keyedOf(DoorsState.room);
 
   @override
   WordStatus status(IWord word) => _$words.status(word);

@@ -13,8 +13,8 @@ final class Fan implements IOwner {
     IOwner.made(this, define: (_) {});
     // What it reads of another's it watches: across a connection a state
     // is kept only while watched.
-    listen(player.volumeChanges, (v) => volume = v);
-    hear(player.clippedFacts, (c) => heard.add((c.volume, player.volume)));
+    listen(player.volume.changes, (v) => volume = v);
+    hear(player.clipped, (c) => heard.add((c.volume, player.volume.value)));
   }
 
   int? volume;
@@ -82,6 +82,6 @@ void main() {
   }
 
   test('its client used before it is attached says so', () {
-    expect(() => Fan().player.volume, throwsStateError);
+    expect(() => Fan().player.volume.value, throwsStateError);
   });
 }

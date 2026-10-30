@@ -16,7 +16,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 final class Board {
   Board(this.app, this.notes) {
     // Another's state reaches a guest while it watches it.
-    _watching = notes.allChanges.listen((all) => shown = all ?? const []);
+    _watching = notes.all.changes.listen((all) => shown = all ?? const []);
   }
 
   final IAppClient app;

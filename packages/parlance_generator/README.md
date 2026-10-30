@@ -47,11 +47,11 @@ final class Deck extends PlayerOwnerBase {
 
 `main` grants the vocabulary to the module's participant and attaches the owner to it: `host.participant(Who.player, vocabularies: [playerWords]).attach({'deck': Deck()})`; its name is written only in `@Vocabulary`, and disposing the participant takes the owner with it.
 
-Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `PlayerClient.of(this)`, and hears it at once: `hear(PlayerClient.of(this).clippedFacts, ...)`.
+Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `PlayerClient.of(this)`, and hears it at once: `hear(PlayerClient.of(this).clipped, ...)`.
 
 ```dart
 final IPlayerClient player = PlayerClient(participant); // a test gives a stand-in
-player.volumeChanges.listen(show);
+player.volume.changes.listen(show);   // player.volume.value now
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```
 

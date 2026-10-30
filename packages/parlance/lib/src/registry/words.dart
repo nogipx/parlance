@@ -393,6 +393,41 @@ final class Keyed<T> {
   }
 }
 
+/// A state as a part that uses it reads it, through the client of its
+/// words (SPEC §23.5): its value now, then whenever it changes. Read as
+/// the owner reads its own ([Single.value]).
+abstract interface class IStateOf<T> {
+  /// Its value now; null while there is none.
+  T? get value;
+
+  /// [value], then whenever it changes.
+  Stream<T?> get changes;
+}
+
+/// A keyed state as a part that uses it reads it (SPEC §23.5): read as the
+/// owner reads its own ([Keyed.of], [Keyed.all]).
+abstract interface class IKeyedOf<T> {
+  /// The value of [key] now; null while there is none.
+  T? of(String key);
+
+  /// The value of every key there is, by key.
+  Map<String, T> get all;
+
+  /// [of] [key], then whenever it changes.
+  Stream<T?> changesOf(String key);
+}
+
+/// A fact as a part that hears it (SPEC §23.5): what is said from now on,
+/// the payloads alone ([stream]) or with their messages ([facts]), to
+/// follow from (`hear`).
+abstract interface class IFactOf<T> {
+  /// What it says, as it is said from now on.
+  Stream<T> get stream;
+
+  /// What it says and the message it came in: its id, its cause.
+  Stream<Fact<T>> get facts;
+}
+
 /// A state as its owner keeps it (SPEC §23.4): what it set last, read by
 /// [value], written by [set] and [remove]. A base the generator made
 /// holds one for each state with no key, and writes through it once

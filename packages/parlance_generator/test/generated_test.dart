@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:parlance/tools.dart';
 import 'package:parlance/schema.dart';
+import 'package:parlance/testing.dart';
 import 'package:test/test.dart';
 
 import 'fixtures/player.dart';
@@ -191,7 +192,7 @@ void main() {
   });
 
   test('a part takes the client\'s interface: a stand-in fits it', () async {
-    int? shown(IPlayerClient player) => player.volume;
+    int? shown(IPlayerClient player) => player.volume.value;
 
     expect(shown(_StandIn()), 7);
     p.attach({'deck': Deck()});
@@ -367,13 +368,13 @@ void main() {
     test(
       'reads and watches states, calls and asks by the class\'s params',
       () async {
-        expect(asAnn.volume, 50);
+        expect(asAnn.volume.value, 50);
         final seen = <int?>[];
-        final sub = asAnn.volumeChanges.listen(seen.add);
+        final sub = asAnn.volume.changes.listen(seen.add);
         final clipped = <Fact<PlayerClipped>>[];
-        final heard = asAnn.clippedFacts.listen(clipped.add);
+        final heard = asAnn.clipped.facts.listen(clipped.add);
         final said = <({int volume})>[];
-        final payloads = asAnn.clipped.listen(said.add);
+        final payloads = asAnn.clipped.stream.listen(said.add);
         await asAnn.setVolume(volume: 95);
         await pumpEventQueue();
         expect(seen, [50, 95]);
@@ -416,10 +417,11 @@ void main() {
   });
 }
 
-/// What a test gives a part in place of the player, as mocktail makes one.
+/// What a test gives a part in place of the player, as mocktail makes one,
+/// its state a stub of the library's.
 final class _StandIn implements IPlayerClient {
   @override
-  int? get volume => 7;
+  final IStateOf<int> volume = StateStub(7);
 
   @override
   Object? noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

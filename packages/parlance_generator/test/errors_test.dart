@@ -105,10 +105,9 @@ $body
       '@StateWord("said") int get said;',
       'said is a name every owner base has',
     ),
-    'two members of the client of one name': (
-      '@StateWord("total") int get total;\n'
-          '@CommandWord("total_changes") void totalChanges();',
-      'totalChanges is had twice by OrdersClient',
+    'a word named as what every client has': (
+      '@StateWord("status") int get status;',
+      'status is had twice by OrdersClient',
     ),
   };
   for (final MapEntry(key: what, value: (body, says)) in cases.entries) {

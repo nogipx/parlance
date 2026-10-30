@@ -34,7 +34,7 @@ final class _Book extends Owner {
   @override
   void define(IRawParticipant p) {
     _last = keep(p.state(_State.last).define());
-    hear(p.fact(_Fact.rang).stream, _last.set);
+    hear(GeneratedWords.of(p).factOf(_Fact.rang), _last.set);
   }
 }
 

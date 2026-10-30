@@ -6,7 +6,7 @@ import 'package:clock/clock.dart' as clock_;
 import '../registry/cause.dart' show Principal;
 import '../registry/descriptors.dart';
 import '../registry/registry.dart';
-import '../registry/words.dart' show Fact, ICommandWord, Keyed, WordSet;
+import '../registry/words.dart' show ICommandWord, IFactOf, Keyed, WordSet;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
@@ -265,18 +265,18 @@ extension OwnerTools on IOwner {
     );
   }
 
-  /// Hears [facts] while it is attached (another's, through its client's
-  /// `<fact>Facts`): what [onData] writes, says and calls follows from the
-  /// fact it hears, as a handler's follows from its call.
-  void hear<T>(Stream<Fact<T>> facts, void Function(T payload) onData) =>
-      listen(
-        facts,
-        (f) => following(
-          (by) => f.cause.child(f.message.id, by: by, word: f.message.fact),
-          f.cause.by,
-          () => onData(f.payload),
-        ),
-      );
+  /// Hears [fact] while it is attached (another's, through its client:
+  /// `hear(HouseClient.of(this).rang, ...)`): what [onData] writes, says
+  /// and calls follows from the fact it hears, as a handler's follows from
+  /// its call.
+  void hear<T>(IFactOf<T> fact, void Function(T payload) onData) => listen(
+    fact.facts,
+    (f) => following(
+      (by) => f.cause.child(f.message.id, by: by, word: f.message.fact),
+      f.cause.by,
+      () => onData(f.payload),
+    ),
+  );
 
   /// Who it answers where this runs: on whose behalf the call its handler
   /// serves came, or the fact it [hear]s; null where it answers nothing.

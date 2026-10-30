@@ -617,48 +617,22 @@ final class _Emitter {
     ];
     for (final st in states) {
       final word = '${_c}State.${st.member}';
-      final bare = st.type.endsWith('?')
-          ? st.type.substring(0, st.type.length - 1)
-          : st.type;
-      if (st.key == null) {
-        member(st.member, st);
-        member('${st.member}Changes', st);
-        all
-          ..add((
-            docs: ['${st.name} now.'],
-            signature: '$bare? get ${st.member}',
-            body: '=> _\$words.state($word).read();',
-          ))
-          ..add((
-            docs: ['${st.name} now, then whenever it changes.'],
-            signature: 'Stream<$bare?> get ${st.member}Changes',
-            body: '=> _\$words.later(() => _\$words.state($word).watch());',
-          ));
-      } else {
-        final key = _keyParam(st.key!);
-        member('${st.member}Of', st);
-        member('${st.member}All', st);
-        member('${st.member}Changes', st);
-        all
-          ..add((
-            docs: ['${st.name} of [$key] now.'],
-            signature: '$bare? ${st.member}Of(String $key)',
-            body: '=> _\$words.state($word).read(key: $key);',
-          ))
-          ..add((
-            docs: ['${st.name} of every ${st.key}, by key.'],
-            signature: 'Map<String, ${st.type}> get ${st.member}All',
-            body:
-                '=> {for (final MapEntry(:key, :value) in '
-                '_\$words.state($word).readAll().entries) ?key: value};',
-          ))
-          ..add((
-            docs: ['${st.name} of [$key] now, then on every change.'],
-            signature: 'Stream<$bare?> ${st.member}Changes(String $key)',
-            body:
-                '=> _\$words.later(() => _\$words.state($word).watch(key: $key));',
-          ));
-      }
+      member(st.member, st);
+      all.add(
+        st.key == null
+            ? (
+                docs: ['${st.name}: its value now, and its changes.'],
+                signature: 'IStateOf<${st.type}> get ${st.member}',
+                body: '=> _\$words.stateOf($word);',
+              )
+            : (
+                docs: [
+                  '${st.name}, by ${st.key}: each value, and its changes.',
+                ],
+                signature: 'IKeyedOf<${st.type}> get ${st.member}',
+                body: '=> _\$words.keyedOf($word);',
+              ),
+      );
     }
     for (final (kind, words) in [('Command', commands), ('Query', queries)]) {
       for (final c in words) {
@@ -685,22 +659,10 @@ final class _Emitter {
     }
     for (final f in facts) {
       member(f.member, f);
-      member('${f.member}Facts', f);
-      final payload = _inline[f.type] ?? f.type;
       all.add((
-        docs: ['${f.name}, as it is said from now on: what it says.'],
-        signature: 'Stream<$payload> get ${f.member}',
-        body:
-            '=> _\$words.later(() => _\$words.fact(${_c}Fact.${f.member}).stream.map((f) => f.payload));',
-      ));
-      own.add((
-        docs: [
-          '${f.name}, as it is said from now on: its payload, and',
-          'the message (its id, its cause) to follow it from.',
-        ],
-        signature: 'Stream<Fact<${f.type}>> get ${f.member}Facts',
-        body:
-            '=> _\$words.later(() => _\$words.fact(${_c}Fact.${f.member}).stream);',
+        docs: ['${f.name}: what it says from now on, and its messages.'],
+        signature: 'IFactOf<${f.type}> get ${f.member}',
+        body: '=> _\$words.factOf(${_c}Fact.${f.member});',
       ));
     }
 

@@ -255,32 +255,17 @@ final class HouseMotionFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [HouseClient] is them over a participant.
 abstract interface class IHouseClient {
-  /// house.light of [room] now.
-  bool? lightOf(String room);
+  /// house.light, by room: each value, and its changes.
+  IKeyedOf<bool> get light;
 
-  /// house.light of every room, by key.
-  Map<String, bool> get lightAll;
+  /// house.heat: its value now, and its changes.
+  IStateOf<num> get heat;
 
-  /// house.light of [room] now, then on every change.
-  Stream<bool?> lightChanges(String room);
+  /// house.mode: its value now, and its changes.
+  IStateOf<Mode> get mode;
 
-  /// house.heat now.
-  num? get heat;
-
-  /// house.heat now, then whenever it changes.
-  Stream<num?> get heatChanges;
-
-  /// house.mode now.
-  Mode? get mode;
-
-  /// house.mode now, then whenever it changes.
-  Stream<Mode?> get modeChanges;
-
-  /// house.locked now.
-  bool? get locked;
-
-  /// house.locked now, then whenever it changes.
-  Stream<bool?> get lockedChanges;
+  /// house.locked: its value now, and its changes.
+  IStateOf<bool> get locked;
 
   /// Calls house.set_light; a call not done throws [CallNotDone].
   Future<void> setLight({required String room, required bool on});
@@ -297,11 +282,11 @@ abstract interface class IHouseClient {
   /// Asks house.rooms; a call not done throws [CallNotDone].
   Future<List<String>> rooms({required bool lit});
 
-  /// house.rang, as it is said from now on: what it says.
-  Stream<({String who})> get rang;
+  /// house.rang: what it says from now on, and its messages.
+  IFactOf<HouseRang> get rang;
 
-  /// house.motion, as it is said from now on: what it says.
-  Stream<({String room})> get motion;
+  /// house.motion: what it says from now on, and its messages.
+  IFactOf<HouseMotion> get motion;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -336,39 +321,16 @@ final class HouseClient implements IHouseClient {
   final GeneratedWords _$words;
 
   @override
-  bool? lightOf(String room) => _$words.state(HouseState.light).read(key: room);
+  IKeyedOf<bool> get light => _$words.keyedOf(HouseState.light);
 
   @override
-  Map<String, bool> get lightAll => {
-    for (final MapEntry(:key, :value)
-        in _$words.state(HouseState.light).readAll().entries)
-      ?key: value,
-  };
+  IStateOf<num> get heat => _$words.stateOf(HouseState.heat);
 
   @override
-  Stream<bool?> lightChanges(String room) =>
-      _$words.later(() => _$words.state(HouseState.light).watch(key: room));
+  IStateOf<Mode> get mode => _$words.stateOf(HouseState.mode);
 
   @override
-  num? get heat => _$words.state(HouseState.heat).read();
-
-  @override
-  Stream<num?> get heatChanges =>
-      _$words.later(() => _$words.state(HouseState.heat).watch());
-
-  @override
-  Mode? get mode => _$words.state(HouseState.mode).read();
-
-  @override
-  Stream<Mode?> get modeChanges =>
-      _$words.later(() => _$words.state(HouseState.mode).watch());
-
-  @override
-  bool? get locked => _$words.state(HouseState.locked).read();
-
-  @override
-  Stream<bool?> get lockedChanges =>
-      _$words.later(() => _$words.state(HouseState.locked).watch());
+  IStateOf<bool> get locked => _$words.stateOf(HouseState.locked);
 
   @override
   Future<void> setLight({required String room, required bool on}) async {
@@ -411,14 +373,10 @@ final class HouseClient implements IHouseClient {
   }
 
   @override
-  Stream<({String who})> get rang => _$words.later(
-    () => _$words.fact(HouseFact.rang).stream.map((f) => f.payload),
-  );
+  IFactOf<HouseRang> get rang => _$words.factOf(HouseFact.rang);
 
   @override
-  Stream<({String room})> get motion => _$words.later(
-    () => _$words.fact(HouseFact.motion).stream.map((f) => f.payload),
-  );
+  IFactOf<HouseMotion> get motion => _$words.factOf(HouseFact.motion);
 
   @override
   WordStatus status(IWord word) => _$words.status(word);
@@ -429,16 +387,6 @@ final class HouseClient implements IHouseClient {
   @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(houseWords.words);
-
-  /// house.rang, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<HouseRang>> get rangFacts =>
-      _$words.later(() => _$words.fact(HouseFact.rang).stream);
-
-  /// house.motion, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<HouseMotion>> get motionFacts =>
-      _$words.later(() => _$words.fact(HouseFact.motion).stream);
 }
 
 /// The vocabulary of [House]: its name and every word, for
@@ -593,11 +541,8 @@ abstract class VisitOwnerBase implements IOwner {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [VisitClient] is them over a participant.
 abstract interface class IVisitClient {
-  /// visit.guests now.
-  List<String>? get guests;
-
-  /// visit.guests now, then whenever it changes.
-  Stream<List<String>?> get guestsChanges;
+  /// visit.guests: its value now, and its changes.
+  IStateOf<List<String>> get guests;
 
   /// Calls visit.leave; a call not done throws [CallNotDone].
   Future<void> leave({required String who});
@@ -635,11 +580,7 @@ final class VisitClient implements IVisitClient {
   final GeneratedWords _$words;
 
   @override
-  List<String>? get guests => _$words.state(VisitState.guests).read();
-
-  @override
-  Stream<List<String>?> get guestsChanges =>
-      _$words.later(() => _$words.state(VisitState.guests).watch());
+  IStateOf<List<String>> get guests => _$words.stateOf(VisitState.guests);
 
   @override
   Future<void> leave({required String who}) async {

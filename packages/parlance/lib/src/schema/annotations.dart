@@ -66,6 +66,7 @@ final class CommandWord {
     this.whyNot = false,
     this.meta = const {},
   });
+
   /// Its name in the vocabulary, always said, so a member renamed in Dart
   /// keeps its word: one word, from a letter, of lower-case letters,
   /// digits, `_` and `-` (`set_light`), no `.`; the word is
@@ -101,6 +102,7 @@ final class QueryWord {
     this.whyNot = false,
     this.meta = const {},
   });
+
   /// Its name in the vocabulary, always said, so a member renamed in Dart
   /// keeps its word: one word, from a letter, of lower-case letters,
   /// digits, `_` and `-` (`set_light`), no `.`; the word is
@@ -124,12 +126,8 @@ final class QueryWord {
 /// A fact: a method returning `void`, its named parameters the payload, or
 /// its one positional parameter the payload itself.
 final class FactWord {
-  const FactWord(
-    this.name, {
-    this.version,
-    this.readers,
-    this.meta = const {},
-  });
+  const FactWord(this.name, {this.version, this.readers, this.meta = const {}});
+
   /// Its name in the vocabulary, always said, so a member renamed in Dart
   /// keeps its word: one word, from a letter, of lower-case letters,
   /// digits, `_` and `-` (`set_light`), no `.`; the word is

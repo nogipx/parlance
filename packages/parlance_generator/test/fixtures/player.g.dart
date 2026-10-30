@@ -361,32 +361,17 @@ final class PlayerFinishedFact {
 /// that uses them takes, so a stand-in can be given in its
 /// place. [PlayerClient] is them over a participant.
 abstract interface class IPlayerClient {
-  /// player.volume now.
-  int? get volume;
+  /// player.volume: its value now, and its changes.
+  IStateOf<int> get volume;
 
-  /// player.volume now, then whenever it changes.
-  Stream<int?> get volumeChanges;
+  /// player.repeat: its value now, and its changes.
+  IStateOf<Repeat> get repeat;
 
-  /// player.repeat now.
-  Repeat? get repeat;
+  /// player.playing: its value now, and its changes.
+  IStateOf<Track?> get playing;
 
-  /// player.repeat now, then whenever it changes.
-  Stream<Repeat?> get repeatChanges;
-
-  /// player.playing now.
-  Track? get playing;
-
-  /// player.playing now, then whenever it changes.
-  Stream<Track?> get playingChanges;
-
-  /// player.speaker_level of [speaker] now.
-  num? speakerLevelOf(String speaker);
-
-  /// player.speaker_level of every speaker, by key.
-  Map<String, num> get speakerLevelAll;
-
-  /// player.speaker_level of [speaker] now, then on every change.
-  Stream<num?> speakerLevelChanges(String speaker);
+  /// player.speaker_level, by speaker: each value, and its changes.
+  IKeyedOf<num> get speakerLevel;
 
   /// Calls player.volume_set; a call not done throws [CallNotDone].
   Future<void> setVolume({required int volume});
@@ -407,11 +392,11 @@ abstract interface class IPlayerClient {
   /// Asks player.search; a call not done throws [CallNotDone].
   Future<List<Track>> search({required String text, int? limit});
 
-  /// player.clipped, as it is said from now on: what it says.
-  Stream<({int volume})> get clipped;
+  /// player.clipped: what it says from now on, and its messages.
+  IFactOf<PlayerClipped> get clipped;
 
-  /// player.finished, as it is said from now on: what it says.
-  Stream<Track> get finished;
+  /// player.finished: what it says from now on, and its messages.
+  IFactOf<Track> get finished;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -446,41 +431,16 @@ final class PlayerClient implements IPlayerClient {
   final GeneratedWords _$words;
 
   @override
-  int? get volume => _$words.state(PlayerState.volume).read();
+  IStateOf<int> get volume => _$words.stateOf(PlayerState.volume);
 
   @override
-  Stream<int?> get volumeChanges =>
-      _$words.later(() => _$words.state(PlayerState.volume).watch());
+  IStateOf<Repeat> get repeat => _$words.stateOf(PlayerState.repeat);
 
   @override
-  Repeat? get repeat => _$words.state(PlayerState.repeat).read();
+  IStateOf<Track?> get playing => _$words.stateOf(PlayerState.playing);
 
   @override
-  Stream<Repeat?> get repeatChanges =>
-      _$words.later(() => _$words.state(PlayerState.repeat).watch());
-
-  @override
-  Track? get playing => _$words.state(PlayerState.playing).read();
-
-  @override
-  Stream<Track?> get playingChanges =>
-      _$words.later(() => _$words.state(PlayerState.playing).watch());
-
-  @override
-  num? speakerLevelOf(String speaker) =>
-      _$words.state(PlayerState.speakerLevel).read(key: speaker);
-
-  @override
-  Map<String, num> get speakerLevelAll => {
-    for (final MapEntry(:key, :value)
-        in _$words.state(PlayerState.speakerLevel).readAll().entries)
-      ?key: value,
-  };
-
-  @override
-  Stream<num?> speakerLevelChanges(String speaker) => _$words.later(
-    () => _$words.state(PlayerState.speakerLevel).watch(key: speaker),
-  );
+  IKeyedOf<num> get speakerLevel => _$words.keyedOf(PlayerState.speakerLevel);
 
   @override
   Future<void> setVolume({required int volume}) async {
@@ -531,14 +491,10 @@ final class PlayerClient implements IPlayerClient {
   }
 
   @override
-  Stream<({int volume})> get clipped => _$words.later(
-    () => _$words.fact(PlayerFact.clipped).stream.map((f) => f.payload),
-  );
+  IFactOf<PlayerClipped> get clipped => _$words.factOf(PlayerFact.clipped);
 
   @override
-  Stream<Track> get finished => _$words.later(
-    () => _$words.fact(PlayerFact.finished).stream.map((f) => f.payload),
-  );
+  IFactOf<Track> get finished => _$words.factOf(PlayerFact.finished);
 
   @override
   WordStatus status(IWord word) => _$words.status(word);
@@ -549,16 +505,6 @@ final class PlayerClient implements IPlayerClient {
   @override
   Map<String, List<WordBreak>> get mismatches =>
       _$words.mismatches(playerWords.words);
-
-  /// player.clipped, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<PlayerClipped>> get clippedFacts =>
-      _$words.later(() => _$words.fact(PlayerFact.clipped).stream);
-
-  /// player.finished, as it is said from now on: its payload, and
-  /// the message (its id, its cause) to follow it from.
-  Stream<Fact<Track>> get finishedFacts =>
-      _$words.later(() => _$words.fact(PlayerFact.finished).stream);
 }
 
 /// The vocabulary of [Player]: its name and every word, for

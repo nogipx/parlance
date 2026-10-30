@@ -101,7 +101,7 @@ abstract class Orders {
       made,
       contains('EnumShape(who.Mode.values, unknown: who.Mode.other)'),
     );
-    expect(made, contains('who.Mode? get mode'));
+    expect(made, contains('IStateOf<who.Mode> get mode'));
   });
   group('source that is odd', () {
     /// What the builder logged of [words], the library's source.

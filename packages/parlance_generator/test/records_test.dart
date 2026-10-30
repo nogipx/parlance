@@ -137,7 +137,7 @@ void main() {
       'action': {'call': 'note.expire', 'params': <String, Object?>{}},
     });
     expect(
-      BoardClient(r.participant(ann.child('reader'))).notesOf('n1')!.author,
+      BoardClient(r.participant(ann.child('reader'))).notes.of('n1')!.author,
       'Ann',
     );
   });
