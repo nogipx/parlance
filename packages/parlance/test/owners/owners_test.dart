@@ -179,7 +179,7 @@ void main() {
     r.participant(
       me,
       vocabularies: [WordSet.open('test')],
-      access: WordAccess(read: Callers.only(['host'])),
+      access: WordAccess(readers: Callers.only(['host'])),
       owners: [Dials()],
     );
     expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});

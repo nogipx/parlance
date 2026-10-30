@@ -280,7 +280,7 @@ abstract class PlayerOwnerBase implements IOwner {
         .serve(
           (x) => play(track: x.track, repeat: x.repeat, on: x.on),
           deadline: const Duration(microseconds: 5000000),
-          available: whyNotPlay,
+          whyNot: whyNotPlay,
         );
     p.command(PlayerCommand.skip).serve((x) => skip(count: x.count));
     p

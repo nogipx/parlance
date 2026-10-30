@@ -57,14 +57,14 @@ void main() {
     expect(r.read('kittens.lamp'), true, reason: 'its word, as it stands');
 
     // The host sees the old link go at last: the new session stays.
-    sessions.first.close();
+    sessions.first.dispose();
     await settle();
     expect(r.read('kittens.lamp'), true);
 
     await p.close();
     await connection.dispose();
     for (final s in sessions) {
-      s.close();
+      s.dispose();
     }
   });
 

@@ -296,7 +296,7 @@ void main() {
     expect(r.mismatches, hasLength(1));
 
     final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
-    sessions.last.close();
+    sessions.last.dispose();
     await hosts.last.close();
     await offline;
     expect(r.mismatches, isEmpty, reason: 'the session went');
@@ -310,7 +310,7 @@ void main() {
     await p.close();
     await connection.dispose();
     for (final s in sessions) {
-      s.close();
+      s.dispose();
     }
     for (final h in hosts) {
       await h.close();

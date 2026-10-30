@@ -67,7 +67,7 @@ class Details extends StatelessWidget {
           const SizedBox(height: 10),
           _Field('ended', outcomeOf(n) ?? ''),
           _Field('took', spanOf(end.finished.difference(end.started))),
-          if (end.result case CallRefused(:final reason, :final guard)) ...[
+          if (end.result case CallRefused(why: final reason, :final guard)) ...[
             _Field('why', reason),
             if (guard != null) _Field('guard', guard),
           ],

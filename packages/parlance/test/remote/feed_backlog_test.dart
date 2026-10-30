@@ -21,7 +21,7 @@ void main() {
   }
 
   tearDown(() async {
-    session.close();
+    session.dispose();
     await endpoint.close();
     r.dispose();
   });

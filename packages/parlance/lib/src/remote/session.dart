@@ -24,7 +24,7 @@ extension ServeParticipant on LocalParticipant {
   /// Serves this participant over [endpoint] (registering the session's
   /// contract on it): the part across it reads, calls and owns words as
   /// this participant, and nothing more. The participant is the session's
-  /// from then on: [RemoteSession.close] withdraws it, its words with it.
+  /// from then on: [RemoteSession.dispose] withdraws it, its words with it.
   /// Only a new participant is served, and once: one served already, or
   /// one that defined, attached or guarded anything here, is refused
   /// ([StateError]). Its access by default is told to the part across, and
@@ -60,7 +60,7 @@ extension ServeParticipant on LocalParticipant {
 /// participant may see and use it; and, in its [vocabularies] and as far as
 /// [rights] let it, an owner of words of its own, whose commands it serves
 /// over the same connection. It ends by itself when the connection does
-/// (its transport ends), its words going; [close] ends it sooner, the
+/// (its transport ends), its words going; [dispose] ends it sooner, the
 /// connection still up.
 /// A participant served across a connection (`participant.serve`): who
 /// it is, when it ended, and its end.
@@ -74,7 +74,7 @@ abstract interface class IRemoteSession {
   Future<void> get ended;
 
   /// Ends the session: its words go, its calls are refused.
-  void close();
+  void dispose();
 }
 
 final class RemoteSession extends ParlanceContractPeer
@@ -119,7 +119,7 @@ final class RemoteSession extends ParlanceContractPeer
   void _connectionGone() {
     if (_closed) return;
     if (log.isEnabled(RpcLogLevel.info)) log.info('connection gone');
-    close();
+    dispose();
   }
 
   /// Where the session logs: when it opens and ends, what it was denied;
@@ -245,8 +245,8 @@ final class RemoteSession extends ParlanceContractPeer
       // Who may read and call its words by default, as the host said: the
       // part across fills its words' descriptors so.
       'defaults': {
-        'read': ?_p.access.read?.toJson(),
-        'call': ?_p.access.call?.toJson(),
+        'read': ?_p.access.readers?.toJson(),
+        'call': ?_p.access.callers?.toJson(),
       },
     });
   }
@@ -835,7 +835,7 @@ final class RemoteSession extends ParlanceContractPeer
   }
 
   void _kind(String name, List<Object?> entities, [LocalParticipant? part]) {
-    if (limits.entities case final max?) {
+    if (limits.choices case final max?) {
       final others = [
         for (final MapEntry(:key, :value) in _kinds.entries)
           if (key != name) value.entities.length,
@@ -931,7 +931,7 @@ final class RemoteSession extends ParlanceContractPeer
     if (log.isEnabled(RpcLogLevel.info)) {
       log.info('taken over by a new session');
     }
-    close();
+    dispose();
   }
 
   @override
@@ -944,7 +944,7 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// Ends the session: its words go, its calls are refused.
   @override
-  void close() {
+  void dispose() {
     if (_closed) return;
     _closed = true;
     _ended.complete();
@@ -988,22 +988,22 @@ final class _Failed implements Exception {
 /// §14): it may be code of another's, or code with a defect, and the host
 /// is the one that keeps what it asks. Each bound is on by default, wide
 /// for a part that works and narrow for one that runs away; null takes
-/// it off ([none], for a part as trusted as the host's own code).
+/// it off ([unbounded], for a part as trusted as the host's own code).
 final class SessionLimits {
   const SessionLimits({
     this.stateBytes = 1 << 20,
     this.words = 256,
     this.guards = 16,
-    this.entities = 1000,
+    this.choices = 1000,
     this.calls = 16,
   });
 
   /// No bounds.
-  static const none = SessionLimits(
+  static const unbounded = SessionLimits(
     stateBytes: null,
     words: null,
     guards: null,
-    entities: null,
+    choices: null,
     calls: null,
   );
 
@@ -1020,7 +1020,7 @@ final class SessionLimits {
 
   /// How many entities its kinds have together: they go in the catalog
   /// every session gets.
-  final int? entities;
+  final int? choices;
 
   /// How many of its calls wait for an answer at once; one past them is
   /// refused (`unavailable`) and runs nowhere.

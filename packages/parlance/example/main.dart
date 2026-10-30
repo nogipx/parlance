@@ -40,7 +40,7 @@ Future<void> main() async {
   final houseSide = host.participant(
     Who.home,
     owners: [house],
-    access: const WordAccess(call: Who.household),
+    access: const WordAccess(callers: Who.household),
     rights: ParticipantRights(
       speakFor: (_, by, fact) => fact == HouseFact.rang.name
           ? null
@@ -133,7 +133,7 @@ Future<void> main() async {
   final visitSide = host.participant(
     Who.visit,
     owners: [GuestBook()],
-    access: const WordAccess(call: Who.household),
+    access: const WordAccess(callers: Who.household),
   );
   await annSide.settle();
   final visit = VisitClient(annSide);
@@ -221,7 +221,7 @@ final class Phone {
   Future<void> close() async {
     part.dispose();
     await _connection.dispose();
-    _session.close();
+    _session.dispose();
     await _host.close();
   }
 }
@@ -238,8 +238,8 @@ Future<void> show(String what, Future<void> Function() call) async {
     final r = e.result;
     print(
       '  $what: ${switch (r) {
-        CallRefused(:final code, :final guard) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}): ${r.whyNot}',
-        _ => r.whyNot,
+        CallRefused(:final code, :final guard) => 'refused (${code.name}${guard == null ? '' : ' by $guard'}): ${r.why}',
+        _ => r.why,
       }}',
     );
   }

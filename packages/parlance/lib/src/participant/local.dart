@@ -32,8 +32,8 @@ extension Participants on Registry {
     WordAccess access = WordAccess.none,
   }) {
     who.check();
-    access.read?.check();
-    access.call?.check();
+    access.readers?.check();
+    access.callers?.check();
     final attached = [...owners];
     // Each owner's vocabulary, unless said already: two owners of one are
     // refused as they attach.

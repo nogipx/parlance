@@ -35,7 +35,7 @@ void main() {
     final own = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([host, own]);
     final errors = <ParticipantError>[];
-    final p = await RemoteParticipant.over(own, onError: errors.add);
+    final p = await RemoteParticipant.joinEndpoint(own, onError: errors.add);
     addTearDown(p.close);
     return (p, errors);
   }
@@ -84,7 +84,7 @@ void main() {
   });
 
   test('so many entities in its kinds and no more', () async {
-    final (p, errors) = await join(const SessionLimits(entities: 2));
+    final (p, errors) = await join(const SessionLimits(choices: 2));
     p.registerKind(
       EntityKind('note', list: () => const [EntityRef('a'), EntityRef('b')]),
     );
@@ -119,7 +119,7 @@ void main() {
       second,
       isA<CallRefused>()
           .having((c) => c.code, 'code', Refusal.unavailable)
-          .having((c) => c.reason, 'reason', contains('1 calls')),
+          .having((c) => c.why, 'reason', contains('1 calls')),
     );
     gate.complete();
     expect(await first, isA<CallDone<Object?>>());
@@ -128,7 +128,7 @@ void main() {
   });
 
   test('none bounds nothing', () async {
-    final (p, errors) = await join(SessionLimits.none);
+    final (p, errors) = await join(SessionLimits.unbounded);
     for (var i = 0; i < 300; i++) {
       p.defineState(StateDescriptor('notes.s$i', type: const IntType()));
     }

@@ -146,7 +146,7 @@ void main() {
       await settle();
       expect(f.r.mismatches, isEmpty);
       final session = f.r.participant(user).serve(host);
-      addTearDown(session.close);
+      addTearDown(session.dispose);
       late.builtAgainst(const [_Notes()]);
       await settle();
       expect(f.r.mismatches, _otherwise);

@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 import 'package:parlance/src/participant/owner.dart' show Owner;
 
 /// An owner's handler knows who it answers (`caller`), may act on its own
-/// in it (`apart`), and writes as one tick outside a handler (`together`),
+/// in it (`apart`), and writes as one tick outside a handler (`batch`),
 /// with nothing of the call passed to it.
 enum _State<T> implements IStateWord<T> {
   heat<int>('room.heat', Plain(IntType())),
@@ -83,7 +83,7 @@ void main() {
     },
   );
 
-  test('together writes as one tick', () async {
+  test('batch writes as one tick', () async {
     final r = Registry();
     addTearDown(r.dispose);
     final room = _Room();
@@ -95,7 +95,7 @@ void main() {
     await pumpEventQueue();
     final ticks = <Tick>[];
     final sub = r.ticks.listen(ticks.add);
-    room.together(() {
+    room.batch(() {
       room.heat.set(22);
       room.lamp.set(true);
     });

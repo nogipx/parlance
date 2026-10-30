@@ -90,7 +90,7 @@ void main() {
       guest,
     ).command(_Command.set).call((to: 1));
     expect(r1, isA<CallRefused>());
-    expect(r1.whyNot, isNotEmpty);
+    expect(r1.why, isNotEmpty);
     final r2 = await GeneratedWords.of(
       user,
     ).command(_Command.set).call((to: 500));
@@ -112,7 +112,7 @@ void main() {
   test('contract: a batch is whole or nothing', () async {
     deck.level.set(1);
     expect(
-      () => deck.together(() {
+      () => deck.batch(() {
         deck.level.set(2);
         throw StateError('no');
       }),

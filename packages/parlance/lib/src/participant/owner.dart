@@ -309,7 +309,7 @@ extension OwnerTools on IOwner {
 
   /// Runs [writes] as one tick, as a handler's or a sync's are: seen
   /// whole, or not at all when it throws. Not attached, it just runs them.
-  void together(void Function() writes) {
+  void batch(void Function() writes) {
     final p = _Core.of(this).participant;
     p == null ? writes() : p.batch(writes);
   }
@@ -650,12 +650,12 @@ final class OwnerGroup {
 /// Ends the call being served as `failed` with [why]: for a handler whose
 /// device or port said no. (A refusal with a code comes from the registry's
 /// own stages, never from a handler.)
-Never failCall(String why) => throw CallFailure(why);
+Never failCall(String why) => throw HandlerFailed(why);
 
 /// Why a handler failed its call ([failCall]): told as it is, to people
 /// too.
-final class CallFailure implements Exception {
-  const CallFailure(this.why);
+final class HandlerFailed implements Exception {
+  const HandlerFailed(this.why);
   final String why;
 
   @override

@@ -825,7 +825,7 @@ final class _Emitter {
 
     String opts(_Word w) => [
       ...w.options,
-      if (w.available) 'available: whyNot${_pascal(w.member)}',
+      if (w.available) 'whyNot: whyNot${_pascal(w.member)}',
     ].join(', ');
     String args(_Callable c, String of) => [
       for (final p in (c.element as MethodElement).formalParameters)

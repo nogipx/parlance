@@ -132,7 +132,7 @@ void main() {
 
   setUp(() => r = Registry());
   tearDown(() async {
-    session?.close();
+    session?.dispose();
     await connection?.dispose();
     await host?.close();
     (session, connection, host) = (null, null, null);
@@ -251,7 +251,7 @@ void main() {
     await p.flush();
     final out = await r.call('kittens.count', {}, by: crew);
     expect(out, isA<CallFailed>());
-    expect(out.whyNot, contains('kittens.count is a query'));
+    expect(out.why, contains('kittens.count is a query'));
     await p.flush();
     expect(r.read('kittens.lamp'), false);
   });
@@ -338,7 +338,7 @@ void main() {
     final denied = await r.call('kittens.lamp.turn', {'on': true}, by: crew);
     expect(denied, isA<CallRefused>());
     expect((denied as CallRefused).code, Refusal.denied);
-    expect(denied.reason, 'the kittens sleep');
+    expect(denied.why, 'the kittens sleep');
     expect(denied.guard, 'plugin/kittens#night');
     expect(served, 0, reason: 'denied before the handler');
     expect(
@@ -449,7 +449,7 @@ void main() {
       vocabularies: [WordSet.open('kittens')],
     );
     final s = fresh.serve(h);
-    addTearDown(s.close);
+    addTearDown(s.dispose);
     expect(() => fresh.serve(h), throwsStateError, reason: 'served already');
     final used = r.participant(crew, vocabularies: [WordSet.open('crew')]);
     used.defineState(StateDescriptor('crew.ready', type: const BoolType()));
@@ -457,8 +457,8 @@ void main() {
   });
 
   test('its access by default is the host\'s, told when it joins', () async {
-    final p = await join(access: WordAccess(call: Callers.only(['user'])));
-    expect(p.access.call?.toJson(), Callers.only(['user']).toJson());
+    final p = await join(access: WordAccess(callers: Callers.only(['user'])));
+    expect(p.access.callers?.toJson(), Callers.only(['user']).toJson());
     p.command(LampCommand.turn).define((_) {});
     await p.flush();
     expect(
@@ -476,7 +476,7 @@ void main() {
         .serve(h);
     h.start();
     final guest = RpcPeerEndpoint(transport: c)..start();
-    final p = await RemoteParticipant.over(guest);
+    final p = await RemoteParticipant.joinEndpoint(guest);
     final lamps = Lamps();
     p.attach([lamps]);
     await p.flush();
@@ -485,7 +485,7 @@ void main() {
     expect(lamps.lit, isTrue);
     await p.close();
     expect(identical(p.endpoint, guest), isTrue);
-    s.close();
+    s.dispose();
     await guest.close();
     await h.close();
   });
@@ -524,7 +524,7 @@ void main() {
 
   test('a host gone is told as such, not as the wire\'s error', () async {
     final p = await join();
-    session?.close();
+    session?.dispose();
     await host?.close();
     await settle();
     await expectLater(p.describe(), throwsA(isA<RegistryUnreachable>()));
@@ -559,7 +559,7 @@ void main() {
     }
     await p.close();
     await connection.dispose();
-    s.close();
+    s.dispose();
     await h.close();
   });
 
@@ -704,7 +704,7 @@ void main() {
   });
   test('its access by default goes with what it defines', () async {
     final p = await join(
-      access: WordAccess(read: Callers.only(['plugin/kittens'])),
+      access: WordAccess(readers: Callers.only(['plugin/kittens'])),
     );
     p.state(Lamp.on).define();
     await p.flush();
@@ -720,7 +720,7 @@ void main() {
     final gone = connection!.state.firstWhere(
       (s) => s is RpcClientDisconnected,
     );
-    session!.close();
+    session!.dispose();
     await host!.close();
     await gone;
     await settle();
@@ -753,7 +753,7 @@ void main() {
     await p.flush();
 
     final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
-    sessions.last.close();
+    sessions.last.dispose();
     await hosts.last.close();
     await offline;
     lamps
@@ -777,7 +777,7 @@ void main() {
     await p.close();
     await connection.dispose();
     for (final s in sessions) {
-      s.close();
+      s.dispose();
     }
     for (final h in hosts) {
       await h.close();
@@ -810,7 +810,7 @@ void main() {
 
     // The connection drops: the host ends the session, its words go.
     final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
-    sessions.last.close();
+    sessions.last.dispose();
     await hosts.last.close();
     await offline;
     expect(r.commandDescriptor('kittens.lamp.turn'), isNull);
@@ -837,7 +837,7 @@ void main() {
     await p.close();
     await connection.dispose();
     for (final s in sessions) {
-      s.close();
+      s.dispose();
     }
     for (final h in hosts) {
       await h.close();

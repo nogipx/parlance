@@ -76,11 +76,11 @@ final class Host {
           Principal('widlet', id),
           vocabularies: [WordSet.open('g$id')],
         )
-        .serve(host, limits: SessionLimits.none, features: features);
+        .serve(host, limits: SessionLimits.unbounded, features: features);
     host.start();
     final own = RpcPeerEndpoint(transport: g)..start();
     _ends.addAll([host, own]);
-    final p = await RemoteParticipant.over(own);
+    final p = await RemoteParticipant.joinEndpoint(own);
     await p.settle();
     return p;
   }

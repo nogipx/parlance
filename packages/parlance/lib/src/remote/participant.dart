@@ -51,10 +51,10 @@ part 'participant_part.dart';
 /// asked. Frozen (`app.dart`); only the library makes one.
 abstract interface class IRemoteParticipant implements IParticipant {
   /// Attaches [owners] (SPEC §22.3), each to the part named by its
-  /// vocabulary (`plugin/hydra@hydra`), so causes, records and `explain`
+  /// vocabulary (`module/notes@notes`), so causes, records and `explain`
   /// tell which owner did what; one of no words (a rule of the whole, a
   /// guard) speaks as the participant. Each owns words only in what the
-  /// host granted ([vocabularies]); two owners of one vocabulary are
+  /// host granted where it serves it; two owners of one vocabulary are
   /// refused. They go with it. Completes when the host answered, what it
   /// refused told to [errors] by then.
   Future<void> attach(Iterable<IOwner> owners);
@@ -142,7 +142,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// come back once lost (a guest's in a wasm or JavaScript runtime): the
   /// same participant, but with no connection to join again over. The
   /// endpoint stays the caller's: [close] does not close it.
-  static Future<RemoteParticipant> over(
+  static Future<RemoteParticipant> joinEndpoint(
     RpcPeerEndpoint endpoint, {
     void Function(ParticipantError error)? onError,
     LogScope? log,
@@ -220,8 +220,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   static WordAccess _accessOf(Object? json) {
     final m = json is Map ? json : const <String, Object?>{};
     return WordAccess(
-      read: m['read'] == null ? null : Callers.fromJson(m['read']),
-      call: m['call'] == null ? null : Callers.fromJson(m['call']),
+      readers: m['read'] == null ? null : Callers.fromJson(m['read']),
+      callers: m['call'] == null ? null : Callers.fromJson(m['call']),
     );
   }
 
@@ -1224,7 +1224,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     await _mirror.dispose();
     await _errors.close();
     // The endpoint made on a connection is its own; the connection, and an
-    // endpoint given to [over], stay the caller's.
+    // endpoint given to [joinEndpoint], stay the caller's.
     if (_ownsEndpoint) await endpoint.close();
   }
 

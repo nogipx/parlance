@@ -52,7 +52,9 @@ void main() {
   test('asked past its bound, a session carries everything, and the '
       'participant says so', () async {
     final r = deckOf(['deck.s1', 'deck.s2', 'deck.s3']);
-    final p = await RemoteParticipant.over(serve(r, maxSubscription: 2));
+    final p = await RemoteParticipant.joinEndpoint(
+      serve(r, maxSubscription: 2),
+    );
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
     expect(await p.fetch('deck.s1'), {null: 1});
@@ -110,7 +112,8 @@ void main() {
         StateDescriptor('lamp.on', type: const BoolType()),
       );
       final guests = [
-        for (final _ in [1, 2, 3]) await RemoteParticipant.over(serve(r)),
+        for (final _ in [1, 2, 3])
+          await RemoteParticipant.joinEndpoint(serve(r)),
       ];
       for (final g in guests) {
         await g.settle();

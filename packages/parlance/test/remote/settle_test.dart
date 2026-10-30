@@ -51,7 +51,7 @@ void main() {
     host.start();
     final own = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([host, own]);
-    final p = await RemoteParticipant.over(own);
+    final p = await RemoteParticipant.joinEndpoint(own);
     addTearDown(p.close);
     return p;
   }

@@ -108,7 +108,7 @@ void main() {
       'title': 'x',
       'volume': 500,
     });
-    expect(refused.whyNot, 'volume: above 100');
+    expect(refused.why, 'volume: above 100');
   });
 
   test('what is told and recorded of it is JSON, made when asked', () async {
@@ -136,7 +136,7 @@ void main() {
       title: 'loud',
       volume: 101,
     ));
-    expect(refused.whyNot, 'volume: above 100');
+    expect(refused.why, 'volume: above 100');
     expect(sent, isEmpty);
   });
 }

@@ -96,7 +96,7 @@ void main() {
       expect((results[1] as Map)['error'], 'invalidArgument');
       expect((results[2] as Map)['error'], 'invalidArgument');
       expect(r.read('plug.v'), 1);
-      s.close();
+      s.dispose();
     },
   );
 
@@ -113,7 +113,7 @@ void main() {
         .onFeed(const WireFeedRequest())
         .listen((i) => kinds.add(i.kind), onDone: ended.complete);
     await pump();
-    s.close();
+    s.dispose();
     await ended.future.timeout(const Duration(seconds: 1));
     final before = kinds.length;
     other.set(3);
@@ -140,7 +140,7 @@ void main() {
       await pump();
       expect(kinds.take(2), ['catalog', 'snapshot']);
       await sub.cancel();
-      s.close();
+      s.dispose();
     },
   );
 
@@ -165,7 +165,7 @@ void main() {
       mirror.takeCatalog(const {'descriptors': <Object?>[]});
       expect(mirror.read('host.n'), isNull);
       await mirror.dispose();
-      s.close();
+      s.dispose();
       await caller.close();
       await responder.close();
     },
@@ -185,7 +185,7 @@ void main() {
       answer.result,
       isA<CallRefused>().having((x) => x.code, 'code', Refusal.notPermitted),
     );
-    s.close();
+    s.dispose();
     await caller.close();
     await responder.close();
   });
@@ -201,7 +201,7 @@ void main() {
       caller,
     ).callAt('host.go', const {}, as: const Principal('Not A Kind'));
     expect(answer.result, isA<CallFailed>());
-    s.close();
+    s.dispose();
     await caller.close();
     await responder.close();
   });
@@ -218,7 +218,7 @@ void main() {
     fresh.addGuard('g', (_) => null).dispose();
     final (_, t) = RpcChannelTransport.memoryPair();
     expect(
-      () => fresh.serve(RpcPeerEndpoint(transport: t)).close(),
+      () => fresh.serve(RpcPeerEndpoint(transport: t)).dispose(),
       returnsNormally,
     );
   });

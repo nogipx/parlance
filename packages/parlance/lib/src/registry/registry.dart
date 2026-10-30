@@ -885,7 +885,7 @@ final class Registry implements ITypeContext {
 
     CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
       if (r is CallDone<Object?>) _builtAgainst.answered(command, cause.by, r);
-      if (r case CallRefused(:final code, :final reason, :final guard)) {
+      if (r case CallRefused(:final code, why: final reason, :final guard)) {
         if (_callLog.isEnabled(RpcLogLevel.info)) {
           _callLog.info(
             'refused',

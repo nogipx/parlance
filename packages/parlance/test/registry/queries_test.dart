@@ -89,7 +89,7 @@ void main() {
     final p = r.participant(
       owner,
       vocabularies: [WordSet.open('orders')],
-      access: WordAccess(read: Callers.only(['module'])),
+      access: WordAccess(readers: Callers.only(['module'])),
     );
     p.query(OrdersQuery.page).define((c) => ['o${c.params.from}']);
     expect(r.queryDescriptor('orders.page')!.askers.rules.keys, {'module'});
@@ -161,8 +161,8 @@ void main() {
       () async {
         final out = await askWith(() => note.set('after'));
         expect(out, isA<CallFailed>());
-        expect(out.whyNot, contains('orders.page is a query'));
-        expect(out.whyNot, contains('write orders.note'));
+        expect(out.why, contains('orders.page is a query'));
+        expect(out.why, contains('write orders.note'));
         expect(r.read('orders.note'), 'before');
       },
     );
@@ -201,7 +201,7 @@ void main() {
         final calling = await askWith(
           () => r.call('orders.touch', {}, by: owner),
         );
-        expect(calling.whyNot, contains('call orders.touch'));
+        expect(calling.why, contains('call orders.touch'));
         r.query(OrdersQuery.page).define((q) async {
           final n = await r.call(
             'orders.count',

@@ -360,16 +360,13 @@ void main() {
   });
 
   test('a result says why not in words, and nothing when done', () async {
+    expect((await f.r.call('door.lock', {'on': true}, by: user)).why, isNull);
     expect(
-      (await f.r.call('door.lock', {'on': true}, by: user)).whyNot,
-      isNull,
-    );
-    expect(
-      (await f.r.call('door.lock', {'on': true}, by: visitor)).whyNot,
+      (await f.r.call('door.lock', {'on': true}, by: visitor)).why,
       contains('may not call door.lock'),
     );
-    expect(const CallFailed('disk full').whyNot, 'disk full');
-    expect(const CallTimedOut().whyNot, contains('may still happen'));
-    expect(const CallLost('c1', 'socket closed').whyNot, contains('retry'));
+    expect(const CallFailed('disk full').why, 'disk full');
+    expect(const CallTimedOut().why, contains('may still happen'));
+    expect(const CallLost('c1', 'socket closed').why, contains('retry'));
   });
 }

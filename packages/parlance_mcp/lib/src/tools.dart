@@ -342,17 +342,17 @@ Map<String, Object?> _why(Explanation e) => {
 McpResult _answer(CallResult<Object?> r, String id) => switch (r) {
   CallDone(:final value) =>
     value == null ? const McpResult('Done.') : McpResult.json(value),
-  CallRefused(:final code, :final reason, :final guard) => McpResult.error(
+  CallRefused(:final code, why: final reason, :final guard) => McpResult.error(
     '${code.name}${guard == null ? '' : ' by $guard'}: $reason',
   ),
-  CallFailed() => McpResult.error(r.whyNot!),
+  CallFailed() => McpResult.error(r.why!),
   CallTimedOut() => McpResult.error(
     'no answer within its deadline; it may still happen. See with read or '
     'why; call again with id "$id" to learn how it ended (it does not run '
     'twice).',
   ),
-  CallLost(:final reason) => McpResult.error(
-    'no answer came back ($reason): whether it ran is unknown. Call again '
+  CallLost(:final how) => McpResult.error(
+    'no answer came back ($how): whether it ran is unknown. Call again '
     'with id "$id": it runs at most once.',
   ),
 };

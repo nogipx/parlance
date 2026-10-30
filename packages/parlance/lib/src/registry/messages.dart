@@ -490,25 +490,24 @@ sealed class CallResult<R> {
 
   /// Why it did not end done, in a few words for people: the refusal's
   /// reason, the failure, or that no answer came; null when it is done.
-  String? get whyNot => switch (this) {
+  String? get why => switch (this) {
     CallDone() => null,
-    CallRefused(:final reason) => reason,
+    CallRefused(:final why) => why,
     CallFailed(:final error) => '$error',
     CallTimedOut() => 'no answer within its deadline; it may still happen',
-    CallLost(:final reason) =>
-      'no answer came back ($reason); retry with its id',
+    CallLost(:final how) => 'no answer came back ($how); retry with its id',
   };
 
   Map<String, Object?> toJson() => switch (this) {
     CallDone(:final value) => {'done': true, 'value': value},
-    CallRefused(:final code, :final reason, :final guard) => {
+    CallRefused(:final code, :final why, :final guard) => {
       'refused': code.name,
-      'reason': reason,
+      'reason': why,
       'guard': ?guard,
     },
     CallFailed(:final error) => {'failed': '$error'},
     CallTimedOut() => {'timedOut': true},
-    CallLost(:final id, :final reason) => {'lost': id, 'reason': reason},
+    CallLost(:final id, :final how) => {'lost': id, 'reason': how},
   };
 }
 
@@ -541,17 +540,20 @@ CallDone<Object?> keptDone(Kept answer) =>
 Kept? keptAnswerOf(CallResult<Object?> r) => r is _KeptDone ? r._kept : null;
 
 final class CallRefused extends CallResult<Never> {
-  const CallRefused(this.code, this.reason, {this.guard});
+  const CallRefused(this.code, this.why, {this.guard});
 
   final Refusal code;
-  final String reason;
+
+  /// Why it was refused, for people.
+  @override
+  final String why;
 
   /// The guard that denied it, for [Refusal.denied].
   final String? guard;
 
   @override
   String toString() =>
-      'refused(${code.name}${guard == null ? '' : ' by $guard'}: $reason)';
+      'refused(${code.name}${guard == null ? '' : ' by $guard'}: $why)';
 }
 
 final class CallFailed extends CallResult<Never> {
@@ -580,12 +582,14 @@ final class CallTimedOut extends CallResult<Never> {
 /// No answer came back: the way to the registry broke. Whether the call
 /// ran is unknown; a retry with [id] runs it at most once.
 final class CallLost extends CallResult<Never> {
-  const CallLost(this.id, this.reason);
+  const CallLost(this.id, this.how);
   final String id;
-  final String reason;
+
+  /// How the way broke (`socket closed`); [why] says it for people.
+  final String how;
 
   @override
-  String toString() => 'lost($reason)';
+  String toString() => 'lost($how)';
 }
 
 /// A call whose handler began (SPEC §9): it passed every stage. Its end

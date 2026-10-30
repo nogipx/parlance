@@ -22,7 +22,7 @@ void main() {
     host.start();
     final own = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([host, own]);
-    p = await RemoteParticipant.over(own);
+    p = await RemoteParticipant.joinEndpoint(own);
   });
   tearDown(() async {
     await p.close();

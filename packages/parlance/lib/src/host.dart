@@ -143,12 +143,12 @@ final class Host {
   /// Joins a host across [endpoint], one its runtime hands it (a worker, a
   /// wasm module): it does not reconnect, and the endpoint stays its
   /// runtime's.
-  static Future<IRemoteParticipant> over(
+  static Future<IRemoteParticipant> joinEndpoint(
     RpcPeerEndpoint endpoint, {
     void Function(ParticipantError error)? onError,
     LogScope? log,
     Set<String> requires = const {},
-  }) => RemoteParticipant.over(
+  }) => RemoteParticipant.joinEndpoint(
     endpoint,
     onError: onError,
     log: log,

@@ -364,7 +364,7 @@ void main() {
       await c.close();
       await p.close();
       await connection.dispose();
-      session.close();
+      session.dispose();
       await responder.close();
     });
 
@@ -412,7 +412,7 @@ void main() {
       'the connection gone: reads say so, a call is lost with its id',
       () async {
         await c.tools();
-        session.close();
+        session.dispose();
         await responder.close();
         await Future<void>.delayed(const Duration(milliseconds: 50));
         final read = await c.call('read', {'state': 'house.focus'});

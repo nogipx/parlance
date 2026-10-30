@@ -198,7 +198,7 @@ final class TestHost {
       await c.dispose();
     }
     for (final s in _sessions) {
-      s.close();
+      s.dispose();
     }
     for (final h in _hosts) {
       await h.close();

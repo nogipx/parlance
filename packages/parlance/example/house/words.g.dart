@@ -191,7 +191,7 @@ abstract class HouseOwnerBase implements IOwner {
     p.command(HouseCommand.setMode).serve((x) => setMode(mode: x.mode));
     p
         .command(HouseCommand.lock)
-        .serve((x) => lock(on: x.on), available: whyNotLock);
+        .serve((x) => lock(on: x.on), whyNot: whyNotLock);
     p.query(HouseQuery.rooms).serve((x) => rooms(lit: x.lit));
   }
 

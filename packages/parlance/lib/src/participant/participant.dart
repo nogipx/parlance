@@ -42,45 +42,48 @@ final class ParticipantRights {
 /// (SPEC §22.2): its states' and facts' `readers`, its commands' `callers`.
 /// A word's own replaces it whole; nothing merges.
 final class WordAccess {
-  const WordAccess({this.read, this.call});
+  const WordAccess({this.readers, this.callers});
 
   /// Readers of its states and facts; null: everyone.
-  final Callers? read;
+  final Callers? readers;
 
   /// Callers of its commands; null: each command says.
-  final Callers? call;
+  final Callers? callers;
 
   static const none = WordAccess();
 
   /// This, where it says nothing, then [fallback].
-  WordAccess or(WordAccess fallback) =>
-      WordAccess(read: read ?? fallback.read, call: call ?? fallback.call);
+  WordAccess or(WordAccess fallback) => WordAccess(
+    readers: readers ?? fallback.readers,
+    callers: callers ?? fallback.callers,
+  );
 
-  /// [d] with [read] as its readers when it names none.
-  StateDescriptor state(StateDescriptor d) => d.readers != null || read == null
+  /// [d] with [readers] as its readers when it names none.
+  StateDescriptor state(StateDescriptor d) =>
+      d.readers != null || readers == null
       ? d
       : StateDescriptor(
           d.name,
           type: d.type,
           key: d.key,
-          readers: read,
+          readers: readers,
           meta: d.meta,
         );
 
-  /// [d] with [read] as its readers when it names none.
-  FactDescriptor fact(FactDescriptor d) => d.readers != null || read == null
+  /// [d] with [readers] as its readers when it names none.
+  FactDescriptor fact(FactDescriptor d) => d.readers != null || readers == null
       ? d
-      : FactDescriptor(d.name, type: d.type, readers: read, meta: d.meta);
+      : FactDescriptor(d.name, type: d.type, readers: readers, meta: d.meta);
 
-  /// [callers], else [read], else everyone: who may ask a query, as who
+  /// [callers], else [readers], else everyone: who may ask a query, as who
   /// may read a state.
   Callers askersOf(Callers? callers) =>
-      callers ?? read ?? const Callers({'*': Access.allow});
+      callers ?? readers ?? const Callers({'*': Access.allow});
 
-  /// [callers], else [call]; a command with neither is refused at once.
+  /// [callers], else [this.callers]; a command with neither is refused at once.
   Callers callersOf(String command, Callers? callers) =>
       callers ??
-      call ??
+      this.callers ??
       (throw ArgumentError(
         '$command names no callers, and its participant no default: '
         'say who may call it',
@@ -443,20 +446,20 @@ final class ParticipantQueryOf<P, R> {
 
   /// Defines it as the participant's own, answered by [handler] of its
   /// params (SPEC §23.4); [askers], else who may read its words
-  /// (`access.read`), else everyone. [available] says why it cannot be
+  /// (`access.readers`), else everyone. [whyNot] says why it cannot be
   /// asked now, or null.
   IHandle serve(
     FutureOr<R> Function(P params) handler, {
     Callers? askers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-    String? Function()? available,
+    String? Function()? whyNot,
   }) => define(
     (a) => _served(participant, handler(a.params)),
     askers: askers,
     deadline: deadline,
     meta: meta,
-    available: available,
+    available: whyNot,
   );
 
   /// Asks it as the participant; asking again asks again.
@@ -519,21 +522,21 @@ final class ParticipantCommandOf<P, R> {
 
   /// Defines it as the participant's own (SPEC §6.2), served by [handler]
   /// of its params (SPEC §23.4): what the handler does follows from the
-  /// call. [callers], else the participant's default (`access.call`);
-  /// [available] says why it cannot run now, or null. A word that only
+  /// call. [callers], else the participant's default (`access.callers`);
+  /// [whyNot] says why it cannot run now, or null. A word that only
   /// answers is a query ([IQueryWord]), not a command.
   IHandle serve(
     FutureOr<R> Function(P params) handler, {
     Callers? callers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-    String? Function()? available,
+    String? Function()? whyNot,
   }) => define(
     (c) => _served(participant, handler(c.params)),
     callers: callers,
     deadline: deadline,
     meta: meta,
-    available: available,
+    available: whyNot,
   );
 
   /// Calls it with [params] as the participant, under [id] when given (a

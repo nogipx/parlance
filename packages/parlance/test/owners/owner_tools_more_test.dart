@@ -59,7 +59,7 @@ final class _Dial implements IOwner {
         .serve(
           (x) => at = x.to,
           callers: const Callers({'*': Access.allow}),
-          available: () => on ? null : 'it is off',
+          whyNot: () => on ? null : 'it is off',
         );
   }
 }
@@ -190,7 +190,7 @@ void main() {
     final gone = await GeneratedWords.of(
       ann,
     ).command(_Drop.of).call((bulb: 'b'));
-    expect(gone.whyNot, contains('no bulb b'));
+    expect(gone.why, contains('no bulb b'));
   });
 
   test('a ref to choices no one gives says so', () async {
@@ -203,7 +203,7 @@ void main() {
     );
     final ann = r.participant(const Principal('user', 'ann'));
     final r1 = await GeneratedWords.of(ann).command(_Drop.of).call((bulb: 'a'));
-    expect(r1.whyNot, contains("choices(name: 'bulb', list: ...)"));
+    expect(r1.why, contains("choices(name: 'bulb', list: ...)"));
   });
 
   test('a fact said once by its id is said once, however often it '
@@ -248,7 +248,7 @@ void main() {
       ann,
     ).command(_Command.set).call((to: 30));
     expect(far, isA<CallRefused>());
-    expect(far.whyNot, contains('too far for user/ann'));
+    expect(far.why, contains('too far for user/ann'));
     expect(
       await GeneratedWords.of(admin).command(_Command.set).call((to: 30)),
       isA<CallDone<void>>(),
@@ -281,7 +281,7 @@ void main() {
         agent,
       ).command(_Command.set).call((to: 3));
       expect(refused, isA<CallRefused>(), reason: 'across: $across');
-      expect(refused.whyNot, contains('no agent calls dial.set'));
+      expect(refused.why, contains('no agent calls dial.set'));
       expect(
         await GeneratedWords.of(ann).command(_Command.set).call((to: 3)),
         isA<CallDone<void>>(),

@@ -40,7 +40,7 @@ final class Shell {
     host.participant(
       Who.app,
       owners: [app],
-      access: const WordAccess(call: Who.callers),
+      access: const WordAccess(callers: Who.callers),
     );
   }
 
@@ -55,12 +55,12 @@ final class Shell {
       .participant(
         Who.widlet(id),
         vocabularies: [WordSet.open(id)],
-        access: const WordAccess(call: Who.callers),
+        access: const WordAccess(callers: Who.callers),
       )
       .serve(endpoint);
 
   /// Unloads the guest [id]: its session ends, and its words go with it.
-  void unload(String id) => _guests.remove(id)?.close();
+  void unload(String id) => _guests.remove(id)?.dispose();
 
   /// Ends it all: the host takes its participants and the guests'
   /// sessions with it.

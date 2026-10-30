@@ -222,8 +222,8 @@ void main() {
         orders,
         vocabularies: [WordSet.open('orders')],
         access: WordAccess(
-          read: Callers.only(['module/orders', 'module/cart']),
-          call: Callers.only(['module/cart']),
+          readers: Callers.only(['module/orders', 'module/cart']),
+          callers: Callers.only(['module/cart']),
         ),
       );
       p.state(OrderState.last).define();

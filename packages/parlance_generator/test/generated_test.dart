@@ -73,7 +73,7 @@ void main() {
     p = r.participant(
       me,
       vocabularies: [playerWords],
-      access: const WordAccess(call: anyone),
+      access: const WordAccess(callers: anyone),
     );
   });
   tearDown(() => r.dispose());
@@ -84,7 +84,7 @@ void main() {
     p = r.participant(
       me,
       owners: [deck],
-      access: const WordAccess(call: anyone),
+      access: const WordAccess(callers: anyone),
     );
   }
 
@@ -357,7 +357,7 @@ void main() {
         repeat: Repeat.off,
         on: null,
       ));
-      expect(play.whyNot, contains('nothing to play'));
+      expect(play.why, contains('nothing to play'));
     });
   });
 

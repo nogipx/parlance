@@ -45,7 +45,7 @@ final class Link {
 
   /// The connection drops: the host ends the session.
   Future<void> close() async {
-    session.close();
+    session.dispose();
     for (final c in _closers) {
       await c();
     }
@@ -629,7 +629,7 @@ void main() {
             (c) => throw StateError('no fish'),
           );
           final r = await f.r.call('kittens.feed', {}, by: user);
-          expect(r.whyNot, contains('no fish'));
+          expect(r.why, contains('no fish'));
         });
 
         test('it defines only what the host lets it, writes only its own, '

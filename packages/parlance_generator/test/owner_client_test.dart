@@ -37,7 +37,7 @@ void main() {
       host.participant(
         const Principal('player'),
         owners: [Deck()],
-        access: const WordAccess(call: Callers({'*': Access.allow})),
+        access: const WordAccess(callers: Callers({'*': Access.allow})),
       );
       final fan = Fan();
       const listener = Principal('listener', 'ann');

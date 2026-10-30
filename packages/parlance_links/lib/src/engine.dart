@@ -566,7 +566,7 @@ final class _Active {
           ]);
           if (r == null || _stopped) return 'stopped';
           if (r is CallDone || orContinue) continue;
-          final whyNot = r.whyNot ?? '$r';
+          final whyNot = r.why ?? '$r';
           return calls == 1
               ? whyNot
               : 'step ${i + 1} of $calls ($command)'

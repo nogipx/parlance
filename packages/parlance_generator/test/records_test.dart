@@ -48,7 +48,7 @@ void main() {
     r.participant(
       me,
       owners: [board],
-      access: const WordAccess(call: anyone),
+      access: const WordAccess(callers: anyone),
     );
   });
   tearDown(() => r.dispose());

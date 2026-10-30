@@ -44,6 +44,6 @@ Future<(IRemoteParticipant, Board)> startBoard(
   RpcPeerEndpoint endpoint, {
   void Function(ParticipantError error)? onError,
 }) async {
-  final p = await Host.over(endpoint, onError: onError);
+  final p = await Host.joinEndpoint(endpoint, onError: onError);
   return (p, Board(AppClient(p), NotesClient(p)));
 }

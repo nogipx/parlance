@@ -188,7 +188,7 @@ void main() {
       (n) =>
           n == 0 ? [catalog(), snapshot(1), badTick] : [catalog(), snapshot(2)],
     );
-    final p = await RemoteParticipant.over(own);
+    final p = await RemoteParticipant.joinEndpoint(own);
     addTearDown(p.close);
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);

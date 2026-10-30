@@ -24,7 +24,7 @@ void main() {
             .serve(host);
         host.start();
         final own = RpcPeerEndpoint(transport: g)..start();
-        final p = await RemoteParticipant.over(own);
+        final p = await RemoteParticipant.joinEndpoint(own);
         p.defineState(StateDescriptor('lamp.on', type: const BoolType()));
         await p.flush();
         expect(r.stateDescriptor('lamp.on'), isNotNull);

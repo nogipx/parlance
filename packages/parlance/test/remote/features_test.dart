@@ -55,7 +55,7 @@ void main() {
     host.start();
     final own = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([host, own]);
-    return RemoteParticipant.over(own, requires: requires);
+    return RemoteParticipant.joinEndpoint(own, requires: requires);
   }
 
   test('a host tells its major and every feature it speaks', () async {
