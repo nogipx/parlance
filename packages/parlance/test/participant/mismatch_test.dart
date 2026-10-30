@@ -128,9 +128,11 @@ void main() {
 
   void defineNow() {
     final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-    p.raw.state(Now.volume).define();
-    p.raw.state(Now.mode).define();
-    p.raw.command(NowCommand.set).define((_) {}, callers: anyone);
+    GeneratedWords(p.raw).state(Now.volume).define();
+    GeneratedWords(p.raw).state(Now.mode).define();
+    GeneratedWords(
+      p.raw,
+    ).command(NowCommand.set).serve((_) {}, callers: anyone);
   }
 
   for (final across in [false, true]) {
@@ -148,10 +150,10 @@ void main() {
           defineNow();
           final b = await asGuest();
           await b.settle();
-          expect(said(b.raw.state(Built.volume).status), [
+          expect(said(GeneratedWords(b.raw).status(Built.volume)), [
             'type.max: was 100, is 150',
           ]);
-          expect(b.raw.state(Built.mode).status, const WordReady());
+          expect(GeneratedWords(b.raw).status(Built.mode), const WordReady());
           expect(
             b.raw.status('deck.volume'),
             const WordReady(),
@@ -162,20 +164,22 @@ void main() {
 
       test('every difference is told, at once', () async {
         final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-        p.raw.state(Wide.volume).define();
+        GeneratedWords(p.raw).state(Wide.volume).define();
         final b = await asGuest();
         await b.settle();
-        expect(said(b.raw.state(Built.volume).status), [
+        expect(said(GeneratedWords(b.raw).status(Built.volume)), [
           'type.type: was int, is num',
         ], reason: 'a type changed says no bound of it');
       });
 
       test('a param added beside a break is no break of its own', () async {
         final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-        p.raw.command(BrokenCommand.set).define((_) {}, callers: anyone);
+        GeneratedWords(
+          p.raw,
+        ).command(BrokenCommand.set).serve((_) {}, callers: anyone);
         final b = await asGuest();
         await b.settle();
-        expect(said(b.raw.command(BuiltCommand.set).status), [
+        expect(said(GeneratedWords(b.raw).status(BuiltCommand.set)), [
           'params.fields.volume.type.type: was int, is text',
         ]);
       });
@@ -184,7 +188,10 @@ void main() {
         defineNow();
         final b = await asGuest();
         await b.settle();
-        expect(b.raw.command(BuiltCommand.set).status, const WordReady());
+        expect(
+          GeneratedWords(b.raw).status(BuiltCommand.set),
+          const WordReady(),
+        );
       });
 
       test('the words a part was built against, checked at once', () async {
@@ -207,7 +214,9 @@ void main() {
         () async {
           final b = await asGuest();
           final seen = <WordStatus>[];
-          final sub = b.raw.state(Built.volume).statusChanges.listen(seen.add);
+          final sub = GeneratedWords(
+            b.raw,
+          ).statusChanges(Built.volume).listen(seen.add);
           await pumpEventQueue();
           defineNow();
           await b.settle();

@@ -67,13 +67,13 @@ final class Thermostat extends Owner {
 
   @override
   void define(IRawParticipant p) {
-    _heating = keep(p.state(Target.heating).define());
-    _adjusted = keep(p.fact(Adjusted.adjusted).define());
+    _heating = keep(GeneratedWords(p).state(Target.heating).define());
+    _adjusted = keep(GeneratedWords(p).fact(Adjusted.adjusted).define());
     listen(
-      on: p.state(Outside.temperature).watch(),
+      on: GeneratedWords(p).stateOf(Outside.temperature).changes,
       onData: (t) async {
         final on = (t ?? 20) < 15;
-        await p.command(Heater.power).call((on: on));
+        await GeneratedWords(p).command(Heater.power).call((on: on));
         _heating.set(on);
         _adjusted.say((on: on));
       },
@@ -138,9 +138,9 @@ void main() {
       Heater.power,
       answer: (p) => throw StateError('broken'),
     );
-    final r = await host.participant(me).raw.command(Heater.power).call((
-      on: true,
-    ));
+    final r = await GeneratedWords(
+      host.participant(me).raw,
+    ).command(Heater.power).call((on: true));
     expect(r, isA<CallFailed>());
   });
 

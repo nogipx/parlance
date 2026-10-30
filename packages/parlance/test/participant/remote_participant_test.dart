@@ -80,13 +80,13 @@ final class Lamps extends Owner {
 
   @override
   void define(IRawParticipant p) {
-    _on = keep(p.state(Lamp.on).define());
-    _purred = keep(p.fact(Purr.purred).define());
+    _on = keep(GeneratedWords(p).state(Lamp.on).define());
+    _purred = keep(GeneratedWords(p).fact(Purr.purred).define());
     keep(
-      p.command(LampCommand.turn).define((c) {
-        lit = c.params.on;
+      GeneratedWords(p).command(LampCommand.turn).serve((params) {
+        lit = params.on;
         _on.set(lit);
-        _purred.say(c.params);
+        _purred.say(params);
       }, callers: Callers.only(['user'])),
     );
   }
@@ -157,7 +157,9 @@ void main() {
     expect(r.read('kittens.lamp'), false);
 
     final crewSide = r.participant(crew);
-    final done = await crewSide.command(LampCommand.turn).call((on: true));
+    final done = await GeneratedWords(
+      crewSide,
+    ).command(LampCommand.turn).call((on: true));
     expect(done.ok, isTrue, reason: '$done');
     expect(r.read('kittens.lamp'), true);
     final change = r.lastChange('kittens.lamp')!;
@@ -165,7 +167,11 @@ void main() {
     expect(change.cause.parent, isNotNull, reason: 'it follows from the call');
     final purr = r.recent('kittens.purred').single;
     expect(purr.cause.parent, change.cause.parent);
-    expect(p.state(Lamp.on).read(), true, reason: 'its own, as it wrote it');
+    expect(
+      GeneratedWords(p).stateOf(Lamp.on).value,
+      true,
+      reason: 'its own, as it wrote it',
+    );
     expect(crewSide.status('kittens.lamp.turn'), const WordReady());
   });
 
@@ -192,7 +198,9 @@ void main() {
     final p = await join(interceptors: [seen]);
     p.attach([Lamps()]);
     await p.flush();
-    await r.participant(crew).command(LampCommand.turn).call((on: true));
+    await GeneratedWords(
+      r.participant(crew),
+    ).command(LampCommand.turn).call((on: true));
     expect(seen.calls, containsAll(['outgoing describe', 'incoming serve']));
   });
 
@@ -236,7 +244,7 @@ void main() {
 
   test('across a connection a query changes nothing either', () async {
     final p = await join();
-    final lamp = p.state(Lamp.on).define()..set(false);
+    final lamp = GeneratedWords(p).state(Lamp.on).define()..set(false);
     p.defineQuery(
       QueryDescriptor(
         'kittens.count',
@@ -258,7 +266,7 @@ void main() {
 
   test('what it writes in one turn is one tick', () async {
     final p = await join();
-    final lamp = p.state(Lamp.on).define();
+    final lamp = GeneratedWords(p).state(Lamp.on).define();
     await p.flush();
     final ticks = <Tick>[];
     final sub = r.ticks.listen(ticks.add);
@@ -288,7 +296,7 @@ void main() {
       );
       final errors = <ParticipantError>[];
       p.errors.listen(errors.add);
-      p.fact(Purr.purred).define();
+      GeneratedWords(p).fact(Purr.purred).define();
       await p.flush();
       expect(errors.single.code, ParticipantErrorCode.notPermitted);
       expect(errors.single.why, 'no facts');
@@ -326,9 +334,9 @@ void main() {
   test('its guard is asked in its turn', () async {
     final p = await join();
     var served = 0;
-    p
+    GeneratedWords(p)
         .command(LampCommand.turn)
-        .define((_) => served++, callers: Callers.only(['user']));
+        .serve((_) => served++, callers: Callers.only(['user']));
     p.addGuard(
       'night',
       (c) => c.params['on'] == true ? 'the kittens sleep' : null,
@@ -350,14 +358,15 @@ void main() {
 
   test('a command\'s availability follows what its check reads', () async {
     final p = await join();
-    final lamp = p.state(Lamp.on).define()..set(false);
-    p
+    final lamp = GeneratedWords(p).state(Lamp.on).define()..set(false);
+    GeneratedWords(p)
         .command(LampCommand.turn)
-        .define(
+        .serve(
           (_) {},
           callers: Callers.only(['user']),
-          available: () =>
-              p.state(Lamp.on).read() == true ? 'already on' : null,
+          whyNot: () => GeneratedWords(p).stateOf(Lamp.on).value == true
+              ? 'already on'
+              : null,
         );
     await p.flush();
     final crewSide = r.participant(crew);
@@ -397,7 +406,9 @@ void main() {
     );
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
-    final purred = p.fact(Purr.purred).define() as FactEmitterOf<({bool on})>;
+    final purred =
+        GeneratedWords(p).fact(Purr.purred).define()
+            as FactEmitterOf<({bool on})>;
     purred.emit((on: true), cause: const Cause(someone));
     purred.emit((on: false), cause: const Cause(crew));
     await p.flush();
@@ -429,10 +440,11 @@ void main() {
 
   test('it watches another\'s state through its mirror', () async {
     final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
-    final focus = owner.state(_Focus.room).define()..set('main');
+    final focus = GeneratedWords(owner).state(_Focus.room).define()
+      ..set('main');
     final p = await join();
     final seen = <String?>[];
-    final sub = p.state(_Focus.room).watch().listen(seen.add);
+    final sub = GeneratedWords(p).stateOf(_Focus.room).changes.listen(seen.add);
     await settle();
     focus.set('break');
     await settle();
@@ -459,7 +471,7 @@ void main() {
   test('its access by default is the host\'s, told when it joins', () async {
     final p = await join(access: WordAccess(callers: Callers.only(['user'])));
     expect(p.access.callers?.toJson(), Callers.only(['user']).toJson());
-    p.command(LampCommand.turn).define((_) {});
+    GeneratedWords(p).command(LampCommand.turn).serve((_) {});
     await p.flush();
     expect(
       r.commandDescriptor('kittens.lamp.turn')!.callers.toJson(),
@@ -654,12 +666,14 @@ void main() {
           ),
         )
         .set('hush');
-    owner.state(_Focus.room).define().set('main');
+    GeneratedWords(owner).state(_Focus.room).define().set('main');
     final p = await join();
     final secret = p.watch('house.secret').listen((_) {});
     await settle();
     final seen = <String?>[];
-    final focus = p.state(_Focus.room).watch().listen(seen.add);
+    final focus = GeneratedWords(
+      p,
+    ).stateOf(_Focus.room).changes.listen(seen.add);
     await settle();
     expect(seen, ['main']);
     expect(p.read('house.secret'), isNull);
@@ -670,11 +684,11 @@ void main() {
 
   test('a word it watches before it is there counts once it comes', () async {
     final p = await join();
-    final sub = p.state(_Focus.room).watch().listen((_) {});
+    final sub = GeneratedWords(p).stateOf(_Focus.room).changes.listen((_) {});
     await settle();
     expect(r.usesOf('house.focus'), isEmpty);
     final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
-    owner.state(_Focus.room).define().set('main');
+    GeneratedWords(owner).state(_Focus.room).define().set('main');
     await settle();
     expect(r.usesOf('house.focus').single.listening, 1);
     await sub.cancel();
@@ -682,9 +696,9 @@ void main() {
 
   test('what it watches is its use of the word, while it watches', () async {
     final owner = r.participant(crew, vocabularies: [WordSet.open('house')]);
-    owner.state(_Focus.room).define().set('main');
+    GeneratedWords(owner).state(_Focus.room).define().set('main');
     final p = await join();
-    final sub = p.state(_Focus.room).watch().listen((_) {});
+    final sub = GeneratedWords(p).stateOf(_Focus.room).changes.listen((_) {});
     await settle();
     final use = r.usesOf('house.focus').single;
     expect((use.by, use.listening), (kittens, 1));
@@ -706,7 +720,7 @@ void main() {
     final p = await join(
       access: WordAccess(readers: Callers.only(['plugin/kittens'])),
     );
-    p.state(Lamp.on).define();
+    GeneratedWords(p).state(Lamp.on).define();
     await p.flush();
     expect(r.stateDescriptor('kittens.lamp')!.readers!.rules.keys, {
       'plugin/kittens',

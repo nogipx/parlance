@@ -229,7 +229,7 @@ void main() {
       test('a typed read of a value its code does not know gives none, '
           'and does not throw', () async {
         final errors = <ParticipantError>[];
-        owner().state(nowMode).define().set('c');
+        GeneratedWords(owner()).state(nowMode).define().set('c');
         final b = await asGuest();
         if (b is RemoteParticipant) b.errors.listen(errors.add);
         final seen = <Mode?>[];
@@ -256,8 +256,10 @@ void main() {
           'read, gives none too, told once a word', () async {
         final errors = <ParticipantError>[];
         final o = owner();
-        o.state(nowTurn).define().set(const <String, Object?>{});
-        o.state(nowBox).define().set(const {'n': 'x'});
+        GeneratedWords(
+          o,
+        ).state(nowTurn).define().set(const <String, Object?>{});
+        GeneratedWords(o).state(nowBox).define().set(const {'n': 'x'});
         final b = await asGuest();
         if (b is RemoteParticipant) b.errors.listen(errors.add);
         await b.raw.fetch('deck.turn');
@@ -280,7 +282,7 @@ void main() {
 
       test('a fact holding a value its code does not know is not heard; '
           'the next one is', () async {
-        final say = owner().fact(nowSaid).define();
+        final say = GeneratedWords(owner()).fact(nowSaid).define();
         final b = await asGuest();
         final heard = <Mode>[];
         final sub = b.raw.factsAs('deck.said', builtSaid.shape).listen((f) {
@@ -305,7 +307,7 @@ void main() {
       final told = <Mismatch>[];
       host.registry.mismatchChanges.listen(told.add);
       final b = host.participant(guest)..raw.builtAgainst([builtMode]);
-      final mode = owner().state(nowMode).define();
+      final mode = GeneratedWords(owner()).state(nowMode).define();
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks, [possible]);
       mode.set('b');
@@ -324,7 +326,9 @@ void main() {
       host.participant(guest).raw.builtAgainst([
         S('deck.queue', PlainShape(queue(const EnumType(['a', 'b'])))),
       ]);
-      final q = owner().state(S<Object?>('deck.queue', PlainShape(queue(abc))));
+      final q = GeneratedWords(
+        owner(),
+      ).state(S<Object?>('deck.queue', PlainShape(queue(abc))));
       final w = q.define();
       await pumpEventQueue();
       expect(
@@ -346,7 +350,7 @@ void main() {
 
     test('a needed field left out, once a value lacks it', () async {
       host.participant(guest).raw.builtAgainst([builtTurn]);
-      final turn = owner().state(nowTurn).define();
+      final turn = GeneratedWords(owner()).state(nowTurn).define();
       await pumpEventQueue();
       final only = host.registry.mismatches.single.breaks.single;
       expect(only.path, 'type.fields.volume');
@@ -361,7 +365,7 @@ void main() {
 
     test('by a fact said', () async {
       host.participant(guest).raw.builtAgainst([builtSaid]);
-      final say = owner().fact(nowSaid).define();
+      final say = GeneratedWords(owner()).fact(nowSaid).define();
       await pumpEventQueue();
       say.say('a');
       await pumpEventQueue();
@@ -375,9 +379,9 @@ void main() {
       final b = host.participant(guest)..raw.builtAgainst([builtPick]);
       const other = Principal('widlet', 'c');
       final c = host.participant(other)..raw.builtAgainst([builtPick]);
-      owner().query(nowPick).define((_) => 'c');
+      GeneratedWords(owner()).query(nowPick).serve((_) => 'c');
       await pumpEventQueue();
-      final answer = await b.raw.query(builtPick).ask(());
+      final answer = await GeneratedWords(b.raw).query(builtPick).ask(());
       expect(answer, isA<CallFailed>(), reason: 'its code cannot read it');
       final byWho = {
         for (final m in host.registry.mismatches) m.by: m.breaks.single.certain,

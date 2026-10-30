@@ -129,7 +129,10 @@ final class TestHost {
       throw ArgumentError('${word.name} is keyed: standInKeyed it');
     }
     final s = Single<T>()..set(value);
-    Single.attach(s, _standInFor(word.name).state(word).define());
+    Single.attach(
+      s,
+      GeneratedWords(_standInFor(word.name)).state(word).define(),
+    );
     Single.write(s);
     return s;
   }
@@ -145,7 +148,10 @@ final class TestHost {
     for (final MapEntry(:key, :value) in values.entries) {
       k.set(key, value);
     }
-    Keyed.attach(k, _standInFor(word.name).state(word).define());
+    Keyed.attach(
+      k,
+      GeneratedWords(_standInFor(word.name)).state(word).define(),
+    );
     Keyed.writeAll(k);
     return k;
   }
@@ -159,9 +165,9 @@ final class TestHost {
     Callers callers = Callers.anyone,
   }) {
     final stub = CommandStub<P, R>._();
-    _standInFor(word.name).command(word).define((call) {
-      stub.params.add(call.params);
-      if (answer != null) return answer(call.params);
+    GeneratedWords(_standInFor(word.name)).command(word).serve((params) {
+      stub.params.add(params);
+      if (answer != null) return answer(params);
       return null as R;
     }, callers: callers);
     return stub;
@@ -187,7 +193,7 @@ final class TestHost {
 
   /// A stand-in speaker of another module's fact [word].
   IFactEmitterOf<T> standInFact<T>(IFactWord<T> word) =>
-      _standInFor(word.name).fact(word).define();
+      GeneratedWords(_standInFor(word.name)).fact(word).define();
 
   /// The values [word] (of [key]) was given, in order, as committed: null
   /// for a removal. Read after [settle].

@@ -35,7 +35,7 @@ final class _Book extends Owner {
 
   @override
   void define(IRawParticipant p) {
-    _last = keep(p.state(_State.last).define());
+    _last = keep(GeneratedWords(p).state(_State.last).define());
     hear(fact: GeneratedWords(p).factOf(_Fact.rang), onData: _last.set);
   }
 }
@@ -49,7 +49,7 @@ void main() {
       vocabularies: [WordSet.open('door')],
       rights: ParticipantRights(speakFor: (_) => null),
     );
-    final rang = door.fact(_Fact.rang).define();
+    final rang = GeneratedWords(door).fact(_Fact.rang).define();
     r.participant(
       const Principal('book'),
       vocabularies: [WordSet.open('book')],

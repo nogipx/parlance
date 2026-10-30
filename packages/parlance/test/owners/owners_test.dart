@@ -34,7 +34,7 @@ final class Dials extends Owner {
   @override
   void define(IRawParticipant p) {
     choices(name: 'dial', list: () => [for (final d in dials.keys) Choice(d)]);
-    _level = keep(p.state(Level.of).define());
+    _level = keep(GeneratedWords(p).state(Level.of).define());
   }
 
   @override
@@ -65,7 +65,7 @@ final class Knob extends Owner {
 final class Other extends Owner {
   @override
   void define(IRawParticipant p) {
-    keep(p.state(_Flag.on).define());
+    keep(GeneratedWords(p).state(_Flag.on).define());
   }
 }
 
@@ -87,7 +87,8 @@ final class Flagged extends Owner {
   Stream<void> get changes => moved.stream;
 
   @override
-  void define(IRawParticipant p) => _on = keep(p.state(_Flag.on).define());
+  void define(IRawParticipant p) =>
+      _on = keep(GeneratedWords(p).state(_Flag.on).define());
 
   @override
   void sync() => _on.set(on);
@@ -271,7 +272,7 @@ void main() {
     final dials = Dials();
     final p = module([dials]);
     final part = p.raw.child('dials');
-    part.raw.state(_Flag.on).define().set(true);
+    GeneratedWords(part).state(_Flag.on).define().set(true);
     await pumpEventQueue();
     p.dispose();
     await pumpEventQueue();

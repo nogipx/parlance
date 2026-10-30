@@ -62,12 +62,12 @@ void main() {
   /// fact, callable by the cart.
   LocalParticipant ordersModule() {
     final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-    final last = p.state(OrderState.last).define();
-    final placed = p.fact(OrderFact.placed).define();
-    p.command(OrderCommand.place).define((c) {
-      last.set(c.params);
-      placed.say(c.params);
-      return c.params.id;
+    final last = GeneratedWords(p).state(OrderState.last).define();
+    final placed = GeneratedWords(p).fact(OrderFact.placed).define();
+    GeneratedWords(p).command(OrderCommand.place).serve((params) {
+      last.set(params);
+      placed.say(params);
+      return params.id;
     }, callers: Callers.only(['module/cart']));
     return p;
   }
@@ -79,18 +79,19 @@ void main() {
         ordersModule();
         final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
         final heard = <Order>[];
-        final sub = c
-            .fact(OrderFact.placed)
-            .facts
-            .listen((f) => heard.add(f.payload));
-        final done = await c.command(OrderCommand.place).call((
-          id: 'o1',
-          status: 'new',
-        ));
+        final sub = GeneratedWords(
+          c,
+        ).factOf(OrderFact.placed).facts.listen((f) => heard.add(f.payload));
+        final done = await GeneratedWords(
+          c,
+        ).command(OrderCommand.place).call((id: 'o1', status: 'new'));
         await settle();
         expect(done, isA<CallDone<String>>());
         expect((done as CallDone<String>).value, 'o1');
-        expect(c.state(OrderState.last).read(), (id: 'o1', status: 'new'));
+        expect(GeneratedWords(c).stateOf(OrderState.last).value, (
+          id: 'o1',
+          status: 'new',
+        ));
         expect(heard, [(id: 'o1', status: 'new')]);
         final change = r.lastChange('orders.last')!;
         expect(change.cause.by, orders, reason: 'written as the owner');
@@ -101,11 +102,14 @@ void main() {
 
     test('nothing outside its vocabularies', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-      expect(() => p.state(_Other.flag).define(), throwsA(isA<StateError>()));
+      expect(
+        () => GeneratedWords(p).state(_Other.flag).define(),
+        throwsA(isA<StateError>()),
+      );
       expect(r.stateDescriptor('cart.flag'), isNull);
       final none = r.participant(const Principal('module', 'x'));
       expect(
-        () => none.state(OrderState.last).define(),
+        () => GeneratedWords(none).state(OrderState.last).define(),
         throwsA(isA<StateError>()),
         reason: 'no vocabulary, no words',
       );
@@ -119,9 +123,9 @@ void main() {
           define: (call) => call.role == WordRole.fact ? 'no facts' : null,
         ),
       );
-      p.state(OrderState.last).define();
+      GeneratedWords(p).state(OrderState.last).define();
       expect(
-        () => p.fact(OrderFact.placed).define(),
+        () => GeneratedWords(p).fact(OrderFact.placed).define(),
         throwsA(isA<StateError>()),
       );
     });
@@ -148,10 +152,9 @@ void main() {
     test('its calls are by it, and its callers rights hold', () async {
       ordersModule();
       final stranger = r.participant(someone);
-      final refused = await stranger.command(OrderCommand.place).call((
-        id: 'o2',
-        status: 'new',
-      ));
+      final refused = await GeneratedWords(
+        stranger,
+      ).command(OrderCommand.place).call((id: 'o2', status: 'new'));
       expect(refused, isA<CallRefused>());
       expect((refused as CallRefused).code, Refusal.notPermitted);
       expect(stranger.status('orders.place'), const WordNotPermitted());
@@ -164,7 +167,7 @@ void main() {
         throwsA(isA<StateError>()),
       );
       final q = r.participant(cart, vocabularies: [WordSet.open('cart')]);
-      final flag = q.state(_Other.flag).define();
+      final flag = GeneratedWords(q).state(_Other.flag).define();
       expect(
         () => (flag as StateWriterOf<bool>).set(
           true,
@@ -179,7 +182,7 @@ void main() {
         orders,
         vocabularies: [WordSet.open('orders')],
       );
-      final a = lock.fact(OrderFact.placed).define();
+      final a = GeneratedWords(lock).fact(OrderFact.placed).define();
       expect(
         () => (a as FactEmitterOf<Order>).emit((
           id: 'o',
@@ -196,23 +199,25 @@ void main() {
               call.by.kind == 'visitor' ? null : 'visitors only',
         ),
       );
-      (voice.fact(OrderFact.placed).define() as FactEmitterOf<Order>).emit((
-        id: 'o',
-        status: 'new',
-      ), cause: const Cause(someone));
+      (GeneratedWords(voice).fact(OrderFact.placed).define()
+              as FactEmitterOf<Order>)
+          .emit((id: 'o', status: 'new'), cause: const Cause(someone));
       expect(r.recent('orders.placed').single.cause.by, someone);
     });
 
     test('reads only what it may', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-      p
+      GeneratedWords(p)
           .state(OrderState.last)
           .define(readers: Callers.only(['module/orders']))
           .set((id: 'o', status: 'new'));
       final c = r.participant(cart);
-      expect(c.state(OrderState.last).read(), isNull);
+      expect(GeneratedWords(c).stateOf(OrderState.last).value, isNull);
       expect(c.status('orders.last'), const WordNotPermitted());
-      expect(p.state(OrderState.last).read(), (id: 'o', status: 'new'));
+      expect(GeneratedWords(p).stateOf(OrderState.last).value, (
+        id: 'o',
+        status: 'new',
+      ));
     });
   });
 
@@ -227,9 +232,13 @@ void main() {
           callers: Callers.only(['module/cart']),
         ),
       );
-      p.state(OrderState.last).define();
-      p.fact(OrderFact.placed).define(readers: Callers.only(['module/orders']));
-      p.command(OrderCommand.place).define((c) => c.params.id);
+      GeneratedWords(p).state(OrderState.last).define();
+      GeneratedWords(
+        p,
+      ).fact(OrderFact.placed).define(readers: Callers.only(['module/orders']));
+      GeneratedWords(
+        p,
+      ).command(OrderCommand.place).serve((params) => params.id);
 
       expect(r.stateDescriptor('orders.last')!.readers!.rules.keys, {
         'module/orders',
@@ -244,7 +253,9 @@ void main() {
       expect(stranger.status('orders.last'), const WordNotPermitted());
       expect(c.status('orders.placed'), const WordNotPermitted());
       expect(
-        (await c.command(OrderCommand.place).call((id: 'o', status: 'n'))).ok,
+        (await GeneratedWords(
+          c,
+        ).command(OrderCommand.place).call((id: 'o', status: 'n'))).ok,
         isTrue,
       );
       expect(stranger.status('orders.place'), const WordNotPermitted());
@@ -253,18 +264,18 @@ void main() {
     test('a command with no callers anywhere is refused at once', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       expect(
-        () => p.command(OrderCommand.place).define((c) => c.params.id),
+        () => GeneratedWords(
+          p,
+        ).command(OrderCommand.place).serve((params) => params.id),
         throwsArgumentError,
       );
       expect(r.commandDescriptor('orders.place'), isNull);
     });
 
     test('without it, a state is everyone\'s to read', () {
-      r
-          .participant(orders, vocabularies: [WordSet.open('orders')])
-          .state(OrderState.last)
-        ..define()
-        ..read();
+      GeneratedWords(
+        r.participant(orders, vocabularies: [WordSet.open('orders')]),
+      ).state(OrderState.last).define();
       expect(r.stateDescriptor('orders.last')!.readers, isNull);
     });
   });
@@ -299,7 +310,7 @@ void main() {
       ordersModule();
       final c = r.participant(cart, vocabularies: [WordSet.open('cart')]);
       final ui = c.child('ui');
-      final flag = ui.state(_Other.flag).define()..set(true);
+      final flag = GeneratedWords(ui).state(_Other.flag).define()..set(true);
       expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
       (flag as StateWriterOf<bool>).set(false, cause: const Cause(cart));
       expect(r.lastChange('cart.flag')!.cause.by, cart.child('ui'));
@@ -309,10 +320,9 @@ void main() {
       );
       final records = <CallRecord>[];
       final sub = r.calls.listen(records.add);
-      final done = await ui.command(OrderCommand.place).call((
-        id: 'o9',
-        status: 'new',
-      ));
+      final done = await GeneratedWords(
+        ui,
+      ).command(OrderCommand.place).call((id: 'o9', status: 'new'));
       await settle();
       expect(done.ok, isTrue, reason: 'module/cart names its parts too');
       expect(records.single.cause.by, cart.child('ui'), reason: 'the record');
@@ -353,8 +363,8 @@ void main() {
         'its parts', () {
       final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
       final a = p.child('a');
-      a.state(OrderState.last).define();
-      p.child('b').fact(OrderFact.placed).define();
+      GeneratedWords(a).state(OrderState.last).define();
+      GeneratedWords(p.child('b')).fact(OrderFact.placed).define();
       a.dispose();
       expect(r.stateDescriptor('orders.last'), isNull);
       expect(r.factDescriptor('orders.placed'), isNotNull);
@@ -393,14 +403,12 @@ void main() {
 
   test('watching a state starts with its value now', () async {
     final p = r.participant(orders, vocabularies: [WordSet.open('orders')]);
-    final last = p.state(OrderState.last).define()
+    final last = GeneratedWords(p).state(OrderState.last).define()
       ..set((id: 'o1', status: 'new'));
     final seen = <Order?>[];
-    final sub = r
-        .participant(cart)
-        .state(OrderState.last)
-        .watch()
-        .listen(seen.add);
+    final sub = GeneratedWords(
+      r.participant(cart),
+    ).stateOf(OrderState.last).changes.listen(seen.add);
     await settle();
     last.set((id: 'o1', status: 'paid'));
     await settle();
@@ -419,7 +427,10 @@ void main() {
       expect(c.status(w), const WordMissing(), reason: w);
     }
     expect(r.hasKind('order'), isFalse);
-    expect(() => p.state(OrderState.last).define(), throwsA(isA<StateError>()));
+    expect(
+      () => GeneratedWords(p).state(OrderState.last).define(),
+      throwsA(isA<StateError>()),
+    );
   });
 
   test('tells of entities only of a kind it registered', () {
@@ -464,7 +475,7 @@ void main() {
     const ordersWords = WordSet('orders', [...OrderState.values]);
     final p = r.participant(orders, vocabularies: [ordersWords]);
     expect(p.vocabularyNames, {'orders'});
-    p.state(OrderState.last).define();
+    GeneratedWords(p).state(OrderState.last).define();
     expect(
       () => r.participant(cart, vocabularies: [ordersWords]),
       throwsA(isA<NotPermitted>()),

@@ -41,10 +41,10 @@ final class _Room extends Owner {
 
   @override
   void define(IRawParticipant p) {
-    heat = keep(p.state(_State.heat).define());
-    lamp = keep(p.state(_State.lamp).define());
+    heat = keep(GeneratedWords(p).state(_State.heat).define());
+    lamp = keep(GeneratedWords(p).state(_State.lamp).define());
     keep(
-      p.command(_Command.warm).define((_) {
+      GeneratedWords(p).command(_Command.warm).serve((_) {
         warmedBy = by;
         heat.set(25);
         // Cools on its own later: not in answer to the call.

@@ -7,7 +7,7 @@ import 'package:notes_guest/notes_guest.dart';
 import 'package:notes_words/notes_words.dart';
 import 'package:parlance/app.dart';
 import 'package:parlance/tools.dart'
-    show RawAccess, TypedParticipant, CommandDescriptor, StateDescriptor;
+    show RawAccess, CommandDescriptor, StateDescriptor;
 import 'package:test/test.dart';
 
 /// Two guests of one host: the notes guest gives its words, the board
@@ -135,7 +135,7 @@ void main() {
   test('a guest defines in its own vocabulary only', () async {
     final (p, b) = await board();
     expect(
-      () => p.raw.state(NotesState.all).define(),
+      () => GeneratedWords(p.raw).state(NotesState.all).define(),
       throwsA(isA<NotPermitted>()),
     );
     await b.close();

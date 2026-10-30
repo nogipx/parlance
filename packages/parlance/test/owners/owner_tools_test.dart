@@ -95,7 +95,7 @@ void main() {
     expect(lamp.order, ['attached']);
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
-    expect(GeneratedWords(p).state(_State.level).read(), 3);
+    expect(GeneratedWords(p).stateOf(_State.level).value, 3);
     expect(r.registry.hasKind('bulb'), isTrue);
   });
 
@@ -110,7 +110,7 @@ void main() {
       ..turn(6);
     await p.settle();
     expect(lamp.pulls, 3);
-    expect(GeneratedWords(p).state(_State.level).read(), 6);
+    expect(GeneratedWords(p).stateOf(_State.level).value, 6);
   });
 
   test('a follow said once attached runs at once', () async {

@@ -166,8 +166,8 @@ extension WordAccessOf on WordAccess {
 /// A part of the app as it speaks (SPEC §22): it sees the registry only
 /// through this, as one principal, [who]. It reads, watches, hears and
 /// calls what [who] may (as the view it is, [IRegistryView]); it defines
-/// words only in its vocabularies, through typed words
-/// ([TypedParticipant]), and writes and says them as [who]. The same
+/// words only in its vocabularies, through its owners, and writes and
+/// says them as [who]. The same
 /// whether the registry is in this process or across a connection.
 ///
 /// `main` makes one per part and hands it over; the part never gets the
@@ -339,11 +339,11 @@ extension RawAccess on IParticipant {
   IRawParticipant get raw => this as IRawParticipant;
 }
 
-/// The one door generated code reaches the words by (SPEC §23): the owner
-/// base defines and serves through it, the client reads, watches, calls
-/// and hears. It is the generator's contract, frozen with `schema.dart`,
-/// and not a way to write by hand: a part uses a client, an owner its
-/// base.
+/// The one door typed words are reached by (SPEC §23): the owner base
+/// defines and serves through it, the client reads, watches, calls and
+/// hears. It is the generator's contract, frozen with `schema.dart`, and
+/// not a way to write an app by hand: a part uses a client, an owner its
+/// base. A tool with words named at run time (`StateWordOf`) takes it too.
 final class GeneratedWords {
   GeneratedWords._(this._resolve, this._owner);
 
@@ -363,12 +363,22 @@ final class GeneratedWords {
   final IRawParticipant Function() _resolve;
   final IOwner? _owner;
 
-  ParticipantStateOf<T> state<T>(IStateWord<T> word) => _resolve().state(word);
-  ParticipantCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
-      _resolve().command(word);
-  ParticipantFactOf<T> fact<T>(IFactWord<T> word) => _resolve().fact(word);
-  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
-      _resolve().query(word);
+  /// The state [word], for the owner base to define.
+  GeneratedState<T> state<T>(IStateWord<T> word) =>
+      GeneratedState._(_resolve(), word);
+
+  /// The command [word], for the owner base to serve and the client to
+  /// call.
+  GeneratedCommand<P, R> command<P, R>(ICommandWord<P, R> word) =>
+      GeneratedCommand._(_resolve(), word);
+
+  /// The fact [word], for the owner base to define.
+  GeneratedFact<T> fact<T>(IFactWord<T> word) =>
+      GeneratedFact._(_resolve(), word);
+
+  /// The query [word], for the owner base to serve and the client to ask.
+  GeneratedQuery<P, R> query<P, R>(IQueryWord<P, R> word) =>
+      GeneratedQuery._(_resolve(), word);
 
   /// The state [word] as a part reads it ([IStateOf]).
   IStateOf<T> stateOf<T>(IStateWord<T> word) => _StateOf(this, word);
@@ -415,10 +425,11 @@ final class _StateOf<T> implements IStateOf<T> {
   final IStateWord<T> _word;
 
   @override
-  T? get value => _w.state(_word).read();
+  T? get value => _w._resolve().readAs(_word.name, _word.shape);
 
   @override
-  Stream<T?> get changes => _w.later(() => _w.state(_word).watch());
+  Stream<T?> get changes =>
+      _w.later(() => _w._resolve().watchAs(_word.name, _word.shape));
 
   @override
   String toString() => '${_word.name} = $value';
@@ -430,12 +441,14 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
   final IStateWord<T> _word;
 
   @override
-  T? of(String key) => _w.state(_word).read(key: key);
+  T? of(String key) => _w._resolve().readAs(_word.name, _word.shape, key: key);
 
   @override
   Map<String, T> get all => {
-    for (final MapEntry(:key, :value) in _w.state(_word).readAll().entries)
-      ?key: value,
+    for (final MapEntry(:key, :value)
+        in _w._resolve().readAll(_word.name).entries)
+      if (key != null && (value != null || null is T))
+        key: _word.shape.fromJson(value),
   };
 
   @override
@@ -443,7 +456,7 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
 
   @override
   Stream<T?> changesOf(String key) =>
-      _w.later(() => _w.state(_word).watch(key: key));
+      _w.later(() => _w._resolve().watchAs(_word.name, _word.shape, key: key));
 
   @override
   Stream<Map<String, T>> get changes => _w.later(
@@ -464,14 +477,21 @@ final class _FactOf<T> implements IFactOf<T> {
   final IFactWord<T> _word;
 
   @override
-  Stream<T> get payloads =>
-      _w.later(() => _w.fact(_word).facts.map((f) => f.payload));
+  Stream<T> get payloads => facts.map((f) => f.payload);
 
   @override
-  Stream<Fact<T>> get facts => _w.later(() => _w.fact(_word).facts);
+  Stream<Fact<T>> get facts => _w.later(
+    () => _w
+        ._resolve()
+        .factsAs(_word.name, _word.shape)
+        .map((f) => factIn(f.$1, f.$2)),
+  );
 
   @override
-  Future<List<Fact<T>>> recent(int count) => _w.fact(_word).recent(count);
+  Future<List<Fact<T>>> recent(int count) async => [
+    for (final m in await _w._resolve().recent(_word.name, count))
+      factIn(_word.shape.fromJson(m.payload), m),
+  ];
 
   @override
   String toString() => _word.name;
@@ -499,102 +519,66 @@ final class _Later<T> extends Stream<T> {
   );
 }
 
-/// A participant through typed words (SPEC §18): the word fixes the types.
-/// The library's and its tools'; generated code reaches it through
-/// [GeneratedWords].
-extension TypedParticipant on IRawParticipant {
-  ParticipantStateOf<T> state<T>(IStateWord<T> word) =>
-      ParticipantStateOf._(this, word);
-  ParticipantCommandOf<P, R> command<P, R>(ICommandWord<P, R> word) =>
-      ParticipantCommandOf._(this, word);
-  ParticipantFactOf<T> fact<T>(IFactWord<T> word) =>
-      ParticipantFactOf._(this, word);
-  ParticipantQueryOf<P, R> query<P, R>(IQueryWord<P, R> word) =>
-      ParticipantQueryOf._(this, word);
-}
+/// A state as the generated owner base defines it ([GeneratedWords.state]):
+/// the generator's contract, not a way to write by hand.
+final class GeneratedState<T> {
+  GeneratedState._(this._p, this._word);
 
-/// A query as a participant has it, typed (SPEC §6.6).
-final class ParticipantQueryOf<P, R> {
-  ParticipantQueryOf._(this.participant, this.word);
+  final IRawParticipant _p;
+  final IStateWord<T> _word;
 
-  final IRawParticipant participant;
-  final IQueryWord<P, R> word;
-
-  /// Defines it as the participant's own, answered by [handler] of its
-  /// params (SPEC §23.4); [askers], else who may read its words
-  /// (`access.readers`), else everyone. [whyNot] says why it cannot be
-  /// asked now, or null.
-  IHandle serve(
-    FutureOr<R> Function(P params) handler, {
-    Callers? askers,
-    Duration deadline = const Duration(seconds: 30),
-    Map<String, Object?> meta = const {},
-    String? Function()? whyNot,
-  }) => define(
-    (a) => _served(participant, handler(a.params)),
-    askers: askers,
-    deadline: deadline,
-    meta: meta,
-    available: whyNot,
-  );
-
-  /// Asks it as the participant; asking again asks again.
-  Future<CallResult<R>> ask(P params) => askFrom(params);
-
-  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
-  WordStatus get status => wordStatus(participant, word);
-  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
-}
-
-/// A state as a participant has it, typed.
-final class ParticipantStateOf<T> {
-  ParticipantStateOf._(this.participant, this.word);
-
-  final IRawParticipant participant;
-  final IStateWord<T> word;
-
-  /// Defines it as the participant's own.
+  /// Defines it as the participant's own; [readers], else who may read its
+  /// words (`access.readers`), else everyone.
   IStateWriterOf<T> define({
     Callers? readers,
     Map<String, Object?> meta = const {},
   }) => StateWriterOf(
-    participant.raw.defineState(
+    _p.defineState(
       StateDescriptor(
-        word.name,
-        type: word.shape.type,
-        key: word.key,
+        _word.name,
+        type: _word.shape.type,
+        key: _word.key,
         readers: readers,
         meta: meta,
       ),
-      shape: word.shape,
+      shape: _word.shape,
     ),
-    word.shape,
+    _word.shape,
   );
-
-  /// Its value (of [key]) now.
-  T? read({String? key}) => participant.readAs(word.name, word.shape, key: key);
-
-  /// Every value, by key; a null one too, of a state that may be null.
-  Map<String?, T> readAll() => {
-    for (final e in participant.readAll(word.name).entries)
-      if (e.value != null || null is T) e.key: word.shape.fromJson(e.value),
-  };
-
-  /// Its value now, then on every change.
-  Stream<T?> watch({String? key}) =>
-      participant.raw.watchAs(word.name, word.shape, key: key);
-
-  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
-  WordStatus get status => wordStatus(participant, word);
-  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
 }
 
-/// A command as a participant has it, typed.
-final class ParticipantCommandOf<P, R> {
-  ParticipantCommandOf._(this.participant, this.word);
+/// A fact as the generated owner base defines it ([GeneratedWords.fact]).
+final class GeneratedFact<T> {
+  GeneratedFact._(this._p, this._word);
 
-  final IRawParticipant participant;
-  final ICommandWord<P, R> word;
+  final IRawParticipant _p;
+  final IFactWord<T> _word;
+
+  /// Defines it as the participant's own; [readers] as a state's.
+  IFactEmitterOf<T> define({
+    Callers? readers,
+    Map<String, Object?> meta = const {},
+  }) => FactEmitterOf(
+    _p.defineFact(
+      FactDescriptor(
+        _word.name,
+        type: _word.shape.type,
+        readers: readers,
+        meta: meta,
+      ),
+      shape: _word.shape,
+    ),
+    _word.shape,
+  );
+}
+
+/// A command as the generated owner base serves it and its client calls
+/// it ([GeneratedWords.command]).
+final class GeneratedCommand<P, R> {
+  GeneratedCommand._(this._p, this._word);
+
+  final IRawParticipant _p;
+  final ICommandWord<P, R> _word;
 
   /// Defines it as the participant's own (SPEC §6.2), served by [handler]
   /// of its params (SPEC §23.4): what the handler does follows from the
@@ -607,131 +591,58 @@ final class ParticipantCommandOf<P, R> {
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
     String? Function()? whyNot,
-  }) => define(
-    (c) => _served(participant, handler(c.params)),
-    callers: callers,
-    deadline: deadline,
-    meta: meta,
+  }) => _p.defineCommand(
+    CommandDescriptor(
+      _word.name,
+      params: _word.params.type,
+      returns: _word.returns?.type,
+      callers: _p.access.callersOf(_word.name, callers),
+      deadline: deadline,
+      meta: meta,
+    ),
+    _word.serve((c) => _served(_p, handler(c.params)), servedBy: _p.who),
     available: whyNot,
+    params: _word.params,
+    returns: _word.returns,
   );
 
   /// Calls it with [params] as the participant, under [id] when given (a
   /// retry with the same id runs once).
-  Future<CallResult<R>> call(P params, {String? id}) =>
-      callFrom(params, id: id);
-
-  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
-  WordStatus get status => wordStatus(participant, word);
-  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
+  Future<CallResult<R>> call(P params, {String? id}) async =>
+      _word.answer(await _p.callAs(_word.name, params, _word.params, id: id));
 }
 
-/// A fact as a participant has it, typed.
-final class ParticipantFactOf<T> {
-  ParticipantFactOf._(this.participant, this.word);
+/// A query as the generated owner base serves it and its client asks it
+/// ([GeneratedWords.query]).
+final class GeneratedQuery<P, R> {
+  GeneratedQuery._(this._p, this._word);
 
-  final IRawParticipant participant;
-  final IFactWord<T> word;
+  final IRawParticipant _p;
+  final IQueryWord<P, R> _word;
 
-  /// Defines it as the participant's own.
-  IFactEmitterOf<T> define({
-    Callers? readers,
-    Map<String, Object?> meta = const {},
-  }) => FactEmitterOf(
-    participant.raw.defineFact(
-      FactDescriptor(
-        word.name,
-        type: word.shape.type,
-        readers: readers,
-        meta: meta,
-      ),
-      shape: word.shape,
-    ),
-    word.shape,
-  );
-
-  Fact<T> _decode(FactMessage m) => factIn(word.shape.fromJson(m.payload), m);
-
-  /// Those said from now on.
-  Stream<Fact<T>> get facts =>
-      participant.factsAs(word.name, word.shape).map((f) => factIn(f.$1, f.$2));
-
-  /// The last [count] the registry keeps, oldest first.
-  Future<List<Fact<T>>> recent(int count) async => [
-    for (final m in await participant.recent(word.name, count)) _decode(m),
-  ];
-
-  /// As the code was built against it (SPEC §6.5): [WordMismatch] when not.
-  WordStatus get status => wordStatus(participant, word);
-  Stream<WordStatus> get statusChanges => wordStatusChanges(participant, word);
-}
-
-/// What the library and its tests do with a query by its ask: not frozen.
-extension RawQueryOf<P, R> on ParticipantQueryOf<P, R> {
-  /// Defines it, served by [handler] of its ask (its params, who asks).
-  IHandle define(
-    FutureOr<R> Function(QueryAsk<P> ask) handler, {
+  /// Defines it as the participant's own, answered by [handler] of its
+  /// params (SPEC §23.4); [askers], else who may read its words
+  /// (`access.readers`), else everyone. [whyNot] says why it cannot be
+  /// asked now, or null.
+  IHandle serve(
+    FutureOr<R> Function(P params) handler, {
     Callers? askers,
     Duration deadline = const Duration(seconds: 30),
     Map<String, Object?> meta = const {},
-    Availability? available,
-  }) {
-    final p = participant.raw;
-    return p.defineQuery(
-      word.describeWith(
-        askers: p.access.askersOf(askers),
-        deadline: deadline,
-        meta: meta,
-      ),
-      word.serve(handler),
-      available: available,
-      params: word.params,
-      returns: word.returns,
-    );
-  }
-
-  /// Asks it, following from [cause] when given.
-  Future<CallResult<R>> askFrom(P params, {Cause? cause}) async => word.answer(
-    await participant.raw.callAs(word.name, params, word.params, cause: cause),
+    String? Function()? whyNot,
+  }) => _p.defineQuery(
+    _word.describeWith(
+      askers: _p.access.askersOf(askers),
+      deadline: deadline,
+      meta: meta,
+    ),
+    _word.serve((a) => _served(_p, handler(a.params))),
+    available: whyNot,
+    params: _word.params,
+    returns: _word.returns,
   );
-}
 
-/// What the library and its tests do with a command by its call: not
-/// frozen.
-extension RawCommandOf<P, R> on ParticipantCommandOf<P, R> {
-  /// Defines it, served by [handler] of its call (its params, its cause).
-  IHandle define(
-    FutureOr<R> Function(CommandCallOf<P> call) handler, {
-    Callers? callers,
-    Duration deadline = const Duration(seconds: 30),
-    Map<String, Object?> meta = const {},
-    Availability? available,
-  }) {
-    final p = participant.raw;
-    return p.defineCommand(
-      CommandDescriptor(
-        word.name,
-        params: word.params.type,
-        returns: word.returns?.type,
-        callers: p.access.callersOf(word.name, callers),
-        deadline: deadline,
-        meta: meta,
-      ),
-      word.serve(handler, servedBy: p.who),
-      available: available,
-      params: word.params,
-      returns: word.returns,
-    );
-  }
-
-  /// Calls it, following from [cause] when given.
-  Future<CallResult<R>> callFrom(P params, {String? id, Cause? cause}) async =>
-      word.answer(
-        await participant.raw.callAs(
-          word.name,
-          params,
-          word.params,
-          id: id,
-          cause: cause,
-        ),
-      );
+  /// Asks it as the participant; asking again asks again.
+  Future<CallResult<R>> ask(P params) async =>
+      _word.answer(await _p.callAs(_word.name, params, _word.params));
 }

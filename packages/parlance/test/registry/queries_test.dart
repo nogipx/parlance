@@ -90,19 +90,20 @@ void main() {
       vocabularies: [WordSet.open('orders')],
       access: WordAccess(readers: Callers.only(['module'])),
     );
-    p.query(OrdersQuery.page).define((c) => ['o${c.params.from}']);
+    GeneratedWords(
+      p,
+    ).query(OrdersQuery.page).serve((params) => ['o${params.from}']);
     expect(r.queryDescriptor('orders.page')!.askers.rules.keys, {'module'});
-    final answer = await r.participant(asker).query(OrdersQuery.page).ask((
-      from: 3,
-    ));
+    final answer = await GeneratedWords(
+      r.participant(asker),
+    ).query(OrdersQuery.page).ask((from: 3));
     expect((answer as CallDone<List<String>>).value, ['o3']);
 
     final open = Registry();
     addTearDown(open.dispose);
-    open
-        .participant(owner, vocabularies: [WordSet.open('orders')])
-        .query(OrdersQuery.page)
-        .define((c) => const []);
+    GeneratedWords(
+      open.participant(owner, vocabularies: [WordSet.open('orders')]),
+    ).query(OrdersQuery.page).serve((_) => const []);
     expect(
       open.queryDescriptor('orders.page')!.askers.allows(asker),
       isTrue,

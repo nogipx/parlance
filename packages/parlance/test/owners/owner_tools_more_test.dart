@@ -175,14 +175,14 @@ void main() {
       owners: [lamps],
     );
     final ann = r.participant(const Principal('user', 'ann'));
-    expect(GeneratedWords(ann).state(_Lit.of).readAll().keys, {'a', 'b'});
+    expect(GeneratedWords(ann).keyedOf(_Lit.of).keys, {'a', 'b'});
 
     expect(
       await GeneratedWords(ann).command(_Drop.of).call((bulb: 'b')),
       isA<CallDone<void>>(),
     );
     await ann.settle();
-    expect(GeneratedWords(ann).state(_Lit.of).readAll().keys, {'a'});
+    expect(GeneratedWords(ann).keyedOf(_Lit.of).keys, {'a'});
     expect(lamps.lit.keys, ['a']);
     final gone = await GeneratedWords(ann).command(_Drop.of).call((bulb: 'b'));
     expect(gone.why, contains('no bulb b'));
@@ -215,7 +215,7 @@ void main() {
     final ann = r.participant(const Principal('user', 'ann'));
     GeneratedWords(
       ann,
-    ).fact(_Fact.rang).facts.listen((f) => heard.add(f.payload));
+    ).factOf(_Fact.rang).facts.listen((f) => heard.add(f.payload));
     expect(bell.ring('e1', 'bob'), isTrue);
     expect(bell.ring('e1', 'bob'), isFalse);
     expect(bell.ring('e2', 'cat'), isTrue);
@@ -295,18 +295,15 @@ void main() {
     final seen = <WordStatus>[];
     final sub = GeneratedWords(
       ann,
-    ).command(_Command.set).statusChanges.listen(seen.add);
+    ).statusChanges(_Command.set).listen(seen.add);
     await ann.settle();
 
     power.add(false);
     await ann.settle();
-    expect(
-      GeneratedWords(ann).command(_Command.set).status,
-      isA<WordUnavailable>(),
-    );
+    expect(GeneratedWords(ann).status(_Command.set), isA<WordUnavailable>());
     power.add(true);
     await ann.settle();
-    expect(GeneratedWords(ann).command(_Command.set).status, isA<WordReady>());
+    expect(GeneratedWords(ann).status(_Command.set), isA<WordReady>());
     await sub.cancel();
     expect(seen.whereType<WordUnavailable>(), hasLength(1));
   });
@@ -322,7 +319,7 @@ void main() {
     expect(
       GeneratedWords(
         p,
-      ).state(const StateWordOf<int>('dial.x1', PlainShape(IntType()))).read(),
+      ).stateOf(const StateWordOf<int>('dial.x1', PlainShape(IntType()))).value,
       7,
     );
   });

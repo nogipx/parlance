@@ -115,7 +115,7 @@ void main() {
       throwsStateError,
     );
     await user.settle();
-    expect(GeneratedWords(user).state(_State.level).read(), 1);
+    expect(GeneratedWords(user).stateOf(_State.level).value, 1);
   });
 
   test('contract: what a handler writes follows from its call', () async {

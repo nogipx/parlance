@@ -13,7 +13,7 @@ final class _Lamp extends Owner {
 
   @override
   void define(IRawParticipant p) {
-    on = keep(p.state(_On.on).define());
+    on = keep(GeneratedWords(p).state(_On.on).define());
   }
 
   @override
