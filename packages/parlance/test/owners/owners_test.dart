@@ -270,7 +270,7 @@ void main() {
     outsider.statusChanges('test.level').listen(statuses.add);
     final dials = Dials();
     final p = module([dials]);
-    final part = p.child('dials');
+    final part = p.raw.child('dials');
     part.raw.state(_Flag.on).define().set(true);
     await pumpEventQueue();
     p.dispose();

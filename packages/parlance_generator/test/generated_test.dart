@@ -351,7 +351,7 @@ void main() {
       expect((await asAnn.raw.command(PlayerCommand.stop).call(())).ok, isTrue);
       expect(deck.stopped, 1);
       deck.library.clear();
-      p.child('player').raw.availabilityChanged('player.play');
+      p.raw.child('player').raw.availabilityChanged('player.play');
       final play = await asAnn.raw.command(PlayerCommand.play).call((
         track: const Track(title: 'A'),
         repeat: Repeat.off,

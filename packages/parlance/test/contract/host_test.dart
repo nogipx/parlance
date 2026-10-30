@@ -43,7 +43,7 @@ void main() {
     test(
       '$name serves a guest; the session ends with its connection',
       () async {
-        final host = Host(bounds: bounds);
+        final host = Host(limits: bounds);
         addTearDown(host.dispose);
         final (g, h) = RpcChannelTransport.memoryPair();
         final atHost = RpcPeerEndpoint(transport: h);

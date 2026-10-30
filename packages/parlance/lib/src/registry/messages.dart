@@ -371,6 +371,17 @@ sealed class WordStatus {
   const WordStatus();
 
   bool get ready => this is WordReady;
+
+  /// Why it cannot be used now, in a few words for people, as a call's
+  /// [CallResult.why]; null when it is ready.
+  String? get why => switch (this) {
+    WordReady() => null,
+    WordMissing() => 'it is not there',
+    WordNotPermitted() => 'it is not permitted',
+    WordUnavailable(:final why) => why,
+    WordMismatch(:final breaks) =>
+      'it is not as this code was built against: ${breaks.join('; ')}',
+  };
 }
 
 /// No word of that name in the catalog: never defined, or its owner left.
@@ -406,6 +417,7 @@ final class WordNotPermitted extends WordStatus {
 final class WordUnavailable extends WordStatus {
   const WordUnavailable(this.why);
 
+  @override
   final String why;
 
   @override

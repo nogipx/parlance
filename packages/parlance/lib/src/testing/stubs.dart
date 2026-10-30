@@ -51,6 +51,9 @@ final class KeyedStub<T> implements IKeyedOf<T> {
   Map<String, T> get all => Map.unmodifiable(_values);
 
   @override
+  Iterable<String> get keys => _values.keys;
+
+  @override
   Stream<T?> changesOf(String key) => Stream.multi((c) {
     c.add(_values[key]);
     final sub = _changed.stream

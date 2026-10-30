@@ -388,6 +388,9 @@ abstract interface class IKeyedOf<T> {
   /// The value of every key there is, by key.
   Map<String, T> get all;
 
+  /// The keys there are.
+  Iterable<String> get keys;
+
   /// [of] [key], then whenever it changes.
   Stream<T?> changesOf(String key);
 

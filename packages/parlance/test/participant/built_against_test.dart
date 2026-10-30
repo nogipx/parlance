@@ -181,7 +181,7 @@ void main() {
       test('a part of it is told as itself', () async {
         owner().state(Now.volume).define();
         final b = await asGuest();
-        b.child('screen').raw.builtAgainst(Built.values);
+        b.raw.child('screen').raw.builtAgainst(Built.values);
         await settled(b);
         expect(host.registry.mismatches, [
           Mismatch(guest.child('screen'), 'deck.volume', higher),

@@ -66,17 +66,17 @@ final class Host {
     Clock? clock,
     LogScope? log,
     void Function(Object error, StackTrace stack)? onError,
-    HostLimits bounds = const HostLimits(),
+    HostLimits limits = const HostLimits(),
   }) : registry = Registry(
          clock: clock,
          log: log,
          onError: onError,
-         dedupWindow: bounds.dedupWindow,
-         dedupLimit: bounds.dedupLimit,
-         retainTicks: bounds.retainTicks,
-         retainBytes: bounds.retainBytes,
-         recentPerFact: bounds.recentPerFact,
-         usersPerWord: bounds.usersPerWord,
+         dedupWindow: limits.dedupWindow,
+         dedupLimit: limits.dedupLimit,
+         retainTicks: limits.retainTicks,
+         retainBytes: limits.retainBytes,
+         recentPerFact: limits.recentPerFact,
+         usersPerWord: limits.usersPerWord,
        );
 
   /// The registry underneath, for the library's tools: not frozen, what it

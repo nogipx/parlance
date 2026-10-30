@@ -115,16 +115,6 @@ abstract interface class IParticipant implements IHandle {
   /// loop, across a connection once its copy reached the host.
   Future<void> settle();
 
-  /// Writes what every owner attached to it has now (what each
-  /// `follow`s), as one tick.
-  void sync();
-
-  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
-  /// (`home@house`), in the same vocabularies with the same rights, so
-  /// what each part does is told as that part's in causes, records and
-  /// `explain`. A part has no parts (`StateError`).
-  IParticipant child(String name);
-
   /// Withdraws its owners, the last attached first, then everything it
   /// defined, registered and added, and its parts: a scope (a user's
   /// session, a feature) leaves nothing of itself, and its vocabularies are
@@ -241,7 +231,16 @@ abstract interface class IRawParticipant
   /// now: each is asked again, and a status told where it changed.
   void availabilityMayHaveChanged();
 
-  @override
+  /// Writes what every owner attached to it has now (what each
+  /// `follow`s), as one tick: what an owner's `follow(on:)` does by
+  /// itself.
+  void sync();
+
+  /// A part of it, named [name] (SPEC §22.3): `who.child(name)`
+  /// (`home@house`), in the same vocabularies with the same rights, so
+  /// what each part does is told as that part's in causes, records and
+  /// `explain`. A part has no parts (`StateError`). The library names an
+  /// owner's part by its vocabulary.
   IRawParticipant child(String name);
 
   /// The participant this is a part of, or itself when it is no part: what
@@ -363,6 +362,9 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
     for (final MapEntry(:key, :value) in _w.state(_word).readAll().entries)
       ?key: value,
   };
+
+  @override
+  Iterable<String> get keys => all.keys;
 
   @override
   Stream<T?> changesOf(String key) =>

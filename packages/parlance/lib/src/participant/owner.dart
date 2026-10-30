@@ -571,7 +571,7 @@ final class OwnerGroup {
         final c = cores[i];
         attached.add(o);
         c.attach(switch (c.words) {
-          final w? => participant.child(w.name),
+          final w? => participant.raw.child(w.name),
           null => participant,
         }, this);
         _cores[o] = c;

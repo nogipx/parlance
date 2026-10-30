@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:parlance/app.dart';
-import 'package:parlance/tools.dart' show OwnerParticipant;
+import 'package:parlance/tools.dart' show OwnerParticipant, RawAccess;
 import 'package:test/test.dart';
 
 /// An owner has no members of the library's (SPEC §23.4): what it does
@@ -102,7 +102,7 @@ void main() {
   test('it follows its model: on sync, and when the model tells it, once '
       'for all told in a turn', () async {
     attach();
-    p.sync();
+    p.raw.sync();
     expect(lamp.pulls, 2);
 
     device
@@ -118,7 +118,7 @@ void main() {
     var late_ = 0;
     lamp.follow(pull: () => late_++);
     expect(late_, 1);
-    p.sync();
+    p.raw.sync();
     expect(late_, 2);
   });
 
