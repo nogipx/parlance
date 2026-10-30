@@ -14,7 +14,7 @@ void main() {
   late RpcPeerEndpoint endpoint;
 
   Future<void> open({required int retainTicks}) async {
-    r = Registry(retainTicks: retainTicks);
+    r = Registry(limits: HostLimits(retainTicks: retainTicks));
     final (_, s) = RpcChannelTransport.memoryPair();
     endpoint = RpcPeerEndpoint(transport: s);
     session = r.participant(visitor).serve(endpoint, feedBacklog: 4);

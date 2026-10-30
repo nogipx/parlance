@@ -697,7 +697,7 @@ final class WordUse {
   });
 
   /// Who; a principal's kind alone (`guest`) for the many past
-  /// `Registry.usersPerWord`.
+  /// `HostLimits.usersPerWord`.
   final Principal by;
   final int calls;
   final int reads;

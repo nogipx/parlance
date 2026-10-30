@@ -32,7 +32,10 @@ Map<String, Object?> doc(int sections, int version) => {
 int mb() => ProcessInfo.currentRss ~/ (1024 * 1024);
 
 Future<void> run(int retainTicks, int writes) async {
-  final r = Registry(retainTicks: retainTicks, onError: (e, _) => throw e);
+  final r = Registry(
+    limits: HostLimits(retainTicks: retainTicks),
+    onError: (e, _) => throw e,
+  );
   final w = r.defineState(
     StateDescriptor('task', type: const AnyType()),
     by: host,

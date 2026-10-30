@@ -267,13 +267,13 @@ final class LocalParticipant implements IRawParticipant {
     return false;
   }
 
+  @override
+  IRawParticipant get whole => parent ?? this;
+
   /// A part of it, named [name] (SPEC §22.3): it speaks as `who.child(name)`
   /// in the same vocabularies, with the same rights and access; what it
   /// defines and does is told as its own, and its guards judge its own
   /// commands. One part per name; it goes with this one.
-  @override
-  IRawParticipant get whole => parent ?? this;
-
   @override
   LocalParticipant child(String name) {
     _live();

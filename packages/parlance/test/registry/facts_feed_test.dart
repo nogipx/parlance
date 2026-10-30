@@ -26,7 +26,7 @@ void main() {
 
   group('facts', () {
     test('a fact kept is found by its id; one no longer kept is not', () async {
-      final r = Registry(recentPerFact: 2);
+      final r = Registry(limits: HostLimits(recentPerFact: 2));
       addTearDown(r.dispose);
       final said = r.defineFact(
         FactDescriptor('deck.said', type: const IntType()),
@@ -53,7 +53,9 @@ void main() {
 
     test('ids are forgotten after the window', () {
       fakeAsync((t) {
-        final r = Registry(dedupWindow: const Duration(minutes: 10));
+        final r = Registry(
+          limits: HostLimits(dedupWindow: const Duration(minutes: 10)),
+        );
         final e = r.defineFact(
           FactDescriptor('x.ping', type: const AnyType()),
           by: owner,
@@ -69,7 +71,7 @@ void main() {
     });
 
     test('recent keeps the last ones per fact', () {
-      final r = Registry(recentPerFact: 2);
+      final r = Registry(limits: HostLimits(recentPerFact: 2));
       final e = r.defineFact(
         FactDescriptor('x.n', type: const IntType()),
         by: owner,
@@ -129,7 +131,7 @@ void main() {
     });
 
     test('a seq no longer retained, or another epoch, starts over', () async {
-      final r = Registry(retainTicks: 2);
+      final r = Registry(limits: HostLimits(retainTicks: 2));
       final w = r.defineState(
         StateDescriptor('x.n', type: const IntType()),
         by: owner,
@@ -150,7 +152,7 @@ void main() {
     });
 
     test('a big value rewritten is not kept in every version', () async {
-      final r = Registry(retainBytes: 10000);
+      final r = Registry(limits: HostLimits(retainBytes: 10000));
       final w = r.defineState(
         StateDescriptor('x.doc', type: const AnyType()),
         by: owner,
@@ -169,7 +171,7 @@ void main() {
     });
 
     test('the newest is kept however big', () async {
-      final r = Registry(retainBytes: 100);
+      final r = Registry(limits: HostLimits(retainBytes: 100));
       final w = r.defineState(
         StateDescriptor('x.doc', type: const AnyType()),
         by: owner,

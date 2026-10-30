@@ -38,7 +38,7 @@ void main() {
   });
 
   test('past usersPerWord, uses are counted under the kind alone', () async {
-    final r = Registry(usersPerWord: 2);
+    final r = Registry(limits: HostLimits(usersPerWord: 2));
     r.defineCommand(
       CommandDescriptor('intercom.clip', callers: Callers.only(['visitor'])),
       (_) {},

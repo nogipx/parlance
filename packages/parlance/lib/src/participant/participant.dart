@@ -285,7 +285,7 @@ abstract interface class IRawParticipant
     Shape<Object?>? returns,
   });
 
-  /// Defines a fact of its own, with [who] its producer; readers from
+  /// Defines a fact of its own, with [who] its owner; readers from
   /// [access] when [d] names none. Given its payloads' [shape], its handle
   /// takes Dart values when the registry keeps them so (SPEC §18).
   IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape});

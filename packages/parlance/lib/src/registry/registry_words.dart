@@ -124,7 +124,7 @@ final class RawFactSayer implements IFactHandle {
   @override
   final Shape<Object?>? shape;
 
-  /// The producer, for the causes of its facts.
+  /// Its owner, for the causes of its facts.
   final Principal by;
 
   /// Disposing this handle removes the fact from the catalog.

@@ -210,10 +210,10 @@ extension QueryAnswers<P, R> on IQueryWord<P, R> {
 
   /// Its handler as the registry serves it: the params as the word has
   /// them, the answer as the query keeps it (SPEC §18).
-  CommandHandler serve(FutureOr<R> Function(QueryAsk<P> ask) handler) => (c) {
+  CommandHandler serve(FutureOr<R> Function(QueryAskOf<P> ask) handler) => (c) {
     final asIs = answersAs(c, returns);
     Object? answer(R value) => asIs ? value : returns.toJson(value);
-    final out = handler(QueryAsk(c, paramsAs(c, params)));
+    final out = handler(QueryAskOf(c, paramsAs(c, params)));
     return out is Future<R> ? out.then(answer) : answer(out);
   };
 }
@@ -353,7 +353,7 @@ abstract interface class IFactOf<T> {
   Stream<Fact<T>> get facts;
 
   /// The last [count] said before now, the oldest first, as far as the
-  /// host keeps them (`HostBounds.recentPerFact`): what a screen opened
+  /// host keeps them (`HostLimits.recentPerFact`): what a screen opened
   /// late shows first.
   Future<List<Fact<T>>> recent(int count);
 }
@@ -452,10 +452,10 @@ final class CommandCallOf<P> {
 
 /// A question being answered, its params typed: what a query's handler
 /// gets. Unlike a command's call it offers no cause to write with: a
-/// query writes nothing ([QueryEffect]). [askingFor] is the cause of a
+/// query writes nothing ([QueryEffect]). [causeFor] is the cause of a
 /// question it asks in turn, so the trail and loop checks follow.
-final class QueryAsk<P> {
-  QueryAsk(this.raw, this.params);
+final class QueryAskOf<P> {
+  QueryAskOf(this.raw, this.params);
 
   /// The call as the registry has it.
   final CommandCall raw;
@@ -469,7 +469,7 @@ final class QueryAsk<P> {
   Future<void> get expired => raw.expired;
 
   /// The cause of a query [by] asks in turn while answering this one.
-  Cause askingFor(Principal by) => raw.causeFor(by);
+  Cause causeFor(Principal by) => raw.causeFor(by);
 
   /// The question's span in the registry's log; `LogScope.noop`'s without
   /// a log.

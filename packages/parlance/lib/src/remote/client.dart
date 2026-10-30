@@ -252,7 +252,7 @@ final class ParlanceClient {
   ];
 
   /// Why [state] (of [key]) is as it is (Registry.explain).
-  Future<Explanation> why(
+  Future<Explanation> explain(
     String state, {
     String? key,
     RpcContext? context,
@@ -327,76 +327,4 @@ final class ParlanceClient {
     ),
     context: _ctx(context),
   )).taken;
-}
-
-/// A call of a command the session owns, as its handler gets it.
-final class RemoteCall {
-  const RemoteCall(this.id, this.command, this.params, this.cause);
-
-  /// What the handler's own calls and writes follow from (`parent:`).
-  final String id;
-  final String command;
-
-  /// Checked by the registry, with defaults filled.
-  final Map<String, Object?> params;
-  final Cause cause;
-
-  Principal get by => cause.by;
-}
-
-/// Serves a call of the session's command: its answer, of the command's
-/// `returns`; a throw fails the call with its message.
-typedef RemoteHandler = FutureOr<Object?> Function(RemoteCall call);
-
-/// The participant's side of a session that owns words (SPEC §14): it
-/// defines them through [client] and serves their calls. Register it on the
-/// same peer endpoint as the client's.
-final class RemoteOwner extends ParlanceOwnerContractPeer {
-  RemoteOwner(super.endpoint, this.client);
-
-  final ParlanceClient client;
-  final Map<String, RemoteHandler> _handlers = {};
-
-  /// Defines command [d], served by [handler].
-  Future<void> defineCommand(CommandDescriptor d, RemoteHandler handler) async {
-    _handlers[d.name] = handler;
-    try {
-      await client.define(d);
-    } on Object {
-      _handlers.remove(d.name);
-      rethrow;
-    }
-  }
-
-  Future<void> undefine(String name) async {
-    await client.undefine(name);
-    _handlers.remove(name);
-  }
-
-  /// It keeps no guards: every call it is asked about passes.
-  @override
-  Future<WireJson> onJudge(WireJson request, {RpcContext? context}) async =>
-      const WireJson({});
-
-  @override
-  Future<WireServed> onServe(WireServe request, {RpcContext? context}) async {
-    final handler = _handlers[request.command];
-    if (handler == null) {
-      return WireServed.failed('nothing serves ${request.command}');
-    }
-    try {
-      return WireServed.done(
-        await handler(
-          RemoteCall(
-            request.id,
-            request.command,
-            request.params,
-            Cause.fromJson(request.cause),
-          ),
-        ),
-      );
-    } on Object catch (e) {
-      return WireServed.failed('$e');
-    }
-  }
 }

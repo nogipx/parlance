@@ -66,7 +66,7 @@ void main() {
 
   test('the late end of a call takes the place of its timeout in what is '
       'kept', () async {
-    final r = Registry(retainBytes: 2000);
+    final r = Registry(limits: HostLimits(retainBytes: 2000));
     r.defineCommand(
       CommandDescriptor(
         'a.slow',

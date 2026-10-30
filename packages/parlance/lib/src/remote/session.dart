@@ -526,7 +526,7 @@ final class RemoteSession extends ParlanceContractPeer
       'facts': [
         for (final f in registry.recent(
           request.fact,
-          request.count.clamp(0, registry.recentPerFact),
+          request.count.clamp(0, registry.limits.recentPerFact),
         ))
           f.toJson(),
       ],

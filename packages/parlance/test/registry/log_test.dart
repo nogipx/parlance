@@ -98,8 +98,8 @@ void main() {
     'questions asked meanwhile do not push out the trace a fact keeps',
     () async {
       final r = Registry(
+        limits: HostLimits(retainTicks: 2),
         log: logs.scope('parlance'),
-        retainTicks: 2,
         onError: (e, _) {},
       );
       final said = r.defineFact(

@@ -515,7 +515,7 @@ extension RawRegistry on Registry {
         by,
         result,
       );
-      if (_calls.length > dedupLimit) _calls.remove(_calls.keys.first);
+      if (_calls.length > limits.dedupLimit) _calls.remove(_calls.keys.first);
     }
     return result;
   }

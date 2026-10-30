@@ -107,7 +107,7 @@ void main() {
   test(
     'ids are remembered as many as dedupLimit, the oldest going first',
     () async {
-      final r = Registry(dedupLimit: 2);
+      final r = Registry(limits: HostLimits(dedupLimit: 2));
       var ran = 0;
       r.defineCommand(
         CommandDescriptor('x.go', callers: Callers.only(['user'])),
@@ -126,7 +126,9 @@ void main() {
 
   test('ids are forgotten after the dedup window', () {
     fakeAsync((t) {
-      final r = Registry(dedupWindow: const Duration(minutes: 1));
+      final r = Registry(
+        limits: HostLimits(dedupWindow: const Duration(minutes: 1)),
+      );
       var runs = 0;
       r.defineCommand(
         CommandDescriptor('x.go', callers: Callers.only(['user'])),
@@ -259,7 +261,7 @@ void main() {
   });
 
   test('explain says when the change may be forgotten', () async {
-    final r = Registry(retainTicks: 2);
+    final r = Registry(limits: HostLimits(retainTicks: 2));
     final a = r.defineState(
       StateDescriptor('x.a', type: const IntType()),
       by: owner,

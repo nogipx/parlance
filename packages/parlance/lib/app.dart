@@ -14,7 +14,8 @@ library;
 export 'package:rpc_dart/logger.dart' show LogScope;
 
 export 'schema.dart';
-export 'src/host.dart' show Host, HostLimits, ServeAcross;
+export 'src/host.dart' show Host, ServeAcross;
+export 'src/registry/registry.dart' show HostLimits;
 export 'src/participant/participant.dart'
     show
         ParticipantRights,

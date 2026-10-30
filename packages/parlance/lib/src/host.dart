@@ -11,47 +11,6 @@ import 'registry/words.dart' show WordSet;
 import 'remote/participant.dart';
 import 'remote/session.dart';
 
-/// How much a host keeps of what passed (SPEC §14): what it still answers
-/// a retry, a feed catching up and `recent` from. The defaults suit an
-/// app; a phone may keep less.
-final class HostLimits {
-  const HostLimits({
-    this.dedupWindow = const Duration(minutes: 10),
-    this.dedupLimit = 10000,
-    this.retainTicks = 1000,
-    this.retainBytes = 4 << 20,
-    this.recentPerFact = 100,
-    this.usersPerWord = 64,
-  });
-
-  /// A host that keeps nothing past what is now: no trail for `explain`,
-  /// no `recent` facts, and a feed that fell behind takes a snapshot. What
-  /// it does is the same; a retry of a call still gets its first answer.
-  static const light = HostLimits(
-    retainTicks: 0,
-    retainBytes: 0,
-    recentPerFact: 0,
-  );
-
-  /// How long, and how many, calls' answers are kept for a retry of the
-  /// same id to get the first answer.
-  final Duration dedupWindow;
-  final int dedupLimit;
-
-  /// How many ticks, and how many bytes of what is kept (ticks, call
-  /// records, recent facts), whichever comes first; a feed behind them
-  /// takes a snapshot.
-  final int retainTicks;
-  final int retainBytes;
-
-  /// How many of each fact are kept for `recent`.
-  final int recentPerFact;
-
-  /// How many principals the uses of one word tell apart (SPEC §6.8);
-  /// past them a use is counted under the principal's kind alone.
-  final int usersPerWord;
-}
-
 /// What a host's `main` makes (SPEC §22): the registry of its process,
 /// seen only as what `main` does with it. It makes the participants of the
 /// app's parts (served across a connection, `serve`), says the old names of
@@ -71,12 +30,7 @@ final class Host {
          clock: clock,
          log: log,
          onError: onError,
-         dedupWindow: limits.dedupWindow,
-         dedupLimit: limits.dedupLimit,
-         retainTicks: limits.retainTicks,
-         retainBytes: limits.retainBytes,
-         recentPerFact: limits.recentPerFact,
-         usersPerWord: limits.usersPerWord,
+         limits: limits,
        );
 
   /// The registry underneath, for the library's tools: not frozen, what it

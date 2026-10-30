@@ -27,18 +27,64 @@ part 'registry_calls.dart';
 part 'registry_words.dart';
 part 'registry_raw.dart';
 
+/// How much a host keeps of what passed (SPEC §14): what it still answers
+/// a retry, a feed catching up and `recent` from. The defaults suit an
+/// app; a phone may keep less.
+final class HostLimits {
+  const HostLimits({
+    this.dedupWindow = const Duration(minutes: 10),
+    this.dedupLimit = 10000,
+    this.retainTicks = 1000,
+    this.retainBytes = 4 << 20,
+    this.recentPerFact = 100,
+    this.usersPerWord = 64,
+  });
+
+  /// A host that keeps nothing past what is now: no trail for `explain`,
+  /// no `recent` facts, and a feed that fell behind takes a snapshot. What
+  /// it does is the same; a retry of a call still gets its first answer.
+  static const light = HostLimits(
+    retainTicks: 0,
+    retainBytes: 0,
+    recentPerFact: 0,
+  );
+
+  /// How long ids of calls and facts are remembered to drop repeats: a
+  /// retry of the same id gets the first answer.
+  final Duration dedupWindow;
+
+  /// How many ids of calls, and of facts, are remembered at most within
+  /// [dedupWindow]: past it the oldest go, so a burst of calls (a fader
+  /// dragged) does not hold ten minutes of them. A retry of one forgotten
+  /// runs again.
+  final int dedupLimit;
+
+  /// How many ticks a feed can resume from.
+  final int retainTicks;
+
+  /// About how many bytes of values each history keeps: the retained ticks,
+  /// the call records, the recent facts of each name. Whichever bound comes
+  /// first, this or the count, drops the oldest, and the newest is always
+  /// kept, however big; a feed behind what is kept resumes from a snapshot.
+  /// Values are weighed as their JSON, roughly.
+  final int retainBytes;
+
+  /// How many of each fact are kept for `recent`.
+  final int recentPerFact;
+
+  /// How many principals the uses of one word tell apart (SPEC §6.8);
+  /// past them a use is counted under the principal's kind alone
+  /// (`guest`), so many guests do not grow it, and no use goes unseen.
+  final int usersPerWord;
+}
+
 /// The registry: the vocabulary, its values, calls, guards and the feed (SPEC §§5–12).
 ///
 /// One isolate, one writer: every commit happens here in order, so seq is a
 /// total order. Participants hold handles and never each other.
 final class Registry implements ITypeContext {
   Registry({
-    this.dedupWindow = const Duration(minutes: 10),
-    this.retainTicks = 1000,
-    this.recentPerFact = 100,
-    this.usersPerWord = 64,
-    this.dedupLimit = 10000,
-    this.retainBytes = 4 << 20,
+    this.limits = const HostLimits(),
     Clock? clock,
     ErrorSink? onError,
     LogScope? log,
@@ -56,32 +102,8 @@ final class Registry implements ITypeContext {
   /// Commits every state value and fact of the registry (SPEC §7, §21).
   late final LocalHub _hub;
 
-  /// How long ids of calls and facts are remembered to drop repeats.
-  final Duration dedupWindow;
-
-  /// How many ids of calls, and of facts, are remembered at most within
-  /// [dedupWindow]: past it the oldest go, so a burst of calls (a fader
-  /// dragged) does not hold ten minutes of them. A retry of one forgotten
-  /// runs again.
-  final int dedupLimit;
-
-  /// How many ticks a feed can resume from.
-  final int retainTicks;
-
-  /// How many facts of each name [recent] keeps.
-  final int recentPerFact;
-
-  /// How many principals [usesOf] tells apart for one word; past them a
-  /// use is counted under the principal's kind alone (`guest`), so many
-  /// guests do not grow it, and no use goes unseen.
-  final int usersPerWord;
-
-  /// About how many bytes of values each history keeps: the retained ticks,
-  /// the call records, the recent facts of each name. Whichever bound comes
-  /// first, this or the count, drops the oldest, and the newest is
-  /// always kept, however big; a feed behind what is kept
-  /// resumes from a snapshot. Values are weighed as their JSON, roughly.
-  final int retainBytes;
+  /// How much it keeps of what passed ([HostLimits]).
+  final HostLimits limits;
 
   /// This registry's run; seq counts within it.
   final String epoch;
@@ -213,7 +235,7 @@ final class Registry implements ITypeContext {
   Map<String, Object?> describe() => {
     'epoch': epoch,
     'seq': seq,
-    'dedupWindowMs': dedupWindow.inMilliseconds,
+    'dedupWindowMs': limits.dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
     'kinds': [for (final k in _choices.values) k.toJson()],
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
@@ -520,8 +542,8 @@ final class Registry implements ITypeContext {
     _retained.add(tick);
     _retainedWeights.add(weight);
     _retainedBytes += weight;
-    while (_retained.length > retainTicks ||
-        (_retained.length > 1 && _retainedBytes > retainBytes)) {
+    while (_retained.length > limits.retainTicks ||
+        (_retained.length > 1 && _retainedBytes > limits.retainBytes)) {
       _retained.removeFirst();
       _retainedBytes -= _retainedWeights.removeFirst();
       _forgotTicks = true;
@@ -530,8 +552,8 @@ final class Registry implements ITypeContext {
       final q = _recent.putIfAbsent(f.fact, _RecentFacts.new);
       q.add(f, factWeights[i]);
       _recentById[f.id] = f;
-      while (q.length > recentPerFact ||
-          (q.length > 1 && q.bytes > retainBytes)) {
+      while (q.length > limits.recentPerFact ||
+          (q.length > 1 && q.bytes > limits.retainBytes)) {
         final gone = q.removeFirst();
         // An id said again past the dedup window may name a newer one.
         if (identical(_recentById[gone.id], gone)) _recentById.remove(gone.id);
@@ -627,7 +649,7 @@ final class Registry implements ITypeContext {
     cause = _inConversation(cause);
     _converse(id, d.name, cause);
     _seenFacts[id] = now;
-    if (_seenFacts.length > dedupLimit) {
+    if (_seenFacts.length > limits.dedupLimit) {
       _seenFacts.remove(_seenFacts.keys.first);
     }
     sayer.say(v, tag: (id, cause));
@@ -642,7 +664,7 @@ final class Registry implements ITypeContext {
   ) {
     while (seen.isNotEmpty) {
       final first = seen.entries.first;
-      if (now.difference(at(first.value)) < dedupWindow) break;
+      if (now.difference(at(first.value)) < limits.dedupWindow) break;
       seen.remove(first.key);
     }
   }
@@ -660,7 +682,7 @@ final class Registry implements ITypeContext {
       conversation: cause.conversationOf(id),
       origin: cause.originOf(word),
     );
-    if (_conversations.length > dedupLimit) {
+    if (_conversations.length > limits.dedupLimit) {
       _conversations.remove(_conversations.keys.first);
     }
   }
@@ -721,7 +743,7 @@ final class Registry implements ITypeContext {
           _commands[word] != null ||
           _facts[word] != null;
     },
-    perWord: usersPerWord,
+    perWord: limits.usersPerWord,
     clock: clock,
   );
 
@@ -771,7 +793,7 @@ final class Registry implements ITypeContext {
   late final CallTraces _trace = CallTraces(
     _callLog,
     on: _traced,
-    keep: retainTicks,
+    keep: limits.retainTicks,
   );
   final Map<String, _Guard> _guards = {};
   final StreamController<CallRecord> _records = StreamController.broadcast();
@@ -819,8 +841,8 @@ final class Registry implements ITypeContext {
     _recentCalls[record.id] = record;
     _recentCallBytes += _callWeight(record);
     _journal.ended(record);
-    while (_recentCalls.length > retainTicks ||
-        (_recentCalls.length > 1 && _recentCallBytes > retainBytes)) {
+    while (_recentCalls.length > limits.retainTicks ||
+        (_recentCalls.length > 1 && _recentCallBytes > limits.retainBytes)) {
       final first = _recentCalls.keys.first;
       _recentCallBytes -= _callWeight(_recentCalls.remove(first)!);
       _forgotCalls = true;
