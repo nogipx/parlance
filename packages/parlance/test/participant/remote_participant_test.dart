@@ -279,7 +279,7 @@ void main() {
     () async {
       final p = await join(
         rights: ParticipantRights(
-          define: (_, d) => d is FactDescriptor ? 'no facts' : null,
+          define: (call) => call.role == WordRole.fact ? 'no facts' : null,
         ),
       );
       expect(

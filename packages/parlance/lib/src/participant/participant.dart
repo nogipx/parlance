@@ -26,9 +26,10 @@ final class NotPermitted extends StateError {
 final class ParticipantRights {
   const ParticipantRights({this.define, this.speakFor});
 
-  /// Define [d], a word in its vocabularies: a further check (callers that
-  /// name outsiders, a kind of word). Null: every word in its vocabularies.
-  final String? Function(Principal who, Descriptor d)? define;
+  /// Define the word [call] names, one in its vocabularies: a further
+  /// check (readers or callers that name outsiders). Null: every word in
+  /// its vocabularies.
+  final String? Function(DefineCall call)? define;
 
   /// Say [fact] on behalf of [by]: its cause is theirs, and so are the
   /// rights of what follows from it. Null: no one.
@@ -37,6 +38,61 @@ final class ParticipantRights {
   /// Defines in its vocabularies, and nothing more.
   static const none = ParticipantRights();
 }
+
+/// What a word is: a state, a command, a query or a fact.
+enum WordRole { state, command, query, fact }
+
+/// A word a participant asks to define, as its rights judge it
+/// ([ParticipantRights.define]): who asks, the word and what it is, and
+/// who it says may read it or call it. What a check is told may grow; a
+/// check written now keeps working.
+final class DefineCall {
+  DefineCall._(this.by, this.word, this.role, {this.readers, this.callers});
+
+  /// The participant that defines it.
+  final Principal by;
+
+  /// Its name.
+  final String word;
+
+  /// What it is.
+  final WordRole role;
+
+  /// Who may read a state or hear a fact; null for a command or a query,
+  /// or when it names none.
+  final Callers? readers;
+
+  /// Who may call a command or ask a query; null for a state or a fact.
+  final Callers? callers;
+}
+
+/// [d] as [who]'s rights judge it: the library's.
+DefineCall defineCallOf(Principal who, Descriptor d) => switch (d) {
+  StateDescriptor(:final readers) => DefineCall._(
+    who,
+    d.name,
+    WordRole.state,
+    readers: readers,
+  ),
+  FactDescriptor(:final readers) => DefineCall._(
+    who,
+    d.name,
+    WordRole.fact,
+    readers: readers,
+  ),
+  CommandDescriptor(:final callers) => DefineCall._(
+    who,
+    d.name,
+    WordRole.command,
+    callers: callers,
+  ),
+  QueryDescriptor(:final callers) => DefineCall._(
+    who,
+    d.name,
+    WordRole.query,
+    callers: callers,
+  ),
+};
 
 /// Who may read and call a participant's words when a word does not say
 /// (SPEC §22.2): its states' and facts' `readers`, its commands' `callers`.
@@ -51,13 +107,11 @@ final class WordAccess {
   final Callers? callers;
 
   static const none = WordAccess();
+}
 
-  /// This, where it says nothing, then [fallback].
-  WordAccess or(WordAccess fallback) => WordAccess(
-    readers: readers ?? fallback.readers,
-    callers: callers ?? fallback.callers,
-  );
-
+/// What the library does with a participant's [WordAccess] as it defines
+/// its words: not the app's.
+extension WordAccessOf on WordAccess {
   /// [d] with [readers] as its readers when it names none.
   StateDescriptor state(StateDescriptor d) =>
       d.readers != null || readers == null

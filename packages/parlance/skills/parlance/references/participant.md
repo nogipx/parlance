@@ -40,7 +40,7 @@ What it may do as `who`, whoever does it for it: the generated client and owner 
 
 | Right | Null means |
 |---|---|
-| `define(who, d)` | every word in its vocabularies |
+| `define(call)`: a `DefineCall` (`by`, `word`, `role` a `WordRole`, `readers`, `callers`), of `app.dart`, so a host judges a word without the registry's descriptors | every word in its vocabularies |
 | `speakFor(who, by, fact)` | no one but itself |
 
 ### 22.3 Parts and owners

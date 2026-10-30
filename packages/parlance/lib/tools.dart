@@ -45,7 +45,7 @@ export 'src/registry/words.dart'
 export 'src/participant/local.dart'
     hide registryOf, takeForServing, builtAgainstSchemas, forgetBuiltAgainst;
 export 'src/participant/owner.dart' hide OwnerGroup, Owner, saidApart;
-export 'src/participant/participant.dart';
+export 'src/participant/participant.dart' hide defineCallOf, WordAccessOf;
 export 'src/remote/participant.dart'
     show
         ParticipantError,

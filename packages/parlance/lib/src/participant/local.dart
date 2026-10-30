@@ -241,7 +241,9 @@ final class LocalParticipant implements IRawParticipant {
         '$who defines in ${vocabularyNames.isEmpty ? 'no vocabulary' : vocabularyNames.join(', ')}, not ${d.name}',
       );
     }
-    if (rights.define?.call(who, d) case final why?) throw NotPermitted(why);
+    if (rights.define?.call(defineCallOf(who, d)) case final why?) {
+      throw NotPermitted(why);
+    }
   }
 
   /// [cause], or its own: what it writes and calls is its own act, or

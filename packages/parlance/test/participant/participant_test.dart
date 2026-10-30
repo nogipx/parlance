@@ -116,7 +116,7 @@ void main() {
         orders,
         vocabularies: [WordSet.open('orders')],
         rights: ParticipantRights(
-          define: (_, d) => d is FactDescriptor ? 'no facts' : null,
+          define: (call) => call.role == WordRole.fact ? 'no facts' : null,
         ),
       );
       p.state(OrderState.last).define();
