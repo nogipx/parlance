@@ -229,6 +229,21 @@ void main() {
     });
   });
 
+  test('durations and times pass and are refused as their JSON is', () {
+    const dur = DurationShape();
+    const durMax = DurationShape(max: Duration(minutes: 1));
+    same(dur, const Duration(seconds: 90));
+    same(durMax, const Duration(seconds: 90));
+    same(durMax, const Duration(seconds: 90, milliseconds: 1));
+    same(const DateTimeShape(), DateTime.utc(2026, 10, 31, 12));
+    equalAlike(dur, Duration.zero, const Duration(milliseconds: 500));
+    equalAlike(
+      const DateTimeShape(),
+      DateTime.utc(2026, 10, 31),
+      DateTime.utc(2026, 10, 31, 0, 0, 0, 1),
+    );
+  });
+
   test('equal exactly where the JSON is', () {
     equalAlike(track, t('a', tags: ['x']), t('a', tags: ['x']));
     equalAlike(track, t('a'), t('a', volume: 51));
