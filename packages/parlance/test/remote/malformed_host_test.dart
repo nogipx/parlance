@@ -50,6 +50,9 @@ final class _Host extends ParlanceContractPeer {
   Future<WireJson> onRecent(WireRecentRequest r, {RpcContext? context}) =>
       throw UnimplementedError();
   @override
+  Future<RpcNull> onCancelCall(WireName r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
   Future<RpcNull> onDefine(WireDefine r, {RpcContext? context}) =>
       throw UnimplementedError();
   @override

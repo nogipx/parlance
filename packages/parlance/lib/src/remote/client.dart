@@ -229,8 +229,8 @@ final class ParlanceClient {
         seq: reply.seq,
       );
     } on Object catch (e) {
-      // Its caller cancelled it: the host's registry was told, and answers
-      // a retry with the id how it ended.
+      // Its caller stopped waiting: the call goes on unless the host is
+      // told ([cancel]), and a retry with the id answers how it ended.
       if (context?.isCancelled ?? false) {
         return (result: const CallCancelled(), epoch: null, seq: null);
       }
@@ -248,6 +248,11 @@ final class ParlanceClient {
       return (result: CallLost(callId, '$e'), epoch: null, seq: null);
     }
   }
+
+  /// Cancels the session's call [id] still running (feature `cancel`): it
+  /// answers `cancelled`, and does not run if its handler had not begun.
+  Future<void> cancel(String id, {RpcContext? context}) =>
+      _caller.cancelCall(WireName(id), context: _ctx(context));
 
   /// The last [count] facts of [fact] the registry keeps, oldest first.
   Future<List<FactMessage>> recent(

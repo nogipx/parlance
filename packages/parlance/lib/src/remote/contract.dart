@@ -22,8 +22,9 @@ const parlanceFeatures = {
   // A session `main` ends, the connection still up, tells the part across
   // why by an `ended` item, the last of its feeds: it does not join again.
   'ended',
-  // A call's caller may cancel it (`cancelled`), and a host tells the
-  // participant serving a call that it expired (`expire`).
+  // A call's caller may cancel it by its id (`cancel`), answered
+  // `cancelled`, and a host tells the participant serving a call that it
+  // expired (`expire`). A connection gone cancels nothing.
   'cancel',
 };
 
@@ -399,6 +400,12 @@ abstract class IParlanceContract {
 
   @RpcMethod.unary(name: 'recent')
   Future<WireJson> recent(WireRecentRequest request, {RpcContext? context});
+
+  /// Cancels the participant's call of that id still running (feature
+  /// `cancel`): answered `cancelled`, it runs no more if its handler had
+  /// not begun. One not running (over, or not come yet) is not touched.
+  @RpcMethod.unary(name: 'cancel')
+  Future<RpcNull> cancelCall(WireName request, {RpcContext? context});
 
   /// Answers `{subscription}`: the number the feeds' `values` item (or
   /// the next snapshot) carries once they follow it.

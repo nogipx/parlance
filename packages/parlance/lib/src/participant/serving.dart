@@ -16,11 +16,11 @@ typedef _Answering = ({
 /// token: made when first asked for, cancelled when the call expires.
 final class _Expiry {
   _Expiry(this._of);
-  final Future<void> _of;
+  final CancellationToken _of;
 
   late final CancellationToken token = () {
     final t = CancellationToken();
-    _of.then((_) => t.cancel());
+    _of.onCancel(t.cancel);
     return t;
   }();
 }
@@ -36,7 +36,7 @@ R following<R>(
   Cause Function(Principal by) causeFor,
   Principal by,
   R Function() f, {
-  Future<void>? expired,
+  CancellationToken? expired,
 }) => runZoned(
   f,
   zoneValues: {
@@ -58,7 +58,7 @@ CommandHandler serving(CommandHandler handler) =>
       call.causeFor,
       call.by,
       () => handler(call),
-      expired: call.expired.whenCancelled,
+      expired: call.expired,
     );
 
 _Answering? get _now => Zone.current[_answering] as _Answering?;

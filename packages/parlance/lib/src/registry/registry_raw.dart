@@ -549,21 +549,46 @@ extension RawRegistry on Registry {
           ),
         );
       }
-      // A retry stops waiting when it cancels; the first call goes on.
-      return _orCancelled(seen.result, cancel);
+      // A retry waits for how the first call ended, late too, as long as
+      // a call waits; it stops waiting when it cancels, and the first call
+      // goes on.
+      final deadline = _commands[command]?.descriptor.deadline;
+      return untilCancelled(
+        deadline == null
+            ? seen.result
+            : seen.result.timeout(
+                deadline,
+                onTimeout: () => const CallTimedOut(),
+              ),
+        cancel,
+        () => const CallCancelled(),
+      );
     }
     final result = _run(callId, command, params, cause, cancel: cancel);
     // Only an id the caller gave can be given again: one made here is
     // nobody's to retry with.
     if (id != null) {
-      _calls[callId] = _Seen(
+      final seen = _Seen(
         now,
         command,
         params.shape == null ? Kept.json(freezeJson(params.json)) : params,
         by,
         result,
       );
+      _calls[callId] = seen;
       if (_calls.length > limits.dedupLimit) _calls.remove(_calls.keys.first);
+      // Cancelled before its handler began, it did not run: the id is not
+      // held to that, and a retry with it runs the call. One cancelled
+      // later answers its late end ([_run]).
+      unawaited(
+        result.then((r) {
+          if (r is CallCancelled &&
+              identical(seen.result, result) &&
+              identical(_calls[callId], seen)) {
+            _calls.remove(callId);
+          }
+        }),
+      );
     }
     return result;
   }

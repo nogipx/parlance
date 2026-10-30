@@ -24,7 +24,7 @@ import 'types.dart';
 import 'uses.dart';
 import 'cancellation.dart';
 
-export 'cancellation.dart';
+export 'cancellation.dart' show CancellationToken;
 
 part 'registry_calls.dart';
 part 'registry_words.dart';
@@ -84,19 +84,6 @@ final class HostLimits {
 /// What a caller's cancel answers in place of a handler's answer: no
 /// answer can be it.
 final Object _cancelledMark = Object();
-
-/// [result], or `cancelled` when [cancel] is cancelled first.
-Future<CallResult<Object?>> _orCancelled(
-  Future<CallResult<Object?>> result,
-  CancellationToken? cancel,
-) => cancel == null
-    ? result
-    : Future.any([
-        result,
-        cancel.whenCancelled.then<CallResult<Object?>>(
-          (_) => const CallCancelled(),
-        ),
-      ]);
 
 /// The registry: the vocabulary, its values, calls, guards and the feed (SPEC §§5–12).
 ///
@@ -956,7 +943,15 @@ final class Registry implements ITypeContext {
         // Asked across a connection: no answer in time, or none at all,
         // denies, since the one who keeps the rule could not say.
         try {
-          why = await ask(pending).timeout(g.timeout!);
+          // Its caller's cancel ends the wait: the call does not run.
+          why = await untilCancelled(
+            ask(pending).timeout(g.timeout!),
+            cancel,
+            () => null,
+          );
+          if (cancel?.isCancelled ?? false) {
+            return finish(const CallCancelled());
+          }
         } on Object catch (e) {
           why = 'its guard ${g.id} could not be asked: $e';
           if (_callLog.isEnabled(RpcLogLevel.warning)) {
@@ -993,9 +988,6 @@ final class Registry implements ITypeContext {
     }
     // Cancelled before its handler began: it does not run.
     if (cancel?.isCancelled ?? false) return finish(const CallCancelled());
-    // What the caller's cancel says, once it came: a mark, as a handler's
-    // answer can be anything.
-    final stopped = cancel?.whenCancelled.then<Object?>((_) => _cancelledMark);
 
     CallResult<Object?> answered(Object? answer) {
       if (entry.returns case final t?) {
@@ -1040,33 +1032,35 @@ final class Registry implements ITypeContext {
           : entry.local.call(served),
     );
     // The handler goes on after its caller stopped waiting: its end is
-    // recorded as late, and a retry with the call's id answers it.
+    // recorded as late, and a retry with the call's id waits for it, not
+    // for why this caller stopped.
     CallResult<Object?> stop(CallResult<Object?> why, String event) {
       expired.cancel();
       span.event(event, level: RpcLogLevel.warning);
-      unawaited(
-        work
-            .then(
-              answered,
-              onError: (Object e, StackTrace s) => CallFailed(e, s),
-            )
-            .then((r) {
-              if (_calls[id] case final c?) {
-                c.result = Future.value(r);
-              }
-              _running.remove(id);
-              _trace.close(id, span, r, late: true, query: entry.query);
-              finish(r, late: true);
-            }),
+      final late = work.then(
+        answered,
+        onError: (Object e, StackTrace s) => CallFailed(e, s),
       );
+      unawaited(
+        late.then((r) {
+          _running.remove(id);
+          _trace.close(id, span, r, late: true, query: entry.query);
+          finish(r, late: true);
+        }),
+      );
+      if (_calls[id] case final c?) c.result = late;
       return why;
     }
 
     CallResult<Object?> result;
     try {
-      final first =
-          await (stopped == null ? work : Future.any<Object?>([work, stopped]))
-              .timeout(d.deadline);
+      // What the caller's cancel says, once it came: a mark, as a handler's
+      // answer can be anything.
+      final first = await untilCancelled<Object?>(
+        work,
+        cancel,
+        () => _cancelledMark,
+      ).timeout(d.deadline);
       result = identical(first, _cancelledMark)
           ? stop(const CallCancelled(), 'cancelled')
           : answered(first);

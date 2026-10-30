@@ -157,6 +157,11 @@ final class RemoteSession extends ParlanceContractPeer
   /// Its calls the registry has not answered yet.
   int _calling = 0;
 
+  /// What cancels each of them, by the id the part across gave it: its
+  /// `cancel`. Its connection going cancels none, so one it retries by id
+  /// once it joins again answers how the call ended.
+  final Map<String, CancellationToken> _cancels = {};
+
   /// What it asks past [limits], refused.
   static Never _exhausted(String why) =>
       throw RpcStatusException(RpcStatus.resourceExhausted, why);
@@ -310,16 +315,6 @@ final class RemoteSession extends ParlanceContractPeer
 
   bool _carries(String state) =>
       (_stateFilter?.contains(state) ?? true) && _reads(state);
-
-  /// [rpc], the cancel of a call the part across made, as the registry
-  /// takes it.
-  static CancellationToken? _tokenOf(RpcCancellationToken? rpc) {
-    if (rpc == null) return null;
-    final t = CancellationToken();
-    if (rpc.isCancelled) return t..cancel();
-    rpc.cancelled.then((_) => t.cancel());
-    return t;
-  }
 
   /// What of the protocol the part across speaks, as its feed asked.
   Set<String> _peerSpeaks = const {};
@@ -502,6 +497,8 @@ final class RemoteSession extends ParlanceContractPeer
       );
     }
     _calling++;
+    final cancel = CancellationToken();
+    _cancels[request.id] = cancel;
     final CallResult<Object?> result;
     try {
       result = await registry.call(
@@ -510,11 +507,11 @@ final class RemoteSession extends ParlanceContractPeer
         by: by,
         id: '${principal.selector}#${request.id}',
         cause: _cause(parent: request.parent, by: by),
-        // The part across cancelled it, or went: rpc_dart trips its token.
-        cancel: _tokenOf(context?.cancellationToken),
+        cancel: cancel,
       );
     } finally {
       _calling--;
+      if (identical(_cancels[request.id], cancel)) _cancels.remove(request.id);
     }
     final seq = registry.seq;
     if (seq > _owed) _owed = seq;
@@ -545,6 +542,13 @@ final class RemoteSession extends ParlanceContractPeer
           f.toJson(),
       ],
     });
+  }
+
+  @override
+  Future<RpcNull> onCancelCall(WireName request, {RpcContext? context}) async {
+    _open();
+    _cancels.remove(request.name)?.cancel();
+    return const RpcNull();
   }
 
   @override
@@ -948,13 +952,11 @@ final class RemoteSession extends ParlanceContractPeer
     _serving[c.id] = c;
     // Expired here (its caller cancelled it, or its deadline passed): the
     // participant is told, so its handler can stop; its answer still comes.
-    unawaited(
-      c.expired.whenCancelled.then((_) {
-        if (!_closed && _peerSpeaks.contains('cancel')) {
-          return _owner.expire(WireName(c.id)).then((_) {}, onError: (_) {});
-        }
-      }),
-    );
+    final expiry = c.expired.onCancel(() {
+      if (!_closed && _peerSpeaks.contains('cancel')) {
+        unawaited(_owner.expire(WireName(c.id)).then((_) {}, onError: (_) {}));
+      }
+    });
     try {
       final deadline = registry.callableDescriptor(c.command)?.deadline;
       final served = await _owner.serve(
@@ -978,6 +980,7 @@ final class RemoteSession extends ParlanceContractPeer
     } on RpcStatusException catch (e) {
       throw _Failed('its owner did not answer: ${e.message}');
     } finally {
+      expiry.dispose();
       _serving.remove(c.id);
     }
   }

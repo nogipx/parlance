@@ -17,6 +17,7 @@ class ParlanceContractNames {
   static const invoke = 'call';
   static const why = 'why';
   static const recent = 'recent';
+  static const cancelCall = 'cancel';
   static const subscribe = 'subscribe';
   static const define = 'define';
   static const undefine = 'undefine';
@@ -104,6 +105,12 @@ abstract class ParlanceContractPeer extends RpcPeerContract
       handler: onRecent,
       requestCodec: ParlanceContractCodecs.codecWireRecentRequest,
       responseCodec: ParlanceContractCodecs.codecWireJson,
+    );
+    addUnaryMethod<WireName, RpcNull>(
+      methodName: ParlanceContractNames.cancelCall,
+      handler: onCancelCall,
+      requestCodec: ParlanceContractCodecs.codecWireName,
+      responseCodec: ParlanceContractCodecs.codecRpcNull,
     );
     addUnaryMethod<WireSubscribe, WireJson>(
       methodName: ParlanceContractNames.subscribe,
@@ -199,6 +206,17 @@ abstract class ParlanceContractPeer extends RpcPeerContract
   }
 
   @override
+  Future<RpcNull> cancelCall(WireName request, {RpcContext? context}) {
+    return callUnary<WireName, RpcNull>(
+      methodName: ParlanceContractNames.cancelCall,
+      requestCodec: ParlanceContractCodecs.codecWireName,
+      responseCodec: ParlanceContractCodecs.codecRpcNull,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
   Future<WireJson> subscribe(WireSubscribe request, {RpcContext? context}) {
     return callUnary<WireSubscribe, WireJson>(
       methodName: ParlanceContractNames.subscribe,
@@ -276,6 +294,8 @@ abstract class ParlanceContractPeer extends RpcPeerContract
   Future<WireJson> onWhy(WireWhyRequest request, {RpcContext? context});
 
   Future<WireJson> onRecent(WireRecentRequest request, {RpcContext? context});
+
+  Future<RpcNull> onCancelCall(WireName request, {RpcContext? context});
 
   Future<WireJson> onSubscribe(WireSubscribe request, {RpcContext? context});
 
@@ -356,6 +376,17 @@ class ParlanceContractPeerCaller extends RpcPeerContract
       methodName: ParlanceContractNames.recent,
       requestCodec: ParlanceContractCodecs.codecWireRecentRequest,
       responseCodec: ParlanceContractCodecs.codecWireJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<RpcNull> cancelCall(WireName request, {RpcContext? context}) {
+    return callUnary<WireName, RpcNull>(
+      methodName: ParlanceContractNames.cancelCall,
+      requestCodec: ParlanceContractCodecs.codecWireName,
+      responseCodec: ParlanceContractCodecs.codecRpcNull,
       request: request,
       context: context,
     );

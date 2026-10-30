@@ -9,6 +9,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import '../participant/owner.dart';
 import '../participant/participant.dart';
 import '../participant/serving.dart';
+import '../registry/cancellation.dart' show untilCancelled;
 import '../registry/cause.dart';
 import '../registry/compat.dart';
 import '../registry/descriptors.dart';
@@ -844,33 +845,33 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     if (answeringQuery() != null && !_isQuery(command)) {
       refuseInQuery('call $command');
     }
-    // The cancel goes across as the call's own: the host's registry hears
-    // it, and the wait here ends with it.
-    final token = RpcCancellationToken();
-    if (cancel != null) {
-      unawaited(
-        cancel.whenCancelled.then(
-          (_) => token.cancel('cancelled by its caller'),
-        ),
-      );
-    }
-    await flush();
-    // What its listeners asked for reaches the host before the call, so
-    // what the call writes comes back on the feed.
-    if (_online) await _view.settled;
+    final callId = id ?? newId();
+    await untilCancelled(
+      () async {
+        await flush();
+        // What its listeners asked for reaches the host before the call, so
+        // what the call writes comes back on the feed.
+        if (_online) await _view.settled;
+      }(),
+      cancel,
+      () {},
+    );
     // Cancelled before it went: it does not run.
     if (cancel?.isCancelled ?? false) return const CallCancelled();
-    final r = await _client.callAt(
-      command,
-      params,
-      id: id,
-      parent: c?.parent,
-      as: as,
-      context: cancel == null
-          ? null
-          : RpcContext.empty().withCancellation(token),
+    final r = await untilCancelled(
+      _client.callAt(command, params, id: callId, parent: c?.parent, as: as),
+      cancel,
+      () => null,
     );
-    if (r.result is CallCancelled) return r.result;
+    if (r == null) {
+      // Cancelled once it went: the host is told by its id, as the
+      // connection going would not tell it, and answers a retry with the
+      // id how it ended.
+      if (_speaks.contains('cancel')) {
+        unawaited(_client.cancel(callId).then((_) {}, onError: (_) {}));
+      }
+      return const CallCancelled();
+    }
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
       await _mirror.reach(epoch, seq);
     }

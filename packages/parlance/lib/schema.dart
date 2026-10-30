@@ -25,7 +25,7 @@ export 'src/participant/participant.dart'
         GeneratedFact;
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
-export 'src/registry/cancellation.dart';
+export 'src/registry/cancellation.dart' show CancellationToken;
 export 'src/registry/descriptors.dart' show Callers, Access, Choice;
 export 'src/registry/messages.dart'
     show
