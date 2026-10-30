@@ -928,9 +928,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   Descriptor? descriptor(String word) => _view.descriptor(word);
 
   /// The host is told each word once, by fingerprint, and told again on a
-  /// new session.
+  /// new session. The states among them its copy keeps from now on: its
+  /// code reads them as in the host's process, listened to or not.
   @override
   void builtAgainst(Iterable<IWord> words, {String? from}) {
+    _view.keep(words);
     _builtAgainst(schemasOf(words), from, null);
     _watchBuilt(words, from);
   }
@@ -1261,6 +1263,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     });
     try {
       await flush();
+      // What its owners' clients were built against is kept by then.
+      if (_online) await _view.settled;
     } finally {
       await sub.cancel();
     }
@@ -1285,7 +1289,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// host's as of then.
   @override
   Future<void> settle() async {
-    _live();
+    // Gone, nothing of it is under way: as in the host's process.
+    if (_disposed) return;
     await OwnerGroup.idle();
     await flush();
     // What its listeners asked for is carried: a fact said after is heard.

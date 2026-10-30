@@ -32,9 +32,11 @@ final class MirrorView implements IRegistryView {
   /// What it told the host it was built against.
   final BuiltTold _built = BuiltTold();
 
-  /// Each word told once, by fingerprint, and again to a new client.
+  /// Each word told once, by fingerprint, and again to a new client; the
+  /// states among them kept from now on ([keep]).
   @override
   void builtAgainst(Iterable<IWord> words, {String? from}) {
+    keep(words);
     final ops = _built.tell(schemasOf(words), from: from);
     if (ops.isEmpty) return;
     if (_client case final c?) {
@@ -74,6 +76,20 @@ final class MirrorView implements IRegistryView {
 
   final Map<String, int> _states = {};
   final Map<String, int> _facts = {};
+
+  /// The states its code was built against: kept for as long as it lives.
+  final Set<String> _kept = {};
+
+  /// Keeps the states among [words] from now on, for as long as it lives:
+  /// what the code holding them reads (a guard, a handler, a screen's
+  /// first frame) reads them, listened to or not, once [settled].
+  void keep(Iterable<IWord> words) {
+    final fresh = {
+      for (final w in words.whereType<IStateWord<Object?>>())
+        if (_kept.add(w.name)) w.name,
+    };
+    if (fresh.isNotEmpty) _want(_states, fresh, 1);
+  }
 
   @override
   Object? read(String state, {String? key}) => mirror.read(state, key: key);

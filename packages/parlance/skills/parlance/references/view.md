@@ -46,7 +46,7 @@ registry), for a screen of `by`'s; a participant is such a view already.
 
 ## Across a connection
 
-A `RemoteParticipant` (§22) is the view there: it keeps the states and hears the facts its listeners ask for, and no others, subscribing its session to their union whenever that changes, so the feed carries what screens draw and the host knows what it hears; a call answers once the view has reached what it wrote; after a lost connection the subscription is kept. The mirror and the client beneath are the package's.
+A `RemoteParticipant` (§22) is the view there: it keeps the states of the words its code was built against (a generated client tells them as it is made, `builtAgainst`), from then on, so its code reads them as in the host's process, listened to or not; besides, the states and facts its listeners ask for, and no others, subscribing its session to their union whenever that changes, so the feed carries what screens draw and the host knows what it hears; a call answers once the view has reached what it wrote; after a lost connection the subscription is kept. The mirror and the client beneath are the package's.
 
 ## fetch(state)
 

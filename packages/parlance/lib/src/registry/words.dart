@@ -304,7 +304,9 @@ final class Keyed<T> {
 /// words (SPEC §23.5): its value now, then whenever it changes. Read as
 /// the owner reads its own ([Single.value]).
 abstract interface class IStateOf<T> {
-  /// Its value now; null while there is none.
+  /// Its value now; null while there is none. Across a connection, the
+  /// copy keeps it from when the client was made (its participant
+  /// settled), listened to or not.
   T? get value;
 
   /// [value], then whenever it changes.
