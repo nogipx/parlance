@@ -30,44 +30,22 @@ String commandToolName(String command) =>
 /// participant [p], in this process or across a connection. With
 /// [commandTools], each command it may call is a tool of its own as well,
 /// made from its description.
+///
+/// What a tool run works from is asked of the participant then, not when
+/// the tools were made: a word added, removed or moved while the agent
+/// works is read, called and heard as it is now. What a client was listed —
+/// tool names, their params — stays until it lists again.
 Future<List<McpTool>> parlanceTools(
   IParticipant agent, {
   bool commandTools = false,
 }) async {
   final p = agent.raw;
-  final d = await p.describe();
-  final descriptors = [
-    for (final x in d['descriptors'] as List? ?? const [])
-      (x as Map).cast<String, Object?>(),
-  ];
-  final kinds = {
-    for (final k in d['kinds'] as List? ?? const [])
-      (k as Map)['name'] as String: [
-        for (final e in k['entities'] as List? ?? const [])
-          (e as Map).cast<String, Object?>(),
-      ],
+  Future<_Catalog> catalog() async => _Catalog(await p.describe());
+  final first = await catalog();
+  final window = switch (first.dedupWindowMs) {
+    final int ms => ' within ${Duration(milliseconds: ms).inMinutes} min',
+    _ => '',
   };
-  final access = (d['access'] as Map?)?.cast<String, Object?>() ?? const {};
-  final commands = [
-    for (final c in descriptors)
-      if ((c['is'] == 'command' || c['is'] == 'query') &&
-          (access[c['name']] ?? 'deny') != 'deny')
-        c,
-  ];
-  // The states whose values it may read and the facts it may hear: the
-  // others are in the catalog, their values not.
-  final unreadable = {...?(d['unreadable'] as List?)?.cast<String>()};
-  final states = [
-    for (final s in descriptors)
-      if (s['is'] == 'state' && !unreadable.contains(s['name'])) s,
-  ];
-  final facts = [
-    for (final f in descriptors)
-      if (f['is'] == 'fact' && !unreadable.contains(f['name'])) f,
-  ];
-
-  Map<String, Object?> schema(Object? type) =>
-      jsonSchema(ValueType.fromJson(type), kinds: kinds);
 
   // Every call has an id, so the agent can be told how to retry it.
   Future<McpResult> callCommand(
@@ -78,11 +56,6 @@ Future<List<McpTool>> parlanceTools(
     final callId = id ?? newId();
     return _answer(await p.call(name, params, id: callId), callId);
   }
-
-  final window = switch (d['dedupWindowMs']) {
-    final int ms => ' within ${Duration(milliseconds: ms).inMinutes} min',
-    _ => '',
-  };
 
   final curated = [
     McpTool(
@@ -96,43 +69,40 @@ Future<List<McpTool>> parlanceTools(
         'prefix': {'type': 'string'},
       },
       run: (a) async {
+        final cat = await catalog();
         final prefix = a['prefix'] as String? ?? '';
         bool keep(Map<String, Object?> x) =>
             (x['name'] as String).startsWith(prefix);
-        // Whether a command can run changes with the states: asked now.
-        final now = await p.describe();
-        final unavailable =
-            (now['unavailable'] as Map?)?.cast<String, Object?>() ?? const {};
         return McpResult.json({
           'commands': [
-            for (final c in commands)
+            for (final c in cat.commands)
               if (keep(c))
                 {
                   'name': c['name'],
                   'label': ?(c['meta'] as Map?)?['label'],
-                  'params': schema(c['params']),
-                  if (c['returns'] != null) 'returns': schema(c['returns']),
-                  if (access[c['name']] == 'warn') 'access': 'warn',
+                  'params': cat.schema(c['params']),
+                  if (c['returns'] != null) 'returns': cat.schema(c['returns']),
+                  if (cat.access[c['name']] == 'warn') 'access': 'warn',
                   if (c['is'] == 'query') 'query': true,
-                  'unavailable': ?unavailable[c['name']],
+                  'unavailable': ?cat.unavailable[c['name']],
                 },
           ],
           'states': [
-            for (final s in states)
+            for (final s in cat.states)
               if (keep(s))
                 {
                   'name': s['name'],
                   'label': ?(s['meta'] as Map?)?['label'],
-                  'type': schema(s['type']),
+                  'type': cat.schema(s['type']),
                   'key': ?s['key'],
                 },
           ],
           'facts': [
-            for (final f in facts)
-              if (keep(f)) {'name': f['name'], 'type': schema(f['type'])},
+            for (final f in cat.facts)
+              if (keep(f)) {'name': f['name'], 'type': cat.schema(f['type'])},
           ],
           'entities': {
-            for (final e in kinds.entries)
+            for (final e in cat.kinds.entries)
               e.key: [
                 for (final x in e.value)
                   // One that tells the type of the value it takes: with it,
@@ -143,7 +113,7 @@ Future<List<McpTool>> parlanceTools(
                       'id': x['id'],
                       'label': x['label'],
                       'takes': {
-                        ...schema(t),
+                        ...cat.schema(t),
                         if (t['format'] case final String f) 'format': f,
                       },
                     }
@@ -152,7 +122,7 @@ Future<List<McpTool>> parlanceTools(
               ],
           },
           // Old names of words: they still work; use the new one.
-          if (d['aliases'] case final Map<Object?, Object?> a when a.isNotEmpty)
+          if (cat.aliases case final Map<Object?, Object?> a when a.isNotEmpty)
             'renamed': a,
         });
       },
@@ -169,23 +139,24 @@ Future<List<McpTool>> parlanceTools(
       run: (a) async {
         // What it had is not told as if it were now.
         if (!p.synced) return McpResult.error(_offline);
+        final cat = await catalog();
         if (a['state'] case final String name) {
-          if (unreadable.contains(name)) {
+          if (cat.unreadable.contains(name)) {
             return McpResult.error('you may not read $name');
           }
-          if (!states.any((s) => s['name'] == name)) {
+          if (!cat.states.any((s) => s['name'] == name)) {
             return McpResult.error('no state $name');
           }
-          return McpResult.json(await _values(p, name, states));
+          return McpResult.json(await _values(p, name, cat.states));
         }
         final prefix = a['prefix'] as String? ?? '';
         final names = [
-          for (final s in states)
+          for (final s in cat.states)
             if ((s['name'] as String).startsWith(prefix)) s['name'] as String,
         ];
         // Read together: across a connection one subscription for all.
         final values = await Future.wait([
-          for (final n in names) _values(p, n, states, keep: false),
+          for (final n in names) _values(p, n, cat.states, keep: false),
         ]);
         return McpResult.json({
           for (var i = 0; i < names.length; i++) names[i]: values[i],
@@ -202,7 +173,7 @@ Future<List<McpTool>> parlanceTools(
       properties: {
         'command': {
           'type': 'string',
-          'enum': [for (final c in commands) c['name']],
+          'enum': [for (final c in first.commands) c['name']],
         },
         'params': {'type': 'object'},
         'id': {'type': 'string'},
@@ -220,17 +191,18 @@ Future<List<McpTool>> parlanceTools(
       properties: {
         'fact': {
           'type': 'string',
-          'enum': [for (final f in facts) f['name']],
+          'enum': [for (final f in first.facts) f['name']],
         },
         'count': {'type': 'integer', 'minimum': 1, 'maximum': 100},
       },
       required: ['fact'],
       run: (a) async {
+        final cat = await catalog();
         final name = a['fact'] as String;
-        if (unreadable.contains(name)) {
+        if (cat.unreadable.contains(name)) {
           return McpResult.error('you may not hear $name');
         }
-        if (!facts.any((f) => f['name'] == name)) {
+        if (!cat.facts.any((f) => f['name'] == name)) {
           return McpResult.error('no fact $name');
         }
         // As its schema says: an agent's count is not trusted to keep it.
@@ -253,7 +225,7 @@ Future<List<McpTool>> parlanceTools(
       properties: {
         'state': {
           'type': 'string',
-          'enum': [for (final s in states) s['name']],
+          'enum': [for (final s in first.states) s['name']],
         },
         'key': {'type': 'string'},
       },
@@ -277,11 +249,68 @@ Future<List<McpTool>> parlanceTools(
   final taken = {for (final t in curated) t.name};
   return [
     ...curated,
-    for (final c in commands)
+    for (final c in first.commands)
       if (commandToolName(c['name'] as String) case final n
           when n.length <= 64 && taken.add(n))
-        _commandTool(c, schema, callCommand),
+        _commandTool(c, first.schema, callCommand),
   ];
+}
+
+/// The catalog as one run of a tool sees it, derived from
+/// [IRawParticipant.describe]: the words, what the agent may call, what it
+/// may not read or hear, the entities a param may name, and what cannot
+/// run now.
+final class _Catalog {
+  _Catalog(Map<String, Object?> d)
+    : descriptors = [
+        for (final x in d['descriptors'] as List? ?? const [])
+          (x as Map).cast<String, Object?>(),
+      ],
+      kinds = {
+        for (final k in d['kinds'] as List? ?? const [])
+          (k as Map)['name'] as String: [
+            for (final e in k['entities'] as List? ?? const [])
+              (e as Map).cast<String, Object?>(),
+          ],
+      },
+      access = (d['access'] as Map?)?.cast<String, Object?>() ?? const {},
+      unavailable =
+          (d['unavailable'] as Map?)?.cast<String, Object?>() ?? const {},
+      aliases = d['aliases'] as Map<Object?, Object?>?,
+      unreadable = {...?(d['unreadable'] as List?)?.cast<String>()},
+      dedupWindowMs = d['dedupWindowMs'];
+
+  final List<Map<String, Object?>> descriptors;
+  final Map<String, List<Map<String, Object?>>> kinds;
+  final Map<String, Object?> access;
+  final Map<String, Object?> unavailable;
+  final Map<Object?, Object?>? aliases;
+  final Set<String> unreadable;
+  final Object? dedupWindowMs;
+
+  /// The commands and queries it may call.
+  late final commands = [
+    for (final c in descriptors)
+      if ((c['is'] == 'command' || c['is'] == 'query') &&
+          (access[c['name']] ?? 'deny') != 'deny')
+        c,
+  ];
+
+  /// The states whose values it may read and the facts it may hear: the
+  /// others are in the catalog, their values and payloads not.
+  late final states = [
+    for (final s in descriptors)
+      if (s['is'] == 'state' && !unreadable.contains(s['name'])) s,
+  ];
+
+  late final facts = [
+    for (final f in descriptors)
+      if (f['is'] == 'fact' && !unreadable.contains(f['name'])) f,
+  ];
+
+  /// The JSON Schema of a value of [type]; a ref lists the entities there are.
+  Map<String, Object?> schema(Object? type) =>
+      jsonSchema(ValueType.fromJson(type), kinds: kinds);
 }
 
 /// A tool of one command. Whether it can run now is not in its
@@ -378,5 +407,3 @@ Future<Object?> _values(
   final keyed = states.any((s) => s['name'] == state && s['key'] != null);
   return keyed ? {for (final e in all.entries) e.key: e.value} : all[null];
 }
-
-/// The JSON Schema of a value of [t]; a ref lists the entities there are.

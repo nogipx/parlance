@@ -331,6 +331,30 @@ void main() {
       expect(bad.text, startsWith('invalidParams'));
     });
 
+    test('a word that comes or changes after the tools were made is read as '
+        'it is now, without relisting them', () async {
+      expect(
+        (await c.call('read', {'state': 'door.bell'})).text,
+        'no state door.bell',
+      );
+      final bell = f.r.defineState(
+        StateDescriptor('door.bell', type: const BoolType()),
+        by: owner,
+      )..set(true);
+      expect(await c.json('read', {'state': 'door.bell'}), true);
+      bell.dispose();
+      final keyed = f.r.defineState(
+        StateDescriptor('door.bell', type: const BoolType(), key: 'input'),
+        by: owner,
+      );
+      keyed.set(false, key: 'front');
+      keyed.set(true, key: 'music');
+      expect(await c.json('read', {'state': 'door.bell'}), {
+        'front': false,
+        'music': true,
+      });
+    });
+
     test('why tells the last change and the calls that led to it', () async {
       await c.call('call', {
         'command': 'door.lock',
