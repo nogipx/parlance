@@ -83,6 +83,29 @@ enum Meetings<T> implements IStateWord<T> {
 
 Map<String, Object?> _meetingToJson(Meeting m) => m.toJson();
 
+/// A json_serializable class that is not freezed: its fields are
+/// mutable, so one read's value is not another's.
+final class Draft {
+  Draft(this.text);
+  factory Draft.fromJson(Map<String, Object?> m) => Draft(m['text']! as String);
+  String text;
+  Map<String, Object?> toJson() => {'text': text};
+}
+
+enum Drafts<T> implements IStateWord<T> {
+  open<Draft>('orders.draft', JsonShape(from: Draft.fromJson, to: _draftToJson));
+
+  const Drafts(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => null;
+}
+
+Map<String, Object?> _draftToJson(Draft d) => d.toJson();
+
 enum Orders<T> implements IStateWord<T> {
   last<Order>(
     'orders.last',
@@ -162,5 +185,14 @@ void main() {
       r.stateDescriptor('orders.next')!.type.toJson(),
       _meetingType.toJson(),
     );
+  });
+
+  test('a class that is mutable is not shared between reads of one JSON', () {
+    orders.state(Drafts.open).define().set(Draft('a'));
+    final first = orders.stateOf(Drafts.open).value!;
+    final second = orders.stateOf(Drafts.open).value!;
+    expect(identical(first, second), isFalse);
+    first.text = 'b';
+    expect(orders.stateOf(Drafts.open).value!.text, 'a');
   });
 }

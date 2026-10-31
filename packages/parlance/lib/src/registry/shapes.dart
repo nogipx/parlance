@@ -839,10 +839,13 @@ Map<String?, T> decodeAllKnown<T>(
 
 /// The value [shape] makes of [json], null for none. JSON a registry or a
 /// mirror tells is frozen, so one decoded value serves every read of the
-/// same JSON; a write puts another JSON there.
+/// same JSON; a write puts another JSON there. A [JsonShape] is excepted:
+/// it decodes to a class of its own, which may be mutable, and sharing it
+/// between reads would let one read's mutation change another's.
 T? decodeWith<T>(Shape<T> shape, Object? json) {
   if (json == null) return null;
   if (json is! List && json is! Map) return shape.fromJson(json);
+  if (shape is JsonShape<T>) return shape.fromJson(json);
   final cached = _decoded[json];
   if (cached != null && identical(cached.$1, shape)) return cached.$2 as T;
   final value = shape.fromJson(json);
