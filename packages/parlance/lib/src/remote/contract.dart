@@ -1,4 +1,10 @@
 import 'package:rpc_dart/rpc_dart.dart';
+// The barrel does not export this one type yet: rpc_dart's request-decode
+// catch passes ONLY it through to the peer (any other exception becomes a
+// redacted INTERNAL), so a codec cannot classify a peer's bad field without
+// it. Owner: export it upstream and drop this import.
+// ignore: implementation_imports
+import 'package:rpc_dart/src/core/errors.dart' show RpcPeerFaultException;
 
 part 'contract.g.dart';
 
@@ -28,8 +34,77 @@ const parlanceFeatures = {
   'cancel',
 };
 
-Map<String, Object?> _obj(Object? v) =>
-    (v as Map? ?? const {}).cast<String, Object?>();
+/// A field of the wrong type in a frame a peer built is the PEER's fault:
+/// refuse it INVALID_ARGUMENT with the field named. A bare `as` read throws
+/// a TypeError instead, which rpc_dart answers as a redacted INTERNAL — the
+/// verdict reserved for a host bug — and the peer never learns what to fix.
+Never _badType(String field, Object? v) =>
+    throw RpcPeerFaultException(
+      RpcStatus.invalidArgument,
+      '"$field" is not of the expected type: ${_kind(v)}',
+    );
+
+String _kind(Object? v) => switch (v) {
+  null => 'null',
+  num() || bool() => '$v',
+  _ => 'a ${v.runtimeType}',
+};
+
+String _str(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v is String) return v;
+  _badType(field, v);
+}
+
+String? _strOrNull(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v == null) return null;
+  if (v is String) return v;
+  _badType(field, v);
+}
+
+int _int(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v is int) return v;
+  _badType(field, v);
+}
+
+int? _intOrNull(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v == null) return null;
+  if (v is int) return v;
+  _badType(field, v);
+}
+
+List<String>? _strListOrNull(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v == null) return null;
+  if (v is! List) _badType(field, v);
+  return [for (final e in v) e is String ? e : _badType(field, e)];
+}
+
+Map<String, Object?> _map(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v == null) return const {};
+  if (v is Map) return _stringKeyed(v, field);
+  _badType(field, v);
+}
+
+Map<String, Object?>? _mapOrNull(Map<String, dynamic> m, String field) {
+  final v = m[field];
+  if (v == null) return null;
+  if (v is Map) return _stringKeyed(v, field);
+  _badType(field, v);
+}
+
+Map<String, Object?> _stringKeyed(Map<Object?, Object?> v, String field) {
+  final out = <String, Object?>{};
+  for (final e in v.entries) {
+    if (e.key is! String) _badType(field, e.key);
+    out[e.key as String] = e.value;
+  }
+  return out;
+}
 
 /// What `describe` answers: the catalog, the epoch, the seq, the protocol.
 final class WireDescription implements IRpcSerializable {
@@ -49,8 +124,8 @@ final class WireFeedRequest implements IRpcSerializable {
   const WireFeedRequest({this.epoch, this.since, this.features});
 
   factory WireFeedRequest.fromJson(Map<String, dynamic> m) => WireFeedRequest(
-    epoch: m['epoch'] as String?,
-    since: m['since'] as int?,
+    epoch: _strOrNull(m, 'epoch'),
+    since: _intOrNull(m, 'since'),
     features: switch (m['features']) {
       final List<Object?> l => {for (final f in l) '$f'},
       _ => null,
@@ -78,8 +153,8 @@ final class WireSubscribe implements IRpcSerializable {
   const WireSubscribe({this.states, this.facts});
 
   factory WireSubscribe.fromJson(Map<String, dynamic> m) => WireSubscribe(
-    states: (m['states'] as List?)?.cast<String>(),
-    facts: (m['facts'] as List?)?.cast<String>(),
+    states: _strListOrNull(m, 'states'),
+    facts: _strListOrNull(m, 'facts'),
   );
 
   final List<String>? states;
@@ -98,7 +173,7 @@ final class WireFeedItem implements IRpcSerializable {
   const WireFeedItem(this.kind, this.json);
 
   factory WireFeedItem.fromJson(Map<String, dynamic> m) =>
-      WireFeedItem(m['kind'] as String, _obj(m['item']));
+      WireFeedItem(_str(m, 'kind'), _map(m, 'item'));
 
   /// `catalog`, `snapshot`, `tick`, `values`, `kind`, `unavailable` or
   /// `ended`.
@@ -121,11 +196,11 @@ final class WireCallRequest implements IRpcSerializable {
   });
 
   factory WireCallRequest.fromJson(Map<String, dynamic> m) => WireCallRequest(
-    id: m['id'] as String,
-    command: m['command'] as String,
-    params: _obj(m['params']),
-    parent: m['parent'] as String?,
-    as: m['as'] == null ? null : _obj(m['as']),
+    id: _str(m, 'id'),
+    command: _str(m, 'command'),
+    params: _map(m, 'params'),
+    parent: _strOrNull(m, 'parent'),
+    as: _mapOrNull(m, 'as'),
   );
 
   final String id;
@@ -156,9 +231,9 @@ final class WireCallReply implements IRpcSerializable {
   const WireCallReply(this.result, {required this.epoch, required this.seq});
 
   factory WireCallReply.fromJson(Map<String, dynamic> m) => WireCallReply(
-    _obj(m['result']),
-    epoch: m['epoch'] as String,
-    seq: m['seq'] as int,
+    _map(m, 'result'),
+    epoch: _str(m, 'epoch'),
+    seq: _int(m, 'seq'),
   );
 
   final Map<String, Object?> result;
@@ -178,7 +253,7 @@ final class WireRecentRequest implements IRpcSerializable {
   const WireRecentRequest(this.fact, this.count);
 
   factory WireRecentRequest.fromJson(Map<String, dynamic> m) =>
-      WireRecentRequest(m['fact'] as String, m['count'] as int);
+      WireRecentRequest(_str(m, 'fact'), _int(m, 'count'));
 
   final String fact;
   final int count;
@@ -204,7 +279,7 @@ final class WireWhyRequest implements IRpcSerializable {
   const WireWhyRequest(this.state, {this.key});
 
   factory WireWhyRequest.fromJson(Map<String, dynamic> m) =>
-      WireWhyRequest(m['state'] as String, key: m['key'] as String?);
+      WireWhyRequest(_str(m, 'state'), key: _strOrNull(m, 'key'));
 
   final String state;
   final String? key;
@@ -218,7 +293,7 @@ final class WireDefine implements IRpcSerializable {
   const WireDefine(this.descriptor);
 
   factory WireDefine.fromJson(Map<String, dynamic> m) =>
-      WireDefine(_obj(m['descriptor']));
+      WireDefine(_map(m, 'descriptor'));
 
   final Map<String, Object?> descriptor;
 
@@ -230,8 +305,7 @@ final class WireDefine implements IRpcSerializable {
 final class WireName implements IRpcSerializable {
   const WireName(this.name);
 
-  factory WireName.fromJson(Map<String, dynamic> m) =>
-      WireName(m['name'] as String);
+  factory WireName.fromJson(Map<String, dynamic> m) => WireName(_str(m, 'name'));
 
   final String name;
 
@@ -250,11 +324,11 @@ final class WireSet implements IRpcSerializable {
   });
 
   factory WireSet.fromJson(Map<String, dynamic> m) => WireSet(
-    state: m['state'] as String,
-    key: m['key'] as String?,
+    state: _str(m, 'state'),
+    key: _strOrNull(m, 'key'),
     value: m['value'],
     remove: m['remove'] == true,
-    parent: m['parent'] as String?,
+    parent: _strOrNull(m, 'parent'),
   );
 
   final String state;
@@ -287,11 +361,11 @@ final class WireEmit implements IRpcSerializable {
   });
 
   factory WireEmit.fromJson(Map<String, dynamic> m) => WireEmit(
-    fact: m['fact'] as String,
+    fact: _str(m, 'fact'),
     payload: m['payload'],
-    id: m['id'] as String?,
-    by: m['by'] == null ? null : _obj(m['by']),
-    parent: m['parent'] as String?,
+    id: _strOrNull(m, 'id'),
+    by: _mapOrNull(m, 'by'),
+    parent: _strOrNull(m, 'parent'),
   );
 
   final String fact;
@@ -338,11 +412,11 @@ final class WireServe implements IRpcSerializable {
   });
 
   factory WireServe.fromJson(Map<String, dynamic> m) => WireServe(
-    id: m['id'] as String,
-    command: m['command'] as String,
-    params: _obj(m['params']),
-    cause: _obj(m['cause']),
-    traceparent: m['traceparent'] as String?,
+    id: _str(m, 'id'),
+    command: _str(m, 'command'),
+    params: _map(m, 'params'),
+    cause: _map(m, 'cause'),
+    traceparent: _strOrNull(m, 'traceparent'),
   );
 
   final String id;

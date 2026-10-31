@@ -3,8 +3,8 @@ refines: —
 paths: [packages/parlance/lib/src/remote/**]
 applies: a guest connects over a connection and controls every byte the host parses; two-sided-protocol
 breaks: crash, wrong result
-applied: [1]
-status: derived
+applied: [1, 2]
+status: confirmed (round 2)
 rank: 1
 ---
 
@@ -45,4 +45,13 @@ class and its own doc says reading is not a run.
 
 ## Evidence
 
-—
+Confirmed round 2 (P-1, `packages/parlance/test/remote/hostile_guest_decode_test.dart`):
+10/10 wrongly-typed guest frames to a served session were answered status 13
+`INTERNAL` redacted — the host-bug verdict — where the host's own refusal
+vocabulary says `INVALID_ARGUMENT`; fixed in `contract.dart` by reading every
+guest field through typed helpers that throw rpc_dart's `RpcPeerFaultException`
+(invalidArgument, field named); after, 10/10 give status 3 with the diagnostic,
+session alive throughout. Client effect measured by code at `client.dart:237-248`:
+`INTERNAL` lands in `CallLost(callId)` (retry path, no diagnostic) where the
+invalidArgument family lands in `CallFailed`. Left open: the zero-copy
+direct-cast direction (rpc_dart-side, lead B-3).
