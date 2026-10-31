@@ -83,6 +83,25 @@ const _catalog = {
 
 WireFeedItem catalog() => const WireFeedItem('catalog', _catalog);
 
+/// A host that answers fewer apply results than ops it was given.
+final class _ShortApplyHost extends _Host {
+  _ShortApplyHost(super.endpoint, super.items);
+
+  @override
+  Future<WireDescription> onDescribe(RpcNull r, {RpcContext? context}) async =>
+      WireDescription({
+        ..._catalog,
+        'protocol': parlanceProtocol,
+        'features': const <String>[],
+        'principal': {'kind': 'agent'},
+        'vocabularies': ['deck'],
+      });
+
+  @override
+  Future<WireJson> onApply(WireJson r, {RpcContext? context}) async =>
+      const WireJson({'results': <Object?>[]});
+}
+
 WireFeedItem snapshot(int v) => WireFeedItem('snapshot', {
   ...Snapshot(
     epoch: 'e1',
@@ -198,5 +217,25 @@ void main() {
     await until(() => errors.isNotEmpty);
     expect(errors.single.code, ParticipantErrorCode.malformed);
     expect(errors.single.op, {'op': 'feed'});
+  });
+
+  test('fewer apply results than ops: told as lost, not believed done', () async {
+    final (g, h) = RpcChannelTransport.memoryPair();
+    final endpoint = RpcPeerEndpoint(transport: h);
+    final host = _ShortApplyHost(endpoint, (_) => [catalog(), snapshot(1)]);
+    endpoint
+      ..registerServiceContract(host)
+      ..start();
+    final own = RpcPeerEndpoint(transport: g)..start();
+    opened.addAll([endpoint, own]);
+    final p = await RemoteParticipant.joinEndpoint(own);
+    addTearDown(p.dispose);
+    final errors = <ParticipantError>[];
+    p.errors.listen(errors.add);
+    p.raw.defineState(StateDescriptor('deck.x', type: const IntType()));
+    await p.settle();
+    await until(() => errors.isNotEmpty);
+    expect(errors.single.code, ParticipantErrorCode.lost);
+    expect('${errors.single}', contains('results for'));
   });
 }

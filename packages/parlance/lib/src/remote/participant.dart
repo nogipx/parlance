@@ -646,6 +646,16 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
             }
           }
         }
+        for (var i = results.length; i < ops.length; i++) {
+          // A host defect: fewer answers than asks. Whether the missing
+          // ops ran is unknown, as a lost ask's: not told as if they did.
+          _fail(
+            ops[i],
+            'lost',
+            'the host answered ${results.length} results '
+            'for ${ops.length} ops',
+          );
+        }
       } on Object catch (e) {
         if (e is RpcStatusException && answeredBySession(e.statusCode)) {
           // The session answered, failing all of it: each op is told so,
