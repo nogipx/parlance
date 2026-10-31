@@ -186,7 +186,9 @@ abstract interface class IParticipant implements IHandle {
   /// sees of the catalog (so [status] too) and of the states is as of
   /// then, and its listeners were told: what a test waits for after it
   /// acted, in place of a delay. In this process after a turn of the event
-  /// loop, across a connection once its copy reached the host.
+  /// loop, across a connection once its copy reached the host. Across a
+  /// connection cut off from the host it throws `HostUnreachable`: what
+  /// the host has and has not done cannot be known from here.
   Future<void> settle();
 
   /// Writes what every owner attached to it has now (what each

@@ -229,6 +229,11 @@ List<WordBreak> wordBreaks(IWord word, Descriptor live) =>
 
 final Expando<Map<IWord, List<WordBreak>>> _judged = Expando();
 
+/// The cache above is judged per live descriptor and reclaims with it:
+/// a word defined again does not pile entries up, and while a descriptor
+/// lives it holds one entry per word consulted, the memoization it is
+/// for.
+
 /// What of [built], a word's schema entry as code was built against it,
 /// [live], the entry of the word as defined, breaks (SPEC §25.1), every
 /// place at once.

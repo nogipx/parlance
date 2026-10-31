@@ -89,15 +89,19 @@ final class WireSubscribe implements IRpcSerializable {
   Map<String, dynamic> toJson() => {'states': ?states, 'facts': ?facts};
 }
 
-/// One item of the feed: the catalog, a snapshot, a tick, or the values of
-/// states a subscription took in.
+/// One item of the feed, by [kind]: `catalog` (the words anew),
+/// `snapshot` (the states as they stand, to follow from),
+/// `tick` (what changed), `values` (what a subscription took in),
+/// `kind` (a choices kind's entities changed), `unavailable` (what
+/// cannot run now moved), or `ended` (the feed's end, with why).
 final class WireFeedItem implements IRpcSerializable {
   const WireFeedItem(this.kind, this.json);
 
   factory WireFeedItem.fromJson(Map<String, dynamic> m) =>
       WireFeedItem(m['kind'] as String, _obj(m['item']));
 
-  /// `catalog`, `snapshot`, `tick` or `values`.
+  /// `catalog`, `snapshot`, `tick`, `values`, `kind`, `unavailable` or
+  /// `ended`.
   final String kind;
   final Map<String, Object?> json;
 
