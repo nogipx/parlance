@@ -100,6 +100,37 @@ void main() {
     expect(cause.conversationOf('x'), 'f1');
   });
 
+  test('a state the participant may not read: load does not start the '
+      'links, and says so', () async {
+    final b = Bench();
+    addTearDown(b.dispose);
+    b.s
+        .defineState(
+          StateDescriptor(
+            'st.secret',
+            type: const BoolType(),
+            readers: const Callers({'house': Access.allow}),
+          ),
+        )
+        .set(true);
+    await b.links.load([
+      {
+        'id': 'note',
+        'only': {'state': 'st.secret', 'is': true},
+        'when': [
+          {'fact': 'st.said'},
+        ],
+        'do': [
+          {'call': 'st.note'},
+        ],
+      },
+    ]);
+    expect(b.errors, isNotEmpty);
+    b.said.say({});
+    await pump();
+    expect(b.notes, isEmpty, reason: 'the links were not started');
+  });
+
   test('a link calls only what its owner may', () async {
     final b = Bench(callers: Callers({'user': Access.allow}));
     addTearDown(b.dispose);

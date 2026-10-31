@@ -101,7 +101,10 @@ final class Links {
 
   /// Takes [json] as all its links, in place of those it had: each link
   /// that cannot be taken is told in [problems] and left out, the others
-  /// run. Completes once the states they read are known.
+  /// run. Completes once the states they read are known: a read that
+  /// fails, is not of the registry's now, or is one the participant may
+  /// not read leaves the links not started, the failure told in [onError];
+  /// load again once it is known.
   Future<void> load(List<Object?> json) async {
     final load = ++_loads;
     _stop();
@@ -136,11 +139,32 @@ final class Links {
       for (final l in links)
         if (l.enabled) ...{...?l.only?.reads, ...?l.button?.lit?.reads},
     };
+    // A read that fails, is not of the registry's now, or names a state
+    // the participant may not read leaves what the links read unknown:
+    // starting them would run them on stale, empty or none. Told in
+    // onError; load again once it is known.
+    Object? unknown;
     await Future.wait([
-      for (final s in reads) participant.fetch(s).then((_) {}, onError: _err),
+      for (final s in reads)
+        participant.fetch(s).then(
+          (_) {},
+          onError: (Object e, StackTrace st) {
+            unknown ??= e;
+            _err(e, st);
+          },
+        ),
     ]);
+    if (!participant.synced) {
+      _err(unknown ??= StateError('the registry is not reachable now'));
+    }
+    for (final s in reads) {
+      if (participant.status(s) case WordNotPermitted()) {
+        _err(unknown ??= StateError('may not read $s'));
+        break;
+      }
+    }
     // A load made while this one read its states is the one that runs.
-    if (_disposed || load != _loads) return;
+    if (_disposed || load != _loads || unknown != null) return;
     _defineButtons();
     if (reads.isNotEmpty) {
       _watching.add(
