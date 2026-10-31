@@ -1,4 +1,5 @@
 import 'package:parlance/tools.dart';
+import 'package:parlance/app.dart' show Host;
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:test/test.dart';
 
@@ -30,6 +31,19 @@ void main() {
     h.dispose();
     expect(f.r.read('door.silenced'), isNull);
     expect(f.r.describe()['aliases'], {'door.hush': 'door.lock'});
+  });
+
+  test('the host names an alias, as its registry does', () {
+    final host = Host();
+    addTearDown(host.dispose);
+    host.registry.defineState(
+      StateDescriptor('x.a', type: const IntType()),
+      by: owner,
+    );
+    final h = host.alias('x.old', 'x.a');
+    expect(host.registry.canonical('x.old'), 'x.a');
+    h.dispose();
+    expect(host.registry.canonical('x.old'), 'x.old');
   });
 
   test('an old name is not a word: it is refused as one, and no word may '

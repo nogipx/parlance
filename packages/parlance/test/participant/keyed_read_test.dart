@@ -99,6 +99,28 @@ void main() {
     expect(keyed.all['a'], same(kept));
   });
 
+  test('changesOf tells one key alone', () async {
+    final own = host.participant(shop, vocabularies: [WordSet.open('shop')]);
+    final stockOf = own.raw.defineState(
+      StateDescriptor('shop.stock', type: const AnyType(), key: 'item'),
+    );
+    stockOf.set({'n': 1}, key: 'a');
+    stockOf.set({'n': 1}, key: 'b');
+    final keyed = GeneratedWords(
+      host.participant(reader),
+    ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
+    final seen = <int>[];
+    final sub = keyed.changesOf('a').listen((s) => seen.add(s!.n));
+    await host.settle();
+
+    stockOf.set({'n': 2}, key: 'a');
+    await host.settle();
+    stockOf.set({'n': 3}, key: 'b');
+    await host.settle();
+    expect(seen, [1, 2], reason: 'the other key does not tell it');
+    await sub.cancel();
+  });
+
   test('a participant joined to a test host reads the time by its '
       'clock', () async {
     final at = DateTime.utc(2020);

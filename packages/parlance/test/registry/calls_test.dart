@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:parlance/tools.dart';
+import 'package:parlance/schema.dart' show failCall, HandlerFailed;
 import 'package:test/test.dart';
 
 import 'fixture.dart';
@@ -297,6 +298,24 @@ void main() {
     b.set(1);
     expect(r.explain('x.a').forgotten, isTrue);
     expect(r.explain('x.idle').forgotten, isFalse);
+  });
+
+  test('failCall ends a call as failed, with why the handler gives', () async {
+    expect(
+      () => failCall('the device said no'),
+      throwsA(
+        isA<HandlerFailed>().having((e) => e.why, 'why', 'the device said no'),
+      ),
+    );
+    f.r.defineCommand(
+      CommandDescriptor('x.ping', callers: Callers.anyone),
+      (c) => failCall('the device said no'),
+    );
+    final r = await f.r.call('x.ping', {}, by: user);
+    expect(
+      r,
+      isA<CallFailed>().having((e) => e.why, 'why', 'the device said no'),
+    );
   });
 
   test('a trail longer than ten is told cut, not given as all of it', () async {

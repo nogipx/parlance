@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:parlance/tools.dart';
+import 'package:parlance/src/remote/client.dart';
+import 'package:parlance/src/remote/contract.dart';
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
 import 'package:parlance/testing.dart';
+import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:parlance/src/participant/local.dart' show Participants;
@@ -23,6 +28,81 @@ final class S<T> implements IStateWord<T> {
 enum Mode { a, b }
 
 const when = S<String>('deck.when', PlainShape(TextType()));
+
+/// A host stub speaking the protocol version it is given: enough of the
+/// contract to join and follow.
+final class _Peer extends ParlanceContractPeer {
+  _Peer(this.protocol, super.endpoint);
+
+  final int protocol;
+
+  @override
+  Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context}) {
+    final out = StreamController<WireFeedItem>();
+    out.add(
+      const WireFeedItem('catalog', {
+        'epoch': 'e1',
+        'seq': 1,
+        'descriptors': <Object?>[],
+      }),
+    );
+    out.add(
+      WireFeedItem('snapshot', {
+        ...Snapshot(
+          epoch: 'e1',
+          seq: 1,
+          states: const {},
+          factsLost: false,
+        ).toJson(),
+        'subscription': 0,
+      }),
+    );
+    return out.stream;
+  }
+
+  @override
+  Future<WireDescription> onDescribe(RpcNull r, {RpcContext? context}) async =>
+      WireDescription({
+        'epoch': 'e1',
+        'seq': 1,
+        'descriptors': const <Object?>[],
+        'protocol': protocol,
+        'features': const <String>[],
+        'principal': {'kind': 'agent'},
+      });
+
+  @override
+  Future<WireJson> onSubscribe(WireSubscribe r, {RpcContext? context}) async =>
+      const WireJson({'subscription': 1, 'left': <String>[]});
+
+  @override
+  Future<WireCallReply> onInvoke(WireCallRequest r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<WireJson> onWhy(WireWhyRequest r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<WireJson> onRecent(WireRecentRequest r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<RpcNull> onCancelCall(WireName r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<RpcNull> onDefine(WireDefine r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<RpcNull> onUndefine(WireName r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<RpcNull> onWrite(WireSet r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<WireTaken> onEmit(WireEmit r, {RpcContext? context}) =>
+      throw UnimplementedError();
+  @override
+  Future<WireJson> onApply(WireJson r, {RpcContext? context}) =>
+      throw UnimplementedError();
+}
 
 void main() {
   group('a type it does not know', () {
@@ -126,6 +206,47 @@ void main() {
       });
     expect(mirror.descriptorOf('deck.at'), isNull);
     expect(mirror.descriptorOf('deck.shape'), isNull);
+  });
+
+  test('a host it joins again speaking another protocol is told', () async {
+    final hosts = <RpcPeerEndpoint>[];
+    addTearDown(() async {
+      for (final e in hosts) {
+        await e.close();
+      }
+    });
+    var which = 0;
+    final connection = RpcClientConnection(
+      transportFactory: (_) async {
+        which++;
+        final (c, s) = RpcChannelTransport.memoryPair();
+        final h = RpcPeerEndpoint(transport: s);
+        final peer = _Peer(which == 1 ? parlanceProtocol : 99, h);
+        h
+          ..registerServiceContract(peer)
+          ..start();
+        hosts.add(h);
+        final own = RpcPeerEndpoint(transport: c)..start();
+        hosts.add(own);
+        return c;
+      },
+      backoff: const RpcFixedBackoff(Duration(milliseconds: 10)),
+    );
+    final errors = <ParticipantError>[];
+    final p = await RemoteParticipant.join(
+      connection,
+      onParticipantError: errors.add,
+    );
+    addTearDown(() async {
+      await p.dispose();
+      await connection.dispose();
+    });
+    hosts.first.close(); // the first host goes; it joins again over the next
+    for (var i = 0; i < 200 && errors.isEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(errors.single.code, ParticipantErrorCode.protocol);
+    expect(errors.single.op, {'op': 'rejoin'});
   });
 
   test('a possible break is met only by the word its old name stands for '
