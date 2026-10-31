@@ -1,6 +1,6 @@
 ---
-status: open
-round: — (not re-measured)
+status: closed (round 1)
+round: 1
 commit: f68582b6f7473c9c3a5d2d0e570d0685932454d6
 paths: [packages/parlance/test/remote/newer_language_test.dart, packages/parlance/test/registry/calls_test.dart]
 probe: —
@@ -23,6 +23,10 @@ every round's gate step reports these two lines and must distinguish them
 from its own regressions; the first round touching either file should remove
 the import and close this lead. The fix itself is below the severity bar; it
 is here so the gate goes green, not because it is a defect worth a hunt.
+
+Closed by round 1: both imports removed, `fvm dart analyze` exit 2 -> 0
+("No issues found!"), canary re-adding the imports reproduced both
+diagnostics, parlance suite 569 passed.
 
 ## Owner decision
 

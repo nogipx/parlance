@@ -3,7 +3,7 @@ refines: —
 paths: [packages/parlance/lib/src/remote/**]
 applies: a guest connects over a connection and controls every byte the host parses; two-sided-protocol
 breaks: crash, wrong result
-applied: []
+applied: [1]
 status: derived
 rank: 1
 ---

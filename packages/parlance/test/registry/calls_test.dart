@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:parlance/tools.dart';
-import 'package:parlance/schema.dart' show failCall, HandlerFailed;
 import 'package:test/test.dart';
 
 import 'fixture.dart';

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:parlance/tools.dart';
-import 'package:parlance/src/remote/client.dart';
 import 'package:parlance/src/remote/contract.dart';
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
