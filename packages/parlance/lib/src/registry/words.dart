@@ -319,6 +319,11 @@ abstract interface class IKeyedOf<T> {
   /// The value of [key] now; null while there is none.
   T? of(String key);
 
+  /// Whether [key] has a value now, null or not: [of] answers null alike
+  /// for a key there is none of and one whose value is null, and [all]
+  /// and [keys] list the key in neither case; this tells them apart.
+  bool has(String key);
+
   /// The value of every key there is, by key.
   Map<String, T> get all;
 

@@ -158,10 +158,12 @@ final class StateDescriptor extends Descriptor {
   /// The choices its keys are of, when it holds one value per choice.
   final String? key;
 
-  /// Who may read its values over remote and MCP, as callers
-  /// name who may call a command (SPEC §6.1); null for everyone. Its
-  /// descriptor is in the catalog for all. Code in the registry's own
-  /// process reads it anyway.
+  /// Who may read its values, as callers name who may call a command
+  /// (SPEC §6.1); null for everyone. Its descriptor is in the catalog
+  /// for all. Every read is held to it — over remote and MCP, and in
+  /// the registry's own process as far as the code reads through a
+  /// participant or a view; only the registry's own tools, on the raw
+  /// registry, read anyway.
   final Callers? readers;
 
   bool get keyed => key != null;

@@ -454,6 +454,11 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
   @override
   T? of(String key) => _w._resolve().readAs(_word.name, _word.shape, key: key);
 
+  /// As [readAll] lists the key: a stored null counts as there.
+  @override
+  bool has(String key) =>
+      _w._resolve().readAll(_word.name).containsKey(key);
+
   /// As [of] reads each: the owner's own values in its process, and one
   /// that cannot be read left out, as [of] answers null for it.
   @override

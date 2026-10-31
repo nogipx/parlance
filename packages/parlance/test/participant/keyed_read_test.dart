@@ -55,6 +55,32 @@ void main() {
     });
   }
 
+  for (final across in [false, true]) {
+    test('${across ? 'across a connection' : 'in this process'}: a stored '
+        'null is a key there is: has tells it from a missing one, as of '
+        'answers null for both', () async {
+      final own = host.participant(shop, vocabularies: [WordSet.open('shop')]);
+      final stockOf = own.raw.defineState(
+        StateDescriptor('shop.stock', type: const AnyType(), key: 'item'),
+      );
+      stockOf.set(null, key: 'a');
+      final IParticipant p = across
+          ? await host.join(reader)
+          : host.participant(reader);
+      final keyed = GeneratedWords(
+        p,
+      ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
+      final sub = keyed.changes.listen((_) {});
+      await p.settle();
+      await host.settle();
+
+      expect(keyed.has('a'), isTrue);
+      expect(keyed.of('a'), isNull);
+      expect(keyed.has('b'), isFalse);
+      await sub.cancel();
+    });
+  }
+
   test('in this process, all gives the values the owner keeps, as of '
       'does', () async {
     const at = DateTimeShape();
