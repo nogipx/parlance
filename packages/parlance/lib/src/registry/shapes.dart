@@ -284,8 +284,9 @@ final class DurationShape extends Shape<Duration> {
   int weigh(Duration value) => 8;
 }
 
-/// A Dart [DateTime], kept as its whole milliseconds since the epoch;
-/// read back in UTC.
+/// A Dart [DateTime], kept as an ISO-8601 text in UTC, read back as
+/// DateTime.parse has it. The same text a DateTime field of a JSON class
+/// keeps: one JSON shape for the type.
 final class DateTimeShape extends Shape<DateTime> {
   const DateTimeShape();
 
@@ -293,11 +294,10 @@ final class DateTimeShape extends Shape<DateTime> {
   DateTimeType get type => const DateTimeType();
 
   @override
-  Object? toJson(DateTime value) => value.millisecondsSinceEpoch;
+  Object? toJson(DateTime value) => value.toUtc().toIso8601String();
 
   @override
-  DateTime fromJson(Object? json) =>
-      DateTime.fromMillisecondsSinceEpoch(json! as int, isUtc: true);
+  DateTime fromJson(Object? json) => DateTime.parse(json! as String);
 
   @override
   DateTime check(DateTime value, ITypeContext ctx, {DateTime? was}) => value;
@@ -306,7 +306,7 @@ final class DateTimeShape extends Shape<DateTime> {
   bool equals(DateTime a, DateTime b) => a.isAtSameMomentAs(b);
 
   @override
-  int weigh(DateTime value) => 8;
+  int weigh(DateTime value) => jsonWeight(toJson(value));
 }
 
 /// A list of [item]s.

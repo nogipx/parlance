@@ -41,6 +41,48 @@ const _orderType = RecordType({
   'to': Field(RecordType({'city': Field(TextType())})),
 });
 
+/// As json_serializable makes one: a DateTime field is an ISO-8601
+/// text — the one JSON shape a DateTime has, a word of its own or a
+/// field of a JSON class (DateTimeShape, DateTimeType).
+final class Meeting {
+  const Meeting(this.when);
+  factory Meeting.fromJson(Map<String, Object?> m) =>
+      Meeting(DateTime.parse(m['when']! as String));
+  final DateTime when;
+  Map<String, Object?> toJson() => {'when': when.toIso8601String()};
+
+  @override
+  bool operator ==(Object other) => other is Meeting && other.when == when;
+
+  @override
+  int get hashCode => when.hashCode;
+}
+
+const _meetingType = RecordType({
+  'when': Field(DateTimeType()),
+});
+
+enum Meetings<T> implements IStateWord<T> {
+  next<Meeting>(
+    'orders.next',
+    JsonShape(
+      from: Meeting.fromJson,
+      to: _meetingToJson,
+      type: _meetingType,
+    ),
+  );
+
+  const Meetings(this.name, this.shape);
+  @override
+  final String name;
+  @override
+  final Shape<T> shape;
+  @override
+  String? get key => null;
+}
+
+Map<String, Object?> _meetingToJson(Meeting m) => m.toJson();
+
 enum Orders<T> implements IStateWord<T> {
   last<Order>(
     'orders.last',
@@ -107,5 +149,18 @@ void main() {
     const list = ListShape(JsonShape(from: Order.fromJson, to: _toJson));
     final json = list.toJson(const [Order('a', Address('x'))]);
     expect(list.fromJson(json), const [Order('a', Address('x'))]);
+  });
+
+  test('a DateTime a JSON class holds keeps the one JSON shape a '
+      'DateTime word keeps: an ISO-8601 text', () {
+    final next = orders.state(Meetings.next).define();
+    final at = DateTime.utc(2026, 11, 1, 12);
+    next.set(Meeting(at));
+    expect(r.read('orders.next'), {'when': at.toIso8601String()});
+    expect(orders.stateOf(Meetings.next).value, Meeting(at));
+    expect(
+      r.stateDescriptor('orders.next')!.type.toJson(),
+      _meetingType.toJson(),
+    );
   });
 }

@@ -1455,7 +1455,9 @@ final class _Emitter {
     if (t is! InterfaceType) return 'AnyType()';
     final e = t.element;
     if (e.displayName == 'DateTime' && e.library.isDartCore) {
-      return 'TextType()';
+      // The same ISO-8601 text a DateTime word of its own keeps
+      // (DateTimeShape): one JSON shape for the type.
+      return 'DateTimeType()';
     }
     if (e is EnumElement) {
       return 'EnumType([${[for (final c in e.constants) _quote(c.displayName)].join(', ')}])';

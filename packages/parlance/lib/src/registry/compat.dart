@@ -309,9 +309,10 @@ final class _Judge {
     }
     if (rt == 'nullable') return read(at, r['of'], w);
     if (rt != wt) {
-      final promoted =
-          (rt == 'num' && (wt == 'int' || wt == 'duration')) ||
-          (rt == 'int' && (wt == 'duration' || wt == 'datetime'));
+      // What was an int reads as a duration still (millis); a moment is
+      // a text now, and reading old millis data is told as a break.
+      final promoted = rt == 'num' && (wt == 'int' || wt == 'duration') ||
+          rt == 'int' && wt == 'duration';
       if (!promoted) return _add('$at.type', BreakKind.type, rt, wt);
     }
     switch (rt) {

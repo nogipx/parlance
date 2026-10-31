@@ -200,13 +200,19 @@ final class DurationType extends ValueType<int> {
   Map<String, Object?> toJson() => {'type': 'duration', 'max': ?maxMillis};
 }
 
-/// A moment, as whole milliseconds since the epoch, UTC.
-final class DateTimeType extends ValueType<int> {
+/// A moment, as an ISO-8601 text (as json_serializable makes of a
+/// DateTime), read back as DateTime.parse has it. The one JSON shape a
+/// DateTime has, a word of its own or a field of a JSON class.
+final class DateTimeType extends ValueType<String> {
   const DateTimeType();
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
-      const IntType().check(value, ctx, path);
+  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+    if (value is! String || DateTime.tryParse(value) == null) {
+      ValueType._fail(path, 'expected an ISO-8601 moment');
+    }
+    return value;
+  }
 
   @override
   Map<String, Object?> toJson() => {'type': 'datetime'};

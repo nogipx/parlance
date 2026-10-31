@@ -10,7 +10,7 @@ final class Bedside extends ClockOwnerBase {
 }
 
 void main() {
-  test('a moment is a DateTime in Dart and milliseconds in JSON', () async {
+  test('a moment is a DateTime in Dart and an ISO-8601 text in JSON', () async {
     final host = Host();
     host.participant(const Principal('clock'), owners: [Bedside()]);
     final me = host.participant(const Principal('user', 'ann'));
@@ -19,7 +19,7 @@ void main() {
     await clock.setAlarm(at: at);
     await me.settle();
     expect(clock.alarm.value, at);
-    expect(me.raw.read('clock.alarm'), at.millisecondsSinceEpoch);
+    expect(me.raw.read('clock.alarm'), at.toIso8601String());
     expect(host.registry.stateDescriptor('clock.alarm')!.type.toJson(), {
       'type': 'datetime',
     });
