@@ -1066,11 +1066,13 @@ final class Explanation {
   /// none.
   final StateChange? change;
 
-  /// [change] is null, and the registry has forgotten ticks: the change
-  /// may be older than it retains, rather than none.
+  /// [change] is null, and the registry has forgotten a change of this
+  /// state (of this key): the change may be older than it retains, rather
+  /// than none. A state never written is not forgotten.
   final bool forgotten;
 
-  /// The calls that led to [change], nearest first.
+  /// The calls that led to [change], nearest first: at most ten, and
+  /// [trailCut] says the trail goes further back than these.
   final List<CallRecord> trail;
 
   /// The trail goes on further back than the registry remembers.

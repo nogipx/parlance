@@ -506,9 +506,11 @@ final class Registry implements ITypeContext {
     _retainedBytes += weight;
     while (_retained.length > limits.retainTicks ||
         (_retained.length > 1 && _retainedBytes > limits.retainBytes)) {
-      _retained.removeFirst();
+      final dropped = _retained.removeFirst();
       _retainedBytes -= _retainedWeights.removeFirst();
-      _forgotTicks = true;
+      for (final c in dropped.changes) {
+        _forgottenChanges.add((state: c.state, key: c.key));
+      }
     }
     for (final (i, f) in committed.indexed) {
       final q = _recent.putIfAbsent(f.fact, _RecentFacts.new);
@@ -790,9 +792,10 @@ final class Registry implements ITypeContext {
       jsonWeight(r.params) +
       (r.result is CallDone ? jsonWeight((r.result as CallDone).value) : 16);
 
-  // Whether retention dropped ticks or call records: what explain cannot
-  // find may be forgotten rather than never there.
-  bool _forgotTicks = false;
+  // The pairs a dropped tick changed: what explain cannot find may be
+  // forgotten rather than never there. Names only; as many as states
+  // are ever written.
+  final Set<({String state, String? key})> _forgottenChanges = {};
   bool _forgotCalls = false;
 
   void _remember(CallRecord record) {
@@ -818,7 +821,8 @@ final class Registry implements ITypeContext {
 
   /// Why [state] (of [key]) is as it is: its value, its last change still
   /// retained (when, on whose behalf, through what), and the calls that led
-  /// to it, nearest first, as far as they are remembered.
+  /// to it, nearest first, as far as they are remembered: at most ten, and
+  /// [Explanation.trailCut] says the trail goes further back than given.
   Explanation explain(String state, {String? key}) {
     state = canonical(state);
     final change = lastChange(state, key: key);
@@ -826,7 +830,13 @@ final class Registry implements ITypeContext {
     var parent = change?.cause.parent;
     var cut = false;
     final seen = <String>{};
-    while (parent != null && seen.add(parent) && trail.length < 10) {
+    while (parent != null && seen.add(parent)) {
+      if (trail.length >= 10) {
+        // The trail goes on past these: said so, not given as if these
+        // ten were all of it.
+        cut = true;
+        break;
+      }
       final call = callRecord(parent);
       if (call == null) {
         cut = _forgotCalls;
@@ -840,7 +850,8 @@ final class Registry implements ITypeContext {
       key: key,
       value: read(state, key: key),
       change: change,
-      forgotten: change == null && _forgotTicks,
+      forgotten: change == null &&
+          _forgottenChanges.contains((state: state, key: key)),
       trail: trail,
       trailCut: cut,
     );

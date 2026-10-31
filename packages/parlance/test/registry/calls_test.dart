@@ -281,6 +281,50 @@ void main() {
     expect(Explanation.fromJson(e.toJson()).forgotten, isTrue);
   });
 
+  test('a state never written is not forgotten', () {
+    final r = Registry(limits: HostLimits(retainTicks: 1));
+    addTearDown(r.dispose);
+    final a = r.defineState(
+      StateDescriptor('x.a', type: const IntType()),
+      by: owner,
+    );
+    final b = r.defineState(
+      StateDescriptor('x.b', type: const IntType()),
+      by: owner,
+    );
+    r.defineState(StateDescriptor('x.idle', type: const IntType()), by: owner);
+    a.set(1);
+    b.set(1);
+    expect(r.explain('x.a').forgotten, isTrue);
+    expect(r.explain('x.idle').forgotten, isFalse);
+  });
+
+  test('a trail longer than ten is told cut, not given as all of it', () async {
+    final depth = f.r.defineState(
+      StateDescriptor('x.depth', type: const IntType()),
+      by: owner,
+    );
+    f.r.defineCommand(
+      CommandDescriptor(
+        'x.dig',
+        params: const RecordType({'n': Field(IntType())}),
+        callers: Callers.anyone,
+      ),
+      (c) async {
+        final n = c.params['n']! as int;
+        if (n == 0) {
+          depth.set(n, cause: c.causeFor(owner));
+          return;
+        }
+        await f.r.call('x.dig', {'n': n - 1}, by: user, cause: c.causeFor(owner));
+      },
+    );
+    await f.r.call('x.dig', {'n': 15}, by: user);
+    final e = f.r.explain('x.depth');
+    expect(e.trail, hasLength(10));
+    expect(e.trailCut, isTrue);
+  });
+
   test(
     'an id is the call it was given for: another call with it is refused',
     () async {
