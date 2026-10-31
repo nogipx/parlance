@@ -101,9 +101,6 @@ enum ParticipantErrorCode {
   /// listeners ask for past what a session carries by name.
   overLimit,
 
-  /// The host could not do it now.
-  unavailable,
-
   /// No answer came: the connection broke, or gave up; or the host ended
   /// its session (`{op: join}`), and it does not join again.
   lost,
