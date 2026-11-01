@@ -34,6 +34,7 @@ part 'registry_raw.dart';
 /// a retry, a feed catching up and `recent` from. The defaults suit an
 /// app; a phone may keep less.
 final class HostLimits {
+  /// Const constructor; the defaults suit an app.
   const HostLimits({
     this.dedupWindow = const Duration(minutes: 10),
     this.dedupLimit = 10000,
@@ -90,6 +91,7 @@ final Object _cancelledMark = Object();
 /// One isolate, one writer: every commit happens here in order, so seq is a
 /// total order. Participants hold handles and never each other.
 final class Registry implements ITypeContext {
+  /// The library's; [limits] for how much it keeps.
   Registry({
     this.limits = const HostLimits(),
     Clock? clock,
@@ -212,17 +214,21 @@ final class Registry implements ITypeContext {
     for (final f in _facts.values) f.descriptor,
   ];
 
+  /// The choices given, by name.
   Iterable<Choices> get choices => _choices.values;
 
+  /// The descriptor of the state [name]; null for none.
   StateDescriptor? stateDescriptor(String name) =>
       _states[canonical(name)]?.descriptor;
 
+  /// The descriptor of the command [name]; null for none.
   CommandDescriptor? commandDescriptor(String name) =>
       switch (_commands[canonical(name)]?.descriptor) {
         final CommandDescriptor d => d,
         _ => null,
       };
 
+  /// The descriptor of the query [name]; null for none.
   QueryDescriptor? queryDescriptor(String name) =>
       switch (_commands[canonical(name)]?.descriptor) {
         final QueryDescriptor d => d,
@@ -233,6 +239,7 @@ final class Registry implements ITypeContext {
   CallableDescriptor? callableDescriptor(String name) =>
       _commands[canonical(name)]?.descriptor;
 
+  /// The descriptor of the fact [name]; null for none.
   FactDescriptor? factDescriptor(String name) =>
       _facts[canonical(name)]?.descriptor;
 

@@ -19,7 +19,7 @@ The contract the code and its tests follow is in `references/`, one file per lib
 | glossary | every term of the package in a line, with its section | [references/glossary.md](references/glossary.md) |
 | `parlance_mcp` (a package of its own) | curated agent tools on an agent's participant (here or across a connection); `parlance_mcp/io.dart`: the server on a Unix socket; the binary `parlance-mcp` | [references/mcp.md](references/mcp.md): §16 |
 
-## One way (docs/философия.md)
+## One way
 
 Each task has one way; what does the same another way is a tool's or gone.
 

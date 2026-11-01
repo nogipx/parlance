@@ -164,6 +164,7 @@ enum BreakKind {
 /// an enum value added, a field that may be left out), and a part may
 /// never meet it.
 final class WordBreak {
+  /// Const constructor.
   const WordBreak(
     this.path,
     this.kind,
@@ -172,12 +173,19 @@ final class WordBreak {
     this.certain = true,
   });
 
+  /// Where: dot-separated, into its schema entry (`params.note`).
   final String path;
+  /// What kind of promise broke.
   final BreakKind kind;
+  /// What the code was built against.
   final Object? was;
+  /// What the word says now.
   final Object? now;
+  /// Whether every use of the word meets it; false: only some
+  /// values do.
   final bool certain;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'path': path,
     'kind': kind.name,

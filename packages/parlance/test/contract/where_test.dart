@@ -11,7 +11,7 @@ part 'where_test.g.dart';
 /// same wherever each side runs: every test runs four times, the owner in
 /// the host's process or across a connection, and the part that uses its
 /// words in the host's process or across one. One expectation for all
-/// four: where they differ, a promise leaks (`docs/протечки.md`).
+/// four: where they differ, a promise leaks.
 @Vocabulary('deck')
 abstract class Deck {
   @StateWord('volume')

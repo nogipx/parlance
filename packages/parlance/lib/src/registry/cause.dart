@@ -5,8 +5,10 @@ import 'package:crypto/crypto.dart' show sha256;
 /// Who acts: a kind the host declared, an id within it, and the owner of
 /// it that acts, if one does (SPEC §4).
 final class Principal {
+  /// Const constructor.
   const Principal(this.kind, [this.id = '', this.owner = '']);
 
+  /// [json] as a principal; not one is an [ArgumentError] via [check].
   factory Principal.fromJson(Object? json) {
     final m = json as Map;
     return Principal(
@@ -19,6 +21,7 @@ final class Principal {
   /// The registry itself: the values of a word that went, removed with it.
   static const system = Principal('system');
 
+  /// Its kind: a word's name, ours (`user`, `module`).
   final String kind;
 
   /// Which one of its kind, maybe from outside; empty for a kind of one
@@ -147,6 +150,7 @@ final class Principal {
     return null;
   }
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'kind': kind,
     if (id.isNotEmpty) 'id': id,
@@ -171,16 +175,22 @@ final class Principal {
 /// message (a command's or a fact's name) and on whose behalf it was. Which
 /// conversation it is, the cause's `conversation` (its id) says.
 final class Origin {
+  /// Const constructor.
   const Origin(this.word, this.by);
 
+  /// [json] as an origin.
   factory Origin.fromJson(Object? json) {
     final m = json as Map;
     return Origin(m['word'] as String, Principal.fromJson(m['by']));
   }
 
+  /// The word the conversation started with.
   final String word;
+
+  /// On whose behalf it was.
   final Principal by;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {'word': word, 'by': by.toJson()};
 
   @override
@@ -196,8 +206,10 @@ final class Origin {
 
 /// Why something happens (SPEC §4).
 final class Cause {
+  /// Const constructor.
   const Cause(this.by, {this.parent, this.conversation, this.origin});
 
+  /// [json] as a cause.
   factory Cause.fromJson(Object? json) {
     final m = json as Map;
     return Cause(
@@ -250,6 +262,7 @@ final class Cause {
   Cause withBy(Principal by) =>
       Cause(by, parent: parent, conversation: conversation, origin: origin);
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'by': by.toJson(),
     'parent': ?parent,

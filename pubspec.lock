@@ -17,6 +17,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "10.2.0"
+  ansi_styles:
+    dependency: transitive
+    description:
+      name: ansi_styles
+      sha256: "9c656cc12b3c27b17dd982b2cc5c0cfdfbdabd7bc8f3ae5e8542d9867b47ce8a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2+1"
   args:
     dependency: transitive
     description:
@@ -105,6 +113,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  charcode:
+    dependency: transitive
+    description:
+      name: charcode
+      sha256: fb0f1107cac15a5ea6ef0a6ef71a807b9e4267c713bb93e00e92d737cc8dbd8a
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.0"
   checked_yaml:
     dependency: transitive
     description:
@@ -121,14 +137,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.0"
+  cli_launcher:
+    dependency: transitive
+    description:
+      name: cli_launcher
+      sha256: ff37bcc6d5fa25ab7ddcf255a60900b28e4e1712d34495e5f7952e0982933913
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.4+1"
   cli_util:
     dependency: transitive
     description:
       name: cli_util
-      sha256: "89b8801ba49f8b593fbf2d3e59efd0f566c46cd4ba6837ae2610c72b52a0f899"
+      sha256: "71e43f1976c3eae2d9468a5b4d6600bf8cae61508b87f27fa1799228935d48ab"
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.5.2"
   clock:
     dependency: transitive
     description:
@@ -145,6 +169,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
+  conventional_commit:
+    dependency: transitive
+    description:
+      name: conventional_commit
+      sha256: c40b1b449ce2a63fa2ce852f35e3890b1e182f5951819934c0e4a66254bc0dc3
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.1+1"
   convert:
     dependency: transitive
     description:
@@ -157,10 +189,10 @@ packages:
     dependency: transitive
     description:
       name: coverage
-      sha256: ff89e37c19355194e279d26dafe8e4bece46c9ea63a30be4dc68214f5bc290d3
+      sha256: "956a3de0725ca232ad353565a8290d3357592bf4250f6f298a185e2d949c5d3d"
       url: "https://pub.dev"
     source: hosted
-    version: "1.16.0"
+    version: "1.15.1"
   cross_file:
     dependency: transitive
     description:
@@ -408,6 +440,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
+  melos:
+    dependency: "direct dev"
+    description:
+      name: melos
+      sha256: "5fc1a858e3d90fdc42f2f423b95f901214bbc3d9e80c99125d9352f12453721d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.8.2"
   meta:
     dependency: transitive
     description:
@@ -424,6 +464,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  mustache_template:
+    dependency: transitive
+    description:
+      name: mustache_template
+      sha256: "17a8de9072575bb1a3237b90ed1f756b2189995b334df2ad12b7cdd76b13f3ce"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.6"
   node_preamble:
     dependency: transitive
     description:
@@ -456,6 +504,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.1.0"
+  platform:
+    dependency: transitive
+    description:
+      name: platform
+      sha256: a36d119c13416516a7b5913fbe8af8531e11633d784c550b2125f76c758524ec
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.0"
   plugin_platform_interface:
     dependency: transitive
     description:
@@ -472,6 +528,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.3"
+  process:
+    dependency: transitive
+    description:
+      name: process
+      sha256: "4242ba3508d37e01808bdf71ad1d5bb93a8d671bf2e7450e6b1b353fb0808891"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.0.6"
+  prompts:
+    dependency: transitive
+    description:
+      name: prompts
+      sha256: "3773b845e85a849f01e793c4fc18a45d52d7783b4cb6c0569fad19f9d0a774a1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
   pub_semver:
     dependency: transitive
     description:
@@ -480,6 +552,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.1"
+  pub_updater:
+    dependency: transitive
+    description:
+      name: pub_updater
+      sha256: "739a0161d73a6974c0675b864fb0cf5147305f7b077b7f03a58fa7a9ab3e7e7d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.0"
   pubspec_parse:
     dependency: transitive
     description:
@@ -489,34 +569,37 @@ packages:
     source: hosted
     version: "1.7.0"
   rpc_dart:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
-      path: "../rpc_dart/packages/core/rpc_dart"
-      relative: true
-    source: path
-    version: "6.3.0"
+      name: rpc_dart
+      sha256: "914a7ff8297f46bff561c83fa9dd5e970e1e3dece95f67471962388f9d07af23"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.0"
   rpc_dart_generator:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
-      path: "../rpc_dart/packages/core/rpc_dart_generator"
-      relative: true
-    source: path
-    version: "0.6.0"
+      name: rpc_dart_generator
+      sha256: "2f3f58953516335c8fc2ab4e3a8e899ba1b0744b9e36332483a1f5cff473a1ed"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.0"
   rpc_dart_grpc_reflection:
     dependency: transitive
     description:
       name: rpc_dart_grpc_reflection
-      sha256: "97000f1b8117138a381c2b47770499a9a084884e945c7a1f640a8a23f17d8d8d"
+      sha256: "2569cfea715ccb9d8f73146193cad533f703e797106815c3be17dde141d6c88b"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.4.0"
   rpc_dart_socket:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
-      path: "../rpc_dart/packages/transport/rpc_dart_socket"
-      relative: true
-    source: path
-    version: "0.1.0"
+      name: rpc_dart_socket
+      sha256: "49409a950f2aba3bc9b824aa9f74b85ffd26ba0726d3e18614d65a4349c57f15"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0"
   shelf:
     dependency: transitive
     description:
@@ -754,6 +837,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.4"
+  yaml_edit:
+    dependency: transitive
+    description:
+      name: yaml_edit
+      sha256: "07c9e63ba42519745182b88ca12264a7ba2484d8239958778dfe4d44fe760488"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.4"
 sdks:
   dart: ">=3.13.1 <4.0.0"
   flutter: ">=3.38.0"

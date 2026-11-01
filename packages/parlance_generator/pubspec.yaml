@@ -1,7 +1,12 @@
 name: parlance_generator
 description: "Makes parlance's typed words from a module's abstract Dart class: the enums of its states, commands, queries and facts, with their shapes."
-publish_to: none
+version: 0.1.0
 resolution: workspace
+repository: https://github.com/nogipx/parlance
+issue_tracker: https://github.com/nogipx/parlance/issues
+topics:
+  - codegen
+  - source-gen
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
@@ -10,7 +15,7 @@ dependencies:
   analyzer: '>=9.0.0 <11.0.0'
   build: ^4.0.4
   dart_style: ^3.1.3
-  parlance: any
+  parlance: ^0.1.0
   pub_semver: ^2.2.0
   source_gen: ^4.2.0
 

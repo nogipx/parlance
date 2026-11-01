@@ -15,6 +15,7 @@ import 'owner.dart';
 /// A participant asked for what it may not do: a word outside its
 /// vocabularies, a right it lacks, an act as someone else (SPEC §22.2).
 final class NotPermitted extends StateError {
+  /// Told as it is.
   NotPermitted(super.message);
 
   @override
@@ -24,6 +25,7 @@ final class NotPermitted extends StateError {
 /// What a participant may do beyond defining words in its vocabularies
 /// (SPEC §22.2). Each check answers why not, or null to allow.
 final class ParticipantRights {
+  /// Const constructor; null: no further check.
   const ParticipantRights({this.define, this.speakFor});
 
   /// Define the word [call] names, one in its vocabularies: a further
@@ -40,7 +42,19 @@ final class ParticipantRights {
 }
 
 /// What a word is: a state, a command, a query or a fact.
-enum WordRole { state, command, query, fact }
+enum WordRole {
+  /// A value read and watched.
+  state,
+
+  /// A request to do something.
+  command,
+
+  /// A question that changes nothing.
+  query,
+
+  /// What happened.
+  fact,
+}
 
 /// A word a participant asks to define, as its rights judge it
 /// ([ParticipantRights.define]): who asks, the word and what it is, and
@@ -118,6 +132,7 @@ DefineCall defineCallOf(Principal who, Descriptor d) => switch (d) {
 /// (SPEC §22.2): its states' and facts' `readers`, its commands' `callers`.
 /// A word's own replaces it whole; nothing merges.
 final class WordAccess {
+  /// Const constructor; null: as each word says.
   const WordAccess({this.readers, this.callers});
 
   /// Readers of its states and facts; null: everyone.
@@ -126,6 +141,7 @@ final class WordAccess {
   /// Callers of its commands; null: each command says.
   final Callers? callers;
 
+  /// Reads nothing, calls nothing: only what a word itself says stands.
   static const none = WordAccess();
 }
 
@@ -349,6 +365,7 @@ FutureOr<R> _served<R>(IParticipant p, FutureOr<R> answer) {
 /// Every participant is raw underneath ([IRawParticipant]): the library's
 /// way in, and its tools'.
 extension RawAccess on IParticipant {
+  /// The raw participant beneath.
   IRawParticipant get raw => this as IRawParticipant;
 }
 

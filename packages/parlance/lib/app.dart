@@ -4,7 +4,7 @@
 /// serves across a connection ([Host.serve]), the join from the other end
 /// ([Host.join]), and what they tell of errors.
 ///
-/// It is frozen as `schema.dart` is (SPEC §14, §22, docs/план-api.md):
+/// It is frozen as `schema.dart` is (SPEC §14, §22):
 /// what it shows is never taken away, renamed or changed in meaning; it
 /// only grows. What it shows is interfaces and final classes only the
 /// library makes. The rest of the library (`tools.dart`) is there for

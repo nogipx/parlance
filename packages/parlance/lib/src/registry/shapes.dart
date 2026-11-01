@@ -15,10 +15,16 @@ import 'types.dart';
 /// about the JSON's weight. So a value written here and one come as JSON
 /// are held to one rule.
 abstract base class Shape<T> {
+  /// Const constructor.
   const Shape();
 
+  /// The type its JSON must pass.
   ValueType<Object?> get type;
+
+  /// Its JSON.
   Object? toJson(T value);
+
+  /// What [json] makes of it.
   T fromJson(Object? json);
 
   /// Whether the registry can keep a value of it as the value itself;
@@ -87,6 +93,7 @@ Object? _keepJson(Object? v) => v is List || v is Map ? freezeJson(v) : v;
 /// Dart type (a plugin's, a guest's in another language, one named at run
 /// time), checked by [type].
 final class JsonValue extends Shape<Object?> {
+  /// Const constructor.
   const JsonValue(this.type);
 
   @override
@@ -114,6 +121,7 @@ final class JsonValue extends Shape<Object?> {
 /// A value kept as it is: a bool, an int, a num, a text or a choice's id.
 /// Its Dart type is its type's: `PlainShape(BoolType())` is a `Shape<bool>`.
 final class PlainShape<T> extends Shape<T> {
+  /// Const constructor.
   const PlainShape(this.type);
 
   @override
@@ -150,6 +158,9 @@ final class PlainShape<T> extends Shape<T> {
 /// `explicitToJson: true`, or a nested object stays a Dart object and the
 /// write is refused.
 final class JsonShape<T> extends Shape<T> {
+  /// Const constructor; [from] makes a [T] of a JSON map, [to] gives its
+  /// JSON, and [type] checks what is written (`null` for none: any object
+  /// passes).
   const JsonShape({
     required T Function(Map<String, Object?> json) from,
     required Map<String, Object?> Function(T value) to,
@@ -202,8 +213,10 @@ final class JsonShape<T> extends Shape<T> {
 /// for (SPEC §25.2): an enum value or a variant added after the code was
 /// built. A typed read gives none rather than throw it.
 final class UnknownValue implements Exception {
+  /// Const constructor.
   const UnknownValue(this.value, this.known);
 
+  /// What was found.
   final String value;
 
   /// What the code knows there.
@@ -218,8 +231,10 @@ final class UnknownValue implements Exception {
 /// know reads as [unknown] (SPEC §25.2); with none, it is an
 /// [UnknownValue].
 final class EnumShape<E extends Enum> extends Shape<E> {
+  /// Const constructor.
   const EnumShape(this.values, {this.unknown});
 
+  /// The values it may be.
   final List<E> values;
 
   /// What a value added after the code was built reads as: one of
@@ -257,6 +272,7 @@ final class EnumShape<E extends Enum> extends Shape<E> {
 /// A Dart [Duration], kept as its whole milliseconds (SPEC §2), at most
 /// [max].
 final class DurationShape extends Shape<Duration> {
+  /// Const constructor.
   const DurationShape({this.max});
 
   /// The longest it may be.
@@ -288,6 +304,7 @@ final class DurationShape extends Shape<Duration> {
 /// DateTime.parse has it. The same text a DateTime field of a JSON class
 /// keeps: one JSON shape for the type.
 final class DateTimeShape extends Shape<DateTime> {
+  /// Const constructor.
   const DateTimeShape();
 
   @override
@@ -309,11 +326,15 @@ final class DateTimeShape extends Shape<DateTime> {
   int weigh(DateTime value) => jsonWeight(toJson(value));
 }
 
-/// A list of [item]s.
+/// A list of [item]s, at most [maxItems] long.
 final class ListShape<T> extends Shape<List<T>> {
+  /// Const constructor.
   const ListShape(this.item, {this.maxItems});
 
+  /// The shape of each item.
   final Shape<T> item;
+
+  /// The most items it may hold.
   final int? maxItems;
 
   @override
@@ -414,8 +435,10 @@ final class ListShape<T> extends Shape<List<T>> {
 
 /// [of], or null.
 final class NullableShape<T> extends Shape<T?> {
+  /// Const constructor.
   const NullableShape(this.of);
 
+  /// The shape of a value that is not null.
   final Shape<T> of;
 
   @override
@@ -442,11 +465,15 @@ final class NullableShape<T> extends Shape<T?> {
   int weigh(T? value) => value == null ? 8 : of.weigh(value);
 }
 
-/// A map from text to [value]s.
+/// A map from text to [value]s, at most [maxEntries] entries.
 final class MapShape<T> extends Shape<Map<String, T>> {
+  /// Const constructor.
   const MapShape(this.value, {this.maxEntries});
 
+  /// The shape of each entry's value.
   final Shape<T> value;
+
+  /// The most entries it may hold.
   final int? maxEntries;
 
   @override
@@ -536,6 +563,8 @@ final class MapShape<T> extends Shape<Map<String, T>> {
 
 /// A field of a [RecordShape].
 final class Part {
+  /// Const constructor; `optional` becomes true whenever there is a
+  /// [defaultValue].
   const Part(
     this.shape, {
     bool optional = false,
@@ -546,6 +575,7 @@ final class Part {
   /// What it is, for people and agents (a tool's schema says it).
   final String? description;
 
+  /// What its values must pass.
   final Shape<Object?> shape;
 
   /// May be left out (its value is then absent); true with a default.
@@ -563,6 +593,7 @@ final class Part {
 /// (the generator gives it), reads a field by its place in [fields], so a
 /// value is checked, compared and weighed with no map made of it.
 final class RecordShape<T> extends Shape<T> {
+  /// Const constructor.
   const RecordShape(
     this.fields, {
     required this.to,
@@ -570,8 +601,13 @@ final class RecordShape<T> extends Shape<T> {
     this.get,
   });
 
+  /// What each named field is.
   final Map<String, Part> fields;
+
+  /// Its fields as Dart values, by name.
   final Map<String, Object?> Function(T value) to;
+
+  /// Makes a [T] of its fields, by name.
   final T Function(Map<String, Object?> fields) from;
 
   /// The field at [index] of [fields] of [value].
@@ -729,6 +765,7 @@ final class RecordShape<T> extends Shape<T> {
 /// variant it does not know reads as [unknown] makes it (SPEC §25.2); with
 /// none, it is an [UnknownValue].
 final class UnionShape<T> extends Shape<T> {
+  /// Const constructor.
   const UnionShape(
     this.key,
     this.variants, {
@@ -737,8 +774,13 @@ final class UnionShape<T> extends Shape<T> {
     this.unknown,
   });
 
+  /// The field that tells the variant: its value names one of [variants].
   final String key;
+
+  /// What each variant's fields are, by its tag.
   final Map<String, RecordShape<T>> variants;
+
+  /// Names a value's variant: the tag of one of [variants].
   final String Function(T value) tagOf;
 
   /// What each variant is for, by its tag (a tool's schema says it).

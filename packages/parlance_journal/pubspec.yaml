@@ -1,15 +1,20 @@
 name: parlance_journal
 description: "A registry's journal kept where it lasts: JSON lines a file a day, and read back as conversations, traces and the links there are."
-publish_to: none
+version: 0.1.0
 resolution: workspace
+repository: https://github.com/nogipx/parlance
+issue_tracker: https://github.com/nogipx/parlance/issues
+topics:
+  - journal
+  - observability
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
-  parlance: any
+  parlance: ^0.1.0
 
 dev_dependencies:
   clock: ^1.1.0
-  rpc_dart: any
+  rpc_dart: ^7.0.0
   test: ^1.25.0

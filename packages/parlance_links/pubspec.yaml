@@ -1,13 +1,18 @@
 name: parlance_links
 description: "Reactions written as data, run by the participant that owns them: when something happens, if something holds, call commands."
-publish_to: none
+version: 0.1.0
 resolution: workspace
+repository: https://github.com/nogipx/parlance
+issue_tracker: https://github.com/nogipx/parlance/issues
+topics:
+  - automation
+  - rules
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
-  parlance: any
+  parlance: ^0.1.0
 
 dev_dependencies:
   fake_async: ^1.3.0

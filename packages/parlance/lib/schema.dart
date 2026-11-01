@@ -5,7 +5,7 @@
 /// results of calls and statuses of words. Nothing else of the library:
 /// a host's `main` imports `app.dart` besides, a tool `tools.dart`.
 ///
-/// It is frozen (SPEC §23, docs/план-api.md): what it shows is never taken
+/// It is frozen (SPEC §23): what it shows is never taken
 /// away, renamed or changed in meaning; it only grows. A published words
 /// package's `.g.dart` refers to nothing outside it.
 ///

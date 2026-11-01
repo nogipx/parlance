@@ -86,6 +86,7 @@ abstract interface class IRemoteSession {
   void dispose();
 }
 
+/// The session's side of a connection: the library's.
 final class RemoteSession extends ParlanceContractPeer
     implements IRemoteSession {
   RemoteSession._(
@@ -140,6 +141,7 @@ final class RemoteSession extends ParlanceContractPeer
   /// the registry's `sessions` unless given.
   late final LogScope log;
 
+  /// The host's registry it serves.
   final Registry registry;
 
   /// How long past its deadline a call of the session's own command waits
@@ -173,13 +175,16 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
+  /// Its id, as the host accepted the connection.
   final String session;
 
   /// The session as a participant in this process: what it defines, writes
   /// and says goes through it, in its vocabularies and with its rights.
   final LocalParticipant _p;
 
+  /// The vocabularies its participant defines in.
   Set<String> get vocabularies => _p.vocabularyNames;
+  /// What its participant may do beyond defining.
   ParticipantRights get rights => _p.rights;
 
   /// The participant's side, serving the session's commands.
@@ -1055,6 +1060,8 @@ final class _Failed implements Exception {
 /// for a part that works and narrow for one that runs away; null takes
 /// it off ([unbounded], for a part as trusted as the host's own code).
 final class SessionLimits {
+  /// Const constructor; each bound is on by default, [unbounded]
+  /// takes them off.
   const SessionLimits({
     this.stateBytes = 1 << 20,
     this.words = 256,

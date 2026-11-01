@@ -1,0 +1,26 @@
+name: "Setup stable SDK + melos"
+description: >
+  CI runs on the STABLE SDK, not the fvm-pinned one: a new stable must not
+  wait for a .fvmrc bump to be tested here. flutter-action's stable Flutter
+  brings its bundled `dart` on PATH too, which is all the Dart jobs need.
+  The melos scripts call `fvm dart`/`fvm flutter`, so an `fvm` shim that
+  drops its first word keeps them unchanged; locally they run the pinned SDK.
+
+runs:
+  using: composite
+  steps:
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+
+    - name: melos + fvm shim
+      shell: bash
+      run: |
+        set -e
+        dart pub global activate melos
+        echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+        mkdir -p "$RUNNER_TEMP/bin"
+        printf '#!/bin/sh\nexec "$@"\n' > "$RUNNER_TEMP/bin/fvm"
+        chmod +x "$RUNNER_TEMP/bin/fvm"
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

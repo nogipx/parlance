@@ -1,3 +1,6 @@
+// Internal to the library: what these files show is not a promise
+// Documented surface lives in schema.dart and app.dart.
+// ignore_for_file: public_member_api_docs
 part of 'registry.dart';
 
 /// Serves a command: answers its result (checked against `returns`), or

@@ -7,10 +7,14 @@ import 'types.dart';
 /// [id], what people see of it ([label], else the id), and what else a
 /// chooser needs ([meta], JSON: the type of the value it takes...).
 final class Choice {
+  /// Const constructor.
   const Choice(this.id, {this.label, this.meta = const {}});
 
+  /// What it is called by; the label people see defaults to it.
   final String id;
+  /// What people see of it; null: the id.
   final String? label;
+  /// What else a chooser needs, JSON.
   final Map<String, Object?> meta;
 
   /// As `describe` lists it (on the wire, an entity).
@@ -25,19 +29,25 @@ final class Choice {
 /// (SPEC §3), what a `ChoiceType` of [name] holds a value to. On the wire
 /// a kind of entities.
 final class Choices {
+  /// One of [name]: [list] gives them as they are now; [meta] as
+  /// [Choice.meta].
   Choices(this.name, {required this.list, this.meta = const {}}) {
     checkName(name, 'choices');
   }
 
+  /// Its name: what a `ChoiceType` holds a value to.
   final String name;
 
   /// The choices there are now.
   final Iterable<Choice> Function() list;
 
+  /// What else a chooser needs, JSON.
   final Map<String, Object?> meta;
 
+  /// Whether one of them is [id].
   bool contains(String id) => list().any((e) => e.id == id);
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'name': name,
     'entities': [for (final e in list()) e.toJson()],
@@ -47,10 +57,12 @@ final class Choices {
 
 /// What a principal may do with a command.
 enum Access {
+  /// Allowed, nothing said.
   allow,
 
   /// Allowed; editors warn the author who else can now do it.
   warn,
+  /// Not allowed.
   deny,
 }
 
@@ -60,8 +72,11 @@ enum Access {
 /// (`module/visit` names `module/visit@visit`), so the nearest one wins:
 /// the owner's own, then its whole, then its kind.
 final class Callers {
+  /// Const constructor; [rules] maps a selector to its access.
   const Callers(this.rules);
 
+  /// [json] as callers; an access a newer parlance has is
+  /// [Access.deny], the least it may mean.
   factory Callers.fromJson(Object? json) => Callers({
     for (final e in (json as Map).entries)
       // An access of a newer parlance (SPEC §14) is denied: the least it
@@ -76,6 +91,7 @@ final class Callers {
   Callers.only(Iterable<String> kinds)
     : rules = {for (final k in kinds) k: Access.allow};
 
+  /// The selectors and their access; the most specific wins.
   final Map<String, Access> rules;
 
   /// Throws when a selector is not one (SPEC §4): `*` or
@@ -92,6 +108,8 @@ final class Callers {
     }
   }
 
+  /// The access of [p]: its own selector's, the nearest one's up,
+  /// else `*`.
   Access accessOf(Principal p) {
     for (Principal? q = p; q != null; q = q.parent) {
       if (rules[q.selector] case final a?) return a;
@@ -99,8 +117,10 @@ final class Callers {
     return rules['*'] ?? Access.deny;
   }
 
+  /// Whether [p] may: its access is not [Access.deny].
   bool allows(Principal p) => accessOf(p) != Access.deny;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     for (final e in rules.entries) e.key: e.value.name,
   };
@@ -113,14 +133,18 @@ sealed class Descriptor {
     if (!isJsonValue(meta)) throw ArgumentError.value(meta, 'meta');
   }
 
+  /// The word: `<vocabulary>.<name>`.
   final String name;
 
   /// The host's own notes (labels, units, icons); the registry never reads
   /// them.
   final Map<String, Object?> meta;
 
+  /// Its JSON.
   Map<String, Object?> toJson();
 
+  /// [json] as a descriptor; an unknown `is` is a
+  /// [FormatException].
   static Descriptor fromJson(Object? json) {
     final m = json as Map;
     return switch (m['is']) {
@@ -135,6 +159,8 @@ sealed class Descriptor {
 
 /// A value there is now; one writer (SPEC §6.1).
 final class StateDescriptor extends Descriptor {
+  /// One of [name]: its values are [type], one per choice of [key]
+  /// when keyed; [readers] who may read.
   StateDescriptor(
     String name, {
     required this.type,
@@ -145,6 +171,7 @@ final class StateDescriptor extends Descriptor {
     readers?.check();
   }
 
+  /// [json] as a state's descriptor.
   factory StateDescriptor.fromJson(Map<Object?, Object?> m) => StateDescriptor(
     m['name'] as String,
     type: ValueType.fromJson(m['type']),
@@ -153,6 +180,7 @@ final class StateDescriptor extends Descriptor {
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 
+  /// What its values must pass.
   final ValueType<Object?> type;
 
   /// The choices its keys are of, when it holds one value per choice.
@@ -166,6 +194,7 @@ final class StateDescriptor extends Descriptor {
   /// registry, read anyway.
   final Callers? readers;
 
+  /// Whether it holds one value per choice of [key].
   bool get keyed => key != null;
 
   @override
@@ -197,6 +226,7 @@ sealed class CallableDescriptor extends Descriptor {
     }
   }
 
+  /// What a call's params must pass.
   final RecordType params;
 
   /// The type of what a call answers; null: it answers nothing.
@@ -214,6 +244,8 @@ const defaultDeadline = Duration(seconds: 30);
 
 /// A request one handler serves (SPEC §6.2): it may change something.
 final class CommandDescriptor extends CallableDescriptor {
+  /// One of [name]: [callers] who may call it; [params] in,
+  /// [returns] out, as the word says.
   CommandDescriptor(
     String name, {
     RecordType params = const RecordType({}),
@@ -223,6 +255,7 @@ final class CommandDescriptor extends CallableDescriptor {
     Map<String, Object?> meta = const {},
   }) : super(name, meta, params: params);
 
+  /// [json] as a command's descriptor.
   factory CommandDescriptor.fromJson(Map<Object?, Object?> m) =>
       CommandDescriptor(
         m['name'] as String,
@@ -250,6 +283,8 @@ final class CommandDescriptor extends CallableDescriptor {
 /// A question one handler answers (SPEC §6.6): it changes nothing.
 /// Asked again it runs again, and no call record keeps it.
 final class QueryDescriptor extends CallableDescriptor {
+  /// One of [name]: [askers] who may ask it; [params] in,
+  /// [returns] out.
   QueryDescriptor(
     String name, {
     RecordType params = const RecordType({}),
@@ -266,6 +301,7 @@ final class QueryDescriptor extends CallableDescriptor {
          deadline: deadline,
        );
 
+  /// [json] as a query's descriptor.
   factory QueryDescriptor.fromJson(Map<Object?, Object?> m) => QueryDescriptor(
     m['name'] as String,
     params: RecordType.fromJson(m['params']),
@@ -297,6 +333,7 @@ final class QueryDescriptor extends CallableDescriptor {
 
 /// Something that happened and is not a state (SPEC §6.3).
 final class FactDescriptor extends Descriptor {
+  /// One of [name]: its payload is [type]; [readers] who may hear it.
   FactDescriptor(
     String name, {
     required this.type,
@@ -306,6 +343,7 @@ final class FactDescriptor extends Descriptor {
     readers?.check();
   }
 
+  /// [json] as a fact's descriptor.
   factory FactDescriptor.fromJson(Map<Object?, Object?> m) => FactDescriptor(
     m['name'] as String,
     type: ValueType.fromJson(m['type']),
@@ -313,6 +351,7 @@ final class FactDescriptor extends Descriptor {
     meta: (m['meta'] as Map?)?.cast<String, Object?>() ?? const {},
   );
 
+  /// What its payloads must pass.
   final ValueType<Object?> type;
 
   /// Who may hear it over remote and MCP, as a state's

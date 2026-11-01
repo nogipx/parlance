@@ -7,6 +7,7 @@ DateTime _at(Object? v) => DateTime.parse(v as String);
 
 /// A committed change of one state value (SPEC §7).
 final class StateChange {
+  /// One committed change: the registry's.
   StateChange({
     required this.seq,
     required this.id,
@@ -36,6 +37,7 @@ final class StateChange {
        _previous = previous,
        _shape = shape;
 
+  /// [json] as a change.
   factory StateChange.fromJson(Object? json) {
     final m = json as Map;
     return StateChange(
@@ -51,8 +53,11 @@ final class StateChange {
     );
   }
 
+  /// Its place in the registry's total order.
   final int seq;
+  /// The id the write was under: a retry with it changes nothing twice.
   final String id;
+  /// The word.
   final String state;
 
   /// The key of a keyed state; null for an unkeyed one.
@@ -78,9 +83,12 @@ final class StateChange {
 
   /// The key (or the whole unkeyed value) is gone.
   final bool removed;
+  /// Why it is so.
   final Cause cause;
+  /// When it committed.
   final DateTime at;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'seq': seq,
     'id': id,
@@ -117,12 +125,15 @@ Object? _jsonOf(Shape<Object?>? shape, Object? kept) =>
 /// it is JSON), its JSON made when first asked, once (SPEC §18): the
 /// params of a call and its answer. The package's own.
 final class Kept {
+  /// A value and the shape it is kept by.
   Kept(this.value, this.shape) : _json = _unmade;
 
   /// JSON as it is.
   Kept.json(Object? json) : value = json, shape = null, _json = json;
 
+  /// The value as kept; its JSON when [shape] is null.
   final Object? value;
+  /// The shape it is kept by; null: it is JSON.
   final Shape<Object?>? shape;
   Object? _json;
 
@@ -169,6 +180,7 @@ Object? keptValueOf(StateChange c, Shape<Object?> shape, Object? none) =>
 
 /// A committed fact (SPEC §6.3).
 final class FactMessage {
+  /// One committed fact: the registry's.
   FactMessage({
     required this.seq,
     required this.id,
@@ -190,6 +202,7 @@ final class FactMessage {
   }) : _payload = payload,
        _shape = shape;
 
+  /// [json] as a fact message.
   factory FactMessage.fromJson(Object? json) {
     final m = json as Map;
     return FactMessage(
@@ -202,8 +215,11 @@ final class FactMessage {
     );
   }
 
+  /// Its place in the registry's total order.
   final int seq;
+  /// The id it was said under: said again under it, it is dropped.
   final String id;
+  /// The word.
   final String fact;
 
   /// The payload as the registry keeps it, and the shape it keeps it by;
@@ -217,9 +233,12 @@ final class FactMessage {
       ? _payloadJson = _jsonOf(_shape, _payload)
       : _payloadJson;
 
+  /// Why it was said.
   final Cause cause;
+  /// When it committed.
   final DateTime at;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'seq': seq,
     'id': id,
@@ -265,6 +284,7 @@ sealed class FeedItem {
 
 /// Everything committed together (SPEC §7).
 final class Tick extends FeedItem {
+  /// One tick: everything committed together.
   const Tick({
     required this.epoch,
     required this.from,
@@ -273,6 +293,7 @@ final class Tick extends FeedItem {
     required this.facts,
   });
 
+  /// [json] as a tick.
   factory Tick.fromJson(Object? json) {
     final m = json as Map;
     return Tick(
@@ -284,14 +305,19 @@ final class Tick extends FeedItem {
     );
   }
 
+  /// The registry's run it is of.
   final String epoch;
 
   /// The first and last seq in it.
   final int from;
+  /// The seq after its last.
   final int to;
+  /// The changes in it, in order.
   final List<StateChange> changes;
+  /// The facts in it, in order.
   final List<FactMessage> facts;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'epoch': epoch,
     'from': from,
@@ -306,6 +332,7 @@ final class Tick extends FeedItem {
 
 /// Every state value at [seq], to start or restart a feed from.
 final class Snapshot extends FeedItem {
+  /// One snapshot: every value at [seq].
   const Snapshot({
     required this.epoch,
     required this.seq,
@@ -313,6 +340,7 @@ final class Snapshot extends FeedItem {
     required this.factsLost,
   });
 
+  /// [json] as a snapshot.
   factory Snapshot.fromJson(Object? json) {
     final m = json as Map;
     return Snapshot(
@@ -329,7 +357,9 @@ final class Snapshot extends FeedItem {
     );
   }
 
+  /// The registry's run it is of.
   final String epoch;
+  /// Every value at it.
   final int seq;
 
   /// State name → key (null for an unkeyed state) → value.
@@ -338,6 +368,7 @@ final class Snapshot extends FeedItem {
   /// Ticks were missed since the seq the feed was asked from.
   final bool factsLost;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'epoch': epoch,
     'seq': seq,
@@ -353,10 +384,16 @@ final class Snapshot extends FeedItem {
 
 /// Why a call was refused (SPEC §9).
 enum Refusal {
+  /// No word of that name in the catalog.
   unknownCommand,
+  /// The params did not pass the word's type.
   invalidParams,
+  /// The principal may not read it or call it.
   notPermitted,
+  /// The word is not there now: its owner left, or the catalog
+  /// moved on.
   unavailable,
+  /// A guard said no.
   denied,
 
   /// The id was given to another call (another command, params or
@@ -370,6 +407,7 @@ enum Refusal {
 sealed class WordStatus {
   const WordStatus();
 
+  /// Whether it is [WordReady].
   bool get ready => this is WordReady;
 
   /// Why it cannot be used now, in a few words for people, as a call's
@@ -386,6 +424,7 @@ sealed class WordStatus {
 
 /// No word of that name in the catalog: never defined, or its owner left.
 final class WordMissing extends WordStatus {
+  /// Const constructor.
   const WordMissing();
 
   @override
@@ -401,6 +440,7 @@ final class WordMissing extends WordStatus {
 /// The word is there, but the principal may not read it (its `readers`)
 /// or call it (its `callers` deny it).
 final class WordNotPermitted extends WordStatus {
+  /// Const constructor.
   const WordNotPermitted();
 
   @override
@@ -415,6 +455,7 @@ final class WordNotPermitted extends WordStatus {
 
 /// A command its owner says cannot run now, and [why].
 final class WordUnavailable extends WordStatus {
+  /// Const constructor.
   const WordUnavailable(this.why);
 
   @override
@@ -437,8 +478,10 @@ final class WordUnavailable extends WordStatus {
 /// uses it would be refused or misread: it is a word to update to, or a
 /// version (`.v2`) its owner should have kept beside the old one.
 final class WordMismatch extends WordStatus {
+  /// Const constructor.
   const WordMismatch(this.breaks);
 
+  /// Where it breaks, each as `path: was …, is …`.
   final List<WordBreak> breaks;
 
   @override
@@ -459,7 +502,10 @@ final class WordMismatch extends WordStatus {
   String toString() => 'mismatch(${breaks.join('; ')})';
 }
 
+/// The word is there and usable by the one asking: in the catalog,
+/// permitted, and its owner says it can run.
 final class WordReady extends WordStatus {
+  /// Const constructor.
   const WordReady();
 
   @override
@@ -479,6 +525,8 @@ final class WordReady extends WordStatus {
 sealed class CallResult<R> {
   const CallResult();
 
+  /// [json] as a call's end; an end this side does not know is
+  /// `failed`.
   static CallResult<Object?> fromJson(Object? json) {
     final m = json as Map;
     if (m.containsKey('done')) return CallDone(m['value']);
@@ -499,6 +547,7 @@ sealed class CallResult<R> {
     return CallFailed('an end this side does not know: $m');
   }
 
+  /// Whether it is [CallDone].
   bool get ok => this is CallDone;
 
   /// Why it did not end done, in a few words for people: the refusal's
@@ -512,6 +561,7 @@ sealed class CallResult<R> {
     CallLost(:final how) => 'no answer came back ($how); retry with its id',
   };
 
+  /// Its JSON.
   Map<String, Object?> toJson() => switch (this) {
     CallDone(:final value) => {'done': true, 'value': value},
     CallRefused(:final code, :final why, :final guard) => {
@@ -526,7 +576,9 @@ sealed class CallResult<R> {
   };
 }
 
+/// A call that ended done, with its answer.
 final class CallDone<R> extends CallResult<R> {
+  /// Const constructor.
   const CallDone(this.value);
 
   /// The answer; as JSON when the registry answers a call by name.
@@ -554,9 +606,12 @@ CallDone<Object?> keptDone(Kept answer) =>
 /// shape. The package's own.
 Kept? keptAnswerOf(CallResult<Object?> r) => r is _KeptDone ? r._kept : null;
 
+/// A call the registry refused before its handler began.
 final class CallRefused extends CallResult<Never> {
+  /// Const constructor.
   const CallRefused(this.code, this.why, {this.guard});
 
+  /// The refusal's kind.
   final Refusal code;
 
   /// Why it was refused, for people.
@@ -571,9 +626,12 @@ final class CallRefused extends CallResult<Never> {
       'refused(${code.name}${guard == null ? '' : ' by $guard'}: $why)';
 }
 
+/// A call whose handler threw.
 final class CallFailed extends CallResult<Never> {
+  /// Const constructor.
   const CallFailed(this.error, [this.stackTrace]);
 
+  /// What the handler threw.
   final Object error;
 
   /// Where a handler in this process threw [error]: kept for the call's
@@ -588,6 +646,7 @@ final class CallFailed extends CallResult<Never> {
 /// still finish, and what it does stands. Its end is recorded as a late
 /// call record, and a retry with the same id answers it.
 final class CallTimedOut extends CallResult<Never> {
+  /// Const constructor.
   const CallTimedOut();
 
   @override
@@ -600,6 +659,7 @@ final class CallTimedOut extends CallResult<Never> {
 /// what it did stands, as when it times out. Its end is recorded as a late
 /// call record, and a retry with the same id answers it.
 final class CallCancelled extends CallResult<Never> {
+  /// Const constructor.
   const CallCancelled();
 
   @override
@@ -610,7 +670,9 @@ final class CallCancelled extends CallResult<Never> {
 /// to the owner serving the call across a connection. Whether the call
 /// ran is unknown; a retry with [id] runs it at most once.
 final class CallLost extends CallResult<Never> {
+  /// Const constructor.
   const CallLost(this.id, this.how);
+  /// The call's id: a retry with it runs the call at most once.
   final String id;
 
   /// How the way broke (`socket closed`); [why] says it for people.
@@ -624,6 +686,7 @@ final class CallLost extends CallResult<Never> {
 /// comes as the [CallRecord] of the same id; one that timed out runs on
 /// until its late record.
 final class CallStarted {
+  /// One call whose handler began: the registry's.
   CallStarted({
     required this.id,
     required this.command,
@@ -640,6 +703,7 @@ final class CallStarted {
     required this.started,
   }) : _params = params;
 
+  /// [json] as a started call.
   factory CallStarted.fromJson(Object? json) {
     final m = json as Map;
     return CallStarted(
@@ -651,17 +715,21 @@ final class CallStarted {
     );
   }
 
+  /// The call's id.
   final String id;
+  /// The command called.
   final String command;
   final Kept _params;
 
   /// Its params, as JSON.
   Map<String, Object?> get params => _params.json! as Map<String, Object?>;
+  /// Why it was called.
   final Cause cause;
 
   /// When the call came, as its record says.
   final DateTime started;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'id': id,
     'command': command,
@@ -677,6 +745,7 @@ final class CallStarted {
 /// What the registry still remembers of one conversation (SPEC §4): the
 /// calls, changes and facts that followed from one message, however far.
 final class Conversation {
+  /// One conversation: the registry's.
   const Conversation({
     required this.id,
     required this.calls,
@@ -686,12 +755,17 @@ final class Conversation {
 
   /// The id of the message that started it.
   final String id;
+  /// The calls in it, in order.
   final List<CallRecord> calls;
+  /// The changes in it, in order.
   final List<StateChange> changes;
+  /// The facts in it, in order.
   final List<FactMessage> facts;
 
+  /// Whether nothing of it is kept.
   bool get isEmpty => calls.isEmpty && changes.isEmpty && facts.isEmpty;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'id': id,
     'calls': [for (final c in calls) c.toJson()],
@@ -704,6 +778,7 @@ final class Conversation {
 /// reads from outside the build, how many of its listeners listen now, and
 /// when it last did any of it.
 final class WordUse {
+  /// One entry of how a word was used.
   const WordUse({
     required this.by,
     required this.calls,
@@ -715,11 +790,16 @@ final class WordUse {
   /// Who; a principal's kind alone (`guest`) for the many past
   /// `HostLimits.usersPerWord`.
   final Principal by;
+  /// How many calls of it.
   final int calls;
+  /// How many reads from outside the build.
   final int reads;
+  /// How many of its listeners listen now.
   final int listening;
+  /// When it last did any of it.
   final DateTime last;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'by': by.selector,
     if (calls > 0) 'calls': calls,
@@ -735,16 +815,21 @@ final class WordUse {
 /// ends: the word keeps its promises again, is gone, or none built
 /// against it is there any more.
 final class Mismatch {
+  /// One mismatch: the registry's.
   const Mismatch(this.by, this.word, this.breaks, {this.from});
 
+  /// Who was built against the word.
   final Principal by;
+  /// The word as the code names it.
   final String word;
+  /// Where it breaks, each as `WordMismatch` says.
   final List<WordBreak> breaks;
 
   /// The words package the code took [word] from, when it said
   /// (`notes_words 1.2.0`): which version to look at, or to roll back.
   final String? from;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'by': by.selector,
     'word': word,
@@ -773,6 +858,7 @@ final class Mismatch {
 
 /// A finished call, for journals (SPEC §9).
 final class CallRecord {
+  /// One finished call: the registry's.
   CallRecord({
     required this.id,
     required this.command,
@@ -795,22 +881,30 @@ final class CallRecord {
     this.late = false,
   }) : _params = params;
 
+  /// The call's id.
   final String id;
+  /// The command called.
   final String command;
   final Kept _params;
 
   /// Its params, as JSON.
   Map<String, Object?> get params => _params.json! as Map<String, Object?>;
+  /// Why it was called.
   final Cause cause;
+  /// How it ended.
   final CallResult<Object?> result;
 
+  /// When the call came.
   final DateTime started;
+  /// When it ended.
   final DateTime finished;
 
   /// The handler ended after the deadline: the caller was answered
   /// `timedOut`, and this is how the call really ended.
   final bool late;
 
+  /// The handler ended after the deadline: the caller was answered
+  /// `timedOut`, and this is how the call really ended.
   factory CallRecord.fromJson(Object? json) {
     final m = json as Map;
     return CallRecord(
@@ -825,6 +919,7 @@ final class CallRecord {
     );
   }
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'id': id,
     'command': command,
@@ -902,7 +997,9 @@ sealed class JournalEntry {
 
   /// The id of its message: a call's, a fact's, a change's.
   String get id;
+  /// On whose behalf it is.
   Cause get cause;
+  /// When it happened.
   DateTime get at;
 
   /// The conversation it is part of (SPEC §4), as its spans and the
@@ -930,6 +1027,7 @@ sealed class JournalEntry {
 
 /// A call whose handler began: it passed every stage.
 final class JournalStart extends JournalEntry {
+  /// One call begun: the journal's.
   const JournalStart(
     this.call, {
     required super.epoch,
@@ -937,6 +1035,7 @@ final class JournalStart extends JournalEntry {
     super.trace,
   });
 
+  /// The call begun.
   final CallStarted call;
 
   @override
@@ -956,6 +1055,7 @@ final class JournalStart extends JournalEntry {
 /// A call that ended: answered, failed, timed out or refused (a refused
 /// one never began). A late end follows the end of its timeout.
 final class JournalEnd extends JournalEntry {
+  /// One call that ended: the journal's.
   const JournalEnd(
     this.call, {
     required super.epoch,
@@ -963,6 +1063,7 @@ final class JournalEnd extends JournalEntry {
     super.trace,
   });
 
+  /// The call ended.
   final CallRecord call;
 
   @override
@@ -981,6 +1082,7 @@ final class JournalEnd extends JournalEntry {
 
 /// A fact said.
 final class JournalFact extends JournalEntry {
+  /// One fact said: the journal's.
   const JournalFact(
     this.fact, {
     required super.epoch,
@@ -988,6 +1090,7 @@ final class JournalFact extends JournalEntry {
     super.trace,
   });
 
+  /// The fact said.
   final FactMessage fact;
 
   @override
@@ -1006,6 +1109,7 @@ final class JournalFact extends JournalEntry {
 
 /// A state written in a conversation: in reply to a call or a fact.
 final class JournalWrite extends JournalEntry {
+  /// One state written in a conversation: the journal's.
   const JournalWrite(
     this.change, {
     required super.epoch,
@@ -1013,6 +1117,7 @@ final class JournalWrite extends JournalEntry {
     super.trace,
   });
 
+  /// The change written.
   final StateChange change;
 
   @override
@@ -1033,6 +1138,7 @@ final class JournalWrite extends JournalEntry {
 /// change still retained, and the calls that led to it, nearest first, as
 /// far as they are remembered.
 final class Explanation {
+  /// One explanation: what asks it is told.
   const Explanation({
     required this.state,
     required this.key,
@@ -1043,6 +1149,7 @@ final class Explanation {
     this.trailCut = false,
   });
 
+  /// [json] as an explanation.
   factory Explanation.fromJson(Object? json) {
     final m = json as Map;
     return Explanation(
@@ -1058,8 +1165,11 @@ final class Explanation {
     );
   }
 
+  /// The word.
   final String state;
+  /// The key; null for an unkeyed one.
   final String? key;
+  /// The value now.
   final Object? value;
 
   /// The last change still retained; null when it is older or there was
@@ -1078,6 +1188,7 @@ final class Explanation {
   /// The trail goes on further back than the registry remembers.
   final bool trailCut;
 
+  /// Its JSON.
   Map<String, Object?> toJson() => {
     'state': state,
     'key': ?key,

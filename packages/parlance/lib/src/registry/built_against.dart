@@ -1,3 +1,6 @@
+// Internal to the library: what these files show is not a promise
+// Documented surface lives in schema.dart and app.dart.
+// ignore_for_file: public_member_api_docs
 import 'dart:async';
 import 'dart:collection';
 import 'dart:developer' as developer;

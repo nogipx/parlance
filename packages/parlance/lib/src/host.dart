@@ -22,6 +22,8 @@ import 'remote/session.dart';
 /// `host.registry` in `package:parlance/tools.dart`, which promises
 /// nothing.
 final class Host {
+  /// One registry of its own; [clock], [log] and [onError] are its
+  /// registry's, [limits] how much it keeps.
   Host({
     Clock? clock,
     LogScope? log,
@@ -146,5 +148,6 @@ final class Host {
 /// The registry underneath a [Host], for the library's tools: not frozen,
 /// what it shows changes as the library does.
 extension HostRegistry on Host {
+  /// The registry underneath: for tools, not frozen.
   Registry get registry => _registry;
 }

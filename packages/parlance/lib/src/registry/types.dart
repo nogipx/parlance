@@ -11,10 +11,13 @@ abstract interface class ITypeContext {
 
 /// A value that does not pass its type.
 final class TypeMismatch implements Exception {
+  /// Const constructor.
   const TypeMismatch(this.path, this.message);
 
   /// Where in the value, dot-separated; empty for the value itself.
   final String path;
+
+  /// What was expected there.
   final String message;
 
   @override
@@ -32,8 +35,11 @@ sealed class ValueType<T> {
   /// [value] with defaults filled, or a [TypeMismatch].
   Object? check(Object? value, ITypeContext ctx, [String path = '']);
 
+  /// This type as JSON; [ValueType.fromJson] reads it back.
   Map<String, Object?> toJson();
 
+  /// [json] as a type; an object a newer parlance has becomes an
+  /// [UnknownType], kept as it came (SPEC §14).
   static ValueType<Object?> fromJson(Object? json) {
     if (json is! Map) throw FormatException('a type is an object: $json');
     num? n(String k) => json[k] as num?;
@@ -83,7 +89,9 @@ sealed class ValueType<T> {
       throw TypeMismatch(path, message);
 }
 
+/// A boolean.
 final class BoolType extends ValueType<bool> {
+  /// Const constructor.
   const BoolType();
 
   @override
@@ -94,10 +102,15 @@ final class BoolType extends ValueType<bool> {
   Map<String, Object?> toJson() => {'type': 'bool'};
 }
 
+/// An integer, [min] to [max].
 final class IntType extends ValueType<int> {
+  /// Const constructor.
   const IntType({this.min, this.max});
 
+  /// The least it may be.
   final int? min;
+
+  /// The most it may be.
   final int? max;
 
   @override
@@ -117,10 +130,15 @@ final class IntType extends ValueType<int> {
   Map<String, Object?> toJson() => {'type': 'int', 'min': ?min, 'max': ?max};
 }
 
+/// A number, [min] to [max]; not NaN, not infinite.
 final class NumType extends ValueType<num> {
+  /// Const constructor.
   const NumType({this.min, this.max});
 
+  /// The least it may be.
   final num? min;
+
+  /// The most it may be.
   final num? max;
 
   @override
@@ -137,9 +155,12 @@ final class NumType extends ValueType<num> {
   Map<String, Object?> toJson() => {'type': 'num', 'min': ?min, 'max': ?max};
 }
 
+/// A text, at most [maxLength] characters.
 final class TextType extends ValueType<String> {
+  /// Const constructor.
   const TextType({this.maxLength});
 
+  /// The most characters it may hold.
   final int? maxLength;
 
   @override
@@ -155,9 +176,12 @@ final class TextType extends ValueType<String> {
   Map<String, Object?> toJson() => {'type': 'text', 'maxLength': ?maxLength};
 }
 
+/// One of [values].
 final class EnumType extends ValueType<String> {
+  /// Const constructor.
   const EnumType(this.values, {this.unknown});
 
+  /// The values it may be.
   final List<String> values;
 
   /// What code reading it takes a value it does not know for, one of
@@ -182,6 +206,7 @@ final class EnumType extends ValueType<String> {
 
 /// A duration as whole milliseconds.
 final class DurationType extends ValueType<int> {
+  /// Const constructor.
   const DurationType({this.maxMillis});
 
   /// The longest, in milliseconds.
@@ -204,6 +229,7 @@ final class DurationType extends ValueType<int> {
 /// DateTime), read back as DateTime.parse has it. The one JSON shape a
 /// DateTime has, a word of its own or a field of a JSON class.
 final class DateTimeType extends ValueType<String> {
+  /// Const constructor.
   const DateTimeType();
 
   @override
@@ -221,8 +247,10 @@ final class DateTimeType extends ValueType<String> {
 /// One of the choices of [of] (`room`), as its owner gives them: which
 /// must be there when checked. Told as `ref` on the wire.
 final class ChoiceType extends ValueType<String> {
+  /// Const constructor.
   const ChoiceType(this.of);
 
+  /// The choices it is one of: the `name` of the `choices` that gives them.
   final String of;
 
   @override
@@ -245,10 +273,15 @@ final class ChoiceType extends ValueType<String> {
   Map<String, Object?> toJson() => {'type': 'ref', 'kind': of};
 }
 
+/// A list of [item], at most [maxItems] long.
 final class ListType extends ValueType<List<Object?>> {
+  /// Const constructor.
   const ListType(this.item, {this.maxItems});
 
+  /// The type of each item.
   final ValueType<Object?> item;
+
+  /// The most items it may hold.
   final int? maxItems;
 
   @override
@@ -273,6 +306,8 @@ final class ListType extends ValueType<List<Object?>> {
 
 /// A field of a [RecordType].
 final class Field {
+  /// Const constructor; `optional` becomes true whenever there is a
+  /// [defaultValue].
   const Field(
     this.type, {
     bool optional = false,
@@ -280,6 +315,8 @@ final class Field {
     this.description,
   }) : optional = optional || defaultValue != null;
 
+  /// [json] as a field; not an object is a [FormatException], as a type
+  /// of its own is.
   factory Field.fromJson(Object? json) {
     final m = json as Map;
     return Field(
@@ -293,6 +330,7 @@ final class Field {
   /// What it is, for people and agents.
   final String? description;
 
+  /// What its values must pass.
   final ValueType<Object?> type;
 
   /// May be left out; true whenever there is a [defaultValue].
@@ -301,6 +339,7 @@ final class Field {
   /// What a left-out field becomes.
   final Object? defaultValue;
 
+  /// This field as JSON; [Field.fromJson] reads it back.
   Map<String, Object?> toJson() => {
     'type': type.toJson(),
     if (optional) 'optional': true,
@@ -312,6 +351,7 @@ final class Field {
 /// A map with named fields: unknown ones are refused, left-out optional
 /// ones (or null) get their default.
 final class RecordType extends ValueType<Map<String, Object?>> {
+  /// Const constructor.
   const RecordType(this.fields);
 
   /// [json] as an object type: params, a variant. Another type (one a
@@ -322,6 +362,7 @@ final class RecordType extends ValueType<Map<String, Object?>> {
         final t => throw FormatException('not an object type: ${t.toJson()}'),
       };
 
+  /// What each named field must pass.
   final Map<String, Field> fields;
 
   @override
@@ -359,9 +400,13 @@ final class RecordType extends ValueType<Map<String, Object?>> {
 
 /// A map from any text to values of [value]: files by path, refs by name.
 final class MapType extends ValueType<Map<String, Object?>> {
+  /// Const constructor.
   const MapType(this.value, {this.maxEntries});
 
+  /// The type of each entry's value.
   final ValueType<Object?> value;
+
+  /// The most entries it may hold.
   final int? maxEntries;
 
   @override
@@ -394,6 +439,7 @@ final class MapType extends ValueType<Map<String, Object?>> {
 /// One of several objects, told apart by the text in field [key]: its value
 /// names the variant, whose fields the rest must pass.
 final class UnionType extends ValueType<Map<String, Object?>> {
+  /// Const constructor.
   const UnionType(
     this.key,
     this.variants, {
@@ -401,7 +447,11 @@ final class UnionType extends ValueType<Map<String, Object?>> {
     this.unknown = false,
   });
 
+  /// The field that tells the variant apart: its value names one of
+  /// [variants].
   final String key;
+
+  /// What each variant's fields must pass, by its tag.
   final Map<String, RecordType> variants;
 
   /// What each variant is for, by its tag, for people and agents.
@@ -441,8 +491,10 @@ final class UnionType extends ValueType<Map<String, Object?>> {
 /// [of], or null: "none" as a value of its own, apart from an empty list
 /// or a zero.
 final class NullableType extends ValueType<Object?> {
+  /// Const constructor.
   const NullableType(this.of);
 
+  /// The type of a value that is not null.
   final ValueType<Object?> of;
 
   @override
@@ -460,8 +512,10 @@ final class NullableType extends ValueType<Object?> {
 /// the word checks it; and a registry takes no word of it
 /// ([unknownTypeIn]), not knowing what its values may be.
 final class UnknownType extends ValueType<Object?> {
+  /// Const constructor.
   const UnknownType(this.json);
 
+  /// The type as it came from the wire.
   final Map<String, Object?> json;
 
   @override
@@ -486,7 +540,9 @@ UnknownType? unknownTypeIn(ValueType<Object?>? type) => switch (type) {
   _ => null,
 };
 
+/// Any JSON value: an object, a list, a text, a number, a bool or null.
 final class AnyType extends ValueType<Object?> {
+  /// Const constructor.
   const AnyType();
 
   @override

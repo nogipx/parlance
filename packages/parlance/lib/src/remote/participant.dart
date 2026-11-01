@@ -87,6 +87,7 @@ enum _Life {
   disposed,
 }
 
+/// The remote participant of a connection: the library's.
 final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   RemoteParticipant._(
     this.endpoint,

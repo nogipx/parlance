@@ -16,6 +16,7 @@ import 'shapes.dart';
 
 /// A word of any kind, by its name: what a vocabulary lists.
 abstract interface class IWord {
+  /// Its full name: `<vocabulary>.<name>` (`house.heat`).
   String get name;
 }
 
@@ -27,6 +28,8 @@ abstract interface class IWord {
 /// `@Vocabulary` class; one of hand-written enums is
 /// `WordSet('house', [...])`.
 final class WordSet {
+  /// Const constructor; [words] is the vocabulary's, as the generator made
+  /// it (`houseWords`).
   const WordSet(this.name, this.words, {this.from, this.dartName})
     : open = false;
 
@@ -39,7 +42,10 @@ final class WordSet {
       from = null,
       dartName = null;
 
+  /// Its first word, one word: `orders` for `orders.cancel`.
   final String name;
+
+  /// Its words.
   final List<IWord> words;
 
   /// The package its words come from, and its version (`notes_words
@@ -87,7 +93,11 @@ final class WordSet {
 abstract interface class IStateWord<T> implements IWord {
   @override
   String get name;
+
+  /// The shape of its value.
   Shape<T> get shape;
+
+  /// The choices its keys are of, for a keyed state; null for one value.
   String? get key;
 }
 
@@ -96,7 +106,11 @@ abstract interface class IStateWord<T> implements IWord {
 abstract interface class ICommandWord<P, R> implements IWord {
   @override
   String get name;
+
+  /// The shape of its params.
   RecordShape<P> get params;
+
+  /// The shape of what it answers; null: nothing.
   Shape<R>? get returns;
 }
 
@@ -106,7 +120,11 @@ abstract interface class ICommandWord<P, R> implements IWord {
 abstract interface class IQueryWord<P, R> implements IWord {
   @override
   String get name;
+
+  /// The shape of its params.
   RecordShape<P> get params;
+
+  /// The shape of what it answers.
   Shape<R> get returns;
 }
 
@@ -114,12 +132,15 @@ abstract interface class IQueryWord<P, R> implements IWord {
 abstract interface class IFactWord<T> implements IWord {
   @override
   String get name;
+
+  /// The shape of its payload.
   Shape<T> get shape;
 }
 
 /// A state word named at run time (a device found, a plugin loaded), not
 /// by a vocabulary class: `p.state(StateWordOf('sensor.$id', shape))`.
 final class StateWordOf<T> implements IStateWord<T> {
+  /// Const constructor.
   const StateWordOf(this.name, this.shape, {this.key});
 
   @override
@@ -170,6 +191,8 @@ extension CommandAnswers<P, R> on ICommandWord<P, R> {
 
 /// A query's answer, wherever it was asked.
 extension QueryAnswers<P, R> on IQueryWord<P, R> {
+  /// A done ask's value decoded as the word says (`failed` when it does
+  /// not decode); any other end as it is.
   CallResult<R> answer(CallResult<Object?> raw) => _answer(name, returns, raw);
 
   /// Its descriptor, with [askers] who may ask (SPEC §6.6).
@@ -218,7 +241,10 @@ abstract interface class IFactSayerOf<T> implements IHandle {
   bool say(T payload, {Principal? by});
 }
 
+/// The library's [IStateWriterOf]: the participant's, over the handle
+/// beneath.
 final class StateWriterOf<T> implements IStateWriterOf<T> {
+  /// Const constructor.
   StateWriterOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.
@@ -440,8 +466,10 @@ void undoingOnThrow(void Function() writes) {
 
 /// What a call through a client ended with when it was not done: a refusal, a failure, no answer in time, or a lost answer.
 final class CallNotDone implements Exception {
+  /// Const constructor.
   const CallNotDone(this.result);
 
+  /// What the call ended with.
   final CallResult<Object?> result;
 
   @override
@@ -452,6 +480,7 @@ final class CallNotDone implements Exception {
 final class Fact<T> {
   const Fact._(this.payload, this._message);
 
+  /// What was said.
   final T payload;
   final FactMessage _message;
 
@@ -471,12 +500,17 @@ Fact<T> factIn<T>(T payload, FactMessage message) => Fact._(payload, message);
 /// A fact as the library and its tools have it: the message it came in,
 /// its cause.
 extension RawFact<T> on Fact<T> {
+  /// The message it came in.
   FactMessage get message => _message;
+
+  /// Its cause.
   Cause get cause => _message.cause;
 }
 
-/// The sayer of a typed fact.
+/// The library's [IFactSayerOf]: the participant's, over the handle
+/// beneath.
 final class FactSayerOf<T> implements IFactSayerOf<T> {
+  /// Const constructor.
   FactSayerOf(this.raw, this._shape);
 
   /// The handle beneath: the registry's own, or a remote participant's.

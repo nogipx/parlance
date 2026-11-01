@@ -10,6 +10,7 @@ abstract interface class IHandle {
 /// A handle that runs [_f] once, when first disposed: the package's own,
 /// not exported.
 final class Disposer implements IHandle {
+  /// The package's own; [_f] runs once, when first disposed.
   Disposer(this._f);
   void Function()? _f;
 
@@ -208,9 +209,13 @@ final class LocalTick {
     required this.facts,
   });
 
+  /// The first tick of it.
   final int from;
+  /// The tick after its last.
   final int to;
+  /// What changed, in order.
   final List<LocalStateChange> changes;
+  /// What was said, in order.
   final List<LocalFactSaid> facts;
 }
 
@@ -226,6 +231,7 @@ final class LocalStateChange {
     required this.tag,
   });
 
+  /// Its place in the hub's total order.
   final int seq;
 
   /// The [LocalState] or [LocalKeyedState] it changed.
@@ -233,8 +239,11 @@ final class LocalStateChange {
 
   /// The key of a [LocalKeyedState]; null for a [LocalState].
   final Object? key;
+  /// What it is now; null where [removed].
   final Object? value;
+  /// What it was.
   final Object? previous;
+  /// Whether the value went.
   final bool removed;
 
   /// What the writer gave with the write; the hub never reads it.
@@ -250,9 +259,13 @@ final class LocalFactSaid {
     required this.tag,
   });
 
+  /// Its place in the hub's total order.
   final int seq;
+  /// The fact said.
   final Object fact;
+  /// The payload said.
   final Object? value;
+  /// What the sayer gave with it; the hub never reads it.
   final Object? tag;
 }
 
@@ -267,6 +280,8 @@ bool _same(Object? a, Object? b) => a == b;
 /// Reads see the committed values and, inside a batch of its hub, the
 /// batch's own writes. A write of an equal value commits nothing.
 final class LocalKeyedState<K, V> implements _Store {
+  /// One hub of its own, unless [hub] is given; [equals] tells a write
+  /// of an equal value from a new one.
   LocalKeyedState({LocalHub? hub, bool Function(V a, V b)? equals})
     : hub = hub ?? LocalHub(),
       _equals = equals;
@@ -375,6 +390,7 @@ final class LocalKeyedStateWriter<K, V> implements IHandle {
 
 /// One value, written by one writer (SPEC §21.2).
 final class LocalState<V> implements _Store {
+  /// One hub of its own, unless [hub] is given.
   LocalState({LocalHub? hub, bool Function(V a, V b)? equals})
     : hub = hub ?? LocalHub(),
       _equals = equals;
@@ -488,6 +504,7 @@ Stream<V?> _watch<V>(_Member state, Object? key, V? Function() now) =>
 /// What happened, said once, keeping no value (SPEC §21.3), by its one
 /// sayer.
 final class LocalFact<T> implements _Member {
+  /// One hub of its own, unless [hub] is given.
   LocalFact({LocalHub? hub}) : hub = hub ?? LocalHub();
 
   @override

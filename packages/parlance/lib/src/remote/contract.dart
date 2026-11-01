@@ -1,3 +1,6 @@
+// Internal to the library: what these files show is not a promise
+// Documented surface lives in schema.dart and app.dart.
+// ignore_for_file: public_member_api_docs
 import 'package:rpc_dart/rpc_dart.dart';
 // The barrel does not export this one type yet: rpc_dart's request-decode
 // catch passes ONLY it through to the peer (any other exception becomes a

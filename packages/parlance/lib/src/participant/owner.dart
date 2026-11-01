@@ -249,6 +249,8 @@ extension OwnerParticipant on IOwner {
       _Core.of(this).whenAttached(f);
 }
 
+/// What an owner does through its participant: keeps what it set,
+/// writes its states, says its facts, serves its words (SPEC §23.4).
 extension OwnerTools on IOwner {
   /// Runs [f] when the owner goes: what it holds of its own (a timer, a
   /// device), let go. What it defined through its participant goes by
@@ -485,8 +487,11 @@ void ownerServed(IParticipant p) {
 /// participant. A participant's own; code reaches it through the
 /// owners a participant is made with (a guest's `attach`) and `sync`.
 final class OwnerGroup {
+/// The group the participant keeps: its owners, synced as one tick,
+/// withdrawn with it.
   OwnerGroup(this.participant);
 
+  /// The participant they are of.
   final IParticipant participant;
   final Map<IOwner, _Core> _cores = {};
   final Set<_Core> _dirty = {};
@@ -625,7 +630,10 @@ Never failCall(String why) => throw HandlerFailed(why);
 /// Why a handler failed its call ([failCall]): told as it is, to people
 /// too.
 final class HandlerFailed implements Exception {
+  /// Const constructor.
   const HandlerFailed(this.why);
+
+  /// What failed, as the handler threw it.
   final String why;
 
   @override

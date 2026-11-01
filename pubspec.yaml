@@ -23,13 +23,120 @@ dev_dependencies:
   # the tests.
   analyzer: '>=9.0.0 <11.0.0'
   lints: ^6.0.0
+  # The release flow (melos run prepare / publish:dry / publish:release):
+  # MAINTAINING.md.
+  melos: ^7.8.2
 
-# rpc_dart from the local checkout until it is published with what parlance
-# uses; then the versions in the packages' pubspecs.
-dependency_overrides:
-  rpc_dart:
-    path: ../rpc_dart/packages/core/rpc_dart
-  rpc_dart_socket:
-    path: ../rpc_dart/packages/transport/rpc_dart_socket
-  rpc_dart_generator:
-    path: ../rpc_dart/packages/core/rpc_dart_generator
+# rpc_dart is co-developed in ../rpc_dart and published (7.0.0); the packages
+# resolve the published versions, which is also what users get. To develop
+# against the local checkout again, temporarily add:
+#   dependency_overrides:
+#     rpc_dart:
+#       path: ../rpc_dart/packages/core/rpc_dart
+#     rpc_dart_socket:
+#       path: ../rpc_dart/packages/transport/rpc_dart_socket
+#     rpc_dart_generator:
+#       path: ../rpc_dart/packages/core/rpc_dart_generator
+# Never publish with those in place: the dry run only hints at them, and the
+# gates then test against rpc_dart the user does not have.
+
+melos:
+  name: parlance
+
+  # Versioning is MANUAL (no `melos version`): the changelog is hand-written
+  # and the version is bumped by hand per package, as in rpc_dart. See
+  # MAINTAINING.md "Release flow".
+
+  scripts:
+    # --fatal-infos: the public_member_api_docs pass is complete and stays
+    # complete; a new public member without a doc fails the gate.
+    analyze:
+      description: Analyze every package (lib + test), docs strict.
+      run: fvm dart run melos exec --concurrency 6 -- "fvm dart analyze --fatal-infos --fatal-warnings"
+
+    test:
+      description: Run dart tests across packages that have a test/ dir.
+      # journal_viewer is a Flutter app: its test needs `flutter test`
+      # (dart:ui), so it is excluded here and has test:viewer.
+      run: fvm dart test
+      exec:
+        concurrency: 4
+        failFast: false
+      packageFilters:
+        dirExists: test
+        ignore: [journal_viewer]
+
+    test:viewer:
+      description: Run the journal_viewer Flutter tests (outside `dart test`).
+      run: |
+        set -e
+        cd apps/journal_viewer
+        fvm flutter test
+
+    # The frozen surface against the last parlance-<version> tag; no-op
+    # until the first release is tagged.
+    frozen:
+      description: Check the frozen surface against the last release tag.
+      run: fvm dart run tool/frozen.dart
+
+    # --- Pre-publish gate ---
+    prepare:
+      description: Verify everything before a release (analyze, test, frozen).
+      run: >
+        melos run analyze &&
+        melos run test &&
+        melos run frozen
+
+    # --- Publishing ---
+    # Every packages/* package is public; apps/, examples/ and the root are
+    # publish_to: none and are skipped by melos. Dependencies force the
+    # order for a clean first release: parlance, then parlance_generator,
+    # then the rest — publish:release tries them in one run and pub.dev
+    # accepts an upload while its parlance dependency is seconds old, but
+    # a dependent published MINUTES before its dependency shows a broken
+    # analysis until it lands.
+    publish:dry:
+      description: >
+        Validate publishable packages without publishing, and preview the
+        tags publish:release would create (read-only).
+      run: |
+        set -e
+        fvm dart run melos publish --dry-run --yes
+        echo "--- tags publish:release would create ---"
+        fvm dart run melos list --no-private -l | while read -r name ver _; do
+          tag="$name-$ver"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "  skip (exists): $tag"
+          else
+            echo "  create:        $tag"
+          fi
+        done
+
+    publish:release:
+      description: >
+        Publish public packages to pub.dev (real, requires auth), then hand
+        off to tag:release. If it aborts partway, finish with
+        `melos run tag:release`.
+      run: |
+        set -e
+        fvm dart run melos publish --no-dry-run --yes
+        melos run tag:release
+
+    tag:release:
+      description: >
+        Tag every public package at its current pubspec version
+        (`<pkg>-<version>`) and push commits + tags. Idempotent — existing
+        tags are skipped. Run standalone to finish a release that aborted
+        midway.
+      run: |
+        set -e
+        fvm dart run melos list --no-private -l | while read -r name ver _; do
+          tag="$name-$ver"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "tag $tag already exists, skipping"
+          else
+            git tag -a "$tag" -m "$tag"
+            echo "tagged $tag"
+          fi
+        done
+        git push --follow-tags

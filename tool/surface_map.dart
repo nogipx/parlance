@@ -1,8 +1,8 @@
 /// The map of what the frozen libraries promise against the tests that
-/// reach it (docs/протечки.md): each name of `schema.dart` and `app.dart`
+/// reach it: each name of `schema.dart` and `app.dart`
 /// and each public member, the test files whose code refers to it, and
 /// whether a test reaches it at all, through the library's own code.
-/// Written to docs/карта-поверхности.md, which git ignores: the code is
+/// Written to docs/surface-map.md, which git ignores: the code is
 /// the truth, and a map kept in git would drift from it; this one is
 /// written anew on each run, what no test reaches first.
 ///
@@ -167,8 +167,7 @@ Future<void> main(List<String> args) async {
     ..writeln()
     ..writeln(
       'Written by `tool/surface_map.dart` from the code; not kept in git, '
-      'written anew on each run: edit nothing here. How to read it: '
-      'docs/протечки.md.',
+      'written anew on each run: edit nothing here.',
     )
     ..writeln()
     ..writeln(summary)
@@ -190,7 +189,7 @@ Future<void> main(List<String> args) async {
     ..writeln('## The whole surface')
     ..write(table);
 
-  final file = File('$repo/docs/карта-поверхности.md')
+  final file = File('$repo/docs/surface-map.md')
     ..writeAsStringSync('$map');
   stdout
     ..writeln(summary)

@@ -53,5 +53,5 @@ spikes/
 # Editor transcripts
 .nimbalyst/
 
-# The surface map, written anew by parlance_generator/tool/surface_map.dart
-docs/карта-поверхности.md
+# Working documents: the design notes and ledgers, kept local for now
+docs/

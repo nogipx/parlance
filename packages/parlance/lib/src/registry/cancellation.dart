@@ -15,6 +15,7 @@ import '../core/core.dart' show Disposer, IHandle;
 /// stop.cancel();
 /// ```
 final class CancellationToken {
+  /// A new token, not cancelled.
   CancellationToken();
 
   bool _cancelled = false;

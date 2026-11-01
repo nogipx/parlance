@@ -1,3 +1,6 @@
+// Internal to the library: what these files show is not a promise
+// Documented surface lives in schema.dart and app.dart.
+// ignore_for_file: public_member_api_docs
 part of 'participant.dart';
 
 /// The host cannot be asked now: the connection is down, or the session

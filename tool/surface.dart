@@ -1,4 +1,4 @@
-/// What the frozen libraries show (docs/план-api.md, В): a name of
+/// What the frozen libraries show: a name of
 /// `package:parlance/schema.dart` or `app.dart`, and each public member of
 /// it. Read from the code, kept nowhere: `frozen.dart` holds it to the
 /// last release, `surface_map.dart` maps it to the tests.

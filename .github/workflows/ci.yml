@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Workspace-wide analyze + the frozen-surface check. The frozen check is a
+  # no-op until the first parlance-<version> tag exists, then holds main to
+  # the released surface (see MAINTAINING.md).
+  lint:
+    name: "Analyze & frozen surface"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Resolve workspace
+        run: fvm dart pub get
+      - name: Analyze (all packages)
+        run: melos run analyze
+      - name: Frozen surface vs the last release tag
+        run: melos run frozen
+
+  # Dart tests across the workspace. journal_viewer is a Flutter app and has
+  # its own job; it needs `flutter test`.
+  test:
+    name: "Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Resolve workspace
+        run: fvm dart pub get
+      - name: Run tests
+        run: melos run test
+
+  # journal_viewer is a Flutter app: its tests need `flutter test` (dart:ui).
+  viewer:
+    name: "journal_viewer (Flutter)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Resolve workspace
+        run: fvm dart pub get
+      - name: Run journal_viewer tests
+        run: melos run test:viewer
+
+  # Validate that the publishable packages stay publishable. Catches
+  # path-dep / resolution / versioning regressions early; also enforces the
+  # release rule that the tree must be clean (a fresh checkout always is).
+  publish-dry:
+    name: "Publish dry-run"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Resolve workspace
+        run: fvm dart pub get
+      - name: melos publish --dry-run
+        run: melos run publish:dry

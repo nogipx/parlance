@@ -1,16 +1,21 @@
 name: parlance_mcp
-description: "parlance-mcp: a host's parlance for agents over stdio, reached over a Unix socket or TCP."
-publish_to: none
+description: "A host's parlance for agents over stdio, reached over a Unix socket or TCP."
+version: 0.1.0
 resolution: workspace
+repository: https://github.com/nogipx/parlance
+issue_tracker: https://github.com/nogipx/parlance/issues
+topics:
+  - mcp
+  - agents
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
-  parlance: any
-  rpc_dart: ^6.3.0
+  parlance: ^0.1.0
+  rpc_dart: ^7.0.0
   # The transport to a host; parlance's libraries do not need it.
-  rpc_dart_socket: ^0.1.0
+  rpc_dart_socket: ^0.2.0
 
 executables:
   parlance-mcp: parlance_mcp
@@ -18,5 +23,5 @@ executables:
 dev_dependencies:
   build_runner: ^2.11.1
   # The example's words are generated.
-  parlance_generator: any
+  parlance_generator: ^0.1.0
   test: ^1.25.0
