@@ -1,0 +1,3 @@
+# Dev-only tests; they run from the repository, not shipped.
+test/
+dart_test.yaml

@@ -1,2 +1,4 @@
 # Dev-only benchmarks; they are run from the repository, not shipped.
 benchmark/
+test/
+dart_test.yaml
