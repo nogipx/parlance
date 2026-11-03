@@ -152,9 +152,25 @@ final class RemoteSession extends ParlanceContractPeer
   /// them is refused, the rest it holds staying.
   final SessionLimits limits;
 
-  /// The bytes of each value it holds, by state and key, and their sum.
+  /// The bytes of each value it holds, by state and key; of each word's
+  /// descriptor; of each kind's entities; and of the payloads it said, which
+  /// are not given back while the session lives. Their sum is what
+  /// [SessionLimits.stateBytes] bounds.
   final Map<String, Map<String?, int>> _bytes = {};
+  final Map<String, int> _wordBytes = {};
+  final Map<String, int> _kindBytes = {};
   int _bytesHeld = 0;
+
+  /// Refuses what would put the session past [SessionLimits.stateBytes];
+  /// [what] is the arriving weight.
+  void _chargeBytes(int weight, String what) {
+    if (limits.stateBytes case final max? when _bytesHeld + weight > max) {
+      _exhausted(
+        'the session holds at most $max bytes: $what would make it '
+        '${_bytesHeld + weight}',
+      );
+    }
+  }
 
   /// Its calls the registry has not answered yet.
   int _calling = 0;
@@ -175,6 +191,7 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// Who the session acts for; fixed when the host accepted the connection.
   final Principal principal;
+
   /// Its id, as the host accepted the connection.
   final String session;
 
@@ -184,6 +201,7 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// The vocabularies its participant defines in.
   Set<String> get vocabularies => _p.vocabularyNames;
+
   /// What its participant may do beyond defining.
   ParticipantRights get rights => _p.rights;
 
@@ -678,6 +696,7 @@ final class RemoteSession extends ParlanceContractPeer
         if (_choices[m['name']] case final c?) {
           _mayTouch(c.acting.who, acting, 'the choices of ${m['name']}');
           _choices.remove(m['name']);
+          _bytesHeld -= _kindBytes.remove(m['name']) ?? 0;
           c.handle.dispose();
         }
       case 'guard':
@@ -753,6 +772,8 @@ final class RemoteSession extends ParlanceContractPeer
     if (limits.words case final max? when words >= max) {
       _exhausted('the session defines $max words, as many as it may');
     }
+    final weight = jsonWeight(d.toJson());
+    _chargeBytes(weight, 'the word ${d.name}');
     try {
       _permitted(() {
         switch (d) {
@@ -774,6 +795,8 @@ final class RemoteSession extends ParlanceContractPeer
             );
         }
         _definedBy[d.name] = p.who;
+        _wordBytes[d.name] = weight;
+        _bytesHeld += weight;
       });
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
@@ -795,6 +818,7 @@ final class RemoteSession extends ParlanceContractPeer
     for (final b in (_bytes.remove(name) ?? const {}).values) {
       _bytesHeld -= b;
     }
+    _bytesHeld -= _wordBytes.remove(name) ?? 0;
     h.dispose();
   }
 
@@ -860,14 +884,18 @@ final class RemoteSession extends ParlanceContractPeer
       // A fact has one owner (SPEC §6): another's is not said here.
       _deny('$fact is not the session\'s own');
     }
+    final weight = jsonWeight(payload);
+    _chargeBytes(weight, 'a payload of $fact');
     try {
-      return _permitted(
+      final said = _permitted(
         () => sayer.say(
           payload,
           id: id == null ? null : '${principal.selector}#$id',
           cause: _cause(parent: parent, by: by ?? p.who),
         ),
       );
+      _bytesHeld += weight;
+      return said;
     } on TypeMismatch catch (x) {
       throw RpcStatusException(RpcStatus.invalidArgument, '$x');
     } on StateError catch (x) {
@@ -903,6 +931,11 @@ final class RemoteSession extends ParlanceContractPeer
         );
       }
     }
+    final weight = [
+      for (final e in entities) jsonWeight(e),
+    ].fold(0, (a, b) => a + b);
+    final had = _kindBytes[name] ?? 0;
+    _chargeBytes(weight - had, 'the choices of $name');
     final list = [
       for (final e in entities.cast<Map<Object?, Object?>>())
         Choice(
@@ -913,6 +946,8 @@ final class RemoteSession extends ParlanceContractPeer
     ];
     if (_choices[name] case final c?) {
       _choices[name] = (handle: c.handle, list: list, acting: c.acting);
+      _kindBytes[name] = weight;
+      _bytesHeld += weight - had;
       _permitted(() => c.acting.choicesChanged(name));
       return;
     }
@@ -922,6 +957,8 @@ final class RemoteSession extends ParlanceContractPeer
         Choices(name, list: () => _choices[name]?.list ?? const []),
       );
       _choices[name] = (handle: handle, list: list, acting: p);
+      _kindBytes[name] = weight;
+      _bytesHeld += weight;
     } on StateError catch (e) {
       throw RpcStatusException(RpcStatus.alreadyExists, e.message);
     }
@@ -1083,9 +1120,13 @@ final class SessionLimits {
     backlog: null,
   );
 
-  /// About how many bytes the values it writes take together, as JSON,
-  /// every key of every state of its: a keyed state it never empties
-  /// stops here.
+  /// About how many bytes of the host's memory the part across may hold
+  /// here, as JSON, together: the values of its states, its words'
+  /// descriptors, its kinds' entities, and the payloads it emits. A keyed
+  /// state it never empties stops here; so does a word it never withdraws
+  /// or a payload stream that never ends. Of payloads the bytes count for
+  /// the session's life, though the host's own retention may drop them
+  /// sooner.
   final int? stateBytes;
 
   /// How many words it defines: states, facts, commands and queries.

@@ -3,7 +3,7 @@ refines: U-08
 paths: [packages/parlance/lib/src/remote/session.dart, packages/parlance/lib/src/remote/participant.dart, packages/parlance/lib/src/host.dart]
 applies: SessionLimits charges a remote session against stateBytes, words, guards, choices, calls, subscription, backlog (defaults 1<<20, 256, 16, 1000, 16, 4096, 256); byte-limits, two-sided-protocol
 breaks: DoS, unbounded growth
-applied: []
+applied: [3]
 status: derived
 rank: 2
 ---

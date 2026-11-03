@@ -46,7 +46,9 @@ void main() {
 
   test('a keyed state it never empties stops at its bytes; one removed '
       'makes room', () async {
-    final (p, errors) = await join(const SessionLimits(stateBytes: 200));
+    // The budget covers the word's own descriptor (~199 bytes) and a few
+    // values; of 20 values, five fit.
+    final (p, errors) = await join(const SessionLimits(stateBytes: 400));
     final seen = p.defineState(
       StateDescriptor('notes.seen', type: const TextType(), key: 'visitor'),
     );
