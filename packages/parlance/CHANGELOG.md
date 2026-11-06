@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Name the skill with the package prefix required by the installer.
+
 ## 0.1.1
 
 - Fix the packaged skill metadata so skill installers can read it.

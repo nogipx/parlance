@@ -56,4 +56,4 @@ An owner and the parts that use its words do not know where they run: in the hos
 One way for every part to say what it has, what it can be asked and what happened to it, whether it sits in the same process, across the network or in an agent, and one record of who asked, whether they were allowed, and why the world is as it is now.
 
 - A whole host in miniature: [`example/`](example/) (`dart run example/main.dart`).
-- The contract the code follows, section by section: [`skills/parlance/references/`](skills/parlance/references/).
+- The contract the code follows, section by section: [`skills/parlance-core/references/`](skills/parlance-core/references/).

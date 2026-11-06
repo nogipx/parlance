@@ -6,7 +6,7 @@ of it all.
 
 | Package | What it is |
 |---|---|
-| `packages/parlance` | The language: the registry, participants and owners, remote, MCP. Its contract is `packages/parlance/skills/parlance`. |
+| `packages/parlance` | The language: the registry, participants and owners, remote, MCP. Its contract is `packages/parlance/skills/parlance-core`. |
 | `packages/parlance_generator` | Typed words from a vocabulary written once. |
 | `packages/parlance_links` | Reactions written as data, run by the participant that owns them. |
 | `packages/parlance_journal` | The journal kept where it lasts, and read back. |

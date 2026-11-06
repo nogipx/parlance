@@ -1,6 +1,6 @@
 # parlance_generator
 
-Makes a module's typed parlance words from one abstract Dart class: the enums of its states, commands, queries and facts, the records of their params, their shapes, and the list of them all. The class is the truth; the contract is `parlance/skills/parlance/references/schema.md` (SPEC §23).
+Makes a module's typed parlance words from one abstract Dart class: the enums of its states, commands, queries and facts, the records of their params, their shapes, and the list of them all. The class is the truth; the contract is `parlance/skills/parlance-core/references/schema.md` (SPEC §23).
 
 ```yaml
 dependencies:

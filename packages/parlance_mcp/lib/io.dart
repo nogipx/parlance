@@ -2,7 +2,7 @@
 /// Unix socket, a session each. Kept apart from `parlance_mcp.dart`, which
 /// needs no `dart:io`.
 ///
-/// The contract: skills/parlance/references/mcp.md (§16).
+/// The contract: skills/parlance-core/references/mcp.md (§16).
 library;
 
 export 'src/socket_server.dart';

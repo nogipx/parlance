@@ -1,5 +1,5 @@
 ---
-name: parlance
+name: parlance-core
 description: >-
   Write, change, review and test code that uses or extends the parlance package (package:parlance; libraries schema, app, testing and tools; agents in parlance_mcp): defining states, commands and facts with their callers, owners that write their states, passing causes, who may call what and why a call was refused, remote sessions and MCP tools. Use whenever code imports package:parlance, touches packages/parlance, or a task asks why a command was refused, who wrote a state, or how to add something to the registry.
 ---

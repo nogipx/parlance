@@ -9,7 +9,7 @@
 /// away, renamed or changed in meaning; it only grows. A published words
 /// package's `.g.dart` refers to nothing outside it.
 ///
-/// The contract: skills/parlance/references/schema.md (§23).
+/// The contract: skills/parlance-core/references/schema.md (§23).
 library;
 
 export 'src/core/core.dart' show IHandle;

@@ -8,7 +8,7 @@
 /// It is not frozen: it changes as the library does. An app's words,
 /// owners and clients use `schema.dart`; its `main` uses `app.dart`.
 ///
-/// The contract: skills/parlance/references/ (registry.md, participant.md,
+/// The contract: skills/parlance-core/references/ (registry.md, participant.md,
 /// remote.md, view.md).
 library;
 
