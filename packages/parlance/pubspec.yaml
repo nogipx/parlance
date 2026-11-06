@@ -1,6 +1,6 @@
 name: parlance
 description: "A shared language for app parts that do not know each other: owned states, commands, queries and facts, with rights and causes."
-version: 0.1.0
+version: 0.1.1
 resolution: workspace
 repository: https://github.com/nogipx/parlance
 issue_tracker: https://github.com/nogipx/parlance/issues

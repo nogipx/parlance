@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Fix the packaged skill metadata so skill installers can read it.
+
 ## 0.1.0
 
 - First published release.
