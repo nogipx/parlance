@@ -117,7 +117,7 @@ final class _$WeatherClient implements IWeatherClient {
 const weatherWords = WordSet(
   'weather',
   [...WeatherState.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'weatherWords',
 );
 
@@ -246,7 +246,7 @@ final class _$HeaterClient implements IHeaterClient {
 const heaterWords = WordSet(
   'heater',
   [...HeaterCommand.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'heaterWords',
 );
 
@@ -413,7 +413,7 @@ final class _$ThermostatClient implements IThermostatClient {
 const thermostatWords = WordSet(
   'thermostat',
   [...ThermostatState.values, ...ThermostatFact.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'thermostatWords',
 );
 
@@ -540,6 +540,6 @@ final class _$LampClient implements ILampClient {
 const lampWords = WordSet(
   'lamp',
   [...LampState.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'lampWords',
 );

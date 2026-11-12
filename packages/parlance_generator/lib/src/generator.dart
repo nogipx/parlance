@@ -290,7 +290,7 @@ final class _Emitter {
     }
 
     for (final g in cls.getters) {
-      if (!g.isOriginDeclaration || g.isStatic) continue;
+      if (g.nonSynthetic != g || g.isStatic) continue;
       final a = _state.firstAnnotationOf(g);
       if (a == null) {
         if (g.isAbstract) _unmarked(g);
@@ -1519,7 +1519,7 @@ final class _Emitter {
       }
     } else {
       for (final f in c.fields) {
-        if (f.isStatic || !f.isOriginDeclaration || f.isPrivate) continue;
+        if (f.isStatic || f.nonSynthetic != f || f.isPrivate) continue;
         add(f, f.displayName, f.type);
       }
     }

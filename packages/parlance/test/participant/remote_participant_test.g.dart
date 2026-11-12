@@ -203,7 +203,7 @@ final class _$KittensClient implements IKittensClient {
 const kittensWords = WordSet(
   'kittens',
   [...KittensState.values, ...KittensCommand.values, ...KittensFact.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'kittensWords',
 );
 

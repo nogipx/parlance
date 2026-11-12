@@ -419,7 +419,7 @@ const houseWords = WordSet(
     ...HouseQuery.values,
     ...HouseFact.values,
   ],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'houseWords',
 );
 
@@ -634,7 +634,7 @@ final class _$VisitClient implements IVisitClient {
 const visitWords = WordSet(
   'visit',
   [...VisitState.values, ...VisitCommand.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'visitWords',
 );
 

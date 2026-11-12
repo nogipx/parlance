@@ -112,6 +112,6 @@ final class _$LampClient implements ILampClient {
 const lampWords = WordSet(
   'lamp',
   [...LampState.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'lampWords',
 );

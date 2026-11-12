@@ -118,7 +118,7 @@ final class _$TestClient implements ITestClient {
 const testWords = WordSet(
   'test',
   [...TestState.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'testWords',
 );
 
@@ -228,7 +228,7 @@ final class _$FlagClient implements IFlagClient {
 const flagWords = WordSet(
   'flag',
   [...FlagState.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'flagWords',
 );
 
@@ -316,6 +316,6 @@ final class _$KnobWordsClient implements IKnobWordsClient {
 const knobWordsWords = WordSet(
   'knob',
   [],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'knobWordsWords',
 );

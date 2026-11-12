@@ -1,6 +1,6 @@
 name: parlance_mcp
 description: "A host's parlance for agents over stdio, reached over a Unix socket or TCP."
-version: 0.1.0
+version: 0.1.1
 resolution: workspace
 repository: https://github.com/nogipx/parlance
 issue_tracker: https://github.com/nogipx/parlance/issues

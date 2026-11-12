@@ -391,7 +391,7 @@ const deckWords = WordSet(
     ...DeckQuery.values,
     ...DeckFact.values,
   ],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'deckWords',
 );
 

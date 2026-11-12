@@ -135,7 +135,7 @@ final class _$DialClient implements IDialClient {
 const dialWords = WordSet(
   'dial',
   [...DialCommand.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'dialWords',
 );
 
@@ -226,7 +226,7 @@ final class _$RulesClient implements IRulesClient {
 const rulesWords = WordSet(
   'rules',
   [],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'rulesWords',
 );
 
@@ -353,7 +353,7 @@ final class _$BellClient implements IBellClient {
 const bellWords = WordSet(
   'bell',
   [...BellFact.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'bellWords',
 );
 
@@ -518,7 +518,7 @@ final class _$LampsClient implements ILampsClient {
 const lampsWords = WordSet(
   'lamps',
   [...LampsState.values, ...LampsCommand.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'lampsWords',
 );
 

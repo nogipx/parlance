@@ -21,7 +21,7 @@ workspace:
 dev_dependencies:
   # tool/: the frozen surface, held to the last release and mapped to
   # the tests.
-  analyzer: '>=9.0.0 <11.0.0'
+  analyzer: ^14.3.0
   lints: ^6.0.0
   # The release flow (melos run prepare / publish:dry / publish:release):
   # MAINTAINING.md.
@@ -119,7 +119,7 @@ melos:
         `melos run tag:release`.
       run: |
         set -e
-        fvm dart run melos publish --no-dry-run --yes
+        fvm dart run melos publish --no-dry-run --yes --no-git-tag-version
         melos run tag:release
 
     tag:release:

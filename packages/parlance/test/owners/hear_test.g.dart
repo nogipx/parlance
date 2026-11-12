@@ -129,7 +129,7 @@ final class _$DoorClient implements IDoorClient {
 const doorWords = WordSet(
   'door',
   [...DoorFact.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'doorWords',
 );
 
@@ -247,6 +247,6 @@ final class _$BookClient implements IBookClient {
 const bookWords = WordSet(
   'book',
   [...BookState.values],
-  from: 'parlance',
+  from: 'parlance 0.1.3',
   dartName: 'bookWords',
 );

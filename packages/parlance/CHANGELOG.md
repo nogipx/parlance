@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Use the published RPC generator 0.7.1 and regenerate package vocabularies with versioned provenance.
+
 ## 0.1.2
 
 - Name the skill with the package prefix required by the installer.

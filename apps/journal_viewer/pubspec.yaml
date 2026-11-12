@@ -8,6 +8,7 @@ environment:
   sdk: ^3.13.1
 
 dependencies:
+  material_ui: ^1.8.0
   flutter:
     sdk: flutter
   desktop_drop: ^0.6.0

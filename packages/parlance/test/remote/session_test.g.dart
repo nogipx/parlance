@@ -82,4 +82,9 @@ final class _$PlugClient implements IPlugClient {
 /// The vocabulary of [Plug]: its name and every word, for
 /// `main` to grant a participant (`vocabularies:`) and for
 /// `schemaOf`.
-const plugWords = WordSet('plug', [], from: 'parlance', dartName: 'plugWords');
+const plugWords = WordSet(
+  'plug',
+  [],
+  from: 'parlance 0.1.3',
+  dartName: 'plugWords',
+);
