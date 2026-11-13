@@ -9,6 +9,7 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/shapes.dart';
 import '../registry/words.dart';
+import '../registry/streams.dart';
 import '../view/view.dart';
 import 'owner.dart';
 
@@ -41,7 +42,7 @@ final class ParticipantRights {
   static const none = ParticipantRights();
 }
 
-/// What a word is: a state, a command, a query or a fact.
+/// The seven atomic interaction types of words.
 enum WordRole {
   /// A value read and watched.
   state,
@@ -54,6 +55,15 @@ enum WordRole {
 
   /// What happened.
   fact,
+
+  /// A parameterized sequence of data.
+  serverStream,
+
+  /// An input sequence with one final result.
+  clientStream,
+
+  /// Input and output sequences in one operation.
+  bidiStream,
 }
 
 /// A word a participant asks to define, as its rights judge it
@@ -102,6 +112,13 @@ SpeakForCall speakForCallOf(Principal speaker, Principal by, String fact) =>
 
 /// [d] as [who]'s rights judge it: the library's.
 DefineCall defineCallOf(Principal who, Descriptor d) => switch (d) {
+  DataStreamDescriptor(:final readers, :final kind) => DefineCall._(
+    who,
+    d.name,
+    WordRole.values.byName(kind),
+    readers: kind == 'serverStream' ? readers : null,
+    callers: kind == 'serverStream' ? null : readers,
+  ),
   StateDescriptor(:final readers) => DefineCall._(
     who,
     d.name,
@@ -164,6 +181,13 @@ extension WordAccessOf on WordAccess {
   FactDescriptor fact(FactDescriptor d) => d.readers != null || readers == null
       ? d
       : FactDescriptor(d.name, type: d.type, readers: readers, meta: d.meta);
+
+  /// Resolves reader access for server streams and caller access for inputs.
+  DataStreamDescriptor dataStream(DataStreamDescriptor d) {
+    if (d.readers != null) return d;
+    if (d.input != null) return d.withAccess(callersOf(d.name, null));
+    return readers == null ? d : d.withAccess(readers!);
+  }
 
   /// [callers], else [readers], else everyone: who may ask a query, as who
   /// may read a state.
@@ -312,6 +336,28 @@ abstract interface class IRawParticipant
     Shape<Object?>? returns,
   });
 
+  /// Defines a stream provided on each subscription.
+  IHandle defineStream(
+    DataStreamDescriptor d,
+    StreamHandler handler, {
+    WhyNot? whyNot,
+    Shape<Object?>? params,
+    Shape<Object?>? item,
+    Shape<Object?>? input,
+  });
+
+  /// Opens a lazy single-subscription stream; no automatic retry or resume.
+  Stream<T> openStream<T>(
+    String name,
+    Object? params,
+    Shape<Object?> paramsShape,
+    Shape<T> itemShape, {
+    CancellationToken? cancel,
+    Stream<Object?>? input,
+    Shape<Object?>? inputShape,
+    String kind = 'serverStream',
+  });
+
   /// Defines a fact of its own, with [who] its owner; readers from
   /// [access] when [d] names none. Given its payloads' [shape], its handle
   /// takes Dart values when the registry keeps them so (SPEC §18).
@@ -410,6 +456,11 @@ final class GeneratedWords {
   GeneratedQuery<P, R> query<P, R>(IQueryWord<P, R> word) =>
       GeneratedQuery._(_resolve(), word);
 
+  /// The stream [word], for the owner base or the client.
+  GeneratedServerStream<P, T> serverStream<P, T>(
+    IServerStreamWord<P, T> word,
+  ) => GeneratedServerStream._(_resolve, word);
+
   /// The state [word] as a part reads it ([IStateOf]).
   IStateOf<T> stateOf<T>(IStateWord<T> word) => _StateOf(this, word);
 
@@ -418,6 +469,16 @@ final class GeneratedWords {
 
   /// The fact [word] as a part hears it ([IFactOf]).
   IFactOf<T> factOf<T>(IFactWord<T> word) => _FactOf(this, word);
+
+  /// The client stream as served or invoked by generated code.
+  GeneratedClientStream<P, I, R> clientStream<P, I, R>(
+    IClientStreamWord<P, I, R> word,
+  ) => GeneratedClientStream._(_resolve, word);
+
+  /// The bidirectional stream as served or invoked by generated code.
+  GeneratedBidiStream<P, I, O> bidiStream<P, I, O>(
+    IBidiStreamWord<P, I, O> word,
+  ) => GeneratedBidiStream._(_resolve, word);
 
   /// [make]'s stream, made when it is listened to: an owner's client hands
   /// out its streams before the owner is attached, and its tools listen
@@ -475,8 +536,7 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
 
   /// As [readAll] lists the key: a stored null counts as there.
   @override
-  bool has(String key) =>
-      _w._resolve().readAll(_word.name).containsKey(key);
+  bool has(String key) => _w._resolve().readAll(_word.name).containsKey(key);
 
   /// As [of] reads each: the owner's own values in its process, and one
   /// that cannot be read left out, as [of] answers null for it.
@@ -690,5 +750,142 @@ final class GeneratedQuery<P, R> {
   Future<CallResult<R>> ask(P params, {CancellationToken? cancel}) async =>
       _word.answer(
         await _p.callAs(_word.name, params, _word.params, cancel: cancel),
+      );
+}
+
+/// A stream as its generated owner serves it and its client opens it.
+final class GeneratedServerStream<P, T> {
+  GeneratedServerStream._(this._resolve, this._word);
+  final IRawParticipant Function() _resolve;
+  final IServerStreamWord<P, T> _word;
+
+  /// Defines its factory. The owner chooses how its source is shared.
+  IHandle serve(
+    Stream<T> Function(P params) handler, {
+    Callers? readers,
+    Map<String, Object?> meta = const {},
+    WhyNot? whyNot,
+  }) => _resolve().defineStream(
+    ServerStreamDescriptor(
+      _word.name,
+      params: _word.params.type,
+      type: _word.shape.type,
+      readers: readers,
+      meta: meta,
+    ),
+    (c) => handler(c.paramsAs(_word.params)).map(
+      (x) => identical(c.itemShape, _word.shape) ? x : _word.shape.toJson(x),
+    ),
+    whyNot: whyNot,
+    params: _word.params,
+    item: _word.shape,
+  );
+
+  /// Creates a lazy, single-subscription stream. Only listen opens it.
+  Stream<T> open(P params, {CancellationToken? cancel}) => LazyDataStream(
+    () => _resolve().openStream(
+      _word.name,
+      params,
+      _word.params,
+      _word.shape,
+      cancel: cancel,
+    ),
+  );
+}
+
+/// A client stream's generated owner and client operations.
+final class GeneratedClientStream<P, I, R> {
+  GeneratedClientStream._(this._resolve, this._word);
+  final IRawParticipant Function() _resolve;
+  final IClientStreamWord<P, I, R> _word;
+
+  /// Serves this operation; inputs are subscribed only after admission.
+  IHandle serve(
+    Future<R> Function(P params, Stream<I> input) handler, {
+    Callers? callers,
+    Map<String, Object?> meta = const {},
+    WhyNot? whyNot,
+  }) => _resolve().defineStream(
+    ClientStreamDescriptor(
+      _word.name,
+      params: _word.params.type,
+      input: _word.input.type,
+      type: _word.returns.type,
+      callers: callers,
+      meta: meta,
+    ),
+    (c) =>
+        Stream.fromFuture(
+          handler(c.paramsAs(_word.params), c.inputAs(_word.input)),
+        ).map(
+          (x) => identical(c.itemShape, _word.returns)
+              ? x
+              : _word.returns.toJson(x),
+        ),
+    whyNot: whyNot,
+    params: _word.params,
+    input: _word.input,
+    item: _word.returns,
+  );
+
+  /// Starts an upload and waits for its final result.
+  Future<R> call(P params, Stream<I> input, {CancellationToken? cancel}) =>
+      LazyDataStream<R>(
+        () => _resolve().openStream(
+          _word.name,
+          params,
+          _word.params,
+          _word.returns,
+          input: input,
+          inputShape: _word.input,
+          kind: 'clientStream',
+          cancel: cancel,
+        ),
+      ).single;
+}
+
+/// A bidi stream's generated owner and client operations.
+final class GeneratedBidiStream<P, I, O> {
+  GeneratedBidiStream._(this._resolve, this._word);
+  final IRawParticipant Function() _resolve;
+  final IBidiStreamWord<P, I, O> _word;
+
+  /// Serves this operation; inputs are subscribed only after admission.
+  IHandle serve(
+    Stream<O> Function(P params, Stream<I> input) handler, {
+    Callers? callers,
+    Map<String, Object?> meta = const {},
+    WhyNot? whyNot,
+  }) => _resolve().defineStream(
+    BidiStreamDescriptor(
+      _word.name,
+      params: _word.params.type,
+      input: _word.input.type,
+      type: _word.shape.type,
+      callers: callers,
+      meta: meta,
+    ),
+    (c) => handler(c.paramsAs(_word.params), c.inputAs(_word.input)).map(
+      (x) => identical(c.itemShape, _word.shape) ? x : _word.shape.toJson(x),
+    ),
+    whyNot: whyNot,
+    params: _word.params,
+    input: _word.input,
+    item: _word.shape,
+  );
+
+  /// Creates a lazy exchange; listening starts both directions.
+  Stream<O> open(P params, Stream<I> input, {CancellationToken? cancel}) =>
+      LazyDataStream<O>(
+        () => _resolve().openStream(
+          _word.name,
+          params,
+          _word.params,
+          _word.shape,
+          input: input,
+          inputShape: _word.input,
+          kind: 'bidiStream',
+          cancel: cancel,
+        ),
       );
 }

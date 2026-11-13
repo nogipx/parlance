@@ -22,6 +22,15 @@ const _nameRule =
 const _state = TypeChecker.typeNamed(StateWord, inPackage: 'parlance');
 const _command = TypeChecker.typeNamed(CommandWord, inPackage: 'parlance');
 const _query = TypeChecker.typeNamed(QueryWord, inPackage: 'parlance');
+const _clientStream = TypeChecker.typeNamed(
+  ClientStreamWord,
+  inPackage: 'parlance',
+);
+const _bidiStream = TypeChecker.typeNamed(
+  BidiStreamWord,
+  inPackage: 'parlance',
+);
+const _stream = TypeChecker.typeNamed(ServerStreamWord, inPackage: 'parlance');
 const _fact = TypeChecker.typeNamed(FactWord, inPackage: 'parlance');
 const _range = TypeChecker.typeNamed(Range, inPackage: 'parlance');
 const _length = TypeChecker.typeNamed(Length, inPackage: 'parlance');
@@ -215,6 +224,12 @@ final class _Callable extends _Word {
 
   /// What its handler returns, as the class declares it (`Future<void>`).
   late final String declared;
+  String streamKind = 'Server';
+  String? inputType;
+  String? inputShape;
+  FormalParameterElement? inputParameter;
+  String get streamDoor =>
+      '${streamKind[0].toLowerCase()}${streamKind.substring(1)}Stream';
 }
 
 final class _Fact extends _Word {
@@ -275,6 +290,7 @@ final class _Emitter {
     final states = <_State>[];
     final commands = <_Callable>[];
     final queries = <_Callable>[];
+    final streams = <_Callable>[];
     final facts = <_Fact>[];
     final names = <String, Element>{};
 
@@ -339,6 +355,25 @@ final class _Emitter {
         _meta(q, r);
         named(q);
         queries.add(q);
+      } else if ((_stream.firstAnnotationOf(m) ??
+              _clientStream.firstAnnotationOf(m) ??
+              _bidiStream.firstAnnotationOf(m))
+          case final a?) {
+        final r = ConstantReader(a);
+        final kind = _clientStream.hasAnnotationOf(m)
+            ? 'Client'
+            : _bidiStream.hasAnnotationOf(m)
+            ? 'Bidi'
+            : 'Server';
+        final s = _callable(m, r, query: false, stream: true, streamKind: kind);
+        final access = kind == 'Server' ? 'readers' : 'callers';
+        if (r.peek(access)?.objectValue case final o?) {
+          s.options.add('$access: ${_callers(o)}');
+        }
+        _common(s, r);
+        _meta(s, r);
+        named(s);
+        streams.add(s);
       } else if (_fact.firstAnnotationOf(m) case final a?) {
         final r = ConstantReader(a);
         final f = _factOf(m, r);
@@ -360,14 +395,18 @@ final class _Emitter {
     if (queries.isNotEmpty) {
       out.write(_callablesEnum('${_c}Query', 'IQueryWord', queries));
     }
+    for (final kind in ['Server', 'Client', 'Bidi']) {
+      final words = streams.where((s) => s.streamKind == kind).toList();
+      if (words.isNotEmpty) out.write(_streamsEnum(words));
+    }
     if (facts.isNotEmpty) out.write(_factsEnum(facts));
     for (final s in states) {
       if (s.key case final k?) _named(k, s.element);
     }
     _checkKinds();
     if (_kindsNamed.isNotEmpty) out.write(_kindsOf());
-    if (owner) out.write(_ownerBase(states, commands, queries, facts));
-    if (client) out.write(_clientOf(states, commands, queries, facts));
+    if (owner) out.write(_ownerBase(states, commands, queries, facts, streams));
+    if (client) out.write(_clientOf(states, commands, queries, facts, streams));
     out
       ..writeln('/// The vocabulary of [$_c]: its name and every word, for')
       ..writeln('/// `main` to grant a participant (`vocabularies:`) and for')
@@ -379,6 +418,9 @@ final class _Emitter {
           if (commands.isNotEmpty) '...${_c}Command.values',
           if (queries.isNotEmpty) '...${_c}Query.values',
           if (facts.isNotEmpty) '...${_c}Fact.values',
+          for (final kind in ['Server', 'Client', 'Bidi'])
+            if (streams.any((s) => s.streamKind == kind))
+              '...$_c${kind}Stream.values',
         ].join(', '),
       )
       ..writeln('], from: ${_quote(from)}, dartName: ${_quote(_words)});')
@@ -388,7 +430,7 @@ final class _Emitter {
 
   Never _unmarked(Element e) => throw InvalidGenerationSourceError(
     '${e.displayName} is abstract but no word: mark it @StateWord, '
-    '@CommandWord, @QueryWord or @FactWord',
+    '@CommandWord, @QueryWord, @ServerStreamWord or @FactWord',
     element: e,
   );
 
@@ -435,8 +477,35 @@ final class _Emitter {
     MethodElement m,
     ConstantReader r, {
     required bool query,
+    bool stream = false,
+    String streamKind = 'Server',
   }) {
-    for (final p in m.formalParameters) {
+    FormalParameterElement? incoming;
+    if (stream && streamKind != 'Server') {
+      final positional = m.formalParameters
+          .where((p) => p.isPositional)
+          .toList();
+      if (positional.length != 1 ||
+          !positional.single.isRequiredPositional ||
+          positional.single.type is! InterfaceType ||
+          !(positional.single.type as InterfaceType).isDartAsyncStream ||
+          positional.single.type.nullabilitySuffix != NullabilitySuffix.none) {
+        throw InvalidGenerationSourceError(
+          '${m.displayName}: a $streamKind stream requires exactly one required positional Stream<T>',
+          element: m,
+        );
+      }
+      incoming = positional.single;
+      final t = (incoming.type as InterfaceType).typeArguments.single;
+      if (t is DynamicType || t is VoidType) {
+        throw InvalidGenerationSourceError(
+          '${m.displayName}: the input stream requires a typed element',
+          element: incoming,
+        );
+      }
+    }
+    final named = m.formalParameters.where((p) => p != incoming).toList();
+    for (final p in named) {
       if (!p.isNamed) {
         throw InvalidGenerationSourceError(
           '${m.displayName}: params are named parameters, ${p.displayName} '
@@ -445,8 +514,35 @@ final class _Emitter {
         );
       }
     }
-    final (params, paramsShape) = _record(m, m.formalParameters);
-    final returned = _unwrapFuture(m.returnType);
+    final (params, paramsShape) = _record(m, named);
+    var returned = _unwrapFuture(m.returnType);
+    if (stream && streamKind != 'Client') {
+      if (m.returnType is! InterfaceType ||
+          !(m.returnType as InterfaceType).isDartAsyncStream ||
+          m.returnType.nullabilitySuffix != NullabilitySuffix.none) {
+        throw InvalidGenerationSourceError(
+          '${m.displayName}: a stream returns Stream<T>',
+          element: m,
+        );
+      }
+      returned = (m.returnType as InterfaceType).typeArguments.single;
+      if (returned is VoidType || returned is DynamicType) {
+        throw InvalidGenerationSourceError(
+          '${m.displayName}: a stream requires a typed element',
+          element: m,
+        );
+      }
+    }
+    if (stream &&
+        streamKind == 'Client' &&
+        (m.returnType is! InterfaceType ||
+            !(m.returnType as InterfaceType).isDartAsyncFuture ||
+            returned is DynamicType)) {
+      throw InvalidGenerationSourceError(
+        '${m.displayName}: a client stream returns Future<R> with a typed result',
+        element: m,
+      );
+    }
     if (returned is VoidType && query) {
       throw InvalidGenerationSourceError(
         '${m.displayName}: a query answers; give it a return type',
@@ -454,14 +550,29 @@ final class _Emitter {
       );
     }
     return _Callable(
-      m.displayName,
-      _name(m, r),
-      m,
-      params,
-      paramsShape,
-      returned is VoidType ? 'void' : _dart(returned),
-      returned is VoidType ? null : _shape(returned, m, m.displayName),
-    )..declared = _dart(m.returnType);
+        m.displayName,
+        _name(m, r),
+        m,
+        params,
+        paramsShape,
+        returned is VoidType ? 'void' : _dart(returned),
+        returned is VoidType
+            ? (stream ? 'PlainShape(NullableType(AnyType()))' : null)
+            : _shape(returned, m, m.displayName),
+      )
+      ..declared = _dart(m.returnType)
+      ..streamKind = streamKind
+      ..inputParameter = incoming
+      ..inputType = incoming == null
+          ? null
+          : _dart((incoming.type as InterfaceType).typeArguments.single)
+      ..inputShape = incoming == null
+          ? null
+          : _shape(
+              (incoming.type as InterfaceType).typeArguments.single,
+              incoming,
+              '${m.displayName}Input',
+            );
   }
 
   /// A command's or a query's deadline and availability.
@@ -566,6 +677,7 @@ final class _Emitter {
     List<_Callable> commands,
     List<_Callable> queries,
     List<_Fact> facts,
+    List<_Callable> streams,
   ) {
     final members = <String, Element>{};
     void member(String name, _Word w) {
@@ -672,6 +784,36 @@ final class _Emitter {
               '  }',
         ));
       }
+    }
+    for (final s in streams) {
+      member(s.member, s);
+      final ps = (s.element as MethodElement).formalParameters;
+      for (final p in ps) {
+        if (p.displayName == 'cancel') {
+          throw InvalidGenerationSourceError(
+            '${s.member}: cancel is reserved for the operation token',
+            element: p,
+          );
+        }
+      }
+      final named = ps.where((p) => p.isNamed).toList();
+      final input = s.inputParameter;
+      final signature =
+          '${input == null ? '' : '${_dart(input.type)} ${input.displayName}, '}'
+          '{${[...named.map(_param), 'CancellationToken? cancel'].join(', ')}}';
+      final output = s.streamKind == 'Client'
+          ? 'Future<${s.returns}>'
+          : 'Stream<${s.returns}>';
+      final act = s.streamKind == 'Client' ? 'call' : 'open';
+      all.add((
+        docs: [
+          '${s.name}: ${s.streamKind == 'Client' ? 'uploads input and returns its result' : 'opens on listen'}; cancellation ends this operation.',
+        ],
+        signature: '$output ${s.member}($signature)',
+        body:
+            '=> _\$words.${s.streamDoor}($_c${s.streamKind}Stream.${s.member})'
+            '.$act(${_recordOf(named)}${input == null ? '' : ', ${input.displayName}'}, cancel: cancel);',
+      ));
     }
     for (final f in facts) {
       member(f.member, f);
@@ -822,9 +964,16 @@ final class _Emitter {
     List<_Callable> commands,
     List<_Callable> queries,
     List<_Fact> facts,
+    List<_Callable> streams,
   ) {
     final factClasses = StringBuffer();
-    for (final w in [...states, ...commands, ...queries, ...facts]) {
+    for (final w in [
+      ...states,
+      ...commands,
+      ...queries,
+      ...facts,
+      ...streams,
+    ]) {
       if (_ownerMembers.contains(w.member)) {
         throw InvalidGenerationSourceError(
           '${w.member} is a name every owner base has: name it otherwise, or '
@@ -851,7 +1000,9 @@ final class _Emitter {
       if (w.whyNot) 'whyNot: whyNot${_pascal(w.member)}',
     ].join(', ');
     String args(_Callable c, String of) => [
-      for (final p in (c.element as MethodElement).formalParameters)
+      for (final p in (c.element as MethodElement).formalParameters.where(
+        (p) => p.isNamed,
+      ))
         '${p.displayName}: $of.${p.displayName}',
     ].join(', ');
 
@@ -903,7 +1054,8 @@ final class _Emitter {
     if (states.isNotEmpty ||
         facts.isNotEmpty ||
         commands.isNotEmpty ||
-        queries.isNotEmpty) {
+        queries.isNotEmpty ||
+        streams.isNotEmpty) {
       out.writeln('    final p = GeneratedWords(participant);');
     }
     for (final st in states) {
@@ -935,6 +1087,12 @@ final class _Emitter {
       out.writeln(
         '    p.query(${_c}Query.${q.member})'
         '.serve(${[serving(q), opts(q)].where((x) => x.isNotEmpty).join(', ')});',
+      );
+    }
+    for (final s in streams) {
+      out.writeln(
+        '    p.${s.streamDoor}($_c${s.streamKind}Stream.${s.member})'
+        '.serve(${[s.inputParameter == null ? serving(s) : '(x, input) => ${s.member}(input${args(s, 'x').isEmpty ? '' : ', ${args(s, 'x')}'} )', opts(s)].where((x) => x.isNotEmpty).join(', ')});',
       );
     }
     out
@@ -1026,6 +1184,27 @@ final class _Emitter {
             '  /// Why ${q.name} cannot be asked now; null when it can.',
           )
           ..writeln('  String? whyNot${_pascal(q.member)}();');
+      }
+    }
+    for (final s in streams) {
+      member(s.member, s);
+      final ps = (s.element as MethodElement).formalParameters;
+      final named = ps.where((p) => p.isNamed).toList();
+      final input = s.inputParameter;
+      final signature = [
+        if (input != null) '${_dart(input.type)} ${input.displayName}',
+        if (named.isNotEmpty) '{${named.map(_param).join(', ')}}',
+      ].join(', ');
+      out
+        ..writeln('  /// Provides ${s.name} for one subscription.')
+        ..writeln('  ${s.declared} ${s.member}($signature);');
+      if (s.whyNot) {
+        member('whyNot${_pascal(s.member)}', s);
+        out
+          ..writeln(
+            '  /// Why a subscription cannot open now; null when ready.',
+          )
+          ..writeln('  String? whyNot${_pascal(s.member)}();');
       }
     }
     out
@@ -1590,6 +1769,25 @@ enum $name<P, R> implements $of<P, R> {
 }
 
 ''';
+  }
+
+  String _streamsEnum(List<_Callable> streams) {
+    final kind = streams.first.streamKind;
+    final incoming = kind != 'Server';
+    final name = '$_c${kind}Stream';
+    final field = kind == 'Client' ? 'returns' : 'shape';
+    final values = [
+      for (final w in streams)
+        '${w.member}<${w.params}, ${incoming ? '${w.inputType}, ' : ''}${w.returns}>(${_quote(w.name)}, ${w.paramsShape}, ${incoming ? '${w.inputShape}, ' : ''}${w.returnsShape})',
+    ];
+    return '\n/// The ${kind.toLowerCase()} streams of [$_c].\n'
+        'enum $name<P, ${incoming ? 'I, ' : ''}T> implements I${kind}StreamWord<P, ${incoming ? 'I, ' : ''}T> {\n'
+        '${values.join(',\n')};\n'
+        'const $name(this.name, this.params, ${incoming ? 'this.input, ' : ''}this.$field);\n'
+        '@override final String name;\n'
+        '@override final RecordShape<P> params;\n'
+        '${incoming ? '@override final Shape<I> input;\n' : ''}'
+        '@override final Shape<T> $field;\n}\n';
   }
 
   String _factsEnum(List<_Fact> facts) {

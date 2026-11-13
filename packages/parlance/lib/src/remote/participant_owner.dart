@@ -145,6 +145,38 @@ final class _OfOwner implements IRawParticipant {
   }) => _root._defineCommand(d, handler, whyNot, who);
 
   @override
+  Stream<T> openStream<T>(
+    String name,
+    Object? params,
+    Shape<Object?> paramsShape,
+    Shape<T> itemShape, {
+    CancellationToken? cancel,
+    Stream<Object?>? input,
+    Shape<Object?>? inputShape,
+    String kind = 'serverStream',
+  }) => _root._openData(
+    name,
+    params,
+    paramsShape,
+    itemShape,
+    cancel: cancel,
+    input: input,
+    inputShape: inputShape,
+    kind: kind,
+    as: who,
+  );
+
+  @override
+  IHandle defineStream(
+    DataStreamDescriptor d,
+    StreamHandler handler, {
+    WhyNot? whyNot,
+    Shape<Object?>? params,
+    Shape<Object?>? item,
+    Shape<Object?>? input,
+  }) => _root._defineStream(d, handler, whyNot, who);
+
+  @override
   IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) =>
       _root._defineFact(d, who);
 

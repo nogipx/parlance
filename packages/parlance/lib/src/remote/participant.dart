@@ -26,10 +26,13 @@ import 'built.dart';
 import 'contract.dart';
 import 'client.dart';
 import 'mirror.dart';
+import 'data_streams.dart';
+import '../registry/streams.dart';
 
 part 'participant_errors.dart';
 part 'participant_words.dart';
 part 'participant_owner.dart';
+part 'participant_streams.dart';
 
 /// A participant across a connection (SPEC §22.4): the same
 /// [IParticipant] a part has in the host's process, over its session.
@@ -217,6 +220,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     );
     p
       ..requires = requires
+      .._dataLimits = streamLimitsFromJson(d['streamLimits'])
       .._speaks = speaks;
     if (p.log.isEnabled(RpcLogLevel.info)) {
       p.log.info('joined', data: {'as': p.who.selector});
@@ -348,6 +352,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
         return;
       }
       final now = Principal.fromJson(d['principal']);
+      _dataLimits = streamLimitsFromJson(d['streamLimits']);
       if (now != who) {
         _fail(
           const {'op': 'rejoin'},
@@ -361,7 +366,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
         ..insertAll(0, _standing())
         ..addAll(_away);
       _away.clear();
-      for (final c in _commands.values) {
+      for (final c in <_CheckedWord>[..._commands.values, ..._streams.values]) {
         c.told = false;
       }
       _life = _Life.online;
@@ -385,7 +390,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       // that keeps refusing the rejoin is a failure the caller should see
       // coming, not a loop that looks like peace.
       if (log.isEnabled(RpcLogLevel.warning)) {
-        log.warning('rejoin failed; joining again later', error: e, stackTrace: s);
+        log.warning(
+          'rejoin failed; joining again later',
+          error: e,
+          stackTrace: s,
+        );
       }
       _life = _Life.away;
       _rejoinLater();
@@ -397,6 +406,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Whether the host ended its session, the connection still up: what it
   /// asks reaches the registry no more, and it does not join again.
   void _endedByHost(String why) {
+    _endData(StreamFailure(StreamFailureCode.unavailable, why));
     if (_ended || _disposed) return;
     _life = _Life.ended;
     _retry?.cancel();
@@ -435,6 +445,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       {'op': 'define', 'descriptor': f.d.toJson(), ..._asOf(f.as)},
     for (final c in _commands.values)
       {'op': 'define', 'descriptor': c.d.toJson(), ..._asOf(c.as)},
+    if (_speaks.contains('streams'))
+      for (final s in _streams.values)
+        if (_supportsData(s.d.kind))
+          {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
     for (final MapEntry(key: state, value: values) in _own.entries)
       for (final MapEntry(:key, :value) in values.entries)
         {
@@ -445,7 +459,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           ..._asOf(_states[state]?.as),
         },
     for (final g in _guards.values) {'op': 'guard', 'id': g.id, ..._asOf(g.as)},
-    if (_speaks.contains('built')) ..._built.standing(),
+    if (_speaks.contains('built'))
+      ..._built.standing(
+        streams: _speaks.contains('streams'),
+        inputStreams: _speaks.contains('inputStreams'),
+      ),
   ];
 
   /// The peer endpoint it made on its connection.
@@ -481,6 +499,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   final Map<String, ({StateDescriptor d, Principal? as})> _states = {};
   final Map<String, ({FactDescriptor d, Principal? as})> _facts = {};
   final Map<String, _Command> _commands = {};
+  final Map<String, _DataSource> _streams = {};
+  final Map<StreamLease, Principal> _data = {};
+  final Set<StreamLease> _providedData = {};
+  StreamLimits _dataLimits = const StreamLimits();
 
   /// Its guards and its owners', by the id the host knows them by.
   final Map<String, ({String id, GuardCheck check, Principal? as})> _guards =
@@ -514,7 +536,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     // the first.
     if (_states.containsKey(d.name) ||
         _facts.containsKey(d.name) ||
-        _commands.containsKey(d.name)) {
+        _commands.containsKey(d.name) ||
+        _streams.containsKey(d.name)) {
       throw StateError('${d.name} is defined');
     }
     if (_mirror.canonical(d.name) case final now when now != d.name) {
@@ -575,6 +598,12 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// ids letting the registry drop one it took; the rest a new session
   /// gets as it stands, not twice.
   void _setAside([List<Map<String, Object?>> sent = const []]) {
+    _endData(
+      const StreamFailure(
+        StreamFailureCode.connectionLost,
+        'the connection was lost',
+      ),
+    );
     final said = [
       for (final op in [...sent, ..._queue])
         if (op['op'] == 'emit') op,
@@ -654,7 +683,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
             ops[i],
             'lost',
             'the host answered ${results.length} results '
-            'for ${ops.length} ops',
+                'for ${ops.length} ops',
           );
         }
       } on Object catch (e) {
@@ -1035,11 +1064,48 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     Principal? as,
   ) {
     if (_disposed) return;
-    final ops = _built.tell(schemas, from: from, as: as);
+    final ops = _built.tell(
+      schemas,
+      from: from,
+      as: as,
+      streams: _speaks.contains('streams'),
+      inputStreams: _speaks.contains('inputStreams'),
+    );
     if (_speaks.contains('built')) ops.forEach(_ask);
   }
 
   // --- Its own words ------------------------------------------------------
+
+  @override
+  IHandle defineStream(
+    DataStreamDescriptor d,
+    StreamHandler handler, {
+    WhyNot? whyNot,
+    Shape<Object?>? params,
+    Shape<Object?>? item,
+    Shape<Object?>? input,
+  }) => _defineStream(d, handler, whyNot, null);
+
+  @override
+  Stream<T> openStream<T>(
+    String name,
+    Object? params,
+    Shape<Object?> paramsShape,
+    Shape<T> itemShape, {
+    CancellationToken? cancel,
+    Stream<Object?>? input,
+    Shape<Object?>? inputShape,
+    String kind = 'serverStream',
+  }) => _openData(
+    name,
+    params,
+    paramsShape,
+    itemShape,
+    cancel: cancel,
+    input: input,
+    inputShape: inputShape,
+    kind: kind,
+  );
 
   @override
   /// Across a connection its values go as JSON: its handle takes JSON,
@@ -1187,6 +1253,31 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _commands.remove(e.key);
       _ask({'op': 'undefine', 'name': e.key});
     }
+    for (final e in [..._streams.entries]) {
+      if (!mine(e.value.as)) continue;
+      _streams.remove(e.key);
+      if (_supportsData(e.value.d.kind)) {
+        _ask({'op': 'undefine', 'name': e.key});
+      }
+      for (final lease in [...e.value.open]) {
+        lease.end(
+          const StreamFailure(
+            StreamFailureCode.unavailable,
+            'the stream owner was withdrawn',
+          ),
+        );
+      }
+    }
+    for (final e in [..._data.entries]) {
+      if (e.value.isWithin(as)) {
+        e.key.end(
+          const StreamFailure(
+            StreamFailureCode.unavailable,
+            'the participant ended',
+          ),
+        );
+      }
+    }
     for (final e in [..._guards.entries]) {
       if (!mine(e.value.as)) continue;
       _guards.remove(e.key);
@@ -1202,7 +1293,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   @override
   void whyNotChanged(String command) {
-    if (!_commands.containsKey(command)) {
+    if (!_commands.containsKey(command) && !_streams.containsKey(command)) {
       throw NotPermitted('$command is not $who\'s command');
     }
     _checkWhyNot();
@@ -1214,7 +1305,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Tells the host what its commands' checks say now, where it changed.
   void _checkWhyNot() {
     if (_disposed) return;
-    for (final c in _commands.values) {
+    for (final c in <_CheckedWord>[..._commands.values, ..._streams.values]) {
+      if (c is _DataSource && !_supportsData(c.d.kind)) continue;
       final check = c.whyNot;
       if (check == null) continue;
       final why = check();
@@ -1367,7 +1459,13 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       o._group.dispose();
     }
     _group.dispose();
-    for (final name in [..._own.keys, ..._facts.keys, ..._commands.keys]) {
+    for (final name in [
+      ..._own.keys,
+      ..._facts.keys,
+      ..._commands.keys,
+      for (final source in _streams.values)
+        if (_supportsData(source.d.kind)) source.d.name,
+    ]) {
       _ask({'op': 'undefine', 'name': name});
     }
     for (final g in _guards.values) {
@@ -1387,6 +1485,13 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     _states.clear();
     _facts.clear();
     _commands.clear();
+    _streams.clear();
+    _endData(
+      const StreamFailure(
+        StreamFailureCode.unavailable,
+        'the participant ended',
+      ),
+    );
     _guards.clear();
     _choices.clear();
     await flush();

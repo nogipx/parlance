@@ -487,8 +487,8 @@ void ownerServed(IParticipant p) {
 /// participant. A participant's own; code reaches it through the
 /// owners a participant is made with (a guest's `attach`) and `sync`.
 final class OwnerGroup {
-/// The group the participant keeps: its owners, synced as one tick,
-/// withdrawn with it.
+  /// The group the participant keeps: its owners, synced as one tick,
+  /// withdrawn with it.
   OwnerGroup(this.participant);
 
   /// The participant they are of.

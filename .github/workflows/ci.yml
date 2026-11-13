@@ -26,6 +26,8 @@ jobs:
         run: fvm dart pub get
       - name: Analyze (all packages)
         run: melos run analyze
+      - name: Public streaming API boundaries
+        run: fvm dart run tool/public_stream_api_test.dart
       - name: Frozen surface vs the last release tag
         run: melos run frozen
 

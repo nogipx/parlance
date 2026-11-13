@@ -1,4 +1,4 @@
-/// The house's vocabulary: every state, command, query and fact, written
+/// The house's vocabulary: states, commands, queries, facts and streams, written
 /// once as an abstract class; parlance_generator makes their typed words,
 /// the house's owner base and its client (`words.g.dart`). The rest of the
 /// code only ever refers to those.
@@ -79,6 +79,14 @@ abstract class House {
   /// nothing.
   @QueryWord('rooms')
   List<String> rooms({required bool lit});
+
+  /// Recorded room temperatures, oldest first; the stream ends after its snapshot.
+  @ServerStreamWord('temperature_history', readers: Who.household)
+  Stream<num> temperatureHistory({@ChoiceOf('room') required String room});
+
+  /// The current room temperature, then readings from the shared sensor source.
+  @ServerStreamWord('temperature_samples', readers: Who.household)
+  Stream<num> temperatureSamples({@ChoiceOf('room') required String room});
 
   /// Someone rang the doorbell.
   @FactWord('rang')

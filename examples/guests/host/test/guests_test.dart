@@ -66,6 +66,23 @@ void main() {
     await b.close();
   });
 
+  test('a guest consumes another guest\'s finite typed stream', () async {
+    await loadInMemory(host, 'notes', startNotes);
+    final (p, b) = await board();
+    await b.pin('buy milk');
+    await b.pin('call ann');
+    await b.pin('milk for tomorrow');
+    expect(await b.notes.search(text: 'milk').toList(), [
+      (id: 'n1', text: 'buy milk'),
+      (id: 'n3', text: 'milk for tomorrow'),
+    ]);
+    expect(await b.notes.search().length, 3);
+    expect(await b.notes.search(text: 'absent').toList(), isEmpty);
+    await p.settle();
+    expect(mismatches, isEmpty);
+    await b.close();
+  });
+
   test(
     'a guest of another version is told, every difference at once',
     () async {

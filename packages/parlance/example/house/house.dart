@@ -20,6 +20,37 @@ final class Devices {
   bool locked = true;
 
   final StreamController<void> _changed = StreamController.broadcast();
+  final _samples = StreamController<({String room, num value})>.broadcast();
+
+  /// The sensor's history belongs to the model, not to Parlance's registry.
+  late final temperatureReadings = <String, List<num>>{
+    for (final room in lights.keys) room: [20],
+  };
+
+  /// A device reports a measurement, independently of the heating target.
+  void measureTemperature(String room, num value) {
+    temperatureReadings[room]!.add(value);
+    _samples.add((room: room, value: value));
+  }
+
+  /// Each subscriber gets an initial value and follows the same sensor source.
+  Stream<num> samples(String room) => Stream.multi((out) {
+    final sub = _samples.stream
+        .where((sample) => sample.room == room)
+        .listen(
+          (sample) => out.add(sample.value),
+          onError: out.addError,
+          onDone: out.close,
+        );
+    out.onCancel = sub.cancel;
+    out.add(temperatureReadings[room]!.last);
+  });
+
+  /// Main closes the model after the house and its consumers have gone.
+  Future<void> close() async {
+    await _samples.close();
+    await _changed.close();
+  }
 
   /// Told when a device changes on its own, not through a command.
   Stream<void> get changed => _changed.stream;
@@ -99,6 +130,14 @@ final class Home extends HouseOwnerBase {
     for (final MapEntry(:key, :value) in devices.lights.entries)
       if (value == lit) key,
   ];
+
+  @override
+  Stream<num> temperatureHistory({required String room}) =>
+      Stream.fromIterable(List<num>.of(devices.temperatureReadings[room]!));
+
+  @override
+  Stream<num> temperatureSamples({required String room}) =>
+      devices.samples(room);
 
   void _pull() {
     for (final MapEntry(:key, :value) in devices.lights.entries) {

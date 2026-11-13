@@ -28,6 +28,7 @@ void main() {
       'ann unlocks at night: done',
       'rooms lit, asked by bob: [kitchen]',
       'and dark: [hall, living, porch]',
+      'recorded kitchen temperatures: [20, 21, 22]',
       'the kitchen switch flipped by hand: from true to false',
       'during the visit: visit.guests ready',
       'guests: [bob]',
@@ -37,6 +38,9 @@ void main() {
       'the phone sets the heating: done',
       'the phone sees: 22 °C, mode home',
       'the phone sets 40 °C: refused (invalidParams): target: above 28',
+      'phone temperature now: 22 °C',
+      'phone temperature next: 23 °C',
+      'phone temperature subscription cancelled',
       'fact house.rang by guest/bob, '
           'started by house.rang by guest/bob\n'
           '  write visit.guests by module/visit@visit, '

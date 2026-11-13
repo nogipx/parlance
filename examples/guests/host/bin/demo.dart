@@ -22,6 +22,15 @@ Future<void> main() async {
   print('the board shows: ${[for (final n in b.shown) n.text]}');
   print('the app toasted: ${host.app.toasts}');
 
+  await b.pin('call ann');
+  await b.pin('milk for tomorrow');
+  // Notes provides the stream; the board consumes it through the words package,
+  // over two guest connections. The owner ends it after the matching notes.
+  final found = await b.notes.search(text: 'milk').toList();
+  print(
+    'the board streamed matching notes: ${[for (final note in found) note.text]}',
+  );
+
   host.unload('notes');
   await board.settle();
   print(

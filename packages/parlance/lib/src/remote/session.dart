@@ -12,6 +12,9 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/types.dart';
 import 'contract.dart';
+import 'data_streams.dart';
+import '../registry/streams.dart';
+import '../registry/shapes.dart';
 
 part 'session_feed.dart';
 
@@ -211,6 +214,12 @@ final class RemoteSession extends ParlanceContractPeer
   final Map<String, IStateHandle> _states = {};
   final Map<String, IFactHandle> _facts = {};
   final Map<String, IHandle> _commands = {};
+  final Map<String, IHandle> _streams = {};
+  final Set<StreamLease> _data = {};
+  final Set<StreamLease> _providedData = {};
+
+  StreamLimits get _dataLimits =>
+      registry.limits.streams.restrict(limits.streams);
 
   /// Why each of its commands cannot run now, as the participant told.
   final Map<String, String> _unavailable = {};
@@ -268,9 +277,10 @@ final class RemoteSession extends ParlanceContractPeer
     }
     // What this session may call: so its clients offer only that.
     return WireDescription({
-      ...registry.describeFor(principal),
+      ..._description(),
       'protocol': parlanceProtocol,
       'features': [...features],
+      'streamLimits': streamLimitsToJson(_dataLimits),
       'principal': principal.toJson(),
       'vocabularies': [..._p.vocabularyNames],
       // Who may read and call its words by default, as the host said: the
@@ -280,6 +290,88 @@ final class RemoteSession extends ParlanceContractPeer
         'call': ?_p.access.callers?.toJson(),
       },
     });
+  }
+
+  Map<String, Object?> _description() {
+    final d = registry.describeFor(principal);
+    d['descriptors'] = [
+      for (final item in d['descriptors']! as List)
+        if (switch ((item as Map)['is']) {
+          'serverStream' =>
+            features.contains('streams') && _peerSpeaks.contains('streams'),
+          'clientStream' || 'bidiStream' =>
+            features.contains('streams') &&
+                _peerSpeaks.contains('streams') &&
+                features.contains('inputStreams') &&
+                _peerSpeaks.contains('inputStreams'),
+          _ => true,
+        })
+          item,
+    ];
+    return d;
+  }
+
+  @override
+  Stream<WireJson> onOpenData(WireJson request, {RpcContext? context}) =>
+      encodeDataStream(() => _openData(request.json));
+
+  @override
+  Future<WireJson> onUploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) => encodeDataStream(
+    () => receiveExchange(
+      requests,
+      (header, input) => _openData(header, input: input, kind: 'clientStream'),
+      context: context,
+    ),
+  ).single;
+
+  @override
+  Stream<WireJson> onExchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) => encodeDataStream(
+    () => receiveExchange(
+      requests,
+      (header, input) => _openData(header, input: input, kind: 'bidiStream'),
+      context: context,
+    ),
+  );
+
+  Stream<Object?> _openData(
+    Map<String, Object?> m, {
+    Stream<Object?>? input,
+    String kind = 'serverStream',
+  }) {
+    _open();
+    if (!features.contains('streams') ||
+        (kind != 'serverStream' && !features.contains('inputStreams'))) {
+      throw const StreamFailure(
+        StreamFailureCode.unsupported,
+        'the host does not support this stream type',
+      );
+    }
+    if (m['name'] is! String || m['params'] is! Map) {
+      throw const StreamFailure(
+        StreamFailureCode.invalidArgument,
+        'a stream needs a name and parameters',
+      );
+    }
+    final p = _actingAs(m['as']);
+    final lease = StreamLease();
+    _data.add(lease);
+    return registry.openStream(
+      m['name']! as String,
+      Kept.json((m['params']! as Map).cast<String, Object?>()),
+      const PlainShape(AnyType()),
+      by: p.who,
+      input: input,
+      kind: kind,
+      limits: _dataLimits,
+      lifetime: lease,
+      onClosed: () => _data.remove(lease),
+    );
   }
 
   @override
@@ -768,7 +860,8 @@ final class RemoteSession extends ParlanceContractPeer
 
   void _define(Descriptor d, [LocalParticipant? acting]) {
     final p = acting ?? _p;
-    final words = _states.length + _facts.length + _commands.length;
+    final words =
+        _states.length + _facts.length + _commands.length + _streams.length;
     if (limits.words case final max? when words >= max) {
       _exhausted('the session defines $max words, as many as it may');
     }
@@ -777,6 +870,19 @@ final class RemoteSession extends ParlanceContractPeer
     try {
       _permitted(() {
         switch (d) {
+          case DataStreamDescriptor():
+            if (!features.contains('streams') ||
+                (d.input != null && !features.contains('inputStreams'))) {
+              throw const StreamFailure(
+                StreamFailureCode.unsupported,
+                'the host does not speak streams',
+              );
+            }
+            _streams[d.name] = p.defineStream(
+              d,
+              _serveData,
+              whyNot: () => _unavailable[d.name],
+            );
           case StateDescriptor():
             _states[d.name] = p.defineState(d);
           case FactDescriptor():
@@ -806,7 +912,10 @@ final class RemoteSession extends ParlanceContractPeer
   void _undefine(String name, [LocalParticipant? acting]) {
     if (_definedBy[name] case final by?) _mayTouch(by, acting, name);
     final h =
-        _states.remove(name) ?? _facts.remove(name) ?? _commands.remove(name);
+        _states.remove(name) ??
+        _facts.remove(name) ??
+        _commands.remove(name) ??
+        _streams.remove(name);
     if (h == null) {
       throw RpcStatusException(
         RpcStatus.notFound,
@@ -904,7 +1013,7 @@ final class RemoteSession extends ParlanceContractPeer
   }
 
   void _available(String command, String? why, [LocalParticipant? acting]) {
-    if (!_commands.containsKey(command)) {
+    if (!_commands.containsKey(command) && !_streams.containsKey(command)) {
       _deny('$command is not the session\'s own');
     }
     if (_definedBy[command] case final by?) _mayTouch(by, acting, command);
@@ -992,6 +1101,63 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
+  Stream<Object?> _serveData(StreamCall c) {
+    if (!_peerSpeaks.contains('streams') ||
+        (c.kind != 'serverStream' && !_peerSpeaks.contains('inputStreams'))) {
+      throw const StreamFailure(
+        StreamFailureCode.unsupported,
+        'the owner does not speak streams',
+      );
+    }
+    if (_dataLimits.subscriptions case final max?
+        when _providedData.length >= max) {
+      throw const StreamFailure(
+        StreamFailureCode.resourceExhausted,
+        'too many subscriptions served by this session',
+      );
+    }
+    final lease = StreamLease();
+    _data.add(lease);
+    _providedData.add(lease);
+    final rpcCancel = RpcCancellationToken();
+    final cancelled = c.expired.onCancel(() {
+      lease.token.cancel();
+      rpcCancel.cancel();
+    });
+    return boundedStream(
+      () {
+        final header = {
+          'id': c.id,
+          'name': c.word,
+          'params': c.params,
+          'cause': c.cause.toJson(),
+        };
+        final context = RpcContext.empty().withCancellation(rpcCancel);
+        final requests = c.input == null
+            ? null
+            : exchangeRequests(header, c.input!);
+        return decodeDataStream(switch (c.kind) {
+          'clientStream' => Stream.fromFuture(
+            _owner.uploadData(requests!, context: context),
+          ),
+          'bidiStream' => _owner.exchangeData(requests!, context: context),
+          _ => _owner.openData(WireJson(header), context: context),
+        });
+      },
+      pauseSource: true,
+      limits: _dataLimits,
+      weigh: jsonWeight,
+      cancel: lease.token,
+      cancelFailure: () => lease.failure,
+      onClosed: (_, _, _) {
+        cancelled.dispose();
+        rpcCancel.cancel();
+        _data.remove(lease);
+        _providedData.remove(lease);
+      },
+    );
+  }
+
   /// Serves a call of a command of the session's: the participant does.
   Future<Object?> _serve(CommandCall c) async {
     _serving[c.id] = c;
@@ -1050,6 +1216,24 @@ final class RemoteSession extends ParlanceContractPeer
   void _end(String why, {required bool tell}) {
     if (_closed) return;
     _closed = true;
+    registry.endProvidedStreams(
+      _streams.keys,
+      StreamFailure(
+        tell ? StreamFailureCode.unavailable : StreamFailureCode.connectionLost,
+        why,
+      ),
+    );
+    for (final lease in [..._data]) {
+      lease.end(
+        StreamFailure(
+          tell
+              ? StreamFailureCode.unavailable
+              : StreamFailureCode.connectionLost,
+          why,
+        ),
+      );
+    }
+    _data.clear();
     _ended.complete();
     if (log.isEnabled(RpcLogLevel.info)) {
       log.info('session ended', data: {'why': why});
@@ -1059,12 +1243,14 @@ final class RemoteSession extends ParlanceContractPeer
     unawaited(_gone?.cancel());
     for (final h in [
       ..._commands.values,
+      ..._streams.values,
       ..._facts.values,
       ..._states.values,
     ]) {
       h.dispose();
     }
     _commands.clear();
+    _streams.clear();
     _facts.clear();
     _states.clear();
     _definedBy.clear();
@@ -1107,10 +1293,12 @@ final class SessionLimits {
     this.calls = 16,
     this.subscription = 4096,
     this.backlog = 256,
+    this.streams = const StreamLimits(),
   });
 
   /// No bounds.
   static const unbounded = SessionLimits(
+    streams: StreamLimits.unbounded,
     stateBytes: null,
     words: null,
     guards: null,
@@ -1152,4 +1340,7 @@ final class SessionLimits {
   /// again from the last one sent, as the registry still has it, or from a
   /// snapshot. Nothing is refused.
   final int? backlog;
+
+  /// Bounds on independent data streams, separate from calls and feed backlog.
+  final StreamLimits streams;
 }

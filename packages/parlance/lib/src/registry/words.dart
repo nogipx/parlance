@@ -128,6 +128,39 @@ abstract interface class IQueryWord<P, R> implements IWord {
   Shape<R> get returns;
 }
 
+/// A stream's name, subscription parameters and type of each element.
+abstract interface class IServerStreamWord<P, T> implements IWord {
+  /// The shape of its inputs.
+  RecordShape<P> get params;
+
+  /// The shape of one element.
+  Shape<T> get shape;
+}
+
+/// An input stream with one final result.
+abstract interface class IClientStreamWord<P, I, R> implements IWord {
+  /// The fixed parameters of the operation.
+  RecordShape<P> get params;
+
+  /// The type of each input element.
+  Shape<I> get input;
+
+  /// The type of the final result.
+  Shape<R> get returns;
+}
+
+/// Independent input and output sequences in one operation.
+abstract interface class IBidiStreamWord<P, I, O> implements IWord {
+  /// The fixed parameters of the operation.
+  RecordShape<P> get params;
+
+  /// The type of each input element.
+  Shape<I> get input;
+
+  /// The type of each output element.
+  Shape<O> get shape;
+}
+
 /// A fact's name and its payload's shape.
 abstract interface class IFactWord<T> implements IWord {
   @override

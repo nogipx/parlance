@@ -21,6 +21,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/error/error.dart';
 
 import 'surface.dart';
+import 'frozen_surface.dart';
 
 /// What an app's code or its generated code implements: a member added
 /// to it breaks every class that does, so it is never added to.
@@ -30,6 +31,9 @@ const _implemented = {
   'IStateWord',
   'ICommandWord',
   'IQueryWord',
+  'IServerStreamWord',
+  'IClientStreamWord',
+  'IBidiStreamWord',
   'IFactWord',
 };
 
@@ -49,16 +53,19 @@ Future<void> main(List<String> args) async {
     if (old.existsSync()) _git(['worktree', 'remove', '--force', old.path]);
     _git(['worktree', 'add', '--detach', old.path, since]);
     _run('fvm', ['dart', 'pub', 'get'], old.path);
-    final then = await surface('${old.path}/packages/parlance');
-    final now = await surface('$repo/packages/parlance');
-    final gone = then.difference(now).toList()..sort();
-    for (final line in gone) {
-      broke.add('gone or changed: $line');
-    }
-    final added = now.difference(then).where(_ofImplemented).toList()..sort();
-    for (final line in added) {
-      broke.add('added to what an app implements: $line');
-    }
+    final collection = AnalysisContextCollection(
+      includedPaths: [
+        '${old.path}/packages/parlance',
+        '$repo/packages/parlance',
+      ],
+    );
+    broke.addAll(
+      frozenSurfaceBreaks(
+        await surfaceOf('${old.path}/packages/parlance', collection),
+        await surfaceOf('$repo/packages/parlance', collection),
+        implemented: _implemented,
+      ),
+    );
     broke.addAll(await _oldGeneratedBuilds(repo, since));
   } finally {
     if (old.existsSync()) _git(['worktree', 'remove', '--force', old.path]);
@@ -70,16 +77,6 @@ Future<void> main(List<String> args) async {
   stderr.writeln('frozen: broke since $since:');
   broke.forEach(stderr.writeln);
   exitCode = 1;
-}
-
-/// Whether [line] is an instance member of what an app implements.
-bool _ofImplemented(String line) {
-  final at = line.indexOf(' ') + 1;
-  final dot = line.indexOf('.', at);
-  final colon = line.indexOf(':', at);
-  if (dot < 0 || dot > colon) return false;
-  return _implemented.contains(line.substring(at, dot)) &&
-      !line.startsWith('static ', dot + 1);
 }
 
 /// The generated code of the fixtures as they were at [since], built with
@@ -132,8 +129,8 @@ Future<List<String>> _oldGeneratedBuilds(String repo, String since) async {
 
 /// The last `parlance-<version>` release tag, highest version first.
 String? _lastRelease() {
-  final tags =
-      _git(['tag', '--list', 'parlance-*', '--sort=-v:refname']).trim();
+  final tags = _git(['tag', '--list', 'parlance-*', '--sort=-v:refname'])
+      .trim();
   return tags.isEmpty ? null : tags.split('\n').first;
 }
 

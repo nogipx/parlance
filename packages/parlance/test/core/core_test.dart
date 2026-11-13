@@ -176,11 +176,11 @@ void main() {
     test('onCommit sees a tick before the stream does', () async {
       final order = <String>[];
       final hub = LocalHub(onCommit: (_) => order.add('commit'));
-      final sub = hub.ticks.listen((_) => order.add('stream'));
+      final sub = hub.ticks.listen((_) => order.add('serverStream'));
       LocalState<int>(hub: hub).claim().set(1);
       order.add('after write');
       await settle();
-      expect(order, ['commit', 'after write', 'stream']);
+      expect(order, ['commit', 'after write', 'serverStream']);
       await sub.cancel();
     });
   });

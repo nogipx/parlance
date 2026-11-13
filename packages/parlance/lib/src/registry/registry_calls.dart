@@ -35,8 +35,8 @@ final class AnswerLost implements Exception {
 typedef ErrorSink = void Function(Object error, StackTrace stack);
 
 /// What a query's handler tried that would change something (SPEC §6.6):
-/// a write, a fact, a command. Thrown where it was tried, so the
-/// query ends `failed` and nothing changed.
+/// a write, a fact, a command or opening a stream. Thrown where it was tried,
+/// so the query ends `failed` and nothing changed.
 final class QueryEffect extends StateError {
   QueryEffect(this.query, this.tried)
     : super('$query is a query, it changes nothing: it tried to $tried');

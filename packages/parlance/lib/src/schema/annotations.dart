@@ -6,7 +6,8 @@ library;
 import '../registry/descriptors.dart';
 
 /// A module's words: each member of the class marked [StateWord],
-/// [CommandWord], [QueryWord] or [FactWord] is one, named
+/// [CommandWord], [QueryWord], [FactWord], [ServerStreamWord],
+/// [ClientStreamWord] or [BidiStreamWord] is one, named
 /// `<vocabulary>.<name>`.
 final class Vocabulary {
   /// Const constructor; the flags are documented on the fields.
@@ -238,4 +239,85 @@ final class Longest {
 final class Fallback {
   /// Const constructor.
   const Fallback();
+}
+
+/// A method returning `Stream<T>`: named parameters in, typed elements out.
+final class ServerStreamWord {
+  /// Declares a stream provided by its owner on each subscription.
+  const ServerStreamWord(
+    this.name, {
+    this.version,
+    this.readers,
+    this.whyNot = false,
+    this.meta = const {},
+  });
+
+  /// Its name in the vocabulary.
+  final String name;
+
+  /// A version beside a previously published word.
+  final int? version;
+
+  /// Who may subscribe, else the participant's readers.
+  final Callers? readers;
+
+  /// Whether the owner provides a whyNot method for opening subscriptions.
+  final bool whyNot;
+
+  /// Human-readable metadata.
+  final Map<String, Object?> meta;
+}
+
+/// A method taking a required positional `Stream<T>` and returning `Future<R>`.
+final class ClientStreamWord {
+  /// Declares a stream provided by its owner on each subscription.
+  const ClientStreamWord(
+    this.name, {
+    this.version,
+    this.callers,
+    this.whyNot = false,
+    this.meta = const {},
+  });
+
+  /// Its name in the vocabulary.
+  final String name;
+
+  /// A version beside a previously published word.
+  final int? version;
+
+  /// Who may start the operation, else the participant's callers.
+  final Callers? callers;
+
+  /// Whether the owner provides a whyNot method for opening subscriptions.
+  final bool whyNot;
+
+  /// Human-readable metadata.
+  final Map<String, Object?> meta;
+}
+
+/// A method taking a required positional `Stream<T>` and returning `Stream<R>`.
+final class BidiStreamWord {
+  /// Declares a stream provided by its owner on each subscription.
+  const BidiStreamWord(
+    this.name, {
+    this.version,
+    this.callers,
+    this.whyNot = false,
+    this.meta = const {},
+  });
+
+  /// Its name in the vocabulary.
+  final String name;
+
+  /// A version beside a previously published word.
+  final int? version;
+
+  /// Who may start the operation, else the participant's callers.
+  final Callers? callers;
+
+  /// Whether the owner provides a whyNot method for opening subscriptions.
+  final bool whyNot;
+
+  /// Human-readable metadata.
+  final Map<String, Object?> meta;
 }

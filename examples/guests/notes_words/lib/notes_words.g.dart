@@ -41,6 +41,28 @@ enum NotesCommand<P, R> implements ICommandWord<P, R> {
   final Shape<R>? returns;
 }
 
+/// The server streams of [Notes].
+enum NotesServerStream<P, T> implements IServerStreamWord<P, T> {
+  search<NotesSearch, Note>(
+    'notes.search',
+    RecordShape<NotesSearch>(
+      {'text': Part(PlainShape(TextType(maxLength: 200)), defaultValue: '')},
+      to: _$NotesSearchTo,
+      from: _$NotesSearchFrom,
+      get: _$NotesSearchAt,
+    ),
+    _$NoteShape,
+  );
+
+  const NotesServerStream(this.name, this.params, this.shape);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  final Shape<T> shape;
+}
+
 /// The facts of [Notes].
 enum NotesFact<T> implements IFactWord<T> {
   added<NotesAdded>(
@@ -84,6 +106,7 @@ abstract class NotesOwnerBase implements IOwner {
     Single.attach(all, p.state(NotesState.all).define());
     _$added = p.fact(NotesFact.added).define();
     p.command(NotesCommand.add).serve((x) => add(text: x.text));
+    p.serverStream(NotesServerStream.search).serve((x) => search(text: x.text));
   }
 
   /// What it set before it was attached, written once it is.
@@ -99,6 +122,9 @@ abstract class NotesOwnerBase implements IOwner {
 
   /// Serves notes.add.
   void add({required String text});
+
+  /// Provides notes.search for one subscription.
+  Stream<Note> search({String text = ''});
 }
 
 /// notes.added, as [NotesOwnerBase] says it.
@@ -131,6 +157,9 @@ abstract interface class INotesClient {
   /// Calls notes.add; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
   Future<void> add({required String text, CancellationToken? cancel});
+
+  /// notes.search: opens on listen; cancellation ends this operation.
+  Stream<Note> search({String text = '', CancellationToken? cancel});
 
   /// notes.added: what it says from now on, and its messages.
   IFactOf<NotesAdded> get added;
@@ -177,6 +206,11 @@ final class _$NotesClient implements INotesClient {
   }
 
   @override
+  Stream<Note> search({String text = '', CancellationToken? cancel}) => _$words
+      .serverStream(NotesServerStream.search)
+      .open((text: text), cancel: cancel);
+
+  @override
   IFactOf<NotesAdded> get added => _$words.factOf(NotesFact.added);
 
   @override
@@ -195,7 +229,12 @@ final class _$NotesClient implements INotesClient {
 /// `schemaOf`.
 const notesWords = WordSet(
   'notes',
-  [...NotesState.values, ...NotesCommand.values, ...NotesFact.values],
+  [
+    ...NotesState.values,
+    ...NotesCommand.values,
+    ...NotesFact.values,
+    ...NotesServerStream.values,
+  ],
   from: 'notes_words 1.0.0',
   dartName: 'notesWords',
 );
@@ -224,6 +263,15 @@ Map<String, Object?> _$NotesAddTo(NotesAdd p) => {'text': p.text};
 NotesAdd _$NotesAddFrom(Map<String, Object?> m) => (text: m['text']! as String);
 
 Object? _$NotesAddAt(NotesAdd p, int i) => p.text;
+
+typedef NotesSearch = ({String text});
+
+Map<String, Object?> _$NotesSearchTo(NotesSearch p) => {'text': p.text};
+
+NotesSearch _$NotesSearchFrom(Map<String, Object?> m) =>
+    (text: (m['text'] as String?) ?? '');
+
+Object? _$NotesSearchAt(NotesSearch p, int i) => p.text;
 
 typedef NotesAdded = ({String id, String text});
 

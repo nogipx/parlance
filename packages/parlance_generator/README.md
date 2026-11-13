@@ -1,6 +1,6 @@
 # parlance_generator
 
-Makes a module's typed parlance words from one abstract Dart class: the enums of its states, commands, queries and facts, the records of their params, their shapes, and the list of them all. The class is the truth; the contract is `parlance/skills/parlance-core/references/schema.md` (SPEC §23).
+Makes a module's typed parlance words from one abstract Dart class: the enums of its states, commands, queries, facts and data streams, the records of their params, their shapes, and the list of them all. The class is the truth; the contract is `parlance/skills/parlance-core/references/schema.md` (SPEC §23).
 
 ```yaml
 dependencies:
@@ -83,3 +83,19 @@ fvm dart run tool/frozen.dart --since <ref>
 ```
 
 It compares the two libraries' public surface (every name, every public member, with its signature) at the release's tag with the one now, and builds the fixtures' generated code of that tag with the library now; anything gone, changed or not building is printed, and it exits 1. Nothing is kept in the repository to compare with. The behaviour the libraries promise is held by `packages/parlance/test/contract/`, written with `app.dart` alone.
+
+
+`@ServerStreamWord('samples', readers:, whyNot:, meta:)` marks a method returning
+`Stream<T>` with named parameters. The generator makes `<Class>ServerStream`, a
+typed owner method and a lazy client method with optional `cancel:`. Each listen
+invokes the owner once; the owner chooses a shared or independent source.
+`Future<Stream<T>>`, untyped/void elements and a parameter named `cancel` are
+refused. See the core [stream contract](../parlance/skills/parlance-core/references/streams.md).
+
+`@ClientStreamWord` declares `Future<R> upload(Stream<I> input, {namedParams})`;
+`@BidiStreamWord` declares `Stream<O> exchange(Stream<I> input, {namedParams})`.
+The input must be one required positional stream; other arguments remain named.
+Both use `callers` and support `whyNot`, `version`, `meta`, and generated `cancel:`.
+`Future<void>` is allowed for an upload that only acknowledges completion.
+The generator emits distinct `<Class>ServerStream`, `<Class>ClientStream` and
+`<Class>BidiStream` enums and checks incompatible signatures at generation time.

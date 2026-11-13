@@ -35,17 +35,19 @@ const parlanceFeatures = {
   // `cancelled`, and a host tells the participant serving a call that it
   // expired (`expire`). A connection gone cancels nothing.
   'cancel',
+  // Independent parameterized data subscriptions in both directions.
+  'streams',
+  'inputStreams',
 };
 
 /// A field of the wrong type in a frame a peer built is the PEER's fault:
 /// refuse it INVALID_ARGUMENT with the field named. A bare `as` read throws
 /// a TypeError instead, which rpc_dart answers as a redacted INTERNAL — the
 /// verdict reserved for a host bug — and the peer never learns what to fix.
-Never _badType(String field, Object? v) =>
-    throw RpcPeerFaultException(
-      RpcStatus.invalidArgument,
-      '"$field" is not of the expected type: ${_kind(v)}',
-    );
+Never _badType(String field, Object? v) => throw RpcPeerFaultException(
+  RpcStatus.invalidArgument,
+  '"$field" is not of the expected type: ${_kind(v)}',
+);
 
 String _kind(Object? v) => switch (v) {
   null => 'null',
@@ -308,7 +310,8 @@ final class WireDefine implements IRpcSerializable {
 final class WireName implements IRpcSerializable {
   const WireName(this.name);
 
-  factory WireName.fromJson(Map<String, dynamic> m) => WireName(_str(m, 'name'));
+  factory WireName.fromJson(Map<String, dynamic> m) =>
+      WireName(_str(m, 'name'));
 
   final String name;
 
@@ -470,6 +473,18 @@ abstract class IParlanceContract {
   @RpcMethod.unary(name: 'describe')
   Future<WireDescription> describe(RpcNull request, {RpcContext? context});
 
+  @RpcMethod.serverStream(name: 'openData')
+  Stream<WireJson> openData(WireJson request, {RpcContext? context});
+
+  @RpcMethod.clientStream(name: 'uploadData')
+  Future<WireJson> uploadData(Stream<WireJson> requests, {RpcContext? context});
+
+  @RpcMethod.bidirectionalStream(name: 'exchangeData')
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  });
+
   @RpcMethod.serverStream(name: 'feed')
   Stream<WireFeedItem> feed(WireFeedRequest request, {RpcContext? context});
 
@@ -515,6 +530,18 @@ abstract class IParlanceContract {
 /// of the commands its session owns.
 @RpcService(name: 'ParlanceOwner', kind: RpcServiceKind.peer)
 abstract class IParlanceOwnerContract {
+  @RpcMethod.serverStream(name: 'openData')
+  Stream<WireJson> openData(WireJson request, {RpcContext? context});
+
+  @RpcMethod.clientStream(name: 'uploadData')
+  Future<WireJson> uploadData(Stream<WireJson> requests, {RpcContext? context});
+
+  @RpcMethod.bidirectionalStream(name: 'exchangeData')
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  });
+
   @RpcMethod.unary(name: 'serve')
   Future<WireServed> serve(WireServe request, {RpcContext? context});
 

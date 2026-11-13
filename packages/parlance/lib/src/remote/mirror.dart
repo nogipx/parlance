@@ -56,7 +56,11 @@ final class RegistryMirror {
     final kind = _words[n];
     if (kind == null) return const WordMissing();
     if (_closed.contains(n)) return const WordNotPermitted();
-    if (kind == 'command' || kind == 'query') {
+    if (kind == 'command' ||
+        kind == 'query' ||
+        kind == 'serverStream' ||
+        kind == 'clientStream' ||
+        kind == 'bidiStream') {
       if (_unavailable[n] case final why?) return WordUnavailable(why);
     }
     return const WordReady();

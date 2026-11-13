@@ -16,7 +16,8 @@ extension RawRegistry on Registry {
     final target = canonical(to);
     if (_states.containsKey(old) ||
         _commands.containsKey(old) ||
-        _facts.containsKey(old)) {
+        _facts.containsKey(old) ||
+        _streams.containsKey(old)) {
       throw StateError('$old is a word itself');
     }
     if (_aliases.containsKey(old)) {
@@ -50,6 +51,8 @@ extension RawRegistry on Registry {
   /// is unavailable), or null when it can. Guards are not asked: they judge
   /// a call, not a command.
   String? whyNot(String command) {
+    final stream = _streams[canonical(command)];
+    if (stream != null) return stream.whyNot?.call();
     final c = _commands[canonical(command)];
     if (c == null) return 'no command $command';
     return c.whyNot?.call();
@@ -63,6 +66,11 @@ extension RawRegistry on Registry {
     if (_commands[n] case final c?) {
       if (!c.descriptor.callers.allows(by)) return const WordNotPermitted();
       if (c.whyNot?.call() case final why?) return WordUnavailable(why);
+      return const WordReady();
+    }
+    if (_streams[n] case final s?) {
+      if (!mayRead(by, n)) return const WordNotPermitted();
+      if (s.whyNot?.call() case final why?) return WordUnavailable(why);
       return const WordReady();
     }
     if (!_states.containsKey(n) && !_facts.containsKey(n)) {
@@ -109,7 +117,8 @@ extension RawRegistry on Registry {
   /// not.
   bool mayRead(Principal by, String name) =>
       (_states[canonical(name)]?.descriptor.readers ??
-              _facts[canonical(name)]?.descriptor.readers)
+              _facts[canonical(name)]?.descriptor.readers ??
+              _streams[canonical(name)]?.descriptor.readers)
           ?.allows(by) ??
       true;
 
@@ -129,7 +138,8 @@ extension RawRegistry on Registry {
 
   /// The commands that cannot run now, and why their owners say so.
   Map<String, String> get unavailable => {
-    for (final name in _commands.keys) name: ?whyNot(name),
+    for (final name in [..._commands.keys, ..._streams.keys])
+      name: ?whyNot(name),
   };
 
   /// [unavailable] as it is after the last tick: what every session's
@@ -288,7 +298,8 @@ extension RawRegistry on Registry {
     final n = canonical(name);
     return _states[n]?.descriptor ??
         _commands[n]?.descriptor ??
-        _facts[n]?.descriptor;
+        _facts[n]?.descriptor ??
+        _streams[n]?.descriptor;
   }
 
   /// The value of [state] (of [key]); inside a batch, the batch's own

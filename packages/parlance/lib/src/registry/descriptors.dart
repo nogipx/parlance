@@ -12,8 +12,10 @@ final class Choice {
 
   /// What it is called by; the label people see defaults to it.
   final String id;
+
   /// What people see of it; null: the id.
   final String? label;
+
   /// What else a chooser needs, JSON.
   final Map<String, Object?> meta;
 
@@ -62,6 +64,7 @@ enum Access {
 
   /// Allowed; editors warn the author who else can now do it.
   warn,
+
   /// Not allowed.
   deny,
 }
@@ -152,6 +155,8 @@ sealed class Descriptor {
       'command' => CommandDescriptor.fromJson(m),
       'query' => QueryDescriptor.fromJson(m),
       'fact' => FactDescriptor.fromJson(m),
+      'serverStream' || 'clientStream' || 'bidiStream' =>
+        DataStreamDescriptor.fromJson(m.cast<String, Object?>()),
       final x => throw FormatException('unknown descriptor $x'),
     };
   }
@@ -366,4 +371,134 @@ final class FactDescriptor extends Descriptor {
     'readers': ?readers?.toJson(),
     if (meta.isNotEmpty) 'meta': meta,
   };
+}
+
+/// Shared representation of the three distinct streaming word descriptors.
+sealed class DataStreamDescriptor extends Descriptor {
+  /// [params] are inputs, [type] is the type of one element.
+  DataStreamDescriptor(
+    String name, {
+    this.params = const RecordType({}),
+    required this.type,
+    this.readers,
+    Map<String, Object?> meta = const {},
+  }) : super(name, meta) {
+    readers?.check();
+  }
+
+  /// A descriptor received across a connection.
+  factory DataStreamDescriptor.fromJson(Map<String, Object?> m) {
+    final name = m['name'] as String;
+    final params = ValueType.fromJson(m['params']) as RecordType;
+    final type = ValueType.fromJson(m['type']);
+    final access = m['readers'] ?? m['callers'];
+    final readers = access == null ? null : Callers.fromJson(access);
+    final meta = (m['meta'] as Map?)?.cast<String, Object?>() ?? const {};
+    return switch (m['is']) {
+      'clientStream' => ClientStreamDescriptor(
+        name,
+        params: params,
+        input: ValueType.fromJson(m['input']),
+        type: type,
+        callers: readers,
+        meta: meta,
+      ),
+      'bidiStream' => BidiStreamDescriptor(
+        name,
+        params: params,
+        input: ValueType.fromJson(m['input']),
+        type: type,
+        callers: readers,
+        meta: meta,
+      ),
+      _ => ServerStreamDescriptor(
+        name,
+        params: params,
+        type: type,
+        readers: readers,
+        meta: meta,
+      ),
+    };
+  }
+
+  /// Its atomic word kind in catalogs and compatibility schemas.
+  String get kind;
+
+  /// Input elements, absent for a server stream.
+  ValueType<Object?>? get input => null;
+
+  /// Rebuilds the same kind with resolved access rules.
+  DataStreamDescriptor withAccess(Callers access) =>
+      DataStreamDescriptor.fromJson({
+        ...toJson(),
+        'readers': access.toJson(),
+      });
+
+  /// Parameters fixed for this subscription.
+  final RecordType params;
+
+  /// The type of one element.
+  final ValueType<Object?> type;
+
+  /// Who may subscribe; null means everyone.
+  final Callers? readers;
+  @override
+  Map<String, Object?> toJson() => {
+    'is': kind,
+    if (input != null) 'input': input!.toJson(),
+    'name': name,
+    'params': params.toJson(),
+    'type': type.toJson(),
+    if (readers != null)
+      (input == null ? 'readers' : 'callers'): readers!.toJson(),
+    if (meta.isNotEmpty) 'meta': meta,
+  };
+}
+
+/// A parameterized sequence from the owner to the subscriber.
+final class ServerStreamDescriptor extends DataStreamDescriptor {
+  /// Creates a server stream word.
+  ServerStreamDescriptor(
+    super.name, {
+    super.params,
+    required super.type,
+    super.readers,
+    super.meta,
+  });
+  @override
+  String get kind => 'serverStream';
+}
+
+/// A stream of input with one result.
+final class ClientStreamDescriptor extends DataStreamDescriptor {
+  /// Creates a distinct client stream word.
+  ClientStreamDescriptor(
+    super.name, {
+    super.params,
+    required this.input,
+    required super.type,
+    Callers? callers,
+    super.meta,
+  }) : super(readers: callers);
+  @override
+  final ValueType<Object?> input;
+  @override
+  String get kind => 'clientStream';
+}
+
+/// A bidirectional stream operation.
+final class BidiStreamDescriptor extends DataStreamDescriptor {
+  /// Creates a distinct bidi stream word.
+  BidiStreamDescriptor(
+    super.name, {
+    super.params,
+    required this.input,
+    required super.type,
+    Callers? callers,
+    super.meta,
+  }) : super(readers: callers);
+  @override
+  final ValueType<Object?> input;
+  @override
+  String get kind => 'bidiStream';
 }

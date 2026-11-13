@@ -55,8 +55,10 @@ final class StateChange {
 
   /// Its place in the registry's total order.
   final int seq;
+
   /// The id the write was under: a retry with it changes nothing twice.
   final String id;
+
   /// The word.
   final String state;
 
@@ -83,8 +85,10 @@ final class StateChange {
 
   /// The key (or the whole unkeyed value) is gone.
   final bool removed;
+
   /// Why it is so.
   final Cause cause;
+
   /// When it committed.
   final DateTime at;
 
@@ -133,6 +137,7 @@ final class Kept {
 
   /// The value as kept; its JSON when [shape] is null.
   final Object? value;
+
   /// The shape it is kept by; null: it is JSON.
   final Shape<Object?>? shape;
   Object? _json;
@@ -217,8 +222,10 @@ final class FactMessage {
 
   /// Its place in the registry's total order.
   final int seq;
+
   /// The id it was said under: said again under it, it is dropped.
   final String id;
+
   /// The word.
   final String fact;
 
@@ -235,6 +242,7 @@ final class FactMessage {
 
   /// Why it was said.
   final Cause cause;
+
   /// When it committed.
   final DateTime at;
 
@@ -310,10 +318,13 @@ final class Tick extends FeedItem {
 
   /// The first and last seq in it.
   final int from;
+
   /// The seq after its last.
   final int to;
+
   /// The changes in it, in order.
   final List<StateChange> changes;
+
   /// The facts in it, in order.
   final List<FactMessage> facts;
 
@@ -359,6 +370,7 @@ final class Snapshot extends FeedItem {
 
   /// The registry's run it is of.
   final String epoch;
+
   /// Every value at it.
   final int seq;
 
@@ -386,13 +398,17 @@ final class Snapshot extends FeedItem {
 enum Refusal {
   /// No word of that name in the catalog.
   unknownCommand,
+
   /// The params did not pass the word's type.
   invalidParams,
+
   /// The principal may not read it or call it.
   notPermitted,
+
   /// The word is not there now: its owner left, or the catalog
   /// moved on.
   unavailable,
+
   /// A guard said no.
   denied,
 
@@ -672,6 +688,7 @@ final class CallCancelled extends CallResult<Never> {
 final class CallLost extends CallResult<Never> {
   /// Const constructor.
   const CallLost(this.id, this.how);
+
   /// The call's id: a retry with it runs the call at most once.
   final String id;
 
@@ -717,12 +734,14 @@ final class CallStarted {
 
   /// The call's id.
   final String id;
+
   /// The command called.
   final String command;
   final Kept _params;
 
   /// Its params, as JSON.
   Map<String, Object?> get params => _params.json! as Map<String, Object?>;
+
   /// Why it was called.
   final Cause cause;
 
@@ -755,10 +774,13 @@ final class Conversation {
 
   /// The id of the message that started it.
   final String id;
+
   /// The calls in it, in order.
   final List<CallRecord> calls;
+
   /// The changes in it, in order.
   final List<StateChange> changes;
+
   /// The facts in it, in order.
   final List<FactMessage> facts;
 
@@ -790,12 +812,16 @@ final class WordUse {
   /// Who; a principal's kind alone (`guest`) for the many past
   /// `HostLimits.usersPerWord`.
   final Principal by;
+
   /// How many calls of it.
   final int calls;
+
   /// How many reads from outside the build.
   final int reads;
+
   /// How many of its listeners listen now.
   final int listening;
+
   /// When it last did any of it.
   final DateTime last;
 
@@ -820,8 +846,10 @@ final class Mismatch {
 
   /// Who was built against the word.
   final Principal by;
+
   /// The word as the code names it.
   final String word;
+
   /// Where it breaks, each as `WordMismatch` says.
   final List<WordBreak> breaks;
 
@@ -883,19 +911,23 @@ final class CallRecord {
 
   /// The call's id.
   final String id;
+
   /// The command called.
   final String command;
   final Kept _params;
 
   /// Its params, as JSON.
   Map<String, Object?> get params => _params.json! as Map<String, Object?>;
+
   /// Why it was called.
   final Cause cause;
+
   /// How it ended.
   final CallResult<Object?> result;
 
   /// When the call came.
   final DateTime started;
+
   /// When it ended.
   final DateTime finished;
 
@@ -997,8 +1029,10 @@ sealed class JournalEntry {
 
   /// The id of its message: a call's, a fact's, a change's.
   String get id;
+
   /// On whose behalf it is.
   Cause get cause;
+
   /// When it happened.
   DateTime get at;
 
@@ -1167,8 +1201,10 @@ final class Explanation {
 
   /// The word.
   final String state;
+
   /// The key; null for an unkeyed one.
   final String? key;
+
   /// The value now.
   final Object? value;
 

@@ -155,7 +155,7 @@ final class _Feed {
   }
 
   void _describe() {
-    final d = _registry.describeFor(_s.principal);
+    final d = _s._description();
     _unavailable = d['unavailable']! as Map<String, String>;
     send(WireFeedItem('catalog', d));
   }

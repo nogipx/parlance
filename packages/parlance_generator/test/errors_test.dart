@@ -47,6 +47,58 @@ $body
   }
 
   final cases = {
+    'a client stream without input': (
+      '@ClientStreamWord("save") Future<int> save();',
+      'requires exactly one required positional Stream<T>',
+    ),
+    'a client stream with a named input': (
+      '@ClientStreamWord("save") Future<int> save({required Stream<int> input});',
+      'requires exactly one required positional Stream<T>',
+    ),
+    'a client stream with two inputs': (
+      '@ClientStreamWord("save") Future<int> save(Stream<int> a, Stream<int> b);',
+      'requires exactly one required positional Stream<T>',
+    ),
+    'a client stream returning an untyped result': (
+      '@ClientStreamWord("save") Future<dynamic> save(Stream<int> input);',
+      'a client stream returns Future<R> with a typed result',
+    ),
+    'a client stream with an untyped input': (
+      '@ClientStreamWord("save") Future<int> save(Stream<dynamic> input);',
+      'the input stream requires a typed element',
+    ),
+    'a bidi stream returning a future': (
+      '@BidiStreamWord("exchange") Future<int> exchange(Stream<int> input);',
+      'a stream returns Stream<T>',
+    ),
+    'a bidi stream with an optional input': (
+      '@BidiStreamWord("exchange") Stream<int> exchange([Stream<int>? input]);',
+      'requires exactly one required positional Stream<T>',
+    ),
+    'a stream returning a future': (
+      '@ServerStreamWord("rows") Future<Stream<int>> rows();',
+      'a stream returns Stream<T>',
+    ),
+    'a stream returning a value': (
+      '@ServerStreamWord("rows") int rows();',
+      'a stream returns Stream<T>',
+    ),
+    'a stream without a typed element': (
+      '@ServerStreamWord("rows") Stream<dynamic> rows();',
+      'a stream requires a typed element',
+    ),
+    'a stream returning void elements': (
+      '@ServerStreamWord("rows") Stream<void> rows();',
+      'a stream requires a typed element',
+    ),
+    'a stream with positional parameters': (
+      '@ServerStreamWord("rows") Stream<int> rows(int count);',
+      'params are named parameters',
+    ),
+    'a stream with a reserved cancellation parameter': (
+      '@ServerStreamWord("rows") Stream<int> rows({bool? cancel});',
+      'cancel is reserved',
+    ),
     'a number as double': (
       '@StateWord("total") double get total;',
       'num or int, not double',

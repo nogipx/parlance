@@ -1,18 +1,33 @@
 part of 'participant.dart';
 
-final class _Command {
+abstract interface class _CheckedWord {
+  Descriptor get d;
+  WhyNot? get whyNot;
+  Principal? get as;
+  String? get why;
+  set why(String? value);
+  bool get told;
+  set told(bool value);
+}
+
+final class _Command implements _CheckedWord {
   _Command(this.d, this.handler, this.whyNot, this.as);
 
   /// A command's or a query's.
+  @override
   final CallableDescriptor d;
   final CommandHandler handler;
+  @override
   final WhyNot? whyNot;
 
   /// The owner that defined it; null for the participant itself.
+  @override
   final Principal? as;
 
   /// What its check said last, told to the host.
+  @override
   String? why;
+  @override
   bool told = false;
 }
 
@@ -157,6 +172,36 @@ final class _Unseen implements ITypeContext {
 final class _Served extends ParlanceOwnerContractPeer {
   _Served(super.endpoint, this._p);
   final RemoteParticipant _p;
+
+  @override
+  Stream<WireJson> onOpenData(WireJson request, {RpcContext? context}) =>
+      encodeDataStream(() => _p._serveData(request.json));
+
+  @override
+  Future<WireJson> onUploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) => encodeDataStream(
+    () => receiveExchange(
+      requests,
+      (header, input) =>
+          _p._serveData(header, input: input, kind: 'clientStream'),
+      context: context,
+    ),
+  ).single;
+
+  @override
+  Stream<WireJson> onExchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) => encodeDataStream(
+    () => receiveExchange(
+      requests,
+      (header, input) =>
+          _p._serveData(header, input: input, kind: 'bidiStream'),
+      context: context,
+    ),
+  );
 
   @override
   Future<WireServed> onServe(WireServe request, {RpcContext? context}) =>

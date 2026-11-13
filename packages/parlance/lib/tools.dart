@@ -38,7 +38,13 @@ export 'src/registry/messages.dart'
         keptStarted,
         keptRecord;
 export 'src/registry/registry.dart'
-    hide Disposer, RawRegistry, paramsAs, answersAs, AnswerLost;
+    hide
+        Disposer,
+        RawRegistry,
+        RegistryStreams,
+        paramsAs,
+        answersAs,
+        AnswerLost;
 export 'src/registry/shapes.dart';
 export 'src/registry/types.dart';
 export 'src/registry/words.dart'
@@ -71,3 +77,6 @@ export 'src/remote/participant.dart'
 export 'src/remote/session.dart'
     show RemoteSession, ServeParticipant, SessionLimits;
 export 'src/view/view.dart';
+
+export 'src/registry/streams.dart'
+    show StreamFailure, StreamFailureCode, StreamLimits;

@@ -211,10 +211,13 @@ final class LocalTick {
 
   /// The first tick of it.
   final int from;
+
   /// The tick after its last.
   final int to;
+
   /// What changed, in order.
   final List<LocalStateChange> changes;
+
   /// What was said, in order.
   final List<LocalFactSaid> facts;
 }
@@ -239,10 +242,13 @@ final class LocalStateChange {
 
   /// The key of a [LocalKeyedState]; null for a [LocalState].
   final Object? key;
+
   /// What it is now; null where [removed].
   final Object? value;
+
   /// What it was.
   final Object? previous;
+
   /// Whether the value went.
   final bool removed;
 
@@ -261,10 +267,13 @@ final class LocalFactSaid {
 
   /// Its place in the hub's total order.
   final int seq;
+
   /// The fact said.
   final Object fact;
+
   /// The payload said.
   final Object? value;
+
   /// What the sayer gave with it; the hub never reads it.
   final Object? tag;
 }

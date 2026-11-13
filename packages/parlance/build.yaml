@@ -4,4 +4,4 @@ targets:
       # The house example's words come from its vocabularies, and so do
       # the owners of the package's tests.
       parlance_generator|parlance:
-        generate_for: ["example/house/**", "test/**"]
+        generate_for: ["example/house/**", "example/streams/**", "test/**"]

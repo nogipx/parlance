@@ -32,3 +32,5 @@ export 'src/remote/participant.dart'
         ProtocolMismatch,
         HostUnreachable;
 export 'src/remote/session.dart' show IRemoteSession, SessionLimits;
+
+export 'src/registry/streams.dart' show StreamLimits;

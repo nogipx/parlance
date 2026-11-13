@@ -1,7 +1,7 @@
 # parlance
 
 A language the parts of an app speak to each other in: states, commands,
-queries and facts, who may say what, why each thing happened, and a journal
+queries, facts and data streams, who may say what, why each thing happened, and a journal
 of it all.
 
 | Package | What it is |

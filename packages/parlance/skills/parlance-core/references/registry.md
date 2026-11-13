@@ -153,7 +153,7 @@ A **query** only answers: a search, a page, a snapshot by params that no state h
 - It is called through the stages of a command (§9), less what a question has no use for: no dedup (an id is not held to a first answer, asking again asks again) and no call record, so its answers take no memory.
 - `askers` are who may ask, selectors as `callers` (§6.2); availability and guards apply as to a command. Through a participant they default as readers do: its `access.readers`, else everyone (§22.2). `returns` is required: a query answers.
 - In Dart it is `IQueryWord<P, R>` (§18): served with `GeneratedWords(p).query(word).serve(handler, askers:)`, asked with `.ask(params)`; its handler gets the params, not a call to write with.
-- **It is held to changing nothing.** The registry runs its handler marked as the query's (`asQuery`, a Dart zone: it goes with the handler's code through awaits and the timers it starts). A write, a removal, a fact or a command call made there is refused where it is tried (`QueryEffect`: `orders.page is a query, it changes nothing: it tried to write orders.last`), so the query ends `failed` and nothing changed; it may ask other queries. The mark hides nothing: a closure still sees what it captured, and what it tries through parlance is refused. What goes past parlance (a request over the network, a file, a device's port) the registry cannot see: that a query changes nothing there is the owner's promise. A remote participant runs its queries' handlers the same way and refuses what they ask.
+- **It is held to changing nothing.** The registry runs its handler marked as the query's (`asQuery`, a Dart zone: it goes with the handler's code through awaits and the timers it starts). A write, a removal, a fact, a command call or opening a stream made there is refused where it is tried (`QueryEffect`: `orders.page is a query, it changes nothing: it tried to write orders.last`), so the query ends `failed` and nothing changed; it may ask other queries. The mark hides nothing: a closure still sees what it captured, and what it tries through parlance is refused. What goes past parlance (a request over the network, a file, a device's port) the registry cannot see: that a query changes nothing there is the owner's promise. A remote participant runs its queries' handlers the same way and refuses what they ask.
 
 | | command | query |
 | --- | --- | --- |
@@ -187,6 +187,14 @@ How this fits with the other checks of compatibility: §25. A part updated apart
 - **Logged.** A mismatch found is a warning in the registry's `catalog` log, saying who, the word and every break; with no log given, in development (asserts on), it goes to the developer log (`dart:developer`, name `parlance`), so it is seen without code of the host's.
 - **Diagnostics, and one leniency.** Nothing waits on it and nothing is refused by it: a part that tells nothing works as before. What to do with a mismatch (not to load a guest, to roll it back) is the host's. It is not what a part needs (§6.7): a part still asks a word's status when it needs it. The one thing the registry does with it: a call by a part told otherwise has the params the command no longer takes left out rather than refused (§25.5).
 - **Bounded.** At most `Registry.builtPerPrincipal` (1024) words per principal, and `Registry.knownSchemas` (4096) schemas known by fingerprint; what a part told goes with it (its participant disposed, its session ended, a remote participant closed).
+
+### 6.10 Data streams
+
+A `ServerStreamDescriptor` declares subscription `params`, element `type`, `readers`
+and `meta`. Its owner supplies a stream factory, optionally with `whyNot`.
+Each listener is a separate invocation; shared sources are the owner's choice.
+Elements bypass ticks, retention, deduplication and the journal. See the full
+[stream contract](streams.md) for lifetime, errors, limits and protocol behavior.
 
 ## 7. Ticks
 

@@ -77,3 +77,12 @@ A parlance keeps what is so, not what happened: states are its memory, facts pas
 In one process every message is delivered as it is committed: a listener that comes later gets a state's value now, and no fact said before it listened (`recent(fact, n)` keeps the last ones to look at, not to deliver).
 
 **A fact that must not be lost** is not a fact. When missing one is wrong (an order paid, a message to answer), its owner keeps it as a state (a keyed state of what waits, removed when it is handled, a command to say it is handled), so a part that comes later or comes back finds it. What must outlive the process the host stores itself: persistence is not the parlance's.
+
+
+### Data stream feature
+
+Feature `streams` adds `openData` server streams to both peer contracts, using
+the existing connection. Data and terminal failure frames are independent of
+the state/fact feed. Cancellation propagates through a remote owner; connection
+loss is terminal without resume. Sessions announce their effective stream
+limits to the participant. See [streams.md](streams.md).

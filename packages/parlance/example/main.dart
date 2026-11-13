@@ -2,10 +2,10 @@
 /// whether a word is there for them, why a state is as it is and which
 /// part did it, a guard, a question that changes nothing, a device changed
 /// by hand, modules that say what they need and a visit that comes and
-/// goes as a scope, a phone that joins over remote, and the journal of it
+/// goes as a scope, data streams, a phone that joins over remote, and the journal of it
 /// all: who did what, following what, and who set it going.
 ///
-/// Run: `dart run example/main.dart`.
+/// Run: `fvm dart run example/main.dart`.
 library;
 
 import 'dart:async';
@@ -113,7 +113,17 @@ Future<void> main() async {
   print('  rooms lit, asked by bob: ${await bob.rooms(lit: true)}');
   print('  and dark: ${await bob.rooms(lit: false)}');
 
-  // --- 4. A switch flipped by hand ---------------------------------------------
+  // --- 4. A finite data stream ----------------------------------------------
+
+  section('Data streams');
+  devices.measureTemperature('kitchen', 21);
+  devices.measureTemperature('kitchen', 22);
+  // The owner returns a snapshot stream. It finishes naturally; the registry
+  // keeps no last element or history of its own.
+  final history = await ann.temperatureHistory(room: 'kitchen').toList();
+  print('  recorded kitchen temperatures: $history');
+
+  // --- 5. A switch flipped by hand ---------------------------------------------
 
   section('By hand');
   // Nobody called a command: the device changed, and the owner is synced
@@ -126,7 +136,7 @@ Future<void> main() async {
     'from $before to ${ann.light.of('kitchen')}',
   );
 
-  // --- 5. A module beside the house, as a scope ----------------------------
+  // --- 6. A module beside the house, as a scope ----------------------------
 
   section('A visit, as a scope');
   // A visit is made when guests come and goes when they leave: its words
@@ -149,7 +159,7 @@ Future<void> main() async {
   visitSide.dispose();
   print('  after the visit: visit.guests ${visit.status(VisitState.guests)}');
 
-  // --- 6. A phone that joins over remote ------------------------------------
+  // --- 7. A phone that joins over remote ------------------------------------
 
   section('A phone over remote');
   // The phone is a participant like the house, across a connection: the
@@ -168,11 +178,21 @@ Future<void> main() async {
     '  the phone sees: ${home.heat.value} °C, mode ${home.mode.value?.name}',
   );
   await show('the phone sets 40 °C', () => home.setHeat(target: 40));
+  // A live data stream uses the same client across the connection. The owner
+  // follows a shared sensor source; cancelling only removes this subscriber.
+  final samples = StreamIterator(home.temperatureSamples(room: 'kitchen'));
+  await samples.moveNext();
+  print('  phone temperature now: ${samples.current} °C');
+  devices.measureTemperature('kitchen', 23);
+  await samples.moveNext();
+  print('  phone temperature next: ${samples.current} °C');
+  await samples.cancel();
+  print('  phone temperature subscription cancelled');
   await heats.cancel();
   await modes.cancel();
   await phone.close();
 
-  // --- 7. The journal -------------------------------------------------------
+  // --- 8. The journal -------------------------------------------------------
 
   section('The journal');
   // The ring's conversation, as it happened: what it led to, by whom, and
@@ -190,6 +210,7 @@ Future<void> main() async {
   annSide.dispose();
   bobSide.dispose();
   houseSide.dispose();
+  await devices.close();
   await host.dispose();
 }
 

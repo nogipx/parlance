@@ -768,6 +768,17 @@ typedef RemoteHandler = FutureOr<Object?> Function(RemoteCall call);
 final class RemoteOwner extends ParlanceOwnerContractPeer {
   RemoteOwner(super.endpoint, this.client);
 
+  @override
+  Future<WireJson> onUploadData(Stream<WireJson> r, {RpcContext? context}) =>
+      Future.error(UnimplementedError());
+  @override
+  Stream<WireJson> onExchangeData(Stream<WireJson> r, {RpcContext? context}) =>
+      Stream.error(UnimplementedError());
+
+  @override
+  Stream<WireJson> onOpenData(WireJson r, {RpcContext? context}) =>
+      throw UnimplementedError();
+
   final ParlanceClient client;
   final Map<String, RemoteHandler> _handlers = {};
 

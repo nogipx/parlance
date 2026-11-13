@@ -12,6 +12,7 @@ import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/shapes.dart';
 import '../registry/words.dart';
+import '../registry/streams.dart';
 import '../view/view.dart';
 import 'owner.dart';
 import 'participant.dart';
@@ -444,6 +445,76 @@ final class LocalParticipant implements IRawParticipant {
   // --- Its own words ------------------------------------------------------
 
   @override
+  Stream<T> openStream<T>(
+    String name,
+    Object? params,
+    Shape<Object?> paramsShape,
+    Shape<T> itemShape, {
+    CancellationToken? cancel,
+    Stream<Object?>? input,
+    Shape<Object?>? inputShape,
+    String kind = 'serverStream',
+  }) => LazyDataStream(() {
+    if (_disposed) {
+      throw const StreamFailure(
+        StreamFailureCode.unavailable,
+        'the participant ended',
+      );
+    }
+    final lease = StreamLease();
+    final handle = _keepDoing(
+      () => lease.end(
+        const StreamFailure(
+          StreamFailureCode.unavailable,
+          'the participant ended',
+        ),
+      ),
+    );
+    return _r.openStream(
+      name,
+      Kept(params, paramsShape),
+      itemShape,
+      by: who,
+      cause: _as(null),
+      cancel: cancel,
+      input: input,
+      inputShape: inputShape,
+      kind: kind,
+      lifetime: lease,
+      onClosed: () => _handles.remove(handle),
+    );
+  });
+
+  @override
+  IHandle defineStream(
+    DataStreamDescriptor d,
+    StreamHandler handler, {
+    WhyNot? whyNot,
+    Shape<Object?>? params,
+    Shape<Object?>? item,
+    Shape<Object?>? input,
+  }) {
+    _mayDefine(d);
+    final h = _r.defineStream(
+      access.dataStream(d),
+      (call) => contextualStream(handler, call),
+      whyNot: whyNot,
+      params: params,
+      item: item,
+      input: input,
+    );
+    _checked.add(d.name);
+    _streams.add(d.name);
+    return _keepDoing(() {
+      _checked.remove(d.name);
+      _streams.remove(d.name);
+      h.dispose();
+    });
+  }
+
+  final Set<String> _streams = {};
+
+  @override
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) {
     _mayDefine(d);
     return _keep(
@@ -551,7 +622,8 @@ final class LocalParticipant implements IRawParticipant {
   @override
   void whyNotChanged(String command) {
     _live();
-    if (!_commands.contains(_r.canonical(command))) {
+    if (!_commands.contains(_r.canonical(command)) &&
+        !_streams.contains(_r.canonical(command))) {
       throw NotPermitted('$command is not $who\'s command');
     }
     _r.whyNotChanged(command);

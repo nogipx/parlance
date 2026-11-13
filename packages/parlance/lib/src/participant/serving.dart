@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import '../registry/cause.dart';
-import '../registry/registry.dart' show CancellationToken, CommandHandler;
+import '../registry/registry.dart'
+    show CancellationToken, CommandHandler, StreamCall, StreamHandler;
 
 /// What the zone code runs in holds of what it answers: the cause of what
 /// a principal does there, on whose behalf what it answers came, and when
@@ -75,6 +76,44 @@ Principal? get answering => _now?.by;
 /// call expires: its caller cancelled it, or its deadline passed. One per
 /// call. Null where no call is served.
 CancellationToken? get answerExpired => _now?.expired?.token;
+
+/// Runs both factory and listen in the subscription's context. In particular,
+/// an async* body starts on listen, not when its factory returns a Stream.
+Stream<Object?> contextualStream(StreamHandler handler, StreamCall call) =>
+    _ContextualStream(
+      following(
+        (by) => call.cause.child(call.id, by: by, word: call.word),
+        call.by,
+        () => handler(call),
+        expired: call.expired,
+      ),
+      call,
+    );
+
+final class _ContextualStream extends Stream<Object?> {
+  _ContextualStream(this.source, this.call);
+  final Stream<Object?> source;
+  @override
+  bool get isBroadcast => source.isBroadcast;
+  final StreamCall call;
+  @override
+  StreamSubscription<Object?> listen(
+    void Function(Object?)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => following(
+    (by) => call.cause.child(call.id, by: by, word: call.word),
+    call.by,
+    () => source.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    ),
+    expired: call.expired,
+  );
+}
 
 /// Where an owner's words are being defined, told of each keyed state
 /// defined there and the choices its keys are of: what goes of them goes

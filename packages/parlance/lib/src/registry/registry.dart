@@ -23,12 +23,14 @@ import 'tracing.dart';
 import 'types.dart';
 import 'uses.dart';
 import 'cancellation.dart';
+import 'streams.dart';
 
 export 'cancellation.dart' show CancellationToken;
 
 part 'registry_calls.dart';
 part 'registry_words.dart';
 part 'registry_raw.dart';
+part 'registry_streams.dart';
 
 /// How much a host keeps of what passed (SPEC §14): what it still answers
 /// a retry, a feed catching up and `recent` from. The defaults suit an
@@ -42,6 +44,7 @@ final class HostLimits {
     this.retainBytes = 4 << 20,
     this.recentPerFact = 100,
     this.usersPerWord = 64,
+    this.streams = const StreamLimits(),
   });
 
   /// A host that keeps nothing past what is now: no trail for `explain`,
@@ -80,6 +83,9 @@ final class HostLimits {
   /// past them a use is counted under the principal's kind alone
   /// (`guest`), so many guests do not grow it, and no use goes unseen.
   final int usersPerWord;
+
+  /// Bounds on data streams, per participant and per subscription.
+  final StreamLimits streams;
 }
 
 /// What a caller's cancel answers in place of a handler's answer: no
@@ -153,6 +159,8 @@ final class Registry implements ITypeContext {
   final Map<String, _StateEntry> _states = {};
   final Map<String, _CommandEntry> _commands = {};
   final Map<String, _FactEntry> _facts = {};
+  final Map<String, _StreamEntry> _streams = {};
+  final Map<Principal, Set<StreamLease>> _streamReaders = {};
 
   /// The word each local state and fact holds.
   final Map<Object, String> _names = Map.identity();
@@ -212,6 +220,7 @@ final class Registry implements ITypeContext {
     for (final s in _states.values) s.descriptor,
     for (final c in _commands.values) c.descriptor,
     for (final f in _facts.values) f.descriptor,
+    for (final s in _streams.values) s.descriptor,
   ];
 
   /// The choices given, by name.
@@ -259,6 +268,8 @@ final class Registry implements ITypeContext {
       if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
     for (final f in _facts.values)
       if (!(f.descriptor.readers?.allows(by) ?? true)) f.descriptor.name,
+    for (final s in _streams.values)
+      if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
   ];
 
   @override
@@ -271,7 +282,8 @@ final class Registry implements ITypeContext {
   void _checkFree(String name) {
     if (_states.containsKey(name) ||
         _commands.containsKey(name) ||
-        _facts.containsKey(name)) {
+        _facts.containsKey(name) ||
+        _streams.containsKey(name)) {
       throw StateError('$name is defined');
     }
     if (_aliases[name] case final now?) {
@@ -285,6 +297,11 @@ final class Registry implements ITypeContext {
     final types = switch (d) {
       StateDescriptor(:final type) || FactDescriptor(:final type) => [type],
       CallableDescriptor(:final params, :final returns) => [params, returns],
+      DataStreamDescriptor(:final params, :final type, :final input) => [
+        params,
+        type,
+        ?input,
+      ],
     };
     for (final t in types) {
       if (unknownTypeIn(t) case final u?) {
@@ -332,6 +349,16 @@ final class Registry implements ITypeContext {
     } else if (_commands.remove(name) case final c?) {
       c.serving.dispose();
       _announce(DescriptorRemoved(c.descriptor));
+    } else if (_streams.remove(name) case final s?) {
+      for (final stop in [...s.open]) {
+        stop.end(
+          const StreamFailure(
+            StreamFailureCode.unavailable,
+            'the stream owner was withdrawn',
+          ),
+        );
+      }
+      _announce(DescriptorRemoved(s.descriptor));
     } else if (_facts.remove(name) case final f?) {
       f.local.close();
       _names.remove(f.local);
@@ -857,7 +884,8 @@ final class Registry implements ITypeContext {
       key: key,
       value: read(state, key: key),
       change: change,
-      forgotten: change == null &&
+      forgotten:
+          change == null &&
           _forgottenChanges.contains((state: state, key: key)),
       trail: trail,
       trailCut: cut,
@@ -1120,6 +1148,9 @@ final class Registry implements ITypeContext {
       }
     }
     _beforeDispose.clear();
+    for (final s in [..._streams.keys]) {
+      _undefine(s);
+    }
     await Future.wait([
       _ticks.close(),
       _availability.close(),

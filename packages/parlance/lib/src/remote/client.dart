@@ -125,6 +125,18 @@ final class ParlanceClient {
   Future<Map<String, Object?>> describe({RpcContext? context}) async =>
       (await _caller.describe(const RpcNull(), context: _ctx(context))).json;
 
+  /// An independent data subscription, without a lifetime timeout.
+  Future<WireJson> uploadData(Stream<WireJson> requests, RpcContext context) =>
+      _caller.uploadData(requests, context: context);
+
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests,
+    RpcContext context,
+  ) => _caller.exchangeData(requests, context: context);
+
+  Stream<WireJson> openData(Map<String, Object?> request) =>
+      _caller.openData(WireJson(request), context: RpcContext.empty());
+
   /// The feed: the catalog, then a snapshot or the ticks after [since] of
   /// [epoch], then live. Cancel the subscription to end it.
   Stream<RemoteFeed> feed({String? epoch, int? since, RpcContext? context}) =>

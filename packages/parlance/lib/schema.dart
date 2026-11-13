@@ -22,7 +22,10 @@ export 'src/participant/participant.dart'
         GeneratedState,
         GeneratedCommand,
         GeneratedQuery,
-        GeneratedFact;
+        GeneratedFact,
+        GeneratedServerStream,
+        GeneratedClientStream,
+        GeneratedBidiStream;
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
 export 'src/registry/cancellation.dart' show CancellationToken;
@@ -85,6 +88,9 @@ export 'src/registry/words.dart'
         IStateWord,
         ICommandWord,
         IQueryWord,
+        IServerStreamWord,
+        IClientStreamWord,
+        IBidiStreamWord,
         IFactWord,
         Fact,
         IStateWriterOf,
@@ -97,3 +103,5 @@ export 'src/registry/words.dart'
         CallNotDone;
 export 'src/schema/annotations.dart';
 export 'src/schema/schema.dart';
+
+export 'src/registry/streams.dart' show StreamFailure, StreamFailureCode;

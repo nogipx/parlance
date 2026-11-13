@@ -8,7 +8,7 @@ import 'package:parlance/app.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 
 /// The owner of the notes' words: its base, made from [Notes], defines
-/// them and keeps the notes it set; this serves `notes.add`.
+/// them and keeps the notes it set; this serves `notes.add` and streams search results.
 final class Notebook extends NotesOwnerBase {
   Notebook() {
     all.set(const []);
@@ -22,6 +22,12 @@ final class Notebook extends NotesOwnerBase {
     all.set([...?all.value, note]);
     added.say(id: note.id, text: note.text);
   }
+
+  @override
+  Stream<Note> search({String text = ''}) => Stream.fromIterable([
+    for (final note in all.value ?? const <Note>[])
+      if (note.text.contains(text)) note,
+  ]);
 }
 
 /// What the guest's `main` does: joins its host over [endpoint] as the

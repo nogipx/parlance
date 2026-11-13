@@ -8,7 +8,7 @@ parlance draws the line once, as a language. The parts speak a common vocabulary
 
 ## The words
 
-A vocabulary is made of **words**: a name and a type. There are four kinds, like parts of speech:
+A vocabulary is made of **words**: a name and a type. There are seven kinds, like parts of speech:
 
 | Kind | Means | Example | You |
 | --- | --- | --- | --- |
@@ -16,6 +16,9 @@ A vocabulary is made of **words**: a name and a type. There are four kinds, like
 | **command** | a request to do something | `house.set_light`, `house.lock` | call it; exactly one handler answers |
 | **query** | a question that changes nothing | `orders.page`, `catalog.search` | ask it, again if need be; nothing of it is kept |
 | **fact** | what happened | `house.rang`, `house.motion` | hear it; nothing is kept after it is said |
+| **serverStream** | parameters → output sequence | `sensor.samples` | consume until it ends or you cancel |
+| **clientStream** | input sequence → result | `documents.save` | send input, await completion |
+| **bidiStream** | input sequence ↔ output sequence | `documents.preview` | send and receive within one operation |
 
 A **query** is a command that only answers: a question by params that no state holds. It changes nothing, so it is safe to ask again, and the registry keeps nothing of it.
 
@@ -30,6 +33,38 @@ A **query** is a command that only answers: a question by params that no state h
 | in Dart | `ICommandWord`, `.call(params)` | `IQueryWord`, `.ask(params)` |
 
 Many consumers of one value that changes: a state. One asker's answer to its own params: a query. Anything that changes the world: a command.
+
+A **serverStream** is a lazy `Stream<T>` provided by its owner on each subscription.
+The owner decides whether to share a source or create separate work. It may be
+finite or continuous; Parlance keeps no last element or history, and does not
+retry after a connection loss. Errors are terminal `StreamFailure`s with stable
+codes. Cancellation reaches the source subscription; paused consumers have a
+bounded queue and overflow fails explicitly. `HostLimits.streams` and
+`SessionLimits.streams` configure `StreamLimits` (subscription count, pending
+items/bytes and element size). Reopening can repeat work and cost.
+
+Client and bidi streams take one required positional `Stream<T>` plus named
+parameters. They use `callers`; server streams use `readers`. A client stream
+starts on invocation and returns `Future<R>` (or `Future<void>`); server and
+bidi streams start on listening. Input completion leaves output open; errors,
+cancellation or final output completion end the whole operation. The three
+kinds are distinct in schemas and compatibility checks, with no direction flag.
+See the runnable [document example](example/streams.dart).
+
+```dart
+@Vocabulary('sensor')
+abstract class Sensor {
+  @ServerStreamWord('samples')
+  Stream<int> samples({required String device});
+}
+```
+
+The generated owner implements `samples`, returning its own `Stream<int>`.
+The client uses `client.samples(device: 'outdoor').listen(...)` and cancels the
+returned subscription, or supplies `cancel: token`. The source starts on
+`listen`, after access and parameter checks. Binary media and agent consumption
+through MCP are separate features. The complete contract is
+[stream words](skills/parlance-core/references/streams.md).
 
 Every word has an **owner**, the part that defined it. Nobody changes someone else's state: you ask its owner with a command, and the owner decides what to write. A command says nothing of which states its handler writes; what it wrote is told after, by causes.
 

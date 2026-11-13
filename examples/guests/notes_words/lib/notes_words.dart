@@ -21,6 +21,10 @@ abstract class Notes {
   @CommandWord('add')
   void add({@Length(max: 200) required String text});
 
+  /// Matching notes as a finite stream; an empty filter returns every note.
+  @ServerStreamWord('search')
+  Stream<Note> search({@Length(max: 200) String text = ''});
+
   /// A note was added.
   @FactWord('added')
   void added({required String id, required String text});

@@ -13,6 +13,9 @@ class ParlanceContractNames {
   static const service = 'Parlance';
   static String instance(String suffix) => '$service\_$suffix';
   static const describe = 'describe';
+  static const openData = 'openData';
+  static const uploadData = 'uploadData';
+  static const exchangeData = 'exchangeData';
   static const feed = 'feed';
   static const invoke = 'call';
   static const why = 'why';
@@ -81,6 +84,24 @@ abstract class ParlanceContractPeer extends RpcPeerContract
       handler: onDescribe,
       requestCodec: ParlanceContractCodecs.codecRpcNull,
       responseCodec: ParlanceContractCodecs.codecWireDescription,
+    );
+    addServerStreamMethod<WireJson, WireJson>(
+      methodName: ParlanceContractNames.openData,
+      handler: onOpenData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+    );
+    addClientStreamMethod<WireJson, WireJson>(
+      methodName: ParlanceContractNames.uploadData,
+      handler: onUploadData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+    );
+    addBidirectionalMethod<WireJson, WireJson>(
+      methodName: ParlanceContractNames.exchangeData,
+      handler: onExchangeData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
     );
     addServerStreamMethod<WireFeedRequest, WireFeedItem>(
       methodName: ParlanceContractNames.feed,
@@ -157,6 +178,45 @@ abstract class ParlanceContractPeer extends RpcPeerContract
       requestCodec: ParlanceContractCodecs.codecRpcNull,
       responseCodec: ParlanceContractCodecs.codecWireDescription,
       request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Stream<WireJson> openData(WireJson request, {RpcContext? context}) {
+    return callServerStream<WireJson, WireJson>(
+      methodName: ParlanceContractNames.openData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<WireJson> uploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callClientStream<WireJson, WireJson>(
+      methodName: ParlanceContractNames.uploadData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+      requests: requests,
+      context: context,
+    );
+  }
+
+  @override
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callBidirectionalStream<WireJson, WireJson>(
+      methodName: ParlanceContractNames.exchangeData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+      requests: requests,
       context: context,
     );
   }
@@ -284,6 +344,18 @@ abstract class ParlanceContractPeer extends RpcPeerContract
 
   Future<WireDescription> onDescribe(RpcNull request, {RpcContext? context});
 
+  Stream<WireJson> onOpenData(WireJson request, {RpcContext? context});
+
+  Future<WireJson> onUploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  });
+
+  Stream<WireJson> onExchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  });
+
   Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context});
 
   Future<WireCallReply> onInvoke(
@@ -333,6 +405,45 @@ class ParlanceContractPeerCaller extends RpcPeerContract
       requestCodec: ParlanceContractCodecs.codecRpcNull,
       responseCodec: ParlanceContractCodecs.codecWireDescription,
       request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Stream<WireJson> openData(WireJson request, {RpcContext? context}) {
+    return callServerStream<WireJson, WireJson>(
+      methodName: ParlanceContractNames.openData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<WireJson> uploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callClientStream<WireJson, WireJson>(
+      methodName: ParlanceContractNames.uploadData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+      requests: requests,
+      context: context,
+    );
+  }
+
+  @override
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callBidirectionalStream<WireJson, WireJson>(
+      methodName: ParlanceContractNames.exchangeData,
+      requestCodec: ParlanceContractCodecs.codecWireJson,
+      responseCodec: ParlanceContractCodecs.codecWireJson,
+      requests: requests,
       context: context,
     );
   }
@@ -465,6 +576,9 @@ class ParlanceOwnerContractNames {
   const ParlanceOwnerContractNames._();
   static const service = 'ParlanceOwner';
   static String instance(String suffix) => '$service\_$suffix';
+  static const openData = 'openData';
+  static const uploadData = 'uploadData';
+  static const exchangeData = 'exchangeData';
   static const serve = 'serve';
   static const judge = 'judge';
   static const expire = 'expire';
@@ -494,6 +608,24 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
 
   @override
   void setup() {
+    addServerStreamMethod<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.openData,
+      handler: onOpenData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+    );
+    addClientStreamMethod<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.uploadData,
+      handler: onUploadData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+    );
+    addBidirectionalMethod<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.exchangeData,
+      handler: onExchangeData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+    );
     addUnaryMethod<WireServe, WireServed>(
       methodName: ParlanceOwnerContractNames.serve,
       handler: onServe,
@@ -511,6 +643,45 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
       handler: onExpire,
       requestCodec: ParlanceOwnerContractCodecs.codecWireName,
       responseCodec: ParlanceOwnerContractCodecs.codecRpcNull,
+    );
+  }
+
+  @override
+  Stream<WireJson> openData(WireJson request, {RpcContext? context}) {
+    return callServerStream<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.openData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<WireJson> uploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callClientStream<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.uploadData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      requests: requests,
+      context: context,
+    );
+  }
+
+  @override
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callBidirectionalStream<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.exchangeData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      requests: requests,
+      context: context,
     );
   }
 
@@ -547,6 +718,18 @@ abstract class ParlanceOwnerContractPeer extends RpcPeerContract
     );
   }
 
+  Stream<WireJson> onOpenData(WireJson request, {RpcContext? context});
+
+  Future<WireJson> onUploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  });
+
+  Stream<WireJson> onExchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  });
+
   Future<WireServed> onServe(WireServe request, {RpcContext? context});
 
   Future<WireJson> onJudge(WireJson request, {RpcContext? context});
@@ -569,6 +752,45 @@ class ParlanceOwnerContractPeerCaller extends RpcPeerContract
 
   @override
   void setup() {}
+
+  @override
+  Stream<WireJson> openData(WireJson request, {RpcContext? context}) {
+    return callServerStream<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.openData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      request: request,
+      context: context,
+    );
+  }
+
+  @override
+  Future<WireJson> uploadData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callClientStream<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.uploadData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      requests: requests,
+      context: context,
+    );
+  }
+
+  @override
+  Stream<WireJson> exchangeData(
+    Stream<WireJson> requests, {
+    RpcContext? context,
+  }) {
+    return callBidirectionalStream<WireJson, WireJson>(
+      methodName: ParlanceOwnerContractNames.exchangeData,
+      requestCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      responseCodec: ParlanceOwnerContractCodecs.codecWireJson,
+      requests: requests,
+      context: context,
+    );
+  }
 
   @override
   Future<WireServed> serve(WireServe request, {RpcContext? context}) {

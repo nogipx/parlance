@@ -33,6 +33,17 @@ const when = S<String>('deck.when', PlainShape(TextType()));
 final class _Peer extends ParlanceContractPeer {
   _Peer(this.protocol, super.endpoint);
 
+  @override
+  Future<WireJson> onUploadData(Stream<WireJson> r, {RpcContext? context}) =>
+      Future.error(UnimplementedError());
+  @override
+  Stream<WireJson> onExchangeData(Stream<WireJson> r, {RpcContext? context}) =>
+      Stream.error(UnimplementedError());
+
+  @override
+  Stream<WireJson> onOpenData(WireJson r, {RpcContext? context}) =>
+      throw UnimplementedError();
+
   final int protocol;
 
   @override
@@ -174,7 +185,7 @@ void main() {
     final mirror = RegistryMirror()
       ..takeCatalog({
         'descriptors': [
-          {'is': 'stream', 'name': 'deck.feed'},
+          {'is': 'serverStream', 'name': 'deck.feed'},
         ],
       });
     expect(mirror.descriptorOf('deck.feed'), isNull);

@@ -99,6 +99,38 @@ enum HouseQuery<P, R> implements IQueryWord<P, R> {
   final Shape<R> returns;
 }
 
+/// The server streams of [House].
+enum HouseServerStream<P, T> implements IServerStreamWord<P, T> {
+  temperatureHistory<HouseTemperatureHistory, num>(
+    'house.temperature_history',
+    RecordShape<HouseTemperatureHistory>(
+      {'room': Part(PlainShape(ChoiceType('room')))},
+      to: _$HouseTemperatureHistoryTo,
+      from: _$HouseTemperatureHistoryFrom,
+      get: _$HouseTemperatureHistoryAt,
+    ),
+    PlainShape(NumType()),
+  ),
+  temperatureSamples<HouseTemperatureSamples, num>(
+    'house.temperature_samples',
+    RecordShape<HouseTemperatureSamples>(
+      {'room': Part(PlainShape(ChoiceType('room')))},
+      to: _$HouseTemperatureSamplesTo,
+      from: _$HouseTemperatureSamplesFrom,
+      get: _$HouseTemperatureSamplesAt,
+    ),
+    PlainShape(NumType()),
+  );
+
+  const HouseServerStream(this.name, this.params, this.shape);
+  @override
+  final String name;
+  @override
+  final RecordShape<P> params;
+  @override
+  final Shape<T> shape;
+}
+
 /// The facts of [House].
 enum HouseFact<T> implements IFactWord<T> {
   rang<HouseRang>(
@@ -182,6 +214,12 @@ abstract class HouseOwnerBase implements IOwner {
         .command(HouseCommand.lock)
         .serve((x) => lock(on: x.on), whyNot: whyNotLock);
     p.query(HouseQuery.rooms).serve((x) => rooms(lit: x.lit));
+    p
+        .serverStream(HouseServerStream.temperatureHistory)
+        .serve((x) => temperatureHistory(room: x.room), readers: Who.household);
+    p
+        .serverStream(HouseServerStream.temperatureSamples)
+        .serve((x) => temperatureSamples(room: x.room), readers: Who.household);
   }
 
   /// What it set before it was attached, written once it is.
@@ -218,6 +256,12 @@ abstract class HouseOwnerBase implements IOwner {
 
   /// Answers house.rooms.
   List<String> rooms({required bool lit});
+
+  /// Provides house.temperature_history for one subscription.
+  Stream<num> temperatureHistory({required String room});
+
+  /// Provides house.temperature_samples for one subscription.
+  Stream<num> temperatureSamples({required String room});
 }
 
 /// house.rang, as [HouseOwnerBase] says it.
@@ -290,6 +334,18 @@ abstract interface class IHouseClient {
   /// Asks house.rooms; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
   Future<List<String>> rooms({required bool lit, CancellationToken? cancel});
+
+  /// house.temperature_history: opens on listen; cancellation ends this operation.
+  Stream<num> temperatureHistory({
+    required String room,
+    CancellationToken? cancel,
+  });
+
+  /// house.temperature_samples: opens on listen; cancellation ends this operation.
+  Stream<num> temperatureSamples({
+    required String room,
+    CancellationToken? cancel,
+  });
 
   /// house.rang: what it says from now on, and its messages.
   IFactOf<HouseRang> get rang;
@@ -392,6 +448,22 @@ final class _$HouseClient implements IHouseClient {
   }
 
   @override
+  Stream<num> temperatureHistory({
+    required String room,
+    CancellationToken? cancel,
+  }) => _$words.serverStream(HouseServerStream.temperatureHistory).open((
+    room: room,
+  ), cancel: cancel);
+
+  @override
+  Stream<num> temperatureSamples({
+    required String room,
+    CancellationToken? cancel,
+  }) => _$words.serverStream(HouseServerStream.temperatureSamples).open((
+    room: room,
+  ), cancel: cancel);
+
+  @override
   IFactOf<HouseRang> get rang => _$words.factOf(HouseFact.rang);
 
   @override
@@ -418,6 +490,7 @@ const houseWords = WordSet(
     ...HouseCommand.values,
     ...HouseQuery.values,
     ...HouseFact.values,
+    ...HouseServerStream.values,
   ],
   from: 'parlance 0.1.3',
   dartName: 'houseWords',
@@ -471,6 +544,28 @@ Map<String, Object?> _$HouseRoomsTo(HouseRooms p) => {'lit': p.lit};
 HouseRooms _$HouseRoomsFrom(Map<String, Object?> m) => (lit: m['lit']! as bool);
 
 Object? _$HouseRoomsAt(HouseRooms p, int i) => p.lit;
+
+typedef HouseTemperatureHistory = ({String room});
+
+Map<String, Object?> _$HouseTemperatureHistoryTo(HouseTemperatureHistory p) => {
+  'room': p.room,
+};
+
+HouseTemperatureHistory _$HouseTemperatureHistoryFrom(Map<String, Object?> m) =>
+    (room: m['room']! as String);
+
+Object? _$HouseTemperatureHistoryAt(HouseTemperatureHistory p, int i) => p.room;
+
+typedef HouseTemperatureSamples = ({String room});
+
+Map<String, Object?> _$HouseTemperatureSamplesTo(HouseTemperatureSamples p) => {
+  'room': p.room,
+};
+
+HouseTemperatureSamples _$HouseTemperatureSamplesFrom(Map<String, Object?> m) =>
+    (room: m['room']! as String);
+
+Object? _$HouseTemperatureSamplesAt(HouseTemperatureSamples p, int i) => p.room;
 
 typedef HouseRang = ({String who});
 

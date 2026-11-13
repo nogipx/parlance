@@ -14,6 +14,17 @@ import 'package:test/test.dart';
 final class _Host extends ParlanceContractPeer {
   _Host(super.endpoint, this.items);
 
+  @override
+  Future<WireJson> onUploadData(Stream<WireJson> r, {RpcContext? context}) =>
+      Future.error(UnimplementedError());
+  @override
+  Stream<WireJson> onExchangeData(Stream<WireJson> r, {RpcContext? context}) =>
+      Stream.error(UnimplementedError());
+
+  @override
+  Stream<WireJson> onOpenData(WireJson r, {RpcContext? context}) =>
+      throw UnimplementedError();
+
   /// What the feed asked for the [n]th time sends, and then stays open.
   final List<WireFeedItem> Function(int n) items;
   int feeds = 0;
@@ -219,23 +230,26 @@ void main() {
     expect(errors.single.op, {'op': 'feed'});
   });
 
-  test('fewer apply results than ops: told as lost, not believed done', () async {
-    final (g, h) = RpcChannelTransport.memoryPair();
-    final endpoint = RpcPeerEndpoint(transport: h);
-    final host = _ShortApplyHost(endpoint, (_) => [catalog(), snapshot(1)]);
-    endpoint
-      ..registerServiceContract(host)
-      ..start();
-    final own = RpcPeerEndpoint(transport: g)..start();
-    opened.addAll([endpoint, own]);
-    final p = await RemoteParticipant.joinEndpoint(own);
-    addTearDown(p.dispose);
-    final errors = <ParticipantError>[];
-    p.errors.listen(errors.add);
-    p.raw.defineState(StateDescriptor('deck.x', type: const IntType()));
-    await p.settle();
-    await until(() => errors.isNotEmpty);
-    expect(errors.single.code, ParticipantErrorCode.lost);
-    expect('${errors.single}', contains('results for'));
-  });
+  test(
+    'fewer apply results than ops: told as lost, not believed done',
+    () async {
+      final (g, h) = RpcChannelTransport.memoryPair();
+      final endpoint = RpcPeerEndpoint(transport: h);
+      final host = _ShortApplyHost(endpoint, (_) => [catalog(), snapshot(1)]);
+      endpoint
+        ..registerServiceContract(host)
+        ..start();
+      final own = RpcPeerEndpoint(transport: g)..start();
+      opened.addAll([endpoint, own]);
+      final p = await RemoteParticipant.joinEndpoint(own);
+      addTearDown(p.dispose);
+      final errors = <ParticipantError>[];
+      p.errors.listen(errors.add);
+      p.raw.defineState(StateDescriptor('deck.x', type: const IntType()));
+      await p.settle();
+      await until(() => errors.isNotEmpty);
+      expect(errors.single.code, ParticipantErrorCode.lost);
+      expect('${errors.single}', contains('results for'));
+    },
+  );
 }

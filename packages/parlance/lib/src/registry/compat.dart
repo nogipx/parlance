@@ -36,6 +36,23 @@ Map<String, Object?> _schemaOf(IWord w) => switch (w) {
     'params': params.type.toJson(),
     'returns': returns.type.toJson(),
   },
+  IClientStreamWord(:final params, :final input, :final returns) => {
+    'is': 'clientStream',
+    'params': params.type.toJson(),
+    'input': input.type.toJson(),
+    'type': returns.type.toJson(),
+  },
+  IBidiStreamWord(:final params, :final input, :final shape) => {
+    'is': 'bidiStream',
+    'params': params.type.toJson(),
+    'input': input.type.toJson(),
+    'type': shape.type.toJson(),
+  },
+  IServerStreamWord(:final params, :final shape) => {
+    'is': 'serverStream',
+    'params': params.type.toJson(),
+    'type': shape.type.toJson(),
+  },
   IFactWord(:final shape) => {'is': 'fact', 'type': shape.type.toJson()},
   _ => throw ArgumentError('${w.name} is no word of a kind parlance knows'),
 };
@@ -81,7 +98,7 @@ Object? _entry(Object? e) {
   return {
     for (final k in _sorted(e.keys))
       k: switch (k) {
-        'type' || 'params' || 'returns' => _type(e[k]),
+        'type' || 'params' || 'returns' || 'input' => _type(e[k]),
         _ => _plain(e[k]),
       },
   };
@@ -131,6 +148,13 @@ Map<String, Object?> schemaOfDescriptor(Descriptor d) => switch (d) {
     'params': params.toJson(),
     if (returns != null) 'returns': returns.toJson(),
   },
+  DataStreamDescriptor(:final params, :final type, :final kind, :final input) =>
+    {
+      'is': kind,
+      if (input != null) 'input': input.toJson(),
+      'params': params.toJson(),
+      'type': type.toJson(),
+    },
   FactDescriptor(:final type) => {'is': 'fact', 'type': type.toJson()},
 };
 
@@ -175,12 +199,16 @@ final class WordBreak {
 
   /// Where: dot-separated, into its schema entry (`params.note`).
   final String path;
+
   /// What kind of promise broke.
   final BreakKind kind;
+
   /// What the code was built against.
   final Object? was;
+
   /// What the word says now.
   final Object? now;
+
   /// Whether every use of the word meets it; false: only some
   /// values do.
   final bool certain;
@@ -264,6 +292,12 @@ List<WordBreak> entryBreaks(Object? built, Object? live) {
     out.add(WordBreak('key', BreakKind.word, b['key'], l['key']));
   }
   switch (b['is']) {
+    case 'serverStream' || 'clientStream' || 'bidiStream':
+      if (b['is'] != 'serverStream') {
+        _Judge(out, builtReads: false).read('input', l['input'], b['input']);
+      }
+      _Judge(out, builtReads: false).read('params', l['params'], b['params']);
+      _Judge(out, builtReads: true).read('type', b['type'], l['type']);
     case 'state' || 'fact':
       _Judge(out, builtReads: true).read('type', b['type'], l['type']);
     case 'command' || 'query':
@@ -324,7 +358,8 @@ final class _Judge {
     if (rt != wt) {
       // What was an int reads as a duration still (millis); a moment is
       // a text now, and reading old millis data is told as a break.
-      final promoted = rt == 'num' && (wt == 'int' || wt == 'duration') ||
+      final promoted =
+          rt == 'num' && (wt == 'int' || wt == 'duration') ||
           rt == 'int' && wt == 'duration';
       if (!promoted) return _add('$at.type', BreakKind.type, rt, wt);
     }
