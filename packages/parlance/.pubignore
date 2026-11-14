@@ -1,4 +1,5 @@
-# Dev-only benchmarks; they are run from the repository, not shipped.
+# Dev-only benchmarks and retention probes run from the repository.
 benchmark/
+tool/
 test/
 dart_test.yaml

@@ -2,12 +2,7 @@
 // Documented surface lives in schema.dart and app.dart.
 // ignore_for_file: public_member_api_docs
 import 'package:rpc_dart/rpc_dart.dart';
-// The barrel does not export this one type yet: rpc_dart's request-decode
-// catch passes ONLY it through to the peer (any other exception becomes a
-// redacted INTERNAL), so a codec cannot classify a peer's bad field without
-// it. Owner: export it upstream and drop this import.
-// ignore: implementation_imports
-import 'package:rpc_dart/src/core/errors.dart' show RpcPeerFaultException;
+import 'package:rpc_dart/internal.dart' show RpcPeerFaultException;
 
 part 'contract.g.dart';
 

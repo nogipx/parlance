@@ -15,6 +15,7 @@ import 'package:parlance/src/remote/data_streams.dart';
 import 'package:parlance/src/remote/contract.dart' show WireJson;
 import 'package:rpc_dart/rpc_dart.dart'
     show RpcChannelTransport, RpcPeerEndpoint, RpcContext, RpcCancellationToken;
+import 'package:rpc_dart/internal.dart' show StreamBridge, StreamSource;
 
 import '../test/streams_test.dart'
     show DataOwner, Reading, dataWords, IDataClient;
@@ -580,6 +581,51 @@ Future<void> _exchangeContextRetention(bool cancel) async {
   ));
 }
 
+Future<void> _sharedSourceRetention(bool cancel) async {
+  final payload = _Payload();
+  final done = Completer<void>();
+  final source = StreamSource<_Payload>(
+    source: () => Stream.value(payload),
+    onData: (_) {},
+    onError: (_, _) {},
+    onDone: done.complete,
+  );
+  if (cancel) {
+    source.cancel();
+    source.start();
+  } else {
+    source.start();
+    await done.future;
+  }
+  _held.add(source);
+  _checks.add((
+    name: 'shared source cancel=$cancel',
+    weak: WeakReference(payload),
+    collected: true,
+  ));
+}
+
+Future<void> _sharedRelayRetention() async {
+  final payload = _Payload();
+  final bridge = StreamBridge<_Payload>(
+    source: Stream.fromIterable([payload]),
+    onSourceDone: () {
+      payload.bytes.first;
+    },
+    onConsumerCancel: () {
+      payload.bytes.first;
+    },
+  );
+  final stream = bridge.stream;
+  await stream.drain<void>();
+  _held.addAll([bridge, stream]);
+  _checks.add((
+    name: 'shared neutral relay',
+    weak: WeakReference(payload),
+    collected: true,
+  ));
+}
+
 Future<void> main() async {
   final info = await Service.getInfo();
   final uri = info.serverWebSocketUri;
@@ -599,6 +645,9 @@ Future<void> main() async {
     }
     await _cancelledQueue();
     await _wireFactory();
+    await _sharedSourceRetention(false);
+    await _sharedSourceRetention(true);
+    await _sharedRelayRetention();
     await _exchangeContextRetention(false);
     await _exchangeContextRetention(true);
     await _cancelDuringWeigh();

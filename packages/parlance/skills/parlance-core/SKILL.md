@@ -60,7 +60,7 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 ## Rules of the package
 
-- Imports go one way: `remote` and `owners` use `registry`; `participant` uses `registry` and the view interface (`view/view.dart`), never remote; `owners` use `participant` too; only `remote` and `testing` (its connection in memory) use rpc_dart, but for its logger (`package:rpc_dart/logger.dart`), which the registry logs to. Rules between states and commands (when this, call that) are the host's, built on this public API, not the package's. `test/boundaries_test.dart` holds this.
+- Imports go one way: `remote` and `owners` use `registry`; `participant` uses `registry` and the view interface (`view/view.dart`), never remote; `owners` use `participant` too. The registry uses rpc_dart's logger and selected subscription/buffer primitives from `package:rpc_dart/internal.dart`; endpoints, wire streaming and transport credits remain in `remote` and `testing`. Rules between states and commands (when this, call that) are the host's, built on this public API, not the package's. `test/boundaries_test.dart` holds this.
 - No words of any domain in `lib/` (the boundary test bans them); the host's vocabulary stays in the host.
 - Results are typed (`CallResult<R>`, `Explanation`); serialize at the edges.
 - `contract.g.dart` is generated: change `contract.dart`, then `fvm dart run build_runner build`.

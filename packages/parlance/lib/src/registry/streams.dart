@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:collection';
+import 'package:rpc_dart/internal.dart'
+    show BoundedStreamBridge, StreamBufferLimits, StreamBridgeStats;
 
 import '../core/core.dart';
 import 'cancellation.dart';
@@ -103,41 +104,8 @@ extension StreamLimitPolicy on StreamLimits {
   }
 }
 
-/// Internal counters. They contain no elements, handlers or subscriber objects.
-final class DataStreamStats {
-  /// Admitted elements.
-  int items = 0;
-
-  /// Estimated admitted bytes.
-  int bytes = 0;
-
-  /// Elements handed to the consumer.
-  int delivered = 0;
-
-  /// Current Parlance queue length.
-  int pendingItems = 0;
-
-  /// Current estimated queue weight.
-  int pendingBytes = 0;
-
-  /// Largest queue length.
-  int peakItems = 0;
-
-  /// Largest queue weight.
-  int peakBytes = 0;
-
-  /// Whether delivery is paused.
-  bool paused = false;
-
-  /// Whether the bridge has released its resources.
-  bool closed = false;
-
-  /// Whether the source completed.
-  bool sourceDone = false;
-
-  /// Whether the consumer cancelled its subscription.
-  bool cancelled = false;
-}
+/// Internal payload-free counters supplied by the shared bridge.
+typedef DataStreamStats = StreamBridgeStats;
 
 /// The library's bounded, lazy, single-subscription bridge. With [pauseSource],
 /// single-subscription sources receive backpressure and must bound their own
@@ -171,230 +139,82 @@ Stream<T> boundedStream<T>(
 final class _DataBridge<T> {
   _DataBridge(
     this._source,
-    this._limits,
-    this._weigh,
+    StreamLimits limits,
+    int Function(T) weigh,
     this._cancel,
     this._cancelFailure,
     this._onClosed,
-    this._pauseSource,
-    this._stats,
-    this._deferStart,
+    bool pauseSource,
+    DataStreamStats? stats,
+    bool deferStart,
   ) {
-    _out = StreamController<T>(
-      sync: true,
-      onListen: () {
-        if (_deferStart) {
-          scheduleMicrotask(_start);
-        } else {
-          _start();
-        }
-      },
-      onPause: () {
-        _paused = true;
-        _stats?.paused = true;
-        _flow();
-      },
-      onResume: () {
-        _paused = false;
-        _stats?.paused = false;
-        _drain();
-        _flow();
-      },
-      onCancel: () => _finish(notify: false),
+    _bridge = BoundedStreamBridge<T>(
+      source: _make,
+      weigh: weigh,
+      limits: StreamBufferLimits(
+        items: limits.bufferItems,
+        bytes: limits.bufferBytes,
+        elementBytes: limits.elementBytes,
+      ),
+      stats: stats,
+      pauseSource: pauseSource,
+      deferStart: deferStart,
+      onStart: _start,
+      overflowError: () => const StreamFailure(
+        StreamFailureCode.resourceExhausted,
+        'the stream element or pending queue exceeded its limit',
+      ),
+      sourceError: (error, _) => error is StreamFailure
+          ? error
+          : StreamFailure(StreamFailureCode.failed, '$error'),
+      elementError: (error, _) => error is StreamFailure
+          ? error
+          : StreamFailure(StreamFailureCode.invalidArgument, '$error'),
+      onClosed: _closed,
     );
   }
-
-  DataStreamStats? _stats;
+  late final BoundedStreamBridge<T> _bridge;
   Stream<T> Function()? _source;
-  final StreamLimits _limits;
-  int Function(T value)? _weigh;
   CancellationToken? _cancel;
   StreamFailure Function()? _cancelFailure;
-  void Function(int items, int bytes, Object? error)? _onClosed;
-  late final StreamController<T> _out;
-  StreamSubscription<T>? _input;
+  void Function(int, int, Object?)? _onClosed;
   IHandle? _cancellation;
-  final _pending = Queue<(T, int)>();
-  var _held = 0;
-  var _items = 0;
-  var _bytes = 0;
-  final bool _pauseSource;
-  final bool _deferStart;
-  var _pausable = false;
-  var _inputPaused = false;
-  var _paused = false;
-  var _stopped = false;
-  var _ended = false;
 
-  Stream<T> get stream => _out.stream;
+  Stream<T> get stream => _bridge.stream;
 
-  static void _cancelInput(StreamSubscription<Object?> input) {
-    // An owner's cancel can throw or wait on unrelated work. Observe it without
-    // retaining this bridge or delaying the consumer's cancellation.
-    try {
-      unawaited(input.cancel().catchError((Object _, StackTrace _) {}));
-    } on Object {
-      /* Cleanup cannot prevent releasing the bridge's state. */
-    }
-  }
-
-  void _finish({Object? error, StackTrace? stack, bool notify = true}) {
-    if (_stopped) return;
-    _stopped = true;
-    final input = _input;
-    final stats = _stats;
-    if (stats != null) {
-      stats.closed = true;
-      stats.cancelled = !notify;
-      stats.paused = false;
-      stats.pendingItems = 0;
-      stats.pendingBytes = 0;
-    }
-    _stats = null;
-    final onClosed = _onClosed;
-    _input = null;
+  Stream<T> _make() {
+    final make = _source!;
     _source = null;
-    _weigh = null;
-    _cancel = null;
-    _cancelFailure = null;
-    _onClosed = null;
-    _cancellation?.dispose();
-    _cancellation = null;
-    _pending.clear();
-    _held = 0;
-    if (input != null) _cancelInput(input);
-    onClosed?.call(_items, _bytes, error);
-    if (notify) {
-      // A token can be cancelled inside onData: avoid re-entrant delivery.
-      scheduleMicrotask(() {
-        if (error != null) _out.addError(error, stack);
-        unawaited(_out.close());
-      });
-    }
+    return make();
   }
-
-  void _flow() {
-    if (_stopped || !_pausable || _input == null) return;
-    // Keep one read ahead: an idle source can still deliver done while paused.
-    final stop = _paused && _pending.isNotEmpty;
-    if (stop == _inputPaused) return;
-    _inputPaused = stop;
-    if (stop) {
-      _input!.pause();
-    } else {
-      _input!.resume();
-    }
-  }
-
-  void _drain() {
-    while (!_stopped && !_paused && _pending.isNotEmpty) {
-      final (value, weight) = _pending.removeFirst();
-      _held -= weight;
-      final stats = _stats;
-      if (stats != null) {
-        stats.delivered++;
-        stats.pendingItems = _pending.length;
-        stats.pendingBytes = _held;
-      }
-      _out.add(value);
-    }
-    if (!_stopped && _ended && _pending.isEmpty) _finish();
-  }
-
-  void _receive(T value) {
-    if (_stopped) return;
-    try {
-      final weight = _weigh!(value);
-      // A serializer/weigher is user code and may cancel the subscription.
-      if (_stopped) return;
-      if ((_limits.elementBytes != null && weight > _limits.elementBytes!) ||
-          (_limits.bufferItems != null &&
-              _pending.length >= _limits.bufferItems!) ||
-          (_limits.bufferBytes != null &&
-              _held + weight > _limits.bufferBytes!)) {
-        throw const StreamFailure(
-          StreamFailureCode.resourceExhausted,
-          'the stream element or pending queue exceeded its limit',
-        );
-      }
-      _items++;
-      _bytes += weight;
-      _pending.add((value, weight));
-      _held += weight;
-      final stats = _stats;
-      if (stats != null) {
-        stats.items = _items;
-        stats.bytes = _bytes;
-        stats.pendingItems = _pending.length;
-        stats.pendingBytes = _held;
-        if (_pending.length > stats.peakItems) {
-          stats.peakItems = _pending.length;
-        }
-        if (_held > stats.peakBytes) stats.peakBytes = _held;
-      }
-      _drain();
-      _flow();
-    } on Object catch (e, s) {
-      _finish(
-        error: e is StreamFailure
-            ? e
-            : StreamFailure(StreamFailureCode.invalidArgument, '$e'),
-        stack: s,
-      );
-    }
-  }
-
-  void _failed(Object e, StackTrace s) => _finish(
-    error: e is StreamFailure
-        ? e
-        : StreamFailure(StreamFailureCode.failed, '$e'),
-    stack: s,
-  );
 
   void _start() {
-    if (_stopped) return;
     final cancel = _cancel;
     _cancel = null;
     _cancellation = cancel?.onCancel(
-      () => _finish(
-        error:
-            _cancelFailure?.call() ??
+      () => _bridge.fail(
+        _cancelFailure?.call() ??
             const StreamFailure(
               StreamFailureCode.cancelled,
               'the subscription was cancelled',
             ),
       ),
     );
-    if (_stopped) {
+    if (_bridge.isClosed) {
       _cancellation?.dispose();
       _cancellation = null;
-      return;
     }
-    final source = _source!;
+  }
+
+  void _closed(int items, int bytes, Object? error) {
+    final closed = _onClosed;
     _source = null;
-    try {
-      final incoming = source();
-      _pausable = _pauseSource && !incoming.isBroadcast;
-      if (_stopped) return;
-      final input = incoming.listen(
-        _receive,
-        onError: _failed,
-        onDone: () {
-          _ended = true;
-          _stats?.sourceDone = true;
-          _drain();
-        },
-      );
-      if (_stopped) {
-        // Synchronous sources can finish before listen returns its handle.
-        _cancelInput(input);
-      } else {
-        _input = input;
-        _flow();
-      }
-    } on Object catch (e, s) {
-      _failed(e, s);
-    }
+    _cancel = null;
+    _cancelFailure = null;
+    _onClosed = null;
+    _cancellation?.dispose();
+    _cancellation = null;
+    closed?.call(items, bytes, error);
   }
 }
 

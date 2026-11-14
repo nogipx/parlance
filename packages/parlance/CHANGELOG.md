@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+- Require rpc_dart 7.1.0 and reuse its integration primitives for stream lifetimes, bounded delivery and buffer accounting while preserving the word API.
 
 - Add atomic server/client/bidirectional stream words with typed input streams, native RPC streaming, half-close, cancellation and propagated flow control.
 

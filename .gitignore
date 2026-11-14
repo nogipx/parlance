@@ -5,6 +5,7 @@
 .fvm/
 
 # Dart / Flutter
+pubspec_overrides.yaml
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies

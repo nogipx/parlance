@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Support parlance 0.2.0.
+
 ## 0.1.0
 
 - First published release: reactions written as data — when something happens,

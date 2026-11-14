@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
+import 'package:rpc_dart/internal.dart' show StreamSource;
 import '../registry/streams.dart';
 import '../registry/json.dart' show jsonWeight;
 import 'contract.dart';
@@ -9,36 +10,40 @@ Stream<WireJson> encodeDataStream(Stream<Object?> Function() source) =>
     _DataEncoder(source).stream;
 
 final class _DataEncoder {
-  _DataEncoder(this._source) {
+  _DataEncoder(Stream<Object?> Function() source) {
+    _input = StreamSource<Object?>(
+      source: source,
+      onData: _value,
+      onError: _failed,
+      onDone: _done,
+    );
     _out = StreamController<WireJson>(
       sync: true,
-      onListen: () => scheduleMicrotask(_start),
-      onPause: () => _input?.pause(),
-      onResume: () => _input?.resume(),
+      onListen: () => scheduleMicrotask(_input.start),
+      onPause: _input.pause,
+      onResume: _input.resume,
       onCancel: _stop,
     );
   }
-  Stream<Object?> Function()? _source;
-  StreamSubscription<Object?>? _input;
+  late final StreamSource<Object?> _input;
   late final StreamController<WireJson> _out;
   var _stopped = false;
   Stream<WireJson> get stream => _out.stream;
 
-  static void _cancelInput(StreamSubscription<Object?> input) {
-    try {
-      unawaited(input.cancel().catchError((Object _, StackTrace _) {}));
-    } on Object {
-      /* Release our own state even if source cleanup throws. */
-    }
+  void _value(Object? value) {
+    if (!_stopped) _out.add(WireJson({'value': value}));
   }
 
   void _stop() {
     if (_stopped) return;
     _stopped = true;
-    final input = _input;
-    _input = null;
-    _source = null;
-    if (input != null) _cancelInput(input);
+    _input.cancel();
+  }
+
+  void _done() {
+    if (_stopped) return;
+    _stop();
+    unawaited(_out.close());
   }
 
   void _failed(Object e, StackTrace s) {
@@ -55,35 +60,6 @@ final class _DataEncoder {
       );
       unawaited(_out.close());
     });
-  }
-
-  void _start() {
-    if (_stopped) return;
-    final source = _source!;
-    _source = null;
-    try {
-      final incoming = source();
-      if (_stopped) return;
-      final input = incoming.listen(
-        (v) {
-          if (!_stopped) _out.add(WireJson({'value': v}));
-        },
-        onError: _failed,
-        onDone: () {
-          if (_stopped) return;
-          _stop();
-          unawaited(_out.close());
-        },
-      );
-      if (_stopped) {
-        _cancelInput(input);
-      } else {
-        _input = input;
-        if (_out.isPaused) input.pause();
-      }
-    } on Object catch (e, s) {
-      _failed(e, s);
-    }
   }
 }
 
@@ -228,8 +204,8 @@ final class _ExchangeReceiver {
   }
   Stream<WireJson>? _requests;
   Stream<Object?> Function(Map<String, Object?>, Stream<Object?>)? _serve;
-  StreamSubscription<WireJson>? _request;
-  StreamSubscription<Object?>? _response;
+  StreamSource<WireJson>? _request;
+  StreamSource<Object?>? _response;
   late final StreamController<WireJson> _input;
   late final StreamController<Object?> _out;
   final _cancelBinding = _ExchangeCancellation();
@@ -254,8 +230,8 @@ final class _ExchangeReceiver {
     final response = _response;
     _request = null;
     _response = null;
-    if (request != null) _DataEncoder._cancelInput(request);
-    if (response != null) _DataEncoder._cancelInput(response);
+    request?.cancel();
+    response?.cancel();
     unawaited(_input.close());
   }
 
@@ -293,24 +269,15 @@ final class _ExchangeReceiver {
         decodeDataStream(_input.stream),
       );
       if (_stopped) return;
-      final subscription = response.listen(
-        (v) {
-          if (!_stopped) _out.add(v);
-        },
+      final source = StreamSource<Object?>.fromStream(
+        response,
+        onData: _responseData,
         onError: _fail,
-        onDone: () {
-          if (!_stopped) {
-            _stop();
-            unawaited(_out.close());
-          }
-        },
+        onDone: _responseDone,
       );
-      if (_stopped) {
-        _DataEncoder._cancelInput(subscription);
-      } else {
-        _response = subscription;
-        if (_out.isPaused) subscription.pause();
-      }
+      _response = source;
+      source.start();
+      if (_out.isPaused) source.pause();
     } on Object catch (e, s) {
       _fail(e, s);
     }
@@ -335,34 +302,44 @@ final class _ExchangeReceiver {
     _scope = RpcCallScope(context: context);
     final binding = _cancelBinding;
     _scope!.onDispose(() => binding.cancel?.call());
+    final source = StreamSource<WireJson>(
+      source: _takeRequests,
+      onData: _frame,
+      onError: _fail,
+      onDone: _requestsDone,
+    );
+    _request = source;
+    source.start();
+    if (_waitingInput) source.pause();
+  }
+
+  Stream<WireJson> _takeRequests() {
     final requests = _requests!;
     _requests = null;
-    try {
-      final subscription = requests.listen(
-        _frame,
-        onError: _fail,
-        onDone: () {
-          if (!_opened) {
-            _fail(
-              const StreamFailure(
-                StreamFailureCode.invalidArgument,
-                'the input ended without an opening header',
-              ),
-              StackTrace.current,
-            );
-          } else if (!_input.isClosed) {
-            unawaited(_input.close());
-          }
-        },
+    return requests;
+  }
+
+  void _responseData(Object? value) {
+    if (!_stopped) _out.add(value);
+  }
+
+  void _responseDone() {
+    if (_stopped) return;
+    _stop();
+    unawaited(_out.close());
+  }
+
+  void _requestsDone() {
+    if (!_opened) {
+      _fail(
+        const StreamFailure(
+          StreamFailureCode.invalidArgument,
+          'the input ended without an opening header',
+        ),
+        StackTrace.current,
       );
-      if (_stopped) {
-        _DataEncoder._cancelInput(subscription);
-      } else {
-        _request = subscription;
-        if (_waitingInput) subscription.pause();
-      }
-    } on Object catch (e, s) {
-      _fail(e, s);
+    } else if (!_input.isClosed) {
+      unawaited(_input.close());
     }
   }
 }

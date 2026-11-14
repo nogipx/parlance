@@ -609,10 +609,10 @@ packages:
     dependency: transitive
     description:
       name: rpc_dart
-      sha256: "914a7ff8297f46bff561c83fa9dd5e970e1e3dece95f67471962388f9d07af23"
+      sha256: b23795fbf013dcb7373eec52013f4ef8e3d197ad037ae78194b664676aaed248
       url: "https://pub.dev"
     source: hosted
-    version: "7.0.0"
+    version: "7.1.0"
   rpc_dart_generator:
     dependency: transitive
     description:

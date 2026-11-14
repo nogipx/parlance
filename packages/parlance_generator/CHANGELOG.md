@@ -1,10 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
-- Add atomic server/client/bidirectional stream words with typed input streams, native RPC streaming, half-close, cancellation and propagated flow control.
-
-- Add `@ServerStreamWord`: typed owner factories and lazy clients, local and remote subscriptions, terminal errors, cancellation and configurable resource bounds.
+- Generate typed owners and clients for `@ServerStreamWord`, `@ClientStreamWord`
+  and `@BidiStreamWord`, including typed input streams and cancellation.
+- Require parlance 0.2.0 for the streaming annotations and generated runtime API.
 
 ## 0.1.1
 

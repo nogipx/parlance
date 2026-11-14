@@ -100,6 +100,13 @@ listener never pauses the shared producer. Overflow ends that subscription
 explicitly. No element is silently dropped during a healthy subscription. These bounds
 cover Parlance queues, not buffers inside arbitrary owner code or transport.
 
+Subscription ownership and bounded delivery use the shared `StreamSource` and
+`BoundedStreamBridge` primitives from `rpc_dart/internal.dart`. They add no
+transport or extra forwarding controller. Native transport accounting and the
+application queue use the same `RpcBufferBudget` arithmetic. Parlance supplies
+weights, failure mapping and word lifetimes; the shared queue never serializes
+elements. JSON weights remain approximate and do not describe Dart heap size.
+
 Protocol feature `streams` adds independent server streams in both directions
 over the existing peer connection, outside the state/fact feed. Cancellation
 propagates through every hop. Losing either connection is terminal, including
@@ -149,7 +156,7 @@ MCP stream consumption is a separate interface, not introduced here.
 
 The standalone retention check is
 `fvm dart --enable-vm-service=0 run tool/stream_retention_probe.dart` from
-`packages/parlance`. It requests full GC through the local VM service and checks
+`packages/parlance` in a repository checkout. It requests full GC through the local VM service and checks
 weak references with both live and unreachable controls. It retains completed
 streams/subscriptions on purpose, covers all four local/RPC placements and
 termination paths, repeats 200 subscriptions, and inspects empty registry,

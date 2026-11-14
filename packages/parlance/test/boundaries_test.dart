@@ -11,7 +11,7 @@ void main() {
   ];
 
   Iterable<String> importsOf(File f) => RegExp(
-    r'''^import '([^']+)';''',
+    r"^import\s+'([^']+)'",
     multiLine: true,
   ).allMatches(f.readAsStringSync()).map((m) => m[1]!);
 
@@ -30,12 +30,19 @@ void main() {
     );
   });
 
-  test('registry does not import remote; of rpc_dart, only its logger', () {
+  test('registry imports only RPC logging and stream primitives', () {
     for (final f in dartIn('lib/src/registry')) {
       for (final i in importsOf(f)) {
         expect(i, isNot(contains('remote')), reason: f.path);
         if (i.startsWith('package:rpc_dart')) {
-          expect(i, 'package:rpc_dart/logger.dart', reason: f.path);
+          expect(
+            i,
+            anyOf(
+              'package:rpc_dart/logger.dart',
+              'package:rpc_dart/internal.dart',
+            ),
+            reason: f.path,
+          );
         }
       }
     }
