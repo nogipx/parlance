@@ -217,6 +217,7 @@ final class RemoteSession extends ParlanceContractPeer
   final Map<String, IHandle> _streams = {};
   final Set<StreamLease> _data = {};
   final Set<StreamLease> _providedData = {};
+  final Map<String, StreamCall> _servingData = {};
 
   StreamLimits get _dataLimits =>
       registry.limits.streams.restrict(limits.streams);
@@ -255,6 +256,9 @@ final class RemoteSession extends ParlanceContractPeer
     final who = by ?? principal;
     if (parent != null) {
       if (_serving[parent] case final c?) return c.causeFor(who);
+      if (_servingData[parent] case final stream?) {
+        return stream.cause.child(stream.id, by: who, word: stream.word);
+      }
       if (registry.recentFact(parent) case final f? when _reads(f.fact)) {
         return f.cause.child(f.id, by: who, word: f.fact);
       }
@@ -320,29 +324,53 @@ final class RemoteSession extends ParlanceContractPeer
     Stream<WireJson> requests, {
     RpcContext? context,
   }) => encodeDataStream(
-    () => receiveExchange(
-      requests,
-      (header, input) => _openData(header, input: input, kind: 'clientStream'),
-      context: context,
-    ),
+    () => _receiveData(requests, 'clientStream', context),
   ).single;
 
   @override
   Stream<WireJson> onExchangeData(
     Stream<WireJson> requests, {
     RpcContext? context,
-  }) => encodeDataStream(
-    () => receiveExchange(
-      requests,
-      (header, input) => _openData(header, input: input, kind: 'bidiStream'),
-      context: context,
-    ),
+  }) => encodeDataStream(() => _receiveData(requests, 'bidiStream', context));
+
+  void _admitData(StreamLease lease, String kind) {
+    _open();
+    if (!features.contains('streams') ||
+        (kind != 'serverStream' && !features.contains('inputStreams'))) {
+      throw const StreamFailure(
+        StreamFailureCode.unsupported,
+        'the host does not support this stream type',
+      );
+    }
+    final active = _data.length - _providedData.length;
+    if (_dataLimits.subscriptions case final max? when active >= max) {
+      throw const StreamFailure(
+        StreamFailureCode.resourceExhausted,
+        'too many incoming stream operations',
+      );
+    }
+    _data.add(lease);
+  }
+
+  Stream<Object?> _receiveData(
+    Stream<WireJson> requests,
+    String kind,
+    RpcContext? context,
+  ) => receiveLeasedExchange(
+    requests,
+    (header, input, lease) =>
+        _openData(header, input: input, kind: kind, lifetime: lease),
+    limits: _dataLimits,
+    context: context,
+    admit: (lease) => _admitData(lease, kind),
+    release: _data.remove,
   );
 
   Stream<Object?> _openData(
     Map<String, Object?> m, {
     Stream<Object?>? input,
     String kind = 'serverStream',
+    StreamLease? lifetime,
   }) {
     _open();
     if (!features.contains('streams') ||
@@ -352,7 +380,9 @@ final class RemoteSession extends ParlanceContractPeer
         'the host does not support this stream type',
       );
     }
-    if (m['name'] is! String || m['params'] is! Map) {
+    if (m['name'] is! String ||
+        m['params'] is! Map ||
+        (m['parent'] != null && m['parent'] is! String)) {
       throw const StreamFailure(
         StreamFailureCode.invalidArgument,
         'a stream needs a name and parameters',
@@ -360,17 +390,22 @@ final class RemoteSession extends ParlanceContractPeer
     }
     final p = _actingAs(m['as']);
     final lease = StreamLease();
-    _data.add(lease);
+    if (lifetime == null) _admitData(lease, kind);
+    final expiry = lifetime?.token.onCancel(() => lease.end(lifetime.failure));
     return registry.openStream(
       m['name']! as String,
       Kept.json((m['params']! as Map).cast<String, Object?>()),
       const PlainShape(AnyType()),
       by: p.who,
+      cause: _cause(parent: m['parent'] as String?, by: p.who),
       input: input,
       kind: kind,
       limits: _dataLimits,
       lifetime: lease,
-      onClosed: () => _data.remove(lease),
+      onClosed: () {
+        expiry?.dispose();
+        if (lifetime == null) _data.remove(lease);
+      },
     );
   }
 
@@ -1116,6 +1151,7 @@ final class RemoteSession extends ParlanceContractPeer
         'too many subscriptions served by this session',
       );
     }
+    _servingData[c.id] = c;
     final lease = StreamLease();
     _data.add(lease);
     _providedData.add(lease);
@@ -1131,6 +1167,7 @@ final class RemoteSession extends ParlanceContractPeer
           'name': c.word,
           'params': c.params,
           'cause': c.cause.toJson(),
+          'traceparent': ?c.traceparent,
         };
         final context = RpcContext.empty().withCancellation(rpcCancel);
         final requests = c.input == null
@@ -1151,6 +1188,7 @@ final class RemoteSession extends ParlanceContractPeer
       cancelFailure: () => lease.failure,
       onClosed: (_, _, _) {
         cancelled.dispose();
+        _servingData.remove(c.id);
         rpcCancel.cancel();
         _data.remove(lease);
         _providedData.remove(lease);

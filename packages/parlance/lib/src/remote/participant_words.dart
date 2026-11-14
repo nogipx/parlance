@@ -182,12 +182,7 @@ final class _Served extends ParlanceOwnerContractPeer {
     Stream<WireJson> requests, {
     RpcContext? context,
   }) => encodeDataStream(
-    () => receiveExchange(
-      requests,
-      (header, input) =>
-          _p._serveData(header, input: input, kind: 'clientStream'),
-      context: context,
-    ),
+    () => _p._receiveOwnerData(requests, 'clientStream', context),
   ).single;
 
   @override
@@ -195,12 +190,7 @@ final class _Served extends ParlanceOwnerContractPeer {
     Stream<WireJson> requests, {
     RpcContext? context,
   }) => encodeDataStream(
-    () => receiveExchange(
-      requests,
-      (header, input) =>
-          _p._serveData(header, input: input, kind: 'bidiStream'),
-      context: context,
-    ),
+    () => _p._receiveOwnerData(requests, 'bidiStream', context),
   );
 
   @override

@@ -13,6 +13,7 @@ final class StreamCall {
     this.cause,
     this.expired, {
     this.itemShape,
+    this.traceparent,
     this.input,
     this.inputShape,
     this.kind = 'serverStream',
@@ -53,6 +54,9 @@ final class StreamCall {
   Stream<T> inputAs<T>(Shape<T> shape) => input!.map(
     (v) => identical(inputShape, shape) ? v as T : shape.fromJson(v),
   );
+
+  /// Trace context of the semantic operation, never of individual elements.
+  final String? traceparent;
 
   /// The representation its handler returns; null means JSON.
   final Shape<Object?>? itemShape;
@@ -134,6 +138,10 @@ extension RegistryStreams on Registry {
     final lease = lifetime ?? StreamLease();
     _StreamEntry? entry;
     IHandle? cancelled;
+    IHandle? use;
+    _StreamObservation? observation;
+    final inputStats = DataStreamStats();
+    final outputStats = DataStreamStats();
     var registered = false;
     final id = newId();
     return boundedStream<T>(
@@ -151,6 +159,15 @@ extension RegistryStreams on Registry {
             'the host ended',
           );
         }
+        observation = _StreamObservation(
+          this,
+          id,
+          name,
+          kind,
+          _inConversation(cause ?? Cause(by)),
+          input: inputStats,
+          output: outputStats,
+        );
         final found = _streams[canonical(name)];
         if (found == null) throw StreamFailure(StreamFailureCode.missing, name);
         if (found.descriptor.kind != kind ||
@@ -169,6 +186,19 @@ extension RegistryStreams on Registry {
         if (found.whyNot?.call() case final why?) {
           throw StreamFailure(StreamFailureCode.unavailable, why);
         }
+        Kept admitted;
+        try {
+          admitted = _admitParams(found.params, params);
+        } on Object catch (e) {
+          throw StreamFailure(StreamFailureCode.invalidArgument, '$e');
+        }
+        // Availability and serializers are user code: they may withdraw an owner.
+        if (_disposing || !identical(_streams[canonical(name)], found)) {
+          throw const StreamFailure(
+            StreamFailureCode.unavailable,
+            'the stream owner was withdrawn during admission',
+          );
+        }
         final reader = by.owner.isEmpty ? by : Principal(by.kind, by.id);
         final active = _streamReaders.putIfAbsent(reader, () => {});
         if (bounds.subscriptions case final max? when active.length >= max) {
@@ -178,13 +208,6 @@ extension RegistryStreams on Registry {
             'too many active stream subscriptions',
           );
         }
-        Kept admitted;
-        try {
-          admitted = _admitParams(found.params, params);
-        } on Object catch (e) {
-          if (active.isEmpty) _streamReaders.remove(reader);
-          throw StreamFailure(StreamFailureCode.invalidArgument, '$e');
-        }
         entry = found;
         active.add(lease);
         found.open.add(lease);
@@ -192,18 +215,17 @@ extension RegistryStreams on Registry {
         cancelled = cancel?.onCancel(() => lease.token.cancel());
         if (lease.token.isCancelled) throw lease.failure;
         usedBy(name, by);
-        if (log.isEnabled(RpcLogLevel.info)) {
-          log.info(
-            'stream opened',
-            data: {'subscription': id, 'word': name, 'by': by.selector},
-          );
-        }
+        use = _uses.listening(name, by);
+        _converse(id, name, observation!.cause);
+        observation!.open();
+        if (lease.token.isCancelled) throw lease.failure;
         final call = StreamCall(
           id,
           found.descriptor.name,
           admitted,
-          cause ?? Cause(by),
+          observation!.cause,
           lease.token,
+          traceparent: observation!.span.traceparent,
           itemShape: found.item,
           kind: kind,
           inputShape: found.input,
@@ -227,6 +249,7 @@ extension RegistryStreams on Registry {
                   }),
                   pauseSource: true,
                   limits: bounds,
+                  stats: inputStats,
                   weigh: (v) => jsonWeight(found.input!.toJson(v)),
                   cancel: lease.token,
                   onClosed: (_, _, error) {
@@ -274,6 +297,7 @@ extension RegistryStreams on Registry {
         );
       },
       limits: bounds,
+      stats: outputStats,
       pauseSource: true,
       weigh: (x) => jsonWeight(itemShape.toJson(x)),
       cancel: lease.token,
@@ -286,21 +310,12 @@ extension RegistryStreams on Registry {
           active?.remove(lease);
           if (active?.isEmpty ?? false) _streamReaders.remove(reader);
           entry?.open.remove(lease);
-          if (log.isEnabled(RpcLogLevel.info)) {
-            log.info(
-              'stream closed',
-              data: {
-                'subscription': id,
-                'word': name,
-                'by': by.selector,
-                'items': items,
-                'bytes': bytes,
-                if (error != null) 'error': error.toString(),
-              },
-            );
-          }
         }
+        use?.dispose();
+        use = null;
         lease.token.cancel();
+        observation?.close(error);
+        observation = null;
         onClosed?.call();
       },
     );

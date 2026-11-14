@@ -6,9 +6,11 @@
 
 - Fix stream cancellation reentrancy, paused completion resource release, query effect checks, and availability/feature negotiation after reconnection.
 
-- Release stream factories and callback captures after termination, including retained completed streams; add forced-GC and resource-table regression checks.
+- Harden stream framing, preserve native RPC failure codes, and release pending-opening quotas on RPC cancellation or deadline.
 
-- Add `@ServerStreamWord`: typed owner factories and lazy clients, local and remote subscriptions, terminal errors, cancellation and configurable resource bounds.
+- Add read-only active stream snapshots, bounded lifecycle events, input/output counters, usage tracking and causal spans for host tools.
+
+- Release stream factories and callback captures after termination, including retained completed streams, snapshots and RPC contexts; add forced-GC and resource-table regression checks.
 
 ## 0.1.3
 

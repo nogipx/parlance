@@ -12,8 +12,9 @@ import 'package:parlance/src/registry/streams.dart';
 import 'package:parlance/app.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/data_streams.dart';
+import 'package:parlance/src/remote/contract.dart' show WireJson;
 import 'package:rpc_dart/rpc_dart.dart'
-    show RpcChannelTransport, RpcPeerEndpoint;
+    show RpcChannelTransport, RpcPeerEndpoint, RpcContext, RpcCancellationToken;
 
 import '../test/streams_test.dart'
     show DataOwner, Reading, dataWords, IDataClient;
@@ -205,11 +206,16 @@ Future<IRemoteParticipant> _join(
 }) async {
   final (a, b) = RpcChannelTransport.pair();
   final server = RpcPeerEndpoint(transport: a);
-  host.serve(
+  final session = host.serve(
     Principal(name),
     server,
     vocabularies: owns ? [words ?? dataWords] : [],
   );
+  _resources.add((
+    name: 'session $name ${_resources.length}',
+    value: session,
+    empty: ['_data', '_providedData', '_servingData'],
+  ));
   server.start();
   final peer = RpcPeerEndpoint(transport: b)..start();
   endpoints.addAll([server, peer]);
@@ -227,6 +233,8 @@ Future<void> _publicPath(
       'owner=${remoteOwner ? 'rpc' : 'local'} '
       'consumer=${remoteConsumer ? 'rpc' : 'local'} $ending';
   final host = Host();
+  final observations = <StreamEvent>[];
+  final observing = host.registry.streamEvents.listen(observations.add);
   final owner = _Owner();
   final guests = <IRemoteParticipant>[];
   final endpoints = <RpcPeerEndpoint>[];
@@ -266,6 +274,7 @@ Future<void> _publicPath(
   while (!source.hasListener) {
     await _pump();
   }
+  _held.addAll(host.registry.activeStreams);
   switch (ending) {
     case 'complete':
       source.add(Reading(7));
@@ -314,6 +323,8 @@ Future<void> _publicPath(
   for (final endpoint in endpoints.reversed) {
     await endpoint.close();
   }
+  await observing.cancel();
+  _held.addAll(observations);
   _held.addAll([
     host,
     producer,
@@ -328,7 +339,11 @@ Future<void> _publicPath(
   _cleanup.add(host.dispose);
   _resources.addAll([
     (name: '$label token', value: token, empty: ['_onCancel']),
-    (name: '$label registry', value: host.registry, empty: ['_streamReaders']),
+    (
+      name: '$label registry',
+      value: host.registry,
+      empty: ['_streamReaders', '_activeStreams', '_pendingStreamEvents'],
+    ),
     for (final guest in guests)
       (name: '$label guest', value: guest, empty: ['_data', '_providedData']),
   ]);
@@ -420,6 +435,8 @@ Future<void> _inputPath(
   final label =
       'input owner=$remoteOwner consumer=$remoteConsumer bidi=$bidi $ending';
   final host = Host();
+  final observations = <StreamEvent>[];
+  final observing = host.registry.streamEvents.listen(observations.add);
   final owner = DocumentStore();
   final guests = <IRemoteParticipant>[];
   final endpoints = <RpcPeerEndpoint>[];
@@ -472,6 +489,7 @@ Future<void> _inputPath(
   }
   source.add(1);
   await _pump();
+  _held.addAll(host.registry.activeStreams);
   switch (ending) {
     case 'complete':
       unawaited(source.close());
@@ -499,6 +517,8 @@ Future<void> _inputPath(
   for (final endpoint in endpoints.reversed) {
     await endpoint.close();
   }
+  await observing.cancel();
+  _held.addAll(observations);
   _held.addAll([
     host,
     producer,
@@ -522,10 +542,42 @@ Future<void> _inputPath(
   ]);
   _resources.addAll([
     (name: '$label token', value: token, empty: ['_onCancel']),
-    (name: '$label registry', value: host.registry, empty: ['_streamReaders']),
+    (
+      name: '$label registry',
+      value: host.registry,
+      empty: ['_streamReaders', '_activeStreams', '_pendingStreamEvents'],
+    ),
     for (final guest in guests)
       (name: '$label guest', value: guest, empty: ['_data', '_providedData']),
   ]);
+}
+
+Future<void> _exchangeContextRetention(bool cancel) async {
+  final payload = _Payload();
+  final token = RpcCancellationToken();
+  final context = RpcContext.empty().withCancellation(token);
+  final input = StreamController<WireJson>();
+  final stream = receiveExchange(
+    input.stream,
+    (_, _) => Stream.value(payload.bytes.length),
+    context: context,
+  );
+  final result = stream.toList();
+  final finished = result.then<void>((_) {}, onError: (Object _) {});
+  await _pump();
+  if (cancel) {
+    token.cancel();
+  } else {
+    input.add(WireJson({'open': <String, Object?>{}}));
+  }
+  await finished;
+  unawaited(input.close());
+  _held.addAll([context, stream, input, result]);
+  _checks.add((
+    name: 'exchange context cancel=$cancel',
+    weak: WeakReference(payload),
+    collected: true,
+  ));
 }
 
 Future<void> main() async {
@@ -547,6 +599,8 @@ Future<void> main() async {
     }
     await _cancelledQueue();
     await _wireFactory();
+    await _exchangeContextRetention(false);
+    await _exchangeContextRetention(true);
     await _cancelDuringWeigh();
     for (final remoteOwner in [false, true]) {
       for (final remoteConsumer in [false, true]) {

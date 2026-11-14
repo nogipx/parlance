@@ -61,6 +61,7 @@ final class CallTraces {
     Kept params,
     Cause cause, {
     required bool query,
+    String? streamKind,
   }) {
     if (!on) return noSpan;
     final span = switch (_spans[cause.parent]) {
@@ -82,7 +83,8 @@ final class CallTraces {
       'origin': cause.originOf(command).word,
       'originBy': cause.originOf(command).by.selector,
       if (query) 'query': true,
-      if (_log.isDebug) 'params': params.json!,
+      'stream': ?streamKind,
+      if (_log.isDebug && streamKind == null) 'params': params.json!,
     });
     _spans[id] = span;
     return span;

@@ -103,6 +103,42 @@ extension StreamLimitPolicy on StreamLimits {
   }
 }
 
+/// Internal counters. They contain no elements, handlers or subscriber objects.
+final class DataStreamStats {
+  /// Admitted elements.
+  int items = 0;
+
+  /// Estimated admitted bytes.
+  int bytes = 0;
+
+  /// Elements handed to the consumer.
+  int delivered = 0;
+
+  /// Current Parlance queue length.
+  int pendingItems = 0;
+
+  /// Current estimated queue weight.
+  int pendingBytes = 0;
+
+  /// Largest queue length.
+  int peakItems = 0;
+
+  /// Largest queue weight.
+  int peakBytes = 0;
+
+  /// Whether delivery is paused.
+  bool paused = false;
+
+  /// Whether the bridge has released its resources.
+  bool closed = false;
+
+  /// Whether the source completed.
+  bool sourceDone = false;
+
+  /// Whether the consumer cancelled its subscription.
+  bool cancelled = false;
+}
+
 /// The library's bounded, lazy, single-subscription bridge. With [pauseSource],
 /// single-subscription sources receive backpressure and must bound their own
 /// buffering. Broadcast sources keep running into this bounded queue.
@@ -111,6 +147,8 @@ Stream<T> boundedStream<T>(
   Stream<T> Function() source, {
   StreamLimits limits = const StreamLimits(),
   bool pauseSource = false,
+  bool deferStart = true,
+  DataStreamStats? stats,
   required int Function(T value) weigh,
   CancellationToken? cancel,
   StreamFailure Function()? cancelFailure,
@@ -123,6 +161,8 @@ Stream<T> boundedStream<T>(
   cancelFailure,
   onClosed,
   pauseSource,
+  stats,
+  deferStart,
 ).stream;
 
 // The stream/controller can outlive its subscription in client code. Keep
@@ -137,16 +177,26 @@ final class _DataBridge<T> {
     this._cancelFailure,
     this._onClosed,
     this._pauseSource,
+    this._stats,
+    this._deferStart,
   ) {
     _out = StreamController<T>(
       sync: true,
-      onListen: () => scheduleMicrotask(_start),
+      onListen: () {
+        if (_deferStart) {
+          scheduleMicrotask(_start);
+        } else {
+          _start();
+        }
+      },
       onPause: () {
         _paused = true;
+        _stats?.paused = true;
         _flow();
       },
       onResume: () {
         _paused = false;
+        _stats?.paused = false;
         _drain();
         _flow();
       },
@@ -154,6 +204,7 @@ final class _DataBridge<T> {
     );
   }
 
+  DataStreamStats? _stats;
   Stream<T> Function()? _source;
   final StreamLimits _limits;
   int Function(T value)? _weigh;
@@ -168,6 +219,7 @@ final class _DataBridge<T> {
   var _items = 0;
   var _bytes = 0;
   final bool _pauseSource;
+  final bool _deferStart;
   var _pausable = false;
   var _inputPaused = false;
   var _paused = false;
@@ -190,6 +242,15 @@ final class _DataBridge<T> {
     if (_stopped) return;
     _stopped = true;
     final input = _input;
+    final stats = _stats;
+    if (stats != null) {
+      stats.closed = true;
+      stats.cancelled = !notify;
+      stats.paused = false;
+      stats.pendingItems = 0;
+      stats.pendingBytes = 0;
+    }
+    _stats = null;
     final onClosed = _onClosed;
     _input = null;
     _source = null;
@@ -229,6 +290,12 @@ final class _DataBridge<T> {
     while (!_stopped && !_paused && _pending.isNotEmpty) {
       final (value, weight) = _pending.removeFirst();
       _held -= weight;
+      final stats = _stats;
+      if (stats != null) {
+        stats.delivered++;
+        stats.pendingItems = _pending.length;
+        stats.pendingBytes = _held;
+      }
       _out.add(value);
     }
     if (!_stopped && _ended && _pending.isEmpty) _finish();
@@ -254,6 +321,17 @@ final class _DataBridge<T> {
       _bytes += weight;
       _pending.add((value, weight));
       _held += weight;
+      final stats = _stats;
+      if (stats != null) {
+        stats.items = _items;
+        stats.bytes = _bytes;
+        stats.pendingItems = _pending.length;
+        stats.pendingBytes = _held;
+        if (_pending.length > stats.peakItems) {
+          stats.peakItems = _pending.length;
+        }
+        if (_held > stats.peakBytes) stats.peakBytes = _held;
+      }
       _drain();
       _flow();
     } on Object catch (e, s) {
@@ -303,6 +381,7 @@ final class _DataBridge<T> {
         onError: _failed,
         onDone: () {
           _ended = true;
+          _stats?.sourceDone = true;
           _drain();
         },
       );

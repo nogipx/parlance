@@ -111,12 +111,38 @@ On rejoining, stream availability is published again even if `whyNot` did not
 change. A host without `streams` receives no stream availability or withdrawal
 operations; the participant keeps its definitions for a later supporting host.
 
-Diagnostics log opening and closing, subscription identity, word, subscriber,
-element/byte counts and terminal reason, without retaining payload history.
+Host tools observe read-only `Registry.activeStreams` snapshots and lifecycle
+`streamEvents` (`opened`, `closed`, `rejected`). Snapshots contain identity,
+verified cause, kind, elapsed time, separate input/output counts, queue sizes,
+queue peaks and pause/half-close flags. They retain no payloads or source objects
+and events have no history. Each diagnostic listener has its own bounded queue;
+overflow terminates that listener explicitly without affecting data operations.
+Listeners observe events emitted after subscription, even for operations whose
+lazy start was already queued. An observer may cancel an operation or dispose
+the host during `opened`; the owner is not invoked after local cancellation,
+and termination is emitted once. A remote cancellation takes effect after its
+notice reaches the host.
+Completed snapshots distinguish completion,
+consumer cancellation, failure and rejected admission with stable failure codes.
+`usesOf` counts stream openings and active listeners, releasing them on every
+termination path. Logging reports both directions and explicit disposition.
+Streams use rpc_dart LogScope spans in the existing cause/trace machinery;
+stream metadata does not include parameters or per-element contents.
+Stream lifecycle is independent of state/fact ticks and the domain journal.
 The `inputStreams` protocol feature adds native client-stream (`uploadData`)
 and bidi (`exchangeData`) RPC operations on both peer contracts. Their first
-frame is the opening header; subsequent frames are input values or terminal
-failures. An older peer sees no input-stream definitions or built schemas.
+frame is exactly one opening header; subsequent frames contain exactly one
+value or a terminal failure with a code and message. Ambiguous frames and
+malformed headers are `invalidArgument`; unknown future failure codes remain
+terminal failures reported as `failed`.
+Incoming operations reserve their session quota before waiting for the opening
+header once RPC dispatches the handler. Before dispatch (including a native client
+stream that has sent no first request), native RPC transport limits apply.
+RPC cancellation/deadlines and call-scope disposal terminate pending openings
+too, using `RpcCallScope` and native transport limits/flow control. Native
+permission and resource refusals preserve their semantic failure codes;
+deadline expiry is `cancelled`, while endpoint shutdown is `connectionLost`.
+An older peer sees no input-stream definitions or built schemas.
 Inputs and outputs use the same validation, cancellation and queue limits.
 Schema compatibility distinguishes all three atomic kinds.
 MCP stream consumption is a separate interface, not introduced here.
@@ -129,3 +155,5 @@ streams/subscriptions on purpose, covers all four local/RPC placements and
 termination paths, repeats 200 subscriptions, and inspects empty registry,
 remote-subscription and long-lived cancellation-token tables. This tests
 Parlance's retention, not buffers or unfinished work deliberately kept by an owner.
+It deliberately retains lifecycle events, active snapshots and RPC contexts too;
+those objects must not retain completed sources or their payloads.

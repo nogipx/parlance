@@ -51,6 +51,16 @@ cancellation or final output completion end the whole operation. The three
 kinds are distinct in schemas and compatibility checks, with no direction flag.
 See the runnable [document example](example/streams.dart).
 
+Host tools (`package:parlance/tools.dart`) can inspect
+`host.registry.activeStreams` and subscribe to `host.registry.streamEvents`.
+Immutable snapshots show the caller, cause, kind, elapsed time, separate
+input/output counts, queue sizes and pause/half-close flags. Lifecycle events
+distinguish completion, cancellation, failure and rejected admission. Diagnostics
+retain no payloads or history; each event listener has a bounded queue. With a
+host logger, each admitted operation also has a span in the existing causal
+trace, without logging parameters or element contents. Byte counts are estimates
+of JSON size, rather than transport traffic.
+
 ```dart
 @Vocabulary('sensor')
 abstract class Sensor {

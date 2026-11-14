@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 import '../registry/streams.dart';
+import '../registry/json.dart' show jsonWeight;
 import 'contract.dart';
 
 /// Data frames carry terminal failures explicitly, without transport redaction.
@@ -44,6 +45,8 @@ final class _DataEncoder {
     if (_stopped) return;
     final failure = e is StreamFailure
         ? e
+        : e is RpcException
+        ? remoteStreamFailure(e)
         : StreamFailure(StreamFailureCode.failed, '$e');
     _stop();
     scheduleMicrotask(() {
@@ -89,18 +92,15 @@ Stream<Object?> decodeDataStream(Stream<WireJson> source) => source.transform(
   StreamTransformer.fromHandlers(
     handleData: (frame, sink) {
       final m = frame.json;
-      if (m case {
-        'failure': final String code,
-        'message': final String message,
-      }) {
+      if (m.length == 2 && m['failure'] is String && m['message'] is String) {
         sink.addError(
           StreamFailure(
-            StreamFailureCode.values.asNameMap()[code] ??
+            StreamFailureCode.values.asNameMap()[m['failure']] ??
                 StreamFailureCode.failed,
-            message,
+            m['message']! as String,
           ),
         );
-      } else if (m.containsKey('value')) {
+      } else if (m.length == 1 && m.containsKey('value')) {
         sink.add(m['value']);
       } else {
         sink.addError(
@@ -112,15 +112,71 @@ Stream<Object?> decodeDataStream(Stream<WireJson> source) => source.transform(
       }
     },
     handleError: (Object e, StackTrace s, sink) {
-      sink.addError(
-        e is StreamFailure
-            ? e
-            : StreamFailure(StreamFailureCode.connectionLost, '$e'),
-        s,
-      );
+      sink.addError(remoteStreamFailure(e), s);
     },
   ),
 );
+
+/// Preserves the meaning of native RPC failures at the Parlance boundary.
+StreamFailure remoteStreamFailure(Object error) {
+  if (error is StreamFailure) return error;
+  final code = switch (error) {
+    // Endpoint shutdown also reports RpcCancelledException. User cancellation
+    // is identified by our lease/token or an explicit failure frame instead.
+    RpcCancelledException() => StreamFailureCode.connectionLost,
+    RpcDeadlineExceededException() => StreamFailureCode.cancelled,
+    RpcStatusException(:final statusCode) => switch (statusCode) {
+      RpcStatus.cancelled => StreamFailureCode.connectionLost,
+      RpcStatus.deadlineExceeded => StreamFailureCode.cancelled,
+      RpcStatus.resourceExhausted => StreamFailureCode.resourceExhausted,
+      RpcStatus.invalidArgument => StreamFailureCode.invalidArgument,
+      RpcStatus.permissionDenied ||
+      RpcStatus.unauthenticated => StreamFailureCode.notPermitted,
+      RpcStatus.notFound => StreamFailureCode.missing,
+      RpcStatus.unimplemented => StreamFailureCode.unsupported,
+      RpcStatus.unavailable => StreamFailureCode.connectionLost,
+      _ => StreamFailureCode.failed,
+    },
+    _ => StreamFailureCode.connectionLost,
+  };
+  return StreamFailure(code, '$error');
+}
+
+/// Reserves an incoming operation before awaiting any peer-controlled data.
+Stream<Object?> receiveLeasedExchange(
+  Stream<WireJson> requests,
+  Stream<Object?> Function(
+    Map<String, Object?> header,
+    Stream<Object?> input,
+    StreamLease lease,
+  )
+  serve, {
+  required StreamLimits limits,
+  required void Function(StreamLease) admit,
+  required void Function(StreamLease) release,
+  RpcContext? context,
+}) {
+  final lease = StreamLease();
+  return boundedStream<Object?>(
+    () {
+      admit(lease);
+      return receiveExchange(
+        requests,
+        (header, input) => serve(header, input, lease),
+        context: context,
+      );
+    },
+    limits: limits,
+    pauseSource: true,
+    weigh: jsonWeight,
+    cancel: lease.token,
+    cancelFailure: () => lease.failure,
+    onClosed: (_, _, _) {
+      release(lease);
+      lease.token.cancel();
+    },
+  );
+}
 
 /// One opening header followed by typed data frames on the same RPC stream.
 Stream<WireJson> exchangeRequests(
@@ -140,7 +196,7 @@ Stream<Object?> receiveExchange(
 }) => _ExchangeReceiver(requests, serve, context).stream;
 
 final class _ExchangeReceiver {
-  _ExchangeReceiver(this._requests, this._serve, RpcContext? context) {
+  _ExchangeReceiver(this._requests, this._serve, this._context) {
     final binding = _cancelBinding;
     binding.cancel = () => _fail(
       const StreamFailure(
@@ -149,7 +205,6 @@ final class _ExchangeReceiver {
       ),
       StackTrace.current,
     );
-    context?.cancellationToken?.cancelled.then((_) => binding.cancel?.call());
     _input = StreamController<WireJson>(
       sync: true,
       onListen: () {
@@ -178,6 +233,8 @@ final class _ExchangeReceiver {
   late final StreamController<WireJson> _input;
   late final StreamController<Object?> _out;
   final _cancelBinding = _ExchangeCancellation();
+  RpcContext? _context;
+  RpcCallScope? _scope;
   var _opened = false;
   var _stopped = false;
   var _waitingInput = false;
@@ -188,7 +245,11 @@ final class _ExchangeReceiver {
     _stopped = true;
     _requests = null;
     _serve = null;
+    _context = null;
     _cancelBinding.cancel = null;
+    final scope = _scope;
+    _scope = null;
+    if (scope != null) unawaited(scope.close());
     final request = _request;
     final response = _response;
     _request = null;
@@ -200,9 +261,10 @@ final class _ExchangeReceiver {
 
   void _fail(Object e, StackTrace s) {
     if (_stopped) return;
+    final failure = e is RpcException ? remoteStreamFailure(e) : e;
     _stop();
     scheduleMicrotask(() {
-      _out.addError(e, s);
+      _out.addError(failure, s);
       unawaited(_out.close());
     });
   }
@@ -215,7 +277,7 @@ final class _ExchangeReceiver {
     }
     try {
       final header = frame.json['open'];
-      if (header is! Map) {
+      if (frame.json.length != 1 || header is! Map) {
         throw const StreamFailure(
           StreamFailureCode.invalidArgument,
           'an input stream needs an opening header',
@@ -256,6 +318,23 @@ final class _ExchangeReceiver {
 
   void _start() {
     if (_stopped) return;
+    final context = _context;
+    _context = null;
+    if ((context?.isCancelled ?? false) || (context?.isExpired ?? false)) {
+      _fail(
+        const StreamFailure(
+          StreamFailureCode.cancelled,
+          'the RPC operation ended',
+        ),
+        StackTrace.current,
+      );
+      return;
+    }
+    // A handler's injected scope may await unrelated disposers in LIFO order.
+    // This scope only owns this bridge, and is created on first listen.
+    _scope = RpcCallScope(context: context);
+    final binding = _cancelBinding;
+    _scope!.onDispose(() => binding.cancel?.call());
     final requests = _requests!;
     _requests = null;
     try {

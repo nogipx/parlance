@@ -82,6 +82,30 @@ void consumer(Host host) {
 ''',
         missing: {'defineStream', 'openStream', 'endProvidedStreams'},
       ),
+      'observations': (
+        source: '''
+import 'package:parlance/app.dart';
+import 'package:parlance/tools.dart';
+void consumer(Host host) {
+  final List<StreamSnapshot> active = host.registry.activeStreams;
+  final Stream<StreamEvent> events = host.registry.streamEvents;
+  active.single.output.pendingItems;
+  events.listen((event) => event.stream.termination);
+}
+''',
+        missing: {},
+      ),
+      'read_only_observations': (
+        source: '''
+import 'package:parlance/app.dart';
+import 'package:parlance/tools.dart';
+void consumer(Host host) {
+  host.registry.activeStreams.single.cancel();
+  host.registry.activeStreams.single.output.pendingItems = 42;
+}
+''',
+        missing: {'cancel', 'pendingItems'},
+      ),
       'participant': (
         source: '''
 import 'package:parlance/app.dart';
@@ -194,6 +218,11 @@ void consumer(StreamLimits limits) {
         'RpcContext',
         'streamLimitsToJson',
         'streamLimitsFromJson',
+        'StreamSnapshot',
+        'StreamTraffic',
+        'StreamEvent',
+        'StreamEventKind',
+        'StreamTermination',
       ]) {
         check(!names.contains(name), '$library exports $name');
       }

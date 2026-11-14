@@ -31,6 +31,7 @@ part 'registry_calls.dart';
 part 'registry_words.dart';
 part 'registry_raw.dart';
 part 'registry_streams.dart';
+part 'registry_stream_observations.dart';
 
 /// How much a host keeps of what passed (SPEC §14): what it still answers
 /// a retry, a feed catching up and `recent` from. The defaults suit an
@@ -161,6 +162,54 @@ final class Registry implements ITypeContext {
   final Map<String, _FactEntry> _facts = {};
   final Map<String, _StreamEntry> _streams = {};
   final Map<Principal, Set<StreamLease>> _streamReaders = {};
+
+  final Map<String, _StreamObservation> _activeStreams = {};
+  final StreamController<StreamEvent> _streamEvents =
+      StreamController.broadcast(sync: true);
+
+  final Queue<StreamEvent> _pendingStreamEvents = Queue();
+  bool _emittingStreamEvent = false;
+
+  void _emitStreamEvent(StreamEvent event) {
+    if (_streamEvents.isClosed) return;
+    _pendingStreamEvents.add(event);
+    if (_emittingStreamEvent) return;
+    _emittingStreamEvent = true;
+    try {
+      while (_pendingStreamEvents.isNotEmpty && !_streamEvents.isClosed) {
+        _streamEvents.add(_pendingStreamEvents.removeFirst());
+      }
+    } finally {
+      _emittingStreamEvent = false;
+      _pendingStreamEvents.clear();
+    }
+  }
+
+  Future<void> _closeStreamEvents() => _emittingStreamEvent
+      ? Future<void>.microtask(() => _streamEvents.close())
+      : _streamEvents.close();
+
+  /// Immutable snapshots of admitted streaming operations, for host tools.
+  List<StreamSnapshot> get activeStreams => List.unmodifiable([
+    for (final operation in _activeStreams.values) operation.snapshot(),
+  ]);
+
+  /// Lifecycle changes, with no retained history or per-element payloads.
+  Stream<StreamEvent> get streamEvents => Stream.multi((out) {
+    final subscription = boundedStream<StreamEvent>(
+      () => _streamEvents.stream,
+      deferStart: false,
+      weigh: (event) =>
+          512 +
+          2 *
+              (event.stream.word.length +
+                  event.stream.id.length +
+                  event.stream.by.selector.length),
+    ).listen(out.addSync, onError: out.addErrorSync, onDone: out.closeSync);
+    out.onPause = subscription.pause;
+    out.onResume = subscription.resume;
+    out.onCancel = subscription.cancel;
+  }, isBroadcast: true);
 
   /// The word each local state and fact holds.
   final Map<Object, String> _names = Map.identity();
@@ -739,7 +788,8 @@ final class Registry implements ITypeContext {
       final word = canonical(name);
       return _states[word] != null ||
           _commands[word] != null ||
-          _facts[word] != null;
+          _facts[word] != null ||
+          _streams[word] != null;
     },
     perWord: limits.usersPerWord,
     clock: clock,
@@ -1152,6 +1202,7 @@ final class Registry implements ITypeContext {
       _undefine(s);
     }
     await Future.wait([
+      _closeStreamEvents(),
       _ticks.close(),
       _availability.close(),
       _hub.dispose(),

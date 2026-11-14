@@ -27,7 +27,11 @@ extension on RemoteParticipant {
     }
   }
 
-  void _mayOpenData({bool providing = false, String kind = 'serverStream'}) {
+  void _mayOpenData({
+    bool providing = false,
+    String kind = 'serverStream',
+    bool reserved = false,
+  }) {
     if (_disposed || _ended) {
       throw const StreamFailure(
         StreamFailureCode.unavailable,
@@ -40,12 +44,21 @@ extension on RemoteParticipant {
         'the connection is offline',
       );
     }
+    if (kind != 'serverStream' &&
+        kind != 'clientStream' &&
+        kind != 'bidiStream') {
+      throw const StreamFailure(
+        StreamFailureCode.invalidArgument,
+        'unknown streaming interaction type',
+      );
+    }
     if (!_supportsData(kind)) {
       throw const StreamFailure(
         StreamFailureCode.unsupported,
         'the host does not speak streams',
       );
     }
+    if (reserved) return;
     final active = providing
         ? _providedData.length
         : _data.length - _providedData.length;
@@ -119,6 +132,12 @@ extension on RemoteParticipant {
         }
         refuseInQuery('open stream $name');
         _mayOpenData(kind: kind);
+        if ((kind != 'serverStream') != (input != null)) {
+          throw const StreamFailure(
+            StreamFailureCode.invalidArgument,
+            'input does not match the stream interaction type',
+          );
+        }
         _data[lease] = as ?? who;
         cancelled = cancel?.onCancel(lease.token.cancel);
         if (lease.token.isCancelled) throw lease.failure;
@@ -132,6 +151,7 @@ extension on RemoteParticipant {
         final header = {
           'name': name,
           'params': parameters,
+          'parent': ?inReplyAs(as ?? who)?.parent,
           ...RemoteParticipant._asOf(as),
         };
         final context = RpcContext.empty().withCancellation(rpcCancel);
@@ -142,7 +162,9 @@ extension on RemoteParticipant {
                 boundedStream<Object?>(
                   () => input.map((v) {
                     try {
-                      return inputShape!.toJson(v);
+                      return inputShape == null
+                          ? freezeJson(v)
+                          : inputShape.toJson(v);
                     } on Object catch (e) {
                       throw StreamFailure(
                         StreamFailureCode.invalidArgument,
@@ -193,16 +215,59 @@ extension on RemoteParticipant {
     );
   }
 
+  Stream<Object?> _receiveOwnerData(
+    Stream<WireJson> requests,
+    String kind,
+    RpcContext? context,
+  ) => receiveLeasedExchange(
+    requests,
+    (header, input, lease) =>
+        _serveData(header, input: input, kind: kind, lifetime: lease),
+    limits: _dataLimits,
+    context: context,
+    admit: (lease) {
+      _mayOpenData(providing: true, kind: kind);
+      _data[lease] = who;
+      _providedData.add(lease);
+    },
+    release: (lease) {
+      _data.remove(lease);
+      _providedData.remove(lease);
+    },
+  );
+
   Stream<Object?> _serveData(
     Map<String, Object?> request, {
     Stream<Object?>? input,
     String kind = 'serverStream',
+    StreamLease? lifetime,
   }) {
     final lease = StreamLease();
+    IHandle? expiry;
     _DataSource? source;
     return boundedStream<Object?>(
       () {
-        _mayOpenData(providing: true, kind: kind);
+        _mayOpenData(providing: true, kind: kind, reserved: lifetime != null);
+        if (request['name'] is! String ||
+            request['id'] is! String ||
+            request['params'] is! Map ||
+            request['cause'] is! Map ||
+            (request['traceparent'] != null &&
+                request['traceparent'] is! String)) {
+          throw const StreamFailure(
+            StreamFailureCode.invalidArgument,
+            'a malformed stream opening',
+          );
+        }
+        final Cause cause;
+        try {
+          cause = Cause.fromJson(request['cause']);
+        } on Object catch (_) {
+          throw const StreamFailure(
+            StreamFailureCode.invalidArgument,
+            'a malformed stream cause',
+          );
+        }
         final found = _streams[request['name']];
         if (found == null) {
           throw const StreamFailure(
@@ -218,16 +283,18 @@ extension on RemoteParticipant {
           );
         }
         source = found;
-        _data[lease] = found.as ?? who;
-        _providedData.add(lease);
+        expiry = lifetime?.token.onCancel(() => lease.end(lifetime.failure));
+        _data[lifetime ?? lease] = found.as ?? who;
+        _providedData.add(lifetime ?? lease);
         found.open.add(lease);
         final call = StreamCall(
           request['id']! as String,
           found.d.name,
           Kept.json((request['params']! as Map).cast<String, Object?>()),
-          Cause.fromJson(request['cause']),
+          cause,
           lease.token,
           kind: kind,
+          traceparent: request['traceparent'] as String?,
           input: input == null
               ? null
               : boundedStream<Object?>(
@@ -256,8 +323,11 @@ extension on RemoteParticipant {
       cancelFailure: () => lease.failure,
       onClosed: (_, _, _) {
         source?.open.remove(lease);
-        _data.remove(lease);
-        _providedData.remove(lease);
+        expiry?.dispose();
+        if (lifetime == null) {
+          _data.remove(lease);
+          _providedData.remove(lease);
+        }
         lease.token.cancel();
       },
     );
