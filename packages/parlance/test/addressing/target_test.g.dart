@@ -139,7 +139,7 @@ abstract class CounterOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: counterWords,
+      vocabulary: CounterVocabulary.definition,
     );
   }
 
@@ -280,12 +280,18 @@ final class _$CounterClient implements ICounterClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(counterWords.words, from: counterWords.from);
+    _$words.builtAgainst(
+      CounterVocabulary.words,
+      from: CounterVocabulary.definition.from,
+    );
   }
 
   _$CounterClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(counterWords.words, from: counterWords.from);
+    _$words.builtAgainst(
+      CounterVocabulary.words,
+      from: CounterVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -341,15 +347,16 @@ final class _$CounterClient implements ICounterClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(counterWords.words);
+      _$words.mismatches(CounterVocabulary.words);
 }
 
-/// The vocabulary of [Counter]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const counterWords = WordSet(
-  'counter',
-  [
+/// The vocabulary of [Counter], independent of its publishing target.
+abstract final class CounterVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'counter';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
     ...CounterState.values,
     ...CounterCommand.values,
     ...CounterQuery.values,
@@ -357,10 +364,16 @@ const counterWords = WordSet(
     ...CounterServerStream.values,
     ...CounterClientStream.values,
     ...CounterBidiStream.values,
-  ],
-  from: 'parlance 0.2.0',
-  dartName: 'counterWords',
-);
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'CounterVocabulary.definition',
+  );
+}
 
 typedef CounterAdd = ({int amount});
 
@@ -413,7 +426,7 @@ abstract class BridgeOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: bridgeWords,
+      vocabulary: BridgeVocabulary.definition,
     );
   }
 
@@ -474,12 +487,18 @@ abstract interface class IBridgeClient {
 final class _$BridgeClient implements IBridgeClient {
   _$BridgeClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(bridgeWords.words, from: bridgeWords.from);
+    _$words.builtAgainst(
+      BridgeVocabulary.words,
+      from: BridgeVocabulary.definition.from,
+    );
   }
 
   _$BridgeClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(bridgeWords.words, from: bridgeWords.from);
+    _$words.builtAgainst(
+      BridgeVocabulary.words,
+      from: BridgeVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -501,18 +520,25 @@ final class _$BridgeClient implements IBridgeClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(bridgeWords.words);
+      _$words.mismatches(BridgeVocabulary.words);
 }
 
-/// The vocabulary of [Bridge]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const bridgeWords = WordSet(
-  'bridge',
-  [...BridgeCommand.values],
-  from: 'parlance 0.2.0',
-  dartName: 'bridgeWords',
-);
+/// The vocabulary of [Bridge], independent of its publishing target.
+abstract final class BridgeVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'bridge';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...BridgeCommand.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'BridgeVocabulary.definition',
+  );
+}
 
 typedef BridgeForward = ({int amount});
 

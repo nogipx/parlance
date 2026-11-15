@@ -89,7 +89,7 @@ abstract class DocumentsOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: documentsWords,
+      vocabulary: DocumentsVocabulary.definition,
     );
   }
 
@@ -185,12 +185,18 @@ final class _$DocumentsClient implements IDocumentsClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(documentsWords.words, from: documentsWords.from);
+    _$words.builtAgainst(
+      DocumentsVocabulary.words,
+      from: DocumentsVocabulary.definition.from,
+    );
   }
 
   _$DocumentsClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(documentsWords.words, from: documentsWords.from);
+    _$words.builtAgainst(
+      DocumentsVocabulary.words,
+      from: DocumentsVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -227,22 +233,29 @@ final class _$DocumentsClient implements IDocumentsClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(documentsWords.words);
+      _$words.mismatches(DocumentsVocabulary.words);
 }
 
-/// The vocabulary of [Documents]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const documentsWords = WordSet(
-  'documents',
-  [
+/// The vocabulary of [Documents], independent of its publishing target.
+abstract final class DocumentsVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'documents';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
     ...DocumentsServerStream.values,
     ...DocumentsClientStream.values,
     ...DocumentsBidiStream.values,
-  ],
-  from: 'parlance 0.2.0',
-  dartName: 'documentsWords',
-);
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'DocumentsVocabulary.definition',
+  );
+}
 
 typedef DocumentsRead = ({String name});
 

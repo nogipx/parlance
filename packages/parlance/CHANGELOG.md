@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+- Breaking: discover targets by vocabulary or portable word name and group their publications in PublishedVocabulary entries. Keep contract checks in typed clients. Generated word packages now expose <Class>Vocabulary.name/words/definition instead of <class>Words; regenerate them.
 
 - Require rpc_dart 7.2.0.
 

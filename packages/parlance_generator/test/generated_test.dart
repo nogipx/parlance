@@ -74,7 +74,7 @@ void main() {
     asBob = host.participant(const Principal('guest', 'bob'));
     p = host.participant(
       me,
-      vocabularies: [playerWords],
+      vocabularies: [PlayerVocabulary.definition],
       access: const WordAccess(callers: anyone),
     );
   });
@@ -252,8 +252,22 @@ void main() {
     expect(shape.fromJson('all'), Repeat.all);
   });
 
+  test(
+    'the generated namespace owns the constant name, words and definition',
+    () {
+      const name = PlayerVocabulary.name;
+      const words = PlayerVocabulary.words;
+      const definition = PlayerVocabulary.definition;
+      expect(name, 'player');
+      expect(definition.name, name);
+      expect(definition.words, same(words));
+      expect(definition.dartName, 'PlayerVocabulary.definition');
+      expect(definition.from, startsWith('parlance_generator '));
+    },
+  );
+
   test('every word is listed once, in its vocabulary', () {
-    expect(playerWords.words.map((w) => w.name), [
+    expect(PlayerVocabulary.words.map((w) => w.name), [
       'player.volume',
       'player.repeat',
       'player.playing',
@@ -270,7 +284,7 @@ void main() {
 
   test('the schema is kept, and a change to a published word is told', () {
     final file = File('test/fixtures/player.schema.json');
-    final now = schemaOf(playerWords.words);
+    final now = schemaOf(PlayerVocabulary.words);
     if (Platform.environment['UPDATE_SCHEMA'] == '1') {
       file.writeAsStringSync(
         '${const JsonEncoder.withIndent('  ').convert(now)}\n',

@@ -30,7 +30,7 @@ abstract class WeatherOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: weatherWords,
+      vocabulary: WeatherVocabulary.definition,
     );
   }
 
@@ -96,12 +96,18 @@ final class _$WeatherClient implements IWeatherClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(weatherWords.words, from: weatherWords.from);
+    _$words.builtAgainst(
+      WeatherVocabulary.words,
+      from: WeatherVocabulary.definition.from,
+    );
   }
 
   _$WeatherClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(weatherWords.words, from: weatherWords.from);
+    _$words.builtAgainst(
+      WeatherVocabulary.words,
+      from: WeatherVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -117,18 +123,25 @@ final class _$WeatherClient implements IWeatherClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(weatherWords.words);
+      _$words.mismatches(WeatherVocabulary.words);
 }
 
-/// The vocabulary of [Weather]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const weatherWords = WordSet(
-  'weather',
-  [...WeatherState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'weatherWords',
-);
+/// The vocabulary of [Weather], independent of its publishing target.
+abstract final class WeatherVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'weather';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...WeatherState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'WeatherVocabulary.definition',
+  );
+}
 
 /// The commands of [Heater].
 enum HeaterCommand<P, R> implements ICommandWord<P, R> {
@@ -163,7 +176,7 @@ abstract class HeaterOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: heaterWords,
+      vocabulary: HeaterVocabulary.definition,
     );
   }
 
@@ -224,12 +237,18 @@ abstract interface class IHeaterClient {
 final class _$HeaterClient implements IHeaterClient {
   _$HeaterClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(heaterWords.words, from: heaterWords.from);
+    _$words.builtAgainst(
+      HeaterVocabulary.words,
+      from: HeaterVocabulary.definition.from,
+    );
   }
 
   _$HeaterClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(heaterWords.words, from: heaterWords.from);
+    _$words.builtAgainst(
+      HeaterVocabulary.words,
+      from: HeaterVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -251,18 +270,25 @@ final class _$HeaterClient implements IHeaterClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(heaterWords.words);
+      _$words.mismatches(HeaterVocabulary.words);
 }
 
-/// The vocabulary of [Heater]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const heaterWords = WordSet(
-  'heater',
-  [...HeaterCommand.values],
-  from: 'parlance 0.2.0',
-  dartName: 'heaterWords',
-);
+/// The vocabulary of [Heater], independent of its publishing target.
+abstract final class HeaterVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'heater';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...HeaterCommand.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'HeaterVocabulary.definition',
+  );
+}
 
 typedef HeaterSetPower = ({bool on});
 
@@ -316,7 +342,7 @@ abstract class ThermostatOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: thermostatWords,
+      vocabulary: ThermostatVocabulary.definition,
     );
   }
 
@@ -402,12 +428,18 @@ final class _$ThermostatClient implements IThermostatClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(thermostatWords.words, from: thermostatWords.from);
+    _$words.builtAgainst(
+      ThermostatVocabulary.words,
+      from: ThermostatVocabulary.definition.from,
+    );
   }
 
   _$ThermostatClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(thermostatWords.words, from: thermostatWords.from);
+    _$words.builtAgainst(
+      ThermostatVocabulary.words,
+      from: ThermostatVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -427,18 +459,28 @@ final class _$ThermostatClient implements IThermostatClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(thermostatWords.words);
+      _$words.mismatches(ThermostatVocabulary.words);
 }
 
-/// The vocabulary of [Thermostat]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const thermostatWords = WordSet(
-  'thermostat',
-  [...ThermostatState.values, ...ThermostatFact.values],
-  from: 'parlance 0.2.0',
-  dartName: 'thermostatWords',
-);
+/// The vocabulary of [Thermostat], independent of its publishing target.
+abstract final class ThermostatVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'thermostat';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...ThermostatState.values,
+    ...ThermostatFact.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'ThermostatVocabulary.definition',
+  );
+}
 
 typedef ThermostatAdjusted = ({bool on});
 
@@ -471,7 +513,12 @@ enum LampState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class LampOwnerBase implements IOwner {
   LampOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: lampWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: LampVocabulary.definition,
+    );
   }
 
   /// lamp.on, by room: what this owner set of each,
@@ -532,12 +579,18 @@ abstract interface class ILampClient {
 final class _$LampClient implements ILampClient {
   _$LampClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(lampWords.words, from: lampWords.from);
+    _$words.builtAgainst(
+      LampVocabulary.words,
+      from: LampVocabulary.definition.from,
+    );
   }
 
   _$LampClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(lampWords.words, from: lampWords.from);
+    _$words.builtAgainst(
+      LampVocabulary.words,
+      from: LampVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -553,15 +606,22 @@ final class _$LampClient implements ILampClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(lampWords.words);
+      _$words.mismatches(LampVocabulary.words);
 }
 
-/// The vocabulary of [Lamp]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const lampWords = WordSet(
-  'lamp',
-  [...LampState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'lampWords',
-);
+/// The vocabulary of [Lamp], independent of its publishing target.
+abstract final class LampVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'lamp';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...LampState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'LampVocabulary.definition',
+  );
+}

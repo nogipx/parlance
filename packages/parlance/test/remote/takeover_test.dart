@@ -60,7 +60,7 @@ void main() {
 
     final targets = <List<WordTarget>>[];
     final observing = p
-        .targetChanges(vocabulary: WordSet.open('kittens'))
+        .targetChanges(vocabulary: 'kittens')
         .listen(targets.add);
     await settle();
     expect(targets.last, hasLength(2));
@@ -70,7 +70,7 @@ void main() {
     await hosts.last.close();
     await offline;
     await settle();
-    expect(await p.targets(vocabulary: WordSet.open('kittens')), isEmpty);
+    expect(await p.targets(vocabulary: 'kittens'), isEmpty);
     expect(targets.last, isEmpty);
     lamp.set(true);
     reconnect.complete();

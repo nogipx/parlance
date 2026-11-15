@@ -33,9 +33,46 @@ void consumer(IParticipant participant, IOwner owner) {
   final Future<List<WordTarget>> found = participant.targets();
   final Stream<List<WordTarget>> changes = participant.targetChanges();
   final PublishedWord? publication = null;
+  final PublishedVocabulary? vocabulary = null;
+  participant.targets(vocabulary: 'notes');
+  participant.targetChanges(word: 'notes.add');
 }
 ''',
         missing: {},
+      ),
+      'generated_vocabulary': (
+        source: '''
+import 'package:parlance/schema.dart';
+import '../../packages/parlance/example/house/words.dart';
+const name = HouseVocabulary.name;
+const words = HouseVocabulary.words;
+const WordSet definition = HouseVocabulary.definition;
+void consumer(IParticipant participant, WordTarget target) {
+  participant.targets(vocabulary: HouseVocabulary.name);
+  participant.targetChanges(word: HouseCommand.setLight.name);
+  final PublishedVocabulary vocabulary = target.vocabularies.single;
+  final PublishedWord word = vocabulary.words.single;
+}
+''',
+        missing: {},
+      ),
+      'removed_vocabulary_constant': (
+        source: '''
+import '../../packages/parlance/example/house/words.dart';
+void consumer() { houseWords; }
+''',
+        missing: {'houseWords'},
+      ),
+      'removed_discovery_shapes': (
+        source: '''
+import 'package:parlance/schema.dart';
+void consumer(IParticipant participant, WordSet vocabulary, IWord word, WordTarget target) {
+  participant.targets(vocabulary: vocabulary);
+  participant.targetChanges(word: word);
+  target.words;
+}
+''',
+        missing: {'vocabulary', 'word', 'words'},
       ),
       'removed_addressing_names': (
         source: '''

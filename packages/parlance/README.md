@@ -22,9 +22,14 @@ final dependency = IHouseClient.of(owner: this, target: houseTarget);
 `participant` is who calls; `target` is the chosen receiver. Clients can be
 bound before the target appears. A missing target is reported as missing;
 there is no automatic fallback or broadcast. `participant.targets(vocabulary:
-houseWords)` discovers actual publications, and `targetChanges` observes them.
-Discovery reports permissions, availability and contract compatibility for each
-published word; the application selects its dependency explicitly.
+HouseVocabulary.name)` discovers actual publications; `targetChanges` observes them.
+Each `WordTarget` groups its words in `vocabularies` (`PublishedVocabulary.name`
+and `.words`). Search for a portable word with
+`participant.targets(word: HouseCommand.setLight.name)`.
+The generator exposes `HouseVocabulary.name`, `.words` and `.definition`; hosts
+grant `.definition`, while discovery takes names. There is no `houseWords` alias.
+Discovery reports permissions and availability for each published word; typed
+clients check their own contract, and the application selects its dependency.
 
 Raw tools use `WordAddress(target, 'house.light').toString()`. Catalog entries,
 subscriptions, events, streams, diagnostics and the journal use that same full

@@ -32,7 +32,12 @@ enum DoorFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class DoorOwnerBase implements IOwner {
   DoorOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: doorWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: DoorVocabulary.definition,
+    );
   }
 
   IFactSayerOf<DoorRang>? _$rang;
@@ -104,12 +109,18 @@ abstract interface class IDoorClient {
 final class _$DoorClient implements IDoorClient {
   _$DoorClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(doorWords.words, from: doorWords.from);
+    _$words.builtAgainst(
+      DoorVocabulary.words,
+      from: DoorVocabulary.definition.from,
+    );
   }
 
   _$DoorClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(doorWords.words, from: doorWords.from);
+    _$words.builtAgainst(
+      DoorVocabulary.words,
+      from: DoorVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -125,18 +136,25 @@ final class _$DoorClient implements IDoorClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(doorWords.words);
+      _$words.mismatches(DoorVocabulary.words);
 }
 
-/// The vocabulary of [Door]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const doorWords = WordSet(
-  'door',
-  [...DoorFact.values],
-  from: 'parlance 0.2.0',
-  dartName: 'doorWords',
-);
+/// The vocabulary of [Door], independent of its publishing target.
+abstract final class DoorVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'door';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...DoorFact.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'DoorVocabulary.definition',
+  );
+}
 
 typedef DoorRang = ({String who});
 
@@ -166,7 +184,12 @@ enum BookState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class BookOwnerBase implements IOwner {
   BookOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: bookWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: BookVocabulary.definition,
+    );
   }
 
   /// book.last: what this owner set last, read by `value`,
@@ -227,12 +250,18 @@ abstract interface class IBookClient {
 final class _$BookClient implements IBookClient {
   _$BookClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(bookWords.words, from: bookWords.from);
+    _$words.builtAgainst(
+      BookVocabulary.words,
+      from: BookVocabulary.definition.from,
+    );
   }
 
   _$BookClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(bookWords.words, from: bookWords.from);
+    _$words.builtAgainst(
+      BookVocabulary.words,
+      from: BookVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -248,15 +277,22 @@ final class _$BookClient implements IBookClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(bookWords.words);
+      _$words.mismatches(BookVocabulary.words);
 }
 
-/// The vocabulary of [Book]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const bookWords = WordSet(
-  'book',
-  [...BookState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'bookWords',
-);
+/// The vocabulary of [Book], independent of its publishing target.
+abstract final class BookVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'book';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...BookState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'BookVocabulary.definition',
+  );
+}

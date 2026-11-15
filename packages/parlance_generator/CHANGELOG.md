@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+- Breaking: generate <Class>Vocabulary.name, .words and .definition; remove the former <class>Words constants and use the namespace from generated owners and clients.
 
 - Breaking: generate fully named client factories (`participant:`, `target:`; `.of(owner:, target:)`) and bind owner publications to their own principal. Portable schemas remain independent of instances.
 

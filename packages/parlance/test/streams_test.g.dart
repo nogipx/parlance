@@ -68,7 +68,12 @@ enum DataServerStream<P, T> implements IServerStreamWord<P, T> {
 /// says and calls follows from the call it serves.
 abstract class DataOwnerBase implements IOwner {
   DataOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: dataWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: DataVocabulary.definition,
+    );
   }
 
   void _$define(IParticipant participant) {
@@ -181,12 +186,18 @@ abstract interface class IDataClient {
 final class _$DataClient implements IDataClient {
   _$DataClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(dataWords.words, from: dataWords.from);
+    _$words.builtAgainst(
+      DataVocabulary.words,
+      from: DataVocabulary.definition.from,
+    );
   }
 
   _$DataClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(dataWords.words, from: dataWords.from);
+    _$words.builtAgainst(
+      DataVocabulary.words,
+      from: DataVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -233,18 +244,25 @@ final class _$DataClient implements IDataClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(dataWords.words);
+      _$words.mismatches(DataVocabulary.words);
 }
 
-/// The vocabulary of [Data]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const dataWords = WordSet(
-  'data',
-  [...DataServerStream.values],
-  from: 'parlance 0.2.0',
-  dartName: 'dataWords',
-);
+/// The vocabulary of [Data], independent of its publishing target.
+abstract final class DataVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'data';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...DataServerStream.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'DataVocabulary.definition',
+  );
+}
 
 typedef DataNumbers = ({int start, int count});
 

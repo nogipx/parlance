@@ -35,7 +35,12 @@ enum DialCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class DialOwnerBase implements IOwner {
   DialOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: dialWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: DialVocabulary.definition,
+    );
   }
 
   void _$define(IParticipant participant) {
@@ -104,12 +109,18 @@ abstract interface class IDialClient {
 final class _$DialClient implements IDialClient {
   _$DialClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(dialWords.words, from: dialWords.from);
+    _$words.builtAgainst(
+      DialVocabulary.words,
+      from: DialVocabulary.definition.from,
+    );
   }
 
   _$DialClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(dialWords.words, from: dialWords.from);
+    _$words.builtAgainst(
+      DialVocabulary.words,
+      from: DialVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -131,18 +142,25 @@ final class _$DialClient implements IDialClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(dialWords.words);
+      _$words.mismatches(DialVocabulary.words);
 }
 
-/// The vocabulary of [Dial]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const dialWords = WordSet(
-  'dial',
-  [...DialCommand.values],
-  from: 'parlance 0.2.0',
-  dartName: 'dialWords',
-);
+/// The vocabulary of [Dial], independent of its publishing target.
+abstract final class DialVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'dial';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...DialCommand.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'DialVocabulary.definition',
+  );
+}
 
 typedef DialSet = ({int to});
 
@@ -159,7 +177,12 @@ Object? _$DialSetAt(DialSet p, int i) => p.to;
 /// says and calls follows from the call it serves.
 abstract class RulesOwnerBase implements IOwner {
   RulesOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: rulesWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: RulesVocabulary.definition,
+    );
   }
 
   void _$define(IParticipant participant) {}
@@ -209,12 +232,18 @@ abstract interface class IRulesClient {
 final class _$RulesClient implements IRulesClient {
   _$RulesClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(rulesWords.words, from: rulesWords.from);
+    _$words.builtAgainst(
+      RulesVocabulary.words,
+      from: RulesVocabulary.definition.from,
+    );
   }
 
   _$RulesClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(rulesWords.words, from: rulesWords.from);
+    _$words.builtAgainst(
+      RulesVocabulary.words,
+      from: RulesVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -227,18 +256,25 @@ final class _$RulesClient implements IRulesClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(rulesWords.words);
+      _$words.mismatches(RulesVocabulary.words);
 }
 
-/// The vocabulary of [Rules]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const rulesWords = WordSet(
-  'rules',
-  [],
-  from: 'parlance 0.2.0',
-  dartName: 'rulesWords',
-);
+/// The vocabulary of [Rules], independent of its publishing target.
+abstract final class RulesVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'rules';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'RulesVocabulary.definition',
+  );
+}
 
 /// The facts of [Bell].
 enum BellFact<T> implements IFactWord<T> {
@@ -266,7 +302,12 @@ enum BellFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class BellOwnerBase implements IOwner {
   BellOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: bellWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: BellVocabulary.definition,
+    );
   }
 
   IFactSayerOf<BellRang>? _$rang;
@@ -338,12 +379,18 @@ abstract interface class IBellClient {
 final class _$BellClient implements IBellClient {
   _$BellClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(bellWords.words, from: bellWords.from);
+    _$words.builtAgainst(
+      BellVocabulary.words,
+      from: BellVocabulary.definition.from,
+    );
   }
 
   _$BellClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(bellWords.words, from: bellWords.from);
+    _$words.builtAgainst(
+      BellVocabulary.words,
+      from: BellVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -359,18 +406,25 @@ final class _$BellClient implements IBellClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(bellWords.words);
+      _$words.mismatches(BellVocabulary.words);
 }
 
-/// The vocabulary of [Bell]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const bellWords = WordSet(
-  'bell',
-  [...BellFact.values],
-  from: 'parlance 0.2.0',
-  dartName: 'bellWords',
-);
+/// The vocabulary of [Bell], independent of its publishing target.
+abstract final class BellVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'bell';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...BellFact.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'BellVocabulary.definition',
+  );
+}
 
 typedef BellRang = ({String who});
 
@@ -422,7 +476,12 @@ enum LampsCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class LampsOwnerBase implements IOwner {
   LampsOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: lampsWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: LampsVocabulary.definition,
+    );
   }
 
   /// lamps.lit, by bulb: what this owner set of each,
@@ -493,12 +552,18 @@ abstract interface class ILampsClient {
 final class _$LampsClient implements ILampsClient {
   _$LampsClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(lampsWords.words, from: lampsWords.from);
+    _$words.builtAgainst(
+      LampsVocabulary.words,
+      from: LampsVocabulary.definition.from,
+    );
   }
 
   _$LampsClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(lampsWords.words, from: lampsWords.from);
+    _$words.builtAgainst(
+      LampsVocabulary.words,
+      from: LampsVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -523,18 +588,28 @@ final class _$LampsClient implements ILampsClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(lampsWords.words);
+      _$words.mismatches(LampsVocabulary.words);
 }
 
-/// The vocabulary of [Lamps]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const lampsWords = WordSet(
-  'lamps',
-  [...LampsState.values, ...LampsCommand.values],
-  from: 'parlance 0.2.0',
-  dartName: 'lampsWords',
-);
+/// The vocabulary of [Lamps], independent of its publishing target.
+abstract final class LampsVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'lamps';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...LampsState.values,
+    ...LampsCommand.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'LampsVocabulary.definition',
+  );
+}
 
 typedef LampsDrop = ({String bulb});
 

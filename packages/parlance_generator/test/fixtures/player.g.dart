@@ -216,7 +216,7 @@ abstract class PlayerOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: playerWords,
+      vocabulary: PlayerVocabulary.definition,
     );
   }
 
@@ -428,12 +428,18 @@ abstract interface class IPlayerClient {
 final class _$PlayerClient implements IPlayerClient {
   _$PlayerClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(playerWords.words, from: playerWords.from);
+    _$words.builtAgainst(
+      PlayerVocabulary.words,
+      from: PlayerVocabulary.definition.from,
+    );
   }
 
   _$PlayerClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(playerWords.words, from: playerWords.from);
+    _$words.builtAgainst(
+      PlayerVocabulary.words,
+      from: PlayerVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -524,23 +530,30 @@ final class _$PlayerClient implements IPlayerClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(playerWords.words);
+      _$words.mismatches(PlayerVocabulary.words);
 }
 
-/// The vocabulary of [Player]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const playerWords = WordSet(
-  'player',
-  [
+/// The vocabulary of [Player], independent of its publishing target.
+abstract final class PlayerVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'player';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
     ...PlayerState.values,
     ...PlayerCommand.values,
     ...PlayerQuery.values,
     ...PlayerFact.values,
-  ],
-  from: 'parlance_generator 0.2.0',
-  dartName: 'playerWords',
-);
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_generator 0.3.0',
+    dartName: 'PlayerVocabulary.definition',
+  );
+}
 
 Map<String, Object?> _$PlayerTrackToJson(Track v) => v.toJson();
 

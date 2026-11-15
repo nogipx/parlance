@@ -114,7 +114,7 @@ class _Fixture {
         host
                 .participant(
                   Principal(who),
-                  vocabularies: owns ? [transferWords] : [],
+                  vocabularies: owns ? [TransferVocabulary.definition] : [],
                 )
                 .raw
             as LocalParticipant;
@@ -473,7 +473,7 @@ void main() {
   }
 
   test('stream kinds are atomic and input types are contravariant', () {
-    final schemas = schemaOf(transferWords.words);
+    final schemas = schemaOf(TransferVocabulary.words);
     final upload = schemas['transfer.sum']! as Map;
     final bidi = schemas['transfer.double']! as Map;
     expect(upload['is'], 'clientStream');

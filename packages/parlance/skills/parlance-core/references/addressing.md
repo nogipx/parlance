@@ -4,7 +4,8 @@
 
 Use target for the exact whole principal to which a client binds. WordAddress.target
 is that principal; WordAddress.word is the portable word name. WordTarget is one
-discovered target with its principal and matching PublishedWord entries. Discovery
+discovered target with its principal and matching PublishedVocabulary groups; each
+group has its name and PublishedWord entries. Discovery
 uses targets and targetChanges. TargetDiscovery, generator arguments, runtime
 helpers, MCP metadata and the mandatory targets protocol feature use this same
 terminology. No alternate API names or compatibility aliases are provided.
@@ -23,7 +24,9 @@ and unscoped generated clients are replaced, without a compatibility fallback.
 - Portable words, shapes and schema entries do not contain a target.
   Runtime descriptors carry their full address in `name`. Fingerprints of
   contract entries remain independent of the deployment.
-- Generated clients require `target:`. `GeneratedWords(participant: participant,
+- Generated `<Class>Vocabulary` namespaces expose `name`, `words` and `definition`
+  (`WordSet`). Names come from the annotation once; no former `<class>Words`
+  constants remain. Generated clients require `target:`. `GeneratedWords(participant: participant,
   target: ...)` binds the caller and receiver separately; `.of(owner: owner,
   target: ...)` resolves the caller after attachment. `GeneratedWords.own(p)`
   is the generator's publication path. Definitions cannot claim another target.
@@ -32,9 +35,13 @@ and unscoped generated clients are replaced, without a compatibility fallback.
   the same full address. The wire uses its canonical string. Aliases stay inside
   one target. A repeated call id within a whole caller principal with a different
   receiver is an id conflict. Fact ids are scoped to their full publication address.
-- `p.targets(vocabulary: words)` and `p.targets(word: word)` return actual
-  publications grouped by principal, with a portable descriptor and current
-  access, availability and schema status per word. Granted but unpublished
+- `p.targets(vocabulary: HouseVocabulary.name)` and
+  `p.targets(word: HouseCommand.setLight.name)` search by portable names and return
+  actual publications grouped by principal, then vocabulary. Each
+  `PublishedVocabulary` has `name` and `words`; each word retains its full address,
+  portable descriptor, access and availability. Both filters intersect when given
+  together. Discovery reports publication, not completeness or schema matching;
+  typed clients check their own contract separately. Granted but unpublished
   vocabularies do not count. `targetChanges` observes these results and releases
   its listeners on cancellation. While disconnected, both snapshot and watch
   report no targets until the remote view synchronizes again. Discovery grants

@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+- Require parlance 0.3.0.
+
+- Breaking: group targets tool publications by vocabulary and use the shared name-based discovery filters.
 
 - Require rpc_dart 7.2.0.
 

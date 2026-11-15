@@ -128,7 +128,7 @@ void main() {
           if (ownerAcross) {
             final p = await host.join(
               who,
-              vocabularies: [counterWords],
+              vocabularies: [CounterVocabulary.definition],
               access: WordAccess(callers: callers),
             );
             await p.attach([owner]);
@@ -246,7 +246,7 @@ void main() {
             expect(a.status(CounterCommand.add), const WordMissing());
             final seen = <List<Principal>>[];
             final sub = user
-                .targetChanges(word: CounterCommand.add)
+                .targetChanges(word: CounterCommand.add.name)
                 .listen((v) => seen.add(v.map((p) => p.principal).toList()));
             await host.settle();
             final p = await publish(work, Counting(1));
@@ -255,7 +255,7 @@ void main() {
             expect(a.status(CounterCommand.add), const WordReady());
             expect(
               (await user.targets(
-                vocabulary: counterWords,
+                vocabulary: CounterVocabulary.name,
               )).map((p) => p.principal),
               [personal, work],
             );
@@ -287,7 +287,7 @@ void main() {
             if (ownerAcross) {
               final p = await host.join(
                 proxy,
-                vocabularies: [bridgeWords],
+                vocabularies: [BridgeVocabulary.definition],
                 access: WordAccess(callers: Callers.anyone),
               );
               await p.attach([Forwarding(work)]);
@@ -338,16 +338,145 @@ void main() {
             ),
           );
           expect(c.status(CounterCommand.add), const WordNotPermitted());
-          final targets = await user.targets(word: CounterCommand.add);
+          final targets = await user.targets(word: CounterCommand.add.name);
           expect(
-            targets.singleWhere((p) => p.principal == bare).words.single.status,
+            targets
+                .singleWhere((p) => p.principal == bare)
+                .vocabularies
+                .single
+                .words
+                .single
+                .status,
             const WordNotPermitted(),
           );
           expect(await a.current(), 1);
         });
+
+        test(
+          'name discovery groups actual words without merging vocabularies',
+          () async {
+            final first = await publish(work, Counting(2));
+            await publish(personal, Counting(10));
+            host.participant(
+              work,
+              owners: [Forwarding(personal)],
+              access: const WordAccess(callers: Callers.anyone),
+            );
+            final extra = host
+                .participant(
+                  work,
+                  vocabularies: const [
+                    WordSet.open('counterfeit'),
+                    WordSet.open('signal'),
+                  ],
+                )
+                .raw;
+            extra.defineState(
+              StateDescriptor('counterfeit.value', type: const IntType()),
+            );
+            extra.defineFact(FactDescriptor('signal', type: const IntType()));
+            host.registry.alias(
+              'module/work/counter.old',
+              'module/work/counter.value',
+            );
+            await host.settle();
+
+            final all = await user.targets();
+            final current = all.singleWhere((t) => t.principal == work);
+            expect(current.vocabularies.map((v) => v.name), [
+              'bridge',
+              'counter',
+              'counterfeit',
+              'signal',
+            ]);
+            expect(() => current.vocabularies.clear(), throwsUnsupportedError);
+            expect(
+              () => current.vocabularies.first.words.clear(),
+              throwsUnsupportedError,
+            );
+            expect(() => all.clear(), throwsUnsupportedError);
+
+            final counters = await user.targets(
+              vocabulary: CounterVocabulary.name,
+            );
+            expect(counters.map((t) => t.principal), [personal, work]);
+            for (final target in counters) {
+              expect(target.vocabularies.single.name, 'counter');
+              expect(
+                target.vocabularies.single.words.every(
+                  (w) => w.address.word.startsWith('counter.'),
+                ),
+                isTrue,
+              );
+            }
+            expect(
+              counters.last.vocabularies.single.words.map(
+                (w) => w.address.word,
+              ),
+              contains('counter.old'),
+            );
+
+            final named = await user.targets(word: CounterCommand.add.name);
+            expect(named.map((t) => t.principal), [personal, work]);
+            for (final target in named) {
+              expect(
+                target.vocabularies.single.words.single.address.word,
+                'counter.add',
+              );
+            }
+            final signal = await user.targets(
+              vocabulary: 'signal',
+              word: 'signal',
+            );
+            expect(signal.single.vocabularies.single.name, 'signal');
+            expect(
+              signal.single.vocabularies.single.words.single.address.word,
+              'signal',
+            );
+            expect(
+              await user.targets(vocabulary: 'counter', word: 'signal'),
+              isEmpty,
+            );
+            expect(await user.targets(word: 'counter.missing'), isEmpty);
+
+            final seen = <List<WordTarget>>[];
+            final sub = user
+                .targetChanges(vocabulary: CounterVocabulary.name)
+                .listen(seen.add);
+            await host.settle();
+            first.dispose();
+            await host.settle();
+            expect(seen.last.map((t) => t.principal), [personal]);
+            expect(
+              (await user.targets()).any((t) => t.principal == work),
+              isTrue,
+            );
+            await sub.cancel();
+          },
+        );
       });
     }
   }
+
+  test('discovery requires valid portable names', () async {
+    final host = TestHost();
+    addTearDown(host.dispose);
+    final user = host.participant(ann);
+    await expectLater(
+      user.targets(vocabulary: 'counter.value'),
+      throwsArgumentError,
+    );
+    await expectLater(
+      user.targets(word: 'module/work/counter.value'),
+      throwsArgumentError,
+    );
+    await expectLater(user.targets(word: 'counter.v1'), throwsArgumentError);
+    expect(() => user.targetChanges(vocabulary: ''), throwsArgumentError);
+    expect(
+      () => user.targetChanges(word: 'Counter.value'),
+      throwsArgumentError,
+    );
+  });
 
   test(
     'duplicate exact vocabulary fails without disturbing either instance',
@@ -389,11 +518,15 @@ void main() {
     () async {
       final host = TestHost();
       addTearDown(host.dispose);
-      final owner = host.participant(work, vocabularies: [counterWords]).raw;
+      final owner = host
+          .participant(work, vocabularies: [CounterVocabulary.definition])
+          .raw;
       final user = host.participant(ann);
-      expect(await user.targets(vocabulary: counterWords), isEmpty);
+      expect(await user.targets(vocabulary: CounterVocabulary.name), isEmpty);
       final seen = <List<WordTarget>>[];
-      final sub = user.targetChanges(word: CounterCommand.add).listen(seen.add);
+      final sub = user
+          .targetChanges(word: CounterCommand.add.name)
+          .listen(seen.add);
       await host.settle();
       String? unavailable;
       final definition = owner.defineCommand(
@@ -407,12 +540,15 @@ void main() {
         whyNot: () => unavailable,
       );
       await host.settle();
-      expect(seen.last.single.words.single.status, const WordReady());
+      expect(
+        seen.last.single.vocabularies.single.words.single.status,
+        const WordReady(),
+      );
       unavailable = 'offline';
       owner.whyNotChanged('module/work/counter.add');
       await host.settle();
       expect(
-        seen.last.single.words.single.status,
+        seen.last.single.vocabularies.single.words.single.status,
         const WordUnavailable('offline'),
       );
       definition.dispose();
@@ -438,7 +574,10 @@ void main() {
         owners: [Counting(1)],
         access: WordAccess(callers: Callers.anyone),
       );
-      final peer = await host.join(personal, vocabularies: [counterWords]);
+      final peer = await host.join(
+        personal,
+        vocabularies: [CounterVocabulary.definition],
+      );
       final caller = host.participant(ann).raw;
       expect(
         await caller.call('counter.add', {'amount': 1}),
@@ -545,14 +684,22 @@ void main() {
           expect(host.registry.mismatches.map((m) => m.word).toSet(), {
             'module/work/counter.value',
           });
-          final targets = await user.targets(word: CounterState.value);
+          final targets = await user.targets(word: CounterState.value.name);
           expect(
-            targets.singleWhere((p) => p.principal == work).words.single.status,
-            isA<WordMismatch>(),
+            targets
+                .singleWhere((p) => p.principal == work)
+                .vocabularies
+                .single
+                .words
+                .single
+                .status,
+            const WordReady(),
           );
           expect(
             targets
                 .singleWhere((p) => p.principal == personal)
+                .vocabularies
+                .single
                 .words
                 .single
                 .status,

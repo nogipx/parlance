@@ -26,7 +26,12 @@ enum AState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class AOwnerBase implements IOwner {
   AOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: aWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: AVocabulary.definition,
+    );
   }
 
   /// a.level: what this owner set last, read by `value`,
@@ -87,12 +92,12 @@ abstract interface class IAClient {
 final class _$AClient implements IAClient {
   _$AClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(aWords.words, from: aWords.from);
+    _$words.builtAgainst(AVocabulary.words, from: AVocabulary.definition.from);
   }
 
   _$AClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(aWords.words, from: aWords.from);
+    _$words.builtAgainst(AVocabulary.words, from: AVocabulary.definition.from);
   }
 
   final GeneratedWords _$words;
@@ -108,18 +113,25 @@ final class _$AClient implements IAClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(aWords.words);
+      _$words.mismatches(AVocabulary.words);
 }
 
-/// The vocabulary of [A]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const aWords = WordSet(
-  'a',
-  [...AState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'aWords',
-);
+/// The vocabulary of [A], independent of its publishing target.
+abstract final class AVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'a';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...AState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'AVocabulary.definition',
+  );
+}
 
 /// The states of [B].
 enum BState<T> implements IStateWord<T> {
@@ -141,7 +153,12 @@ enum BState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class BOwnerBase implements IOwner {
   BOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: bWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: BVocabulary.definition,
+    );
   }
 
   /// b.level: what this owner set last, read by `value`,
@@ -202,12 +219,12 @@ abstract interface class IBClient {
 final class _$BClient implements IBClient {
   _$BClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(bWords.words, from: bWords.from);
+    _$words.builtAgainst(BVocabulary.words, from: BVocabulary.definition.from);
   }
 
   _$BClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(bWords.words, from: bWords.from);
+    _$words.builtAgainst(BVocabulary.words, from: BVocabulary.definition.from);
   }
 
   final GeneratedWords _$words;
@@ -223,18 +240,25 @@ final class _$BClient implements IBClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(bWords.words);
+      _$words.mismatches(BVocabulary.words);
 }
 
-/// The vocabulary of [B]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const bWords = WordSet(
-  'b',
-  [...BState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'bWords',
-);
+/// The vocabulary of [B], independent of its publishing target.
+abstract final class BVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'b';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...BState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'BVocabulary.definition',
+  );
+}
 
 /// The states of [C].
 enum CState<T> implements IStateWord<T> {
@@ -256,7 +280,12 @@ enum CState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class COwnerBase implements IOwner {
   COwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: cWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: CVocabulary.definition,
+    );
   }
 
   /// c.level: what this owner set last, read by `value`,
@@ -317,12 +346,12 @@ abstract interface class ICClient {
 final class _$CClient implements ICClient {
   _$CClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(cWords.words, from: cWords.from);
+    _$words.builtAgainst(CVocabulary.words, from: CVocabulary.definition.from);
   }
 
   _$CClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(cWords.words, from: cWords.from);
+    _$words.builtAgainst(CVocabulary.words, from: CVocabulary.definition.from);
   }
 
   final GeneratedWords _$words;
@@ -338,15 +367,22 @@ final class _$CClient implements ICClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(cWords.words);
+      _$words.mismatches(CVocabulary.words);
 }
 
-/// The vocabulary of [C]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const cWords = WordSet(
-  'c',
-  [...CState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'cWords',
-);
+/// The vocabulary of [C], independent of its publishing target.
+abstract final class CVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'c';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...CState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'CVocabulary.definition',
+  );
+}

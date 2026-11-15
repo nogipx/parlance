@@ -114,7 +114,12 @@ enum DeckFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class DeckOwnerBase implements IOwner {
   DeckOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: deckWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: DeckVocabulary.definition,
+    );
   }
 
   /// deck.volume: what this owner set last, read by `value`,
@@ -282,12 +287,18 @@ abstract interface class IDeckClient {
 final class _$DeckClient implements IDeckClient {
   _$DeckClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(deckWords.words, from: deckWords.from);
+    _$words.builtAgainst(
+      DeckVocabulary.words,
+      from: DeckVocabulary.definition.from,
+    );
   }
 
   _$DeckClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(deckWords.words, from: deckWords.from);
+    _$words.builtAgainst(
+      DeckVocabulary.words,
+      from: DeckVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -376,23 +387,30 @@ final class _$DeckClient implements IDeckClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(deckWords.words);
+      _$words.mismatches(DeckVocabulary.words);
 }
 
-/// The vocabulary of [Deck]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const deckWords = WordSet(
-  'deck',
-  [
+/// The vocabulary of [Deck], independent of its publishing target.
+abstract final class DeckVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'deck';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
     ...DeckState.values,
     ...DeckCommand.values,
     ...DeckQuery.values,
     ...DeckFact.values,
-  ],
-  from: 'parlance 0.2.0',
-  dartName: 'deckWords',
-);
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'DeckVocabulary.definition',
+  );
+}
 
 typedef DeckTurn = ({int to});
 

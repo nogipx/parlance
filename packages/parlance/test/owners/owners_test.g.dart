@@ -26,7 +26,12 @@ enum TestState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class TestOwnerBase implements IOwner {
   TestOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: testWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: TestVocabulary.definition,
+    );
   }
 
   /// test.level, by dial: what this owner set of each,
@@ -87,12 +92,18 @@ abstract interface class ITestClient {
 final class _$TestClient implements ITestClient {
   _$TestClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(testWords.words, from: testWords.from);
+    _$words.builtAgainst(
+      TestVocabulary.words,
+      from: TestVocabulary.definition.from,
+    );
   }
 
   _$TestClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(testWords.words, from: testWords.from);
+    _$words.builtAgainst(
+      TestVocabulary.words,
+      from: TestVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -108,18 +119,25 @@ final class _$TestClient implements ITestClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(testWords.words);
+      _$words.mismatches(TestVocabulary.words);
 }
 
-/// The vocabulary of [Test]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const testWords = WordSet(
-  'test',
-  [...TestState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'testWords',
-);
+/// The vocabulary of [Test], independent of its publishing target.
+abstract final class TestVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'test';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...TestState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'TestVocabulary.definition',
+  );
+}
 
 /// The states of [Flag].
 enum FlagState<T> implements IStateWord<T> {
@@ -141,7 +159,12 @@ enum FlagState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class FlagOwnerBase implements IOwner {
   FlagOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: flagWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: FlagVocabulary.definition,
+    );
   }
 
   /// flag.on: what this owner set last, read by `value`,
@@ -202,12 +225,18 @@ abstract interface class IFlagClient {
 final class _$FlagClient implements IFlagClient {
   _$FlagClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(flagWords.words, from: flagWords.from);
+    _$words.builtAgainst(
+      FlagVocabulary.words,
+      from: FlagVocabulary.definition.from,
+    );
   }
 
   _$FlagClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(flagWords.words, from: flagWords.from);
+    _$words.builtAgainst(
+      FlagVocabulary.words,
+      from: FlagVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -223,18 +252,25 @@ final class _$FlagClient implements IFlagClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(flagWords.words);
+      _$words.mismatches(FlagVocabulary.words);
 }
 
-/// The vocabulary of [Flag]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const flagWords = WordSet(
-  'flag',
-  [...FlagState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'flagWords',
-);
+/// The vocabulary of [Flag], independent of its publishing target.
+abstract final class FlagVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'flag';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...FlagState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'FlagVocabulary.definition',
+  );
+}
 
 /// The owner base of [KnobWords]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
@@ -247,7 +283,7 @@ abstract class KnobWordsOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: knobWordsWords,
+      vocabulary: KnobWordsVocabulary.definition,
     );
   }
 
@@ -302,12 +338,18 @@ final class _$KnobWordsClient implements IKnobWordsClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(knobWordsWords.words, from: knobWordsWords.from);
+    _$words.builtAgainst(
+      KnobWordsVocabulary.words,
+      from: KnobWordsVocabulary.definition.from,
+    );
   }
 
   _$KnobWordsClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(knobWordsWords.words, from: knobWordsWords.from);
+    _$words.builtAgainst(
+      KnobWordsVocabulary.words,
+      from: KnobWordsVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -320,15 +362,22 @@ final class _$KnobWordsClient implements IKnobWordsClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(knobWordsWords.words);
+      _$words.mismatches(KnobWordsVocabulary.words);
 }
 
-/// The vocabulary of [KnobWords]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const knobWordsWords = WordSet(
-  'knob',
-  [],
-  from: 'parlance 0.2.0',
-  dartName: 'knobWordsWords',
-);
+/// The vocabulary of [KnobWords], independent of its publishing target.
+abstract final class KnobWordsVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'knob';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'KnobWordsVocabulary.definition',
+  );
+}

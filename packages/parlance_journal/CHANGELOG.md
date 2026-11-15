@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+- Require parlance 0.3.0.
 
 - Require rpc_dart 7.2.0.
 

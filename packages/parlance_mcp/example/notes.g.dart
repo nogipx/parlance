@@ -48,7 +48,12 @@ enum NotesCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class NotesOwnerBase implements IOwner {
   NotesOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: notesWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: NotesVocabulary.definition,
+    );
   }
 
   /// notes.count: what this owner set last, read by `value`,
@@ -122,12 +127,18 @@ abstract interface class INotesClient {
 final class _$NotesClient implements INotesClient {
   _$NotesClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(notesWords.words, from: notesWords.from);
+    _$words.builtAgainst(
+      NotesVocabulary.words,
+      from: NotesVocabulary.definition.from,
+    );
   }
 
   _$NotesClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(notesWords.words, from: notesWords.from);
+    _$words.builtAgainst(
+      NotesVocabulary.words,
+      from: NotesVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -152,18 +163,28 @@ final class _$NotesClient implements INotesClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(notesWords.words);
+      _$words.mismatches(NotesVocabulary.words);
 }
 
-/// The vocabulary of [Notes]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const notesWords = WordSet(
-  'notes',
-  [...NotesState.values, ...NotesCommand.values],
-  from: 'parlance_mcp 0.1.2',
-  dartName: 'notesWords',
-);
+/// The vocabulary of [Notes], independent of its publishing target.
+abstract final class NotesVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'notes';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...NotesState.values,
+    ...NotesCommand.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_mcp 0.2.0',
+    dartName: 'NotesVocabulary.definition',
+  );
+}
 
 typedef NotesAdd = ({String text});
 

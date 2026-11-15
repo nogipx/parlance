@@ -37,7 +37,7 @@ abstract class Player {
 }
 ```
 
-`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary `playerWords`, the owner base `PlayerOwnerBase` and the client, `IPlayerClient` (an interface, made by its factories) over a participant, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; each state is an object of the base (`volume.set(50)`, `volume.value`, `volume.remove()`), which keeps what it sets and writes it once attached, and what a handler does follows from its call:
+`fvm dart run build_runner build` writes `PlayerState.volume`, `PlayerCommand.setVolume` (params `PlayerSetVolume = ({int volume})`), `PlayerFact.clipped`, the vocabulary namespace `PlayerVocabulary` (`name`, `words` and the `WordSet` in `definition`), the owner base `PlayerOwnerBase` and the client, `IPlayerClient` (an interface, made by its factories) over a participant, into `player.g.dart` (`@Vocabulary('player', owner: false, client: false)` leaves those out). The owner writes only its handlers; each state is an object of the base (`volume.set(50)`, `volume.value`, `volume.remove()`), which keeps what it sets and writes it once attached, and what a handler does follows from its call:
 
 ```dart
 final class Deck extends PlayerOwnerBase {
@@ -63,12 +63,12 @@ player.volume.changes.listen(show);   // player.volume.value now
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```
 
-Made, the client tells the registry it was built against the vocabulary, and from which words package and version (the generator reads them from the package's pubspec into `playerWords.from`, `player_words 1.2.0`): the host sees in `registry.mismatches`, and in its log, where a word is defined otherwise than this code holds it (a module updated apart) and which version the part took it from, with no code of yours.
+Made, the client tells the registry it was built against the vocabulary, and from which words package and version (the generator reads them from the package's pubspec into `PlayerVocabulary.definition.from`, `player_words 1.2.0`): the host sees in `registry.mismatches`, and in its log, where a word is defined otherwise than this code holds it (a module updated apart) and which version the part took it from, with no code of yours.
 
 Hold the words to every release still in use, so a published word does not change by accident; the releases' schemas come from where releases are (a tag, pub, a registry of frozen versions, SPEC §25.3):
 
 ```dart
-expect(breaksSince(releases, schemaOf(playerWords.words)), isEmpty);
+expect(breaksSince(releases, schemaOf(PlayerVocabulary.words)), isEmpty);
 ```
 
 `test/fixtures/player.dart` shows every kind of word, bounds, defaults and a json_serializable class; `test/generated_test.dart` holds what its words do in a registry, `test/errors_test.dart` what the generator refuses.

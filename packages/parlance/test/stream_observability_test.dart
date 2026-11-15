@@ -33,7 +33,7 @@ class _Fixture {
     host.serve(
       Principal(name),
       server,
-      vocabularies: owns ? [documentsWords] : [],
+      vocabularies: owns ? [DocumentsVocabulary.definition] : [],
     );
     server.start();
     final endpoint = RpcPeerEndpoint(transport: b)..start();

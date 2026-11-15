@@ -107,7 +107,7 @@ class _Fixture {
         host
                 .participant(
                   Principal(name),
-                  vocabularies: owns ? [dataWords] : [],
+                  vocabularies: owns ? [DataVocabulary.definition] : [],
                 )
                 .raw
             as LocalParticipant;
@@ -626,7 +626,7 @@ void main() {
   test(
     'stream schemas compare parameters as inputs and elements as outputs',
     () {
-      final schema = schemaOf(dataWords.words);
+      final schema = schemaOf(DataVocabulary.words);
       expect((schema['data.numbers']! as Map)['is'], 'serverStream');
       final before = {
         's': {

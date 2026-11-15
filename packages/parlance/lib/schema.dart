@@ -5,15 +5,15 @@
 /// results of calls and statuses of words. Nothing else of the library:
 /// a host's `main` imports `app.dart` besides, a tool `tools.dart`.
 ///
-/// It is frozen (SPEC §23): what it shows is never taken
-/// away, renamed or changed in meaning; it only grows. A published words
-/// package's `.g.dart` refers to nothing outside it.
+/// Its API may change incompatibly on a minor release before 1.0, and on a major
+/// release from 1.0. Within that compatibility line it stays source compatible.
+/// A published words package's `.g.dart` refers to nothing outside it.
 ///
 /// The contract: skills/parlance-core/references/schema.md (§23).
 library;
 
 export 'src/participant/participant.dart'
-    show PublishedWord, WordTarget, TargetDiscovery;
+    show PublishedWord, PublishedVocabulary, WordTarget, TargetDiscovery;
 export 'src/registry/address.dart' show WordAddress;
 export 'src/core/core.dart' show IHandle;
 export 'src/participant/owner.dart'

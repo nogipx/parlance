@@ -16,7 +16,7 @@ Future<void> main() async {
   final notes = await loadInMemory(
     host: host,
     id: 'notes',
-    vocabularies: [notesWords],
+    vocabularies: [NotesVocabulary.definition],
     start: startNotes,
   );
   final (board, b) = await loadInMemory(

@@ -12,7 +12,8 @@ can be done), queries (questions that change nothing) and facts (what
 happened). A state is written by its owner only; a command asks the owner.
 
 How to work:
-- targets finds the instances that actually publish a vocabulary or word.
+- targets finds instances by vocabulary name (house) or portable word name
+  (house.set_light). Its results group published words in vocabularies.
   Choose a target explicitly; discovery does not select one for you.
 - Every word name in describe is a full target/word address. Use that exact
   address in call, read, recent_facts and why; an unscoped name is not routed.
@@ -69,7 +70,7 @@ Future<List<McpTool>> parlanceTools(
     McpTool(
       name: 'targets',
       description:
-          'Actual targets of a vocabulary or word, with exact addresses and access status. Select a target explicitly before calling.',
+          'Actual targets of a vocabulary name or portable word name, grouped by vocabulary with exact addresses and access status. Select a target explicitly before calling.',
       properties: {
         'vocabulary': {'type': 'string'},
         'word': {'type': 'string'},
@@ -77,20 +78,8 @@ Future<List<McpTool>> parlanceTools(
       run: (a) async {
         final vocabulary = a['vocabulary'] as String?;
         final word = a['word'] as String?;
-        final targets = await agent.targets();
-        return McpResult.json([
-          for (final target in targets)
-            if (target.words
-                    .where(
-                      (w) =>
-                          (vocabulary == null ||
-                              w.address.word.startsWith('$vocabulary.')) &&
-                          (word == null || w.address.word == word),
-                    )
-                    .toList()
-                case final words when words.isNotEmpty)
-              WordTarget(target.principal, words).toJson(),
-        ]);
+        final targets = await agent.targets(vocabulary: vocabulary, word: word);
+        return McpResult.json([for (final target in targets) target.toJson()]);
       },
     ),
     McpTool(

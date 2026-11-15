@@ -134,7 +134,7 @@ Stream<WordStatus> wordStatusChanges(
 /// Each of [words] there for [view] but not as the code was built against,
 /// by name, with where it breaks; empty when every one keeps its promises.
 /// For a part to check as it starts, in development:
-/// `assert(wordMismatches(p, ordersWords.words).isEmpty)`.
+/// `assert(wordMismatches(p, OrdersVocabulary.words).isEmpty)`.
 Map<String, List<WordBreak>> wordMismatches(
   IRegistryView view,
   Iterable<IWord> words, {

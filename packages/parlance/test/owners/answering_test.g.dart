@@ -40,7 +40,12 @@ enum RoomCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class RoomOwnerBase implements IOwner {
   RoomOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: roomWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: RoomVocabulary.definition,
+    );
   }
 
   /// room.heat: what this owner set last, read by `value`,
@@ -120,12 +125,18 @@ abstract interface class IRoomClient {
 final class _$RoomClient implements IRoomClient {
   _$RoomClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(roomWords.words, from: roomWords.from);
+    _$words.builtAgainst(
+      RoomVocabulary.words,
+      from: RoomVocabulary.definition.from,
+    );
   }
 
   _$RoomClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(roomWords.words, from: roomWords.from);
+    _$words.builtAgainst(
+      RoomVocabulary.words,
+      from: RoomVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -151,15 +162,22 @@ final class _$RoomClient implements IRoomClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(roomWords.words);
+      _$words.mismatches(RoomVocabulary.words);
 }
 
-/// The vocabulary of [Room]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const roomWords = WordSet(
-  'room',
-  [...RoomState.values, ...RoomCommand.values],
-  from: 'parlance 0.2.0',
-  dartName: 'roomWords',
-);
+/// The vocabulary of [Room], independent of its publishing target.
+abstract final class RoomVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'room';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...RoomState.values, ...RoomCommand.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'RoomVocabulary.definition',
+  );
+}

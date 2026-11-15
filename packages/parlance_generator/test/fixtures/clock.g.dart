@@ -48,7 +48,12 @@ enum ClockCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class ClockOwnerBase implements IOwner {
   ClockOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: clockWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: ClockVocabulary.definition,
+    );
   }
 
   /// clock.alarm: what this owner set last, read by `value`,
@@ -119,12 +124,18 @@ abstract interface class IClockClient {
 final class _$ClockClient implements IClockClient {
   _$ClockClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(clockWords.words, from: clockWords.from);
+    _$words.builtAgainst(
+      ClockVocabulary.words,
+      from: ClockVocabulary.definition.from,
+    );
   }
 
   _$ClockClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(clockWords.words, from: clockWords.from);
+    _$words.builtAgainst(
+      ClockVocabulary.words,
+      from: ClockVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -152,18 +163,28 @@ final class _$ClockClient implements IClockClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(clockWords.words);
+      _$words.mismatches(ClockVocabulary.words);
 }
 
-/// The vocabulary of [Clock]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const clockWords = WordSet(
-  'clock',
-  [...ClockState.values, ...ClockCommand.values],
-  from: 'parlance_generator 0.2.0',
-  dartName: 'clockWords',
-);
+/// The vocabulary of [Clock], independent of its publishing target.
+abstract final class ClockVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'clock';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...ClockState.values,
+    ...ClockCommand.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_generator 0.3.0',
+    dartName: 'ClockVocabulary.definition',
+  );
+}
 
 typedef ClockSetAlarm = ({DateTime at});
 

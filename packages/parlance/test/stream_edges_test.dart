@@ -9,7 +9,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
 import 'streams_test.dart'
-    show DataOwner, IDataClient, DataServerStream, dataWords;
+    show DataOwner, IDataClient, DataServerStream, DataVocabulary;
 
 Future<void> turn() => Future<void>.delayed(Duration.zero);
 
@@ -101,7 +101,7 @@ void main() {
           host.serve(
             const Principal('producer'),
             endpoint,
-            vocabularies: [dataWords],
+            vocabularies: [DataVocabulary.definition],
           );
           endpoint.start();
           servers.add(endpoint);
@@ -159,7 +159,7 @@ void main() {
               host
                       .participant(
                         const Principal('producer'),
-                        vocabularies: [dataWords],
+                        vocabularies: [DataVocabulary.definition],
                       )
                       .raw
                   as LocalParticipant;

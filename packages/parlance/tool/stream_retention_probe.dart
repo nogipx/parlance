@@ -18,7 +18,7 @@ import 'package:rpc_dart/rpc_dart.dart'
 import 'package:rpc_dart/internal.dart' show StreamBridge, StreamSource;
 
 import '../test/streams_test.dart'
-    show DataOwner, Reading, dataWords, IDataClient;
+    show DataOwner, Reading, DataVocabulary, IDataClient;
 
 import '../example/streams/words.dart';
 
@@ -210,7 +210,7 @@ Future<IRemoteParticipant> _join(
   final session = host.serve(
     Principal(name),
     server,
-    vocabularies: owns ? [words ?? dataWords] : [],
+    vocabularies: owns ? [words ?? DataVocabulary.definition] : [],
   );
   _resources.add((
     name: 'session $name ${_resources.length}',
@@ -455,7 +455,7 @@ Future<void> _inputPath(
       guests,
       endpoints,
       owns: true,
-      words: documentsWords,
+      words: DocumentsVocabulary.definition,
     );
     producer = guest;
     await guest.attach([owner]);

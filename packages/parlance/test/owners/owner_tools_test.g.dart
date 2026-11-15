@@ -26,7 +26,12 @@ enum LampState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class LampOwnerBase implements IOwner {
   LampOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: lampWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: LampVocabulary.definition,
+    );
   }
 
   /// lamp.level: what this owner set last, read by `value`,
@@ -87,12 +92,18 @@ abstract interface class ILampClient {
 final class _$LampClient implements ILampClient {
   _$LampClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(lampWords.words, from: lampWords.from);
+    _$words.builtAgainst(
+      LampVocabulary.words,
+      from: LampVocabulary.definition.from,
+    );
   }
 
   _$LampClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(lampWords.words, from: lampWords.from);
+    _$words.builtAgainst(
+      LampVocabulary.words,
+      from: LampVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -108,15 +119,22 @@ final class _$LampClient implements ILampClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(lampWords.words);
+      _$words.mismatches(LampVocabulary.words);
 }
 
-/// The vocabulary of [Lamp]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const lampWords = WordSet(
-  'lamp',
-  [...LampState.values],
-  from: 'parlance 0.2.0',
-  dartName: 'lampWords',
-);
+/// The vocabulary of [Lamp], independent of its publishing target.
+abstract final class LampVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'lamp';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...LampState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'LampVocabulary.definition',
+  );
+}

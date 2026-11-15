@@ -26,6 +26,8 @@ dev_dependencies:
   # The release flow (melos run prepare / publish:dry / publish:release):
   # MAINTAINING.md.
   melos: ^7.8.2
+  pub_semver: ^2.2.1
+  yaml: ^3.1.4
 
 # rpc_dart is co-developed in ../rpc_dart and published (7.2.0); the packages
 # resolve the published versions, which is also what users get. To develop
@@ -73,10 +75,10 @@ melos:
         cd apps/journal_viewer
         fvm flutter test
 
-    # The frozen surface against the last parlance-<version> tag; no-op
-    # until the first release is tagged.
+    # Compatibility within the current release line: one minor for 0.x,
+    # one major from 1.0. A new breaking line has no baseline yet.
     frozen:
-      description: Check the frozen surface against the last release tag.
+      description: Check the public API against the latest compatible release tag.
       run: fvm dart run tool/frozen.dart
 
     # --- Pre-publish gate ---

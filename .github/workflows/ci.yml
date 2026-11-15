@@ -12,15 +12,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Workspace-wide analyze + the frozen-surface check. The frozen check is a
-  # no-op until the first parlance-<version> tag exists, then holds main to
-  # the released surface (see MAINTAINING.md).
+  # Workspace-wide analyze + compatibility with the current release line.
+  # Before 1.0, a new minor may break the API (see MAINTAINING.md).
   lint:
     name: "Analyze & frozen surface"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
       - name: Resolve workspace
         run: fvm dart pub get
@@ -28,7 +29,9 @@ jobs:
         run: melos run analyze
       - name: Public streaming API boundaries
         run: fvm dart run tool/public_stream_api_test.dart
-      - name: Frozen surface vs the last release tag
+      - name: Release compatibility policy checks
+        run: fvm dart run tool/frozen_surface_test.dart
+      - name: Public API vs the latest compatible release tag
         run: melos run frozen
 
   # Dart tests across the workspace. journal_viewer is a Flutter app and has

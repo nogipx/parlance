@@ -26,7 +26,12 @@ enum DoorsState<T> implements IStateWord<T> {
 /// says and calls follows from the call it serves.
 abstract class DoorsOwnerBase implements IOwner {
   DoorsOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: doorsWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: DoorsVocabulary.definition,
+    );
   }
 
   /// door.room, by door: what this owner set of each,
@@ -87,12 +92,18 @@ abstract interface class IDoorsClient {
 final class _$DoorsClient implements IDoorsClient {
   _$DoorsClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
+    _$words.builtAgainst(
+      DoorsVocabulary.words,
+      from: DoorsVocabulary.definition.from,
+    );
   }
 
   _$DoorsClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
+    _$words.builtAgainst(
+      DoorsVocabulary.words,
+      from: DoorsVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -108,18 +119,25 @@ final class _$DoorsClient implements IDoorsClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(doorsWords.words);
+      _$words.mismatches(DoorsVocabulary.words);
 }
 
-/// The vocabulary of [Doors]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const doorsWords = WordSet(
-  'door',
-  [...DoorsState.values],
-  from: 'parlance_generator 0.2.0',
-  dartName: 'doorsWords',
-);
+/// The vocabulary of [Doors], independent of its publishing target.
+abstract final class DoorsVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'door';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...DoorsState.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_generator 0.3.0',
+    dartName: 'DoorsVocabulary.definition',
+  );
+}
 
 const _$RoomShape = RecordShape<Room>(
   {
@@ -174,7 +192,7 @@ abstract class LightsOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: lightsWords,
+      vocabulary: LightsVocabulary.definition,
     );
   }
 
@@ -235,12 +253,18 @@ abstract interface class ILightsClient {
 final class _$LightsClient implements ILightsClient {
   _$LightsClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
+    _$words.builtAgainst(
+      LightsVocabulary.words,
+      from: LightsVocabulary.definition.from,
+    );
   }
 
   _$LightsClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
+    _$words.builtAgainst(
+      LightsVocabulary.words,
+      from: LightsVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -262,18 +286,25 @@ final class _$LightsClient implements ILightsClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(lightsWords.words);
+      _$words.mismatches(LightsVocabulary.words);
 }
 
-/// The vocabulary of [Lights]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const lightsWords = WordSet(
-  'light',
-  [...LightsCommand.values],
-  from: 'parlance_generator 0.2.0',
-  dartName: 'lightsWords',
-);
+/// The vocabulary of [Lights], independent of its publishing target.
+abstract final class LightsVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'light';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...LightsCommand.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_generator 0.3.0',
+    dartName: 'LightsVocabulary.definition',
+  );
+}
 
 typedef LightsOn = ({Room room});
 

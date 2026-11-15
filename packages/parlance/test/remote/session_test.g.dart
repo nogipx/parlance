@@ -13,7 +13,12 @@ part of 'session_test.dart';
 /// says and calls follows from the call it serves.
 abstract class PlugOwnerBase implements IOwner {
   PlugOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: plugWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: PlugVocabulary.definition,
+    );
   }
 
   void _$define(IParticipant participant) {}
@@ -63,12 +68,18 @@ abstract interface class IPlugClient {
 final class _$PlugClient implements IPlugClient {
   _$PlugClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(plugWords.words, from: plugWords.from);
+    _$words.builtAgainst(
+      PlugVocabulary.words,
+      from: PlugVocabulary.definition.from,
+    );
   }
 
   _$PlugClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(plugWords.words, from: plugWords.from);
+    _$words.builtAgainst(
+      PlugVocabulary.words,
+      from: PlugVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -81,15 +92,22 @@ final class _$PlugClient implements IPlugClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(plugWords.words);
+      _$words.mismatches(PlugVocabulary.words);
 }
 
-/// The vocabulary of [Plug]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const plugWords = WordSet(
-  'plug',
-  [],
-  from: 'parlance 0.2.0',
-  dartName: 'plugWords',
-);
+/// The vocabulary of [Plug], independent of its publishing target.
+abstract final class PlugVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'plug';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'PlugVocabulary.definition',
+  );
+}

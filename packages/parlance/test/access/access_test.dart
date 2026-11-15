@@ -38,7 +38,7 @@ void main() {
           if (ownerRemote) {
             final p = await host.join(
               f.work,
-              vocabularies: [f.counterWords],
+              vocabularies: [f.CounterVocabulary.definition],
               access: const WordAccess(callers: Callers.anyone),
             );
             await p.attach([counter]);
@@ -77,8 +77,8 @@ void main() {
             );
             expect(
               (await reader.targets(
-                word: f.CounterCommand.add,
-              )).single.words.single.status,
+                word: f.CounterCommand.add.name,
+              )).single.vocabularies.single.words.single.status,
               const WordNotPermitted(),
             );
             expect(client.mismatches, isEmpty);
@@ -301,7 +301,7 @@ void main() {
             );
             await host.settle();
             client.status(f.CounterCommand.add);
-            await reader.targets(vocabulary: f.counterWords);
+            await reader.targets(vocabulary: f.CounterVocabulary.name);
             await reader.raw.describe();
             await host.settle();
             expect(seen, isEmpty);
@@ -469,12 +469,12 @@ void main() {
           final p = ownerRemote
               ? await host.join(
                   f.work,
-                  vocabularies: [f.counterWords],
+                  vocabularies: [f.CounterVocabulary.definition],
                   access: const WordAccess(callers: Callers.anyone),
                 )
               : host.participant(
                   f.work,
-                  vocabularies: [f.counterWords],
+                  vocabularies: [f.CounterVocabulary.definition],
                   access: const WordAccess(callers: Callers.anyone),
                 );
           final words = GeneratedWords.own(p);

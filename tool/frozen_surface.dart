@@ -2,8 +2,38 @@
 library;
 
 import 'package:analyzer/dart/element/element.dart';
+import 'package:pub_semver/pub_semver.dart';
 
 import 'surface.dart';
+
+/// The latest stable release in the current compatibility line.
+/// Before 1.0 a minor bump may break the API; from 1.0 a major bump may.
+/// Pre-release, malformed, foreign and future tags are not baselines.
+String? latestCompatibleRelease(String version, Iterable<String> tags) {
+  final current = Version.parse(version);
+  Version? latest;
+  String? selected;
+  const prefix = 'parlance-';
+  for (final tag in tags) {
+    if (!tag.startsWith(prefix)) continue;
+    final Version candidate;
+    try {
+      candidate = Version.parse(tag.substring(prefix.length));
+    } on FormatException {
+      continue;
+    }
+    if (candidate.isPreRelease ||
+        candidate > current ||
+        candidate.nextBreaking != current.nextBreaking) {
+      continue;
+    }
+    if (latest == null || candidate > latest) {
+      latest = candidate;
+      selected = tag;
+    }
+  }
+  return selected;
+}
 
 String _key(SurfaceItem i) =>
     '${i.library} ${i.name}'

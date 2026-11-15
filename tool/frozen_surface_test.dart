@@ -12,6 +12,40 @@ Future<void> main() async {
   final root = Directory.systemTemp.createTempSync('parlance_frozen_surface_');
   var checked = 0;
   try {
+    void release(String current, List<String> tags, String? expected) {
+      checked++;
+      final selected = latestCompatibleRelease(current, tags);
+      if (selected != expected) {
+        throw StateError(
+          'release case $checked: $current selected $selected, expected $expected',
+        );
+      }
+    }
+
+    release('0.3.0', ['parlance-0.2.0'], null);
+    release('0.3.1', ['parlance-0.2.9', 'parlance-0.3.0'], 'parlance-0.3.0');
+    release('0.3.2', [
+      'parlance-0.3.1',
+      'parlance-0.3.0',
+      'parlance-0.3.2',
+    ], 'parlance-0.3.2');
+    release('0.3.0', ['parlance-0.3.1', 'parlance-0.30.0'], null);
+    release('0.3.0', ['parlance-0.3.0-beta.1'], null);
+    release('0.3.0-beta.2', ['parlance-0.3.0', 'parlance-0.3.0-beta.1'], null);
+    release('1.0.0', ['parlance-0.9.0'], null);
+    release('1.2.0', [
+      'parlance-1.0.0',
+      'parlance-1.1.0',
+      'parlance-0.9.0',
+    ], 'parlance-1.1.0');
+    release('2.0.0', ['parlance-1.9.0'], null);
+    release('1.1.0', [
+      'parlance_mcp-1.1.0',
+      'parlance-no-version',
+      'parlance-1.1.0-beta.1',
+      'parlance-1.0.0',
+    ], 'parlance-1.0.0');
+
     Future<void> check(String before, String now, bool compatible) async {
       final a = Directory('${root.path}/old${checked++}/lib')
         ..createSync(recursive: true);

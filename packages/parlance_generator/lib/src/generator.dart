@@ -273,8 +273,11 @@ final class _Emitter {
 
   String get _c => cls.name!;
 
-  /// The vocabulary's constant: `playerWords` of `Player`.
-  String get _words => '${_c[0].toLowerCase()}${_c.substring(1)}Words';
+  /// The generated namespace for this vocabulary's metadata.
+  String get _vocabulary => '${_c}Vocabulary';
+
+  /// Its portable definition, used for publication and provenance.
+  String get _definition => '$_vocabulary.definition';
 
   /// Code after the enums: records, their conversions, toJson tear-offs.
   final StringBuffer _helpers = StringBuffer();
@@ -405,10 +408,14 @@ final class _Emitter {
     if (owner) out.write(_ownerBase(states, commands, queries, facts, streams));
     if (client) out.write(_clientOf(states, commands, queries, facts, streams));
     out
-      ..writeln('/// The vocabulary of [$_c]: its name and every word, for')
-      ..writeln('/// `main` to grant a participant (`vocabularies:`) and for')
-      ..writeln('/// `schemaOf`.')
-      ..writeln('const $_words = WordSet(${_quote(vocabulary)}, [')
+      ..writeln(
+        '/// The vocabulary of [$_c], independent of its publishing target.',
+      )
+      ..writeln('abstract final class $_vocabulary {')
+      ..writeln('  /// Its portable name, for discovery.')
+      ..writeln('  static const String name = ${_quote(vocabulary)};')
+      ..writeln('  /// Every typed word in this contract, for `schemaOf`.')
+      ..writeln('  static const List<IWord> words = [')
       ..writeln(
         [
           if (states.isNotEmpty) '...${_c}State.values',
@@ -420,7 +427,13 @@ final class _Emitter {
               '...$_c${kind}Stream.values',
         ].join(', '),
       )
-      ..writeln('], from: ${_quote(from)}, dartName: ${_quote(_words)});')
+      ..writeln('  ];')
+      ..writeln(
+        '  /// The definition an owner brings or a host grants to a guest.',
+      )
+      ..writeln('  static const WordSet definition = WordSet(name, words,')
+      ..writeln('    from: ${_quote(from)}, dartName: ${_quote(_definition)});')
+      ..writeln('}')
       ..write(_helpers);
     return out.toString();
   }
@@ -723,7 +736,7 @@ final class _Emitter {
           'start in development: `assert(client.mismatches.isEmpty)`.',
         ],
         signature: 'Map<String, List<WordBreak>> get mismatches',
-        body: '=> _\$words.mismatches($_words.words);',
+        body: '=> _\$words.mismatches($_vocabulary.words);',
       ),
     ];
     for (final st in states) {
@@ -877,7 +890,7 @@ final class _Emitter {
         ..writeln('  $name($param)')
         ..writeln('    : _\$words = $words {')
         ..writeln(
-          '    _\$words.builtAgainst($_words.words, from: $_words.from);',
+          '    _\$words.builtAgainst($_vocabulary.words, from: $_definition.from);',
         )
         ..writeln('  }')
         ..writeln();
@@ -996,7 +1009,7 @@ final class _Emitter {
       ..writeln('  ${_c}OwnerBase() {')
       ..writeln(
         '    IOwner.made(this, define: _\$define, write: _\$write, '
-        'vocabulary: $_words);',
+        'vocabulary: $_definition);',
       )
       ..writeln('  }')
       ..writeln();

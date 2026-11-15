@@ -4,10 +4,10 @@
 /// serves across a connection ([Host.serve]), the join from the other end
 /// ([Host.join]), and what they tell of errors.
 ///
-/// It is frozen as `schema.dart` is (SPEC §14, §22):
-/// what it shows is never taken away, renamed or changed in meaning; it
-/// only grows. What it shows is interfaces and final classes only the
-/// library makes. The rest of the library (`tools.dart`) is there for
+/// It follows `schema.dart`'s version policy (SPEC §14, §22): a minor release
+/// before 1.0, or a major release from 1.0, may change the API incompatibly.
+/// Within that line it stays source compatible. It shows interfaces and final
+/// classes only the library makes. The rest of the library (`tools.dart`) is there for
 /// tools and the package's tests, and promises nothing.
 library;
 

@@ -8,7 +8,7 @@ Skills, no packages outside the pub workspace.
 
 - `packages/parlance` — the core: `schema.dart` (words, shapes, types,
   participant) and `app.dart` (host, sessions, remote participant). The only
-  frozen surface.
+  public surface held to the release-line compatibility check.
 - `packages/parlance_generator` — the build_runner generator making typed
   words from `@Vocabulary` classes.
 - `packages/parlance_journal`, `packages/parlance_links`,
@@ -31,18 +31,21 @@ pub.dev is broken.
 
 ## Release flow (every release, in order)
 
-0. **`melos run prepare` — must be green.** Analyze (strict:
-   `--fatal-infos --fatal-warnings`, so a public member without docs fails
-   the gate), tests across the workspace, and the frozen-surface check.
+0. **Manual versioning.** Bump `version:` per changed package and write the
+   CHANGELOG entry by hand (terse, why-focused). Choose a new minor before 1.0
+   for intentional breaking changes. Do NOT use `melos version`.
+   Do NOT tag here — `publish:release` tags.
 0b. **The rpc_dart floor.** After a new rpc_dart release, every package that
    uses a new rpc_dart API needs its `rpc_dart:` floor raised — the pub
    workspace resolves rpc_dart from the hosted version, so a stale floor
    compiles and tests green here while a user on the old rpc_dart gets a
    compile error. Check with the overrides off (they must be off for a
    release anyway — see the root pubspec comment).
-1. **Manual versioning.** Bump `version:` per changed package and write the
-   CHANGELOG entry by hand (terse, why-focused). Do NOT use `melos version`.
-   Do NOT tag here — `publish:release` tags.
+1. **`melos run prepare` — must be green.** Analyze (strict:
+   `--fatal-infos --fatal-warnings`, so a public member without docs fails
+   the gate), tests across the workspace, and the release-line compatibility
+   check. Run it after version selection so an intentional breaking release
+   compares against its own line.
 2. Commit, push. The GitHub repo is the source of truth; `melos run
    publish:dry` wants a clean tree.
 3. `melos run publish:dry` — validates every public package and previews the
@@ -56,13 +59,22 @@ pub.dev is broken.
 
 ## The frozen surface
 
-`tool/frozen.dart` (also `melos run frozen`) holds `packages/parlance`'s
-`schema.dart` and `app.dart` to the last `parlance-<version>` tag: nothing
-shown is taken away, renamed or changed; nothing is added to the interfaces
-an app's code implements (`IOwner`, `IWord`, the word interfaces); and a
-words package's `.g.dart` from then still builds with the library now. A
-change that breaks it fails the release gate until the tag is moved by
-releasing.
+`tool/frozen.dart` (also `melos run frozen`) compares `schema.dart`, `app.dart`
+and generated words with the latest stable `parlance-<version>` tag in the
+current compatibility line:
+
+- Before 1.0, the API is unstable. A new minor (for example 0.2 → 0.3) may
+  remove or change APIs; patch releases within that minor remain compatible.
+- From 1.0, a new major may break APIs; releases within a major remain compatible.
+- A new line without a release tag has no baseline yet. Pre-release, future and
+  malformed tags are not selected as baselines.
+- `fvm dart run tool/frozen.dart --since <ref>` explicitly compares against any
+  reference, including a different compatibility line.
+
+Inside one line, the check rejects removed or changed public members, additions
+to interfaces implemented by apps, and old generated code that no longer builds.
+CI fetches release tags so this check uses an actual released baseline. Tags are
+created only by the release flow; a version bump never moves an existing tag.
 
 `tool/surface_map.dart` regenerates the surface map (`docs/surface-map.md`,
 kept out of git, like the rest of `docs/`): the frozen

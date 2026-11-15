@@ -28,7 +28,7 @@ abstract interface class IWord {
 /// `WordSet('house', [...])`.
 final class WordSet {
   /// Const constructor; [words] is the vocabulary's, as the generator made
-  /// it (`houseWords`).
+  /// it (`HouseVocabulary.definition`).
   const WordSet(this.name, this.words, {this.from, this.dartName})
     : open = false;
 
@@ -52,7 +52,7 @@ final class WordSet {
   /// against (SPEC §6.9).
   final String? from;
 
-  /// The name of the constant the generator made of it (`houseWords`),
+  /// The generated reference to this definition (`HouseVocabulary.definition`),
   /// for what a message tells to give.
   final String? dartName;
 

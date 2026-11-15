@@ -118,7 +118,7 @@ abstract class TransferOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: transferWords,
+      vocabulary: TransferVocabulary.definition,
     );
   }
 
@@ -249,12 +249,18 @@ final class _$TransferClient implements ITransferClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(transferWords.words, from: transferWords.from);
+    _$words.builtAgainst(
+      TransferVocabulary.words,
+      from: TransferVocabulary.definition.from,
+    );
   }
 
   _$TransferClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(transferWords.words, from: transferWords.from);
+    _$words.builtAgainst(
+      TransferVocabulary.words,
+      from: TransferVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -311,23 +317,30 @@ final class _$TransferClient implements ITransferClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(transferWords.words);
+      _$words.mismatches(TransferVocabulary.words);
 }
 
-/// The vocabulary of [Transfer]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const transferWords = WordSet(
-  'transfer',
-  [
+/// The vocabulary of [Transfer], independent of its publishing target.
+abstract final class TransferVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'transfer';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
     ...TransferQuery.values,
     ...TransferServerStream.values,
     ...TransferClientStream.values,
     ...TransferBidiStream.values,
-  ],
-  from: 'parlance 0.2.0',
-  dartName: 'transferWords',
-);
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'TransferVocabulary.definition',
+  );
+}
 
 typedef TransferSum = ({int initial});
 

@@ -51,7 +51,7 @@ void main() {
     await loadInMemory(
       host: host,
       id: 'notes',
-      vocabularies: [notesWords],
+      vocabularies: [NotesVocabulary.definition],
       start: startNotes,
     );
     final (p, b) = await board();
@@ -72,13 +72,13 @@ void main() {
       final work = await loadInMemory(
         host: host,
         id: 'work',
-        vocabularies: [notesWords],
+        vocabularies: [NotesVocabulary.definition],
         start: startNotes,
       );
       final personal = await loadInMemory(
         host: host,
         id: 'personal',
-        vocabularies: [notesWords],
+        vocabularies: [NotesVocabulary.definition],
         start: startNotes,
       );
       final user = host.host.participant(Who.user);
@@ -103,7 +103,7 @@ void main() {
     await loadInMemory(
       host: host,
       id: 'notes',
-      vocabularies: [notesWords],
+      vocabularies: [NotesVocabulary.definition],
       start: startNotes,
     );
     final (p, b) = await board();
@@ -125,7 +125,7 @@ void main() {
     await loadInMemory(
       host: host,
       id: 'notes',
-      vocabularies: [notesWords],
+      vocabularies: [NotesVocabulary.definition],
       start: startNotes,
     );
     final (p, b) = await board();
@@ -151,7 +151,7 @@ void main() {
       await loadInMemory(
         host: host,
         id: 'notes',
-        vocabularies: [notesWords],
+        vocabularies: [NotesVocabulary.definition],
         start: (e) async {
           final p = await Host.joinEndpoint(e);
           p.raw.defineCommand(
@@ -218,7 +218,7 @@ void main() {
     final notes = await loadInMemory(
       host: host,
       id: 'notes',
-      vocabularies: [notesWords],
+      vocabularies: [NotesVocabulary.definition],
       start: startNotes,
     );
     await p.settle();

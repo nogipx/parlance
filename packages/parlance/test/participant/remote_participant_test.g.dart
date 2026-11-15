@@ -71,7 +71,7 @@ abstract class KittensOwnerBase implements IOwner {
       this,
       define: _$define,
       write: _$write,
-      vocabulary: kittensWords,
+      vocabulary: KittensVocabulary.definition,
     );
   }
 
@@ -170,12 +170,18 @@ final class _$KittensClient implements IKittensClient {
     required IParticipant participant,
     required Principal target,
   }) : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(kittensWords.words, from: kittensWords.from);
+    _$words.builtAgainst(
+      KittensVocabulary.words,
+      from: KittensVocabulary.definition.from,
+    );
   }
 
   _$KittensClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(kittensWords.words, from: kittensWords.from);
+    _$words.builtAgainst(
+      KittensVocabulary.words,
+      from: KittensVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -203,18 +209,29 @@ final class _$KittensClient implements IKittensClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(kittensWords.words);
+      _$words.mismatches(KittensVocabulary.words);
 }
 
-/// The vocabulary of [Kittens]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const kittensWords = WordSet(
-  'kittens',
-  [...KittensState.values, ...KittensCommand.values, ...KittensFact.values],
-  from: 'parlance 0.2.0',
-  dartName: 'kittensWords',
-);
+/// The vocabulary of [Kittens], independent of its publishing target.
+abstract final class KittensVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'kittens';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...KittensState.values,
+    ...KittensCommand.values,
+    ...KittensFact.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'KittensVocabulary.definition',
+  );
+}
 
 typedef KittensTurn = ({bool on});
 

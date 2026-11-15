@@ -166,7 +166,12 @@ enum HouseFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class HouseOwnerBase implements IOwner {
   HouseOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: houseWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: HouseVocabulary.definition,
+    );
   }
 
   /// house.light, by room: what this owner set of each,
@@ -371,12 +376,18 @@ abstract interface class IHouseClient {
 final class _$HouseClient implements IHouseClient {
   _$HouseClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(houseWords.words, from: houseWords.from);
+    _$words.builtAgainst(
+      HouseVocabulary.words,
+      from: HouseVocabulary.definition.from,
+    );
   }
 
   _$HouseClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(houseWords.words, from: houseWords.from);
+    _$words.builtAgainst(
+      HouseVocabulary.words,
+      from: HouseVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -476,24 +487,31 @@ final class _$HouseClient implements IHouseClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(houseWords.words);
+      _$words.mismatches(HouseVocabulary.words);
 }
 
-/// The vocabulary of [House]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const houseWords = WordSet(
-  'house',
-  [
+/// The vocabulary of [House], independent of its publishing target.
+abstract final class HouseVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'house';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
     ...HouseState.values,
     ...HouseCommand.values,
     ...HouseQuery.values,
     ...HouseFact.values,
     ...HouseServerStream.values,
-  ],
-  from: 'parlance 0.2.0',
-  dartName: 'houseWords',
-);
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'HouseVocabulary.definition',
+  );
+}
 
 typedef HouseSetLight = ({String room, bool on});
 
@@ -625,7 +643,12 @@ enum VisitCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class VisitOwnerBase implements IOwner {
   VisitOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: visitWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: VisitVocabulary.definition,
+    );
   }
 
   /// visit.guests: what this owner set last, read by `value`,
@@ -694,12 +717,18 @@ abstract interface class IVisitClient {
 final class _$VisitClient implements IVisitClient {
   _$VisitClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(visitWords.words, from: visitWords.from);
+    _$words.builtAgainst(
+      VisitVocabulary.words,
+      from: VisitVocabulary.definition.from,
+    );
   }
 
   _$VisitClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(visitWords.words, from: visitWords.from);
+    _$words.builtAgainst(
+      VisitVocabulary.words,
+      from: VisitVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -724,18 +753,28 @@ final class _$VisitClient implements IVisitClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(visitWords.words);
+      _$words.mismatches(VisitVocabulary.words);
 }
 
-/// The vocabulary of [Visit]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const visitWords = WordSet(
-  'visit',
-  [...VisitState.values, ...VisitCommand.values],
-  from: 'parlance 0.2.0',
-  dartName: 'visitWords',
-);
+/// The vocabulary of [Visit], independent of its publishing target.
+abstract final class VisitVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'visit';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...VisitState.values,
+    ...VisitCommand.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance 0.3.0',
+    dartName: 'VisitVocabulary.definition',
+  );
+}
 
 typedef VisitLeave = ({String who});
 

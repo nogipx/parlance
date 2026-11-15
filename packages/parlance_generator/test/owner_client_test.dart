@@ -47,7 +47,7 @@ void main() {
       if (across) {
         await (await host.join(
           listener,
-          vocabularies: [fansWords],
+          vocabularies: [FansVocabulary.definition],
         )).attach([fan]);
       } else {
         host.participant(listener, owners: [fan]);
@@ -78,7 +78,7 @@ void main() {
               'the vocabulary player',
             ),
             contains(
-              'host.serve(player, endpoint, vocabularies: [playerWords])',
+              'host.serve(player, endpoint, vocabularies: [PlayerVocabulary.definition])',
             ),
           ),
         ),

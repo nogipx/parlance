@@ -13,7 +13,12 @@ part of 'fan.dart';
 /// says and calls follows from the call it serves.
 abstract class FansOwnerBase implements IOwner {
   FansOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: fansWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: FansVocabulary.definition,
+    );
   }
 
   void _$define(IParticipant participant) {}
@@ -63,12 +68,18 @@ abstract interface class IFansClient {
 final class _$FansClient implements IFansClient {
   _$FansClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(fansWords.words, from: fansWords.from);
+    _$words.builtAgainst(
+      FansVocabulary.words,
+      from: FansVocabulary.definition.from,
+    );
   }
 
   _$FansClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(fansWords.words, from: fansWords.from);
+    _$words.builtAgainst(
+      FansVocabulary.words,
+      from: FansVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -81,15 +92,22 @@ final class _$FansClient implements IFansClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(fansWords.words);
+      _$words.mismatches(FansVocabulary.words);
 }
 
-/// The vocabulary of [Fans]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const fansWords = WordSet(
-  'fan',
-  [],
-  from: 'parlance_generator 0.2.0',
-  dartName: 'fansWords',
-);
+/// The vocabulary of [Fans], independent of its publishing target.
+abstract final class FansVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'fan';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_generator 0.3.0',
+    dartName: 'FansVocabulary.definition',
+  );
+}

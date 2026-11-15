@@ -166,7 +166,11 @@ void main() {
     expect(hidden.text, isNot(contains('main')));
     final targets = await c.json('targets', {'word': 'house.show'}) as List;
     expect(
-      ((((targets.single as Map)['words'] as List).single as Map)['status']),
+      ((((((targets.single as Map)['vocabularies'] as List).single
+                      as Map)['words']
+                  as List)
+              .single
+          as Map)['status']),
       'notPermitted',
     );
     f.host.setAccess(
@@ -245,6 +249,64 @@ void main() {
       );
       await c.call(commandToolName('module/personal/notes.add'));
       expect(ran, ['work', 'personal']);
+    },
+  );
+
+  test(
+    'MCP groups actual words and shares exact name filters with discovery',
+    () async {
+      final f = Fixture();
+      addTearDown(f.host.dispose);
+      final p = f.host
+          .participant(
+            const Principal('module', 'work'),
+            vocabularies: const [
+              WordSet.open('notes'),
+              WordSet.open('notes_extra'),
+              WordSet.open('signal'),
+            ],
+          )
+          .raw;
+      p.defineState(StateDescriptor('notes.count', type: const IntType()));
+      p.defineState(
+        StateDescriptor('notes_extra.count', type: const IntType()),
+      );
+      p.defineFact(FactDescriptor('signal', type: const IntType()));
+      final c = Client(f.host.participant(agent).raw);
+      addTearDown(c.close);
+
+      final all = await c.json('targets') as List;
+      final target = all.cast<Map<String, Object?>>().singleWhere(
+        (t) => (t['principal'] as Map)['id'] == 'work',
+      );
+      expect(target.containsKey('words'), isFalse);
+      expect(
+        (target['vocabularies'] as List).cast<Map<String, Object?>>().map(
+          (v) => v['name'],
+        ),
+        ['notes', 'notes_extra', 'signal'],
+      );
+      final found = await c.json('targets', {'vocabulary': 'notes'}) as List;
+      final vocabulary =
+          ((found.single as Map)['vocabularies'] as List).single as Map;
+      expect(vocabulary['name'], 'notes');
+      expect(
+        ((vocabulary['words'] as List).single as Map)['name'],
+        'notes.count',
+      );
+      final signal =
+          await c.json('targets', {'vocabulary': 'signal', 'word': 'signal'})
+              as List;
+      final root =
+          ((signal.single as Map)['vocabularies'] as List).single as Map;
+      expect(
+        ((root['words'] as List).single as Map)['address'],
+        'module/work/signal',
+      );
+      expect(
+        await c.json('targets', {'vocabulary': 'notes', 'word': 'signal'}),
+        isEmpty,
+      );
     },
   );
 

@@ -1,17 +1,15 @@
-/// Holds the frozen libraries to the last release: what
-/// `package:parlance/schema.dart` and `app.dart` show is never taken
-/// away, renamed or changed, and a words package's `.g.dart` made then
-/// builds with the library now. Nothing is kept in the repository to
-/// compare with: the release is taken from its `parlance-<version>` tag
-/// (the same tag scheme the release flow tags; see MAINTAINING.md).
+/// Holds the public libraries to the latest compatible release. A new minor
+/// before 1.0, or a new major from 1.0, may break the API. Within that line,
+/// names and members remain compatible and generated words still build.
+/// The baseline comes from its `parlance-<version>` tag, not a stored snapshot.
 ///
 /// Run from the repository's root, before a release:
 ///
-///     fvm dart run tool/frozen.dart              # against the last parlance-<version> tag
-///     fvm dart run tool/frozen.dart --since <ref>
+///     fvm dart run tool/frozen.dart              # latest compatible release
+///     fvm dart run tool/frozen.dart --since <ref> # explicit comparison, any version
 ///
-/// It prints what broke and exits 1; with no release yet, it says so and
-/// passes.
+/// It prints what broke and exits 1. A new compatibility line without a release
+/// has no baseline and passes; --since always performs the requested comparison.
 library;
 
 import 'dart:io';
@@ -19,6 +17,7 @@ import 'dart:io';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/error/error.dart';
+import 'package:yaml/yaml.dart';
 
 import 'surface.dart';
 import 'frozen_surface.dart';
@@ -39,11 +38,20 @@ const _implemented = {
 
 Future<void> main(List<String> args) async {
   final repo = _git(['rev-parse', '--show-toplevel']).trim();
+  final pubspec = loadYaml(
+    File('$repo/packages/parlance/pubspec.yaml').readAsStringSync(),
+  ) as YamlMap;
+  final version = pubspec['version'] as String;
   final since = args.length == 2 && args.first == '--since'
       ? args.last
-      : _lastRelease();
+      : latestCompatibleRelease(
+          version,
+          _git(['tag', '--list', 'parlance-*']).trim().split('\n'),
+        );
   if (since == null) {
-    stdout.writeln('frozen: no parlance-<version> tag yet: nothing to hold to');
+    stdout.writeln(
+      'frozen: no compatible release tag for $version; new API line',
+    );
     return;
   }
   final sha = _git(['rev-parse', '--short', since]).trim();
@@ -125,13 +133,6 @@ Future<List<String>> _oldGeneratedBuilds(String repo, String since) async {
   } finally {
     into.deleteSync(recursive: true);
   }
-}
-
-/// The last `parlance-<version>` release tag, highest version first.
-String? _lastRelease() {
-  final tags = _git(['tag', '--list', 'parlance-*', '--sort=-v:refname'])
-      .trim();
-  return tags.isEmpty ? null : tags.split('\n').first;
 }
 
 String _git(List<String> args) => _run('git', args, null);

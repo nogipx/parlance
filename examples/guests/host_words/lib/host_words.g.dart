@@ -48,7 +48,12 @@ enum AppCommand<P, R> implements ICommandWord<P, R> {
 /// says and calls follows from the call it serves.
 abstract class AppOwnerBase implements IOwner {
   AppOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: appWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: AppVocabulary.definition,
+    );
   }
 
   /// app.dark: what this owner set last, read by `value`,
@@ -117,12 +122,18 @@ abstract interface class IAppClient {
 final class _$AppClient implements IAppClient {
   _$AppClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(appWords.words, from: appWords.from);
+    _$words.builtAgainst(
+      AppVocabulary.words,
+      from: AppVocabulary.definition.from,
+    );
   }
 
   _$AppClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(appWords.words, from: appWords.from);
+    _$words.builtAgainst(
+      AppVocabulary.words,
+      from: AppVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -147,18 +158,25 @@ final class _$AppClient implements IAppClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(appWords.words);
+      _$words.mismatches(AppVocabulary.words);
 }
 
-/// The vocabulary of [App]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const appWords = WordSet(
-  'app',
-  [...AppState.values, ...AppCommand.values],
-  from: 'host_words 1.0.0',
-  dartName: 'appWords',
-);
+/// The vocabulary of [App], independent of its publishing target.
+abstract final class AppVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'app';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [...AppState.values, ...AppCommand.values];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'host_words 1.0.0',
+    dartName: 'AppVocabulary.definition',
+  );
+}
 
 typedef AppToast = ({String text});
 

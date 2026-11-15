@@ -155,7 +155,10 @@ void main() {
           host = TestHost();
           deck = DeckOwner();
           if (ownerAcross) {
-            final p = await host.join(deckOwner, vocabularies: [deckWords]);
+            final p = await host.join(
+              deckOwner,
+              vocabularies: [DeckVocabulary.definition],
+            );
             await p.attach([deck]);
             owner = p;
           } else {

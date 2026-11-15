@@ -100,7 +100,12 @@ enum BoardFact<T> implements IFactWord<T> {
 /// says and calls follows from the call it serves.
 abstract class BoardOwnerBase implements IOwner {
   BoardOwnerBase() {
-    IOwner.made(this, define: _$define, write: _$write, vocabulary: boardWords);
+    IOwner.made(
+      this,
+      define: _$define,
+      write: _$write,
+      vocabulary: BoardVocabulary.definition,
+    );
   }
 
   /// note, by note: what this owner set of each,
@@ -231,12 +236,18 @@ abstract interface class IBoardClient {
 final class _$BoardClient implements IBoardClient {
   _$BoardClient({required IParticipant participant, required Principal target})
     : _$words = GeneratedWords(participant: participant, target: target) {
-    _$words.builtAgainst(boardWords.words, from: boardWords.from);
+    _$words.builtAgainst(
+      BoardVocabulary.words,
+      from: BoardVocabulary.definition.from,
+    );
   }
 
   _$BoardClient._of({required IOwner owner, required Principal target})
     : _$words = GeneratedWords.of(owner: owner, target: target) {
-    _$words.builtAgainst(boardWords.words, from: boardWords.from);
+    _$words.builtAgainst(
+      BoardVocabulary.words,
+      from: BoardVocabulary.definition.from,
+    );
   }
 
   final GeneratedWords _$words;
@@ -307,18 +318,29 @@ final class _$BoardClient implements IBoardClient {
 
   @override
   Map<String, List<WordBreak>> get mismatches =>
-      _$words.mismatches(boardWords.words);
+      _$words.mismatches(BoardVocabulary.words);
 }
 
-/// The vocabulary of [Board]: its name and every word, for
-/// `main` to grant a participant (`vocabularies:`) and for
-/// `schemaOf`.
-const boardWords = WordSet(
-  'note',
-  [...BoardState.values, ...BoardCommand.values, ...BoardFact.values],
-  from: 'parlance_generator 0.2.0',
-  dartName: 'boardWords',
-);
+/// The vocabulary of [Board], independent of its publishing target.
+abstract final class BoardVocabulary {
+  /// Its portable name, for discovery.
+  static const String name = 'note';
+
+  /// Every typed word in this contract, for `schemaOf`.
+  static const List<IWord> words = [
+    ...BoardState.values,
+    ...BoardCommand.values,
+    ...BoardFact.values,
+  ];
+
+  /// The definition an owner brings or a host grants to a guest.
+  static const WordSet definition = WordSet(
+    name,
+    words,
+    from: 'parlance_generator 0.3.0',
+    dartName: 'BoardVocabulary.definition',
+  );
+}
 
 const _$ActionShape = RecordShape<Action>(
   {

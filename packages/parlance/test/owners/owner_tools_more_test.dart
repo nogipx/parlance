@@ -116,7 +116,7 @@ void main() {
       if (across) {
         final p = await host.join(
           const Principal('lamps'),
-          vocabularies: [lampsWords],
+          vocabularies: [LampsVocabulary.definition],
         );
         await p.attach([lamps]);
       } else {
@@ -200,7 +200,7 @@ void main() {
       if (across) {
         final dial = await host.join(
           const Principal('dial'),
-          vocabularies: [dialWords, rulesWords],
+          vocabularies: [DialVocabulary.definition, RulesVocabulary.definition],
         );
         await dial.attach(owners);
       } else {
