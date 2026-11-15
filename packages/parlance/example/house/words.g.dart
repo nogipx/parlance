@@ -189,7 +189,7 @@ abstract class HouseOwnerBase implements IOwner {
   IFactSayerOf<HouseMotion>? _$motion;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Keyed.attach(light, p.state(HouseState.light).define());
     Single.attach(heat, p.state(HouseState.heat).define());
     Single.attach(mode, p.state(HouseState.mode).define());
@@ -286,12 +286,18 @@ final class HouseMotionFact {
 abstract interface class IHouseClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IHouseClient(IParticipant participant) = _$HouseClient;
+  factory IHouseClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$HouseClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IHouseClient.of(IOwner owner) = _$HouseClient._of;
+  factory IHouseClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$HouseClient._of;
 
   /// house.light, by room: each value, and its changes.
   IKeyedOf<bool> get light;
@@ -365,12 +371,15 @@ abstract interface class IHouseClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$HouseClient implements IHouseClient {
-  _$HouseClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$HouseClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
-  _$HouseClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$HouseClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
@@ -628,7 +637,7 @@ abstract class VisitOwnerBase implements IOwner {
   final Single<List<String>> guests = Single<List<String>>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(guests, p.state(VisitState.guests).define());
     p.command(VisitCommand.leave).serve((x) => leave(who: x.who));
   }
@@ -651,12 +660,18 @@ abstract class VisitOwnerBase implements IOwner {
 abstract interface class IVisitClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IVisitClient(IParticipant participant) = _$VisitClient;
+  factory IVisitClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$VisitClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IVisitClient.of(IOwner owner) = _$VisitClient._of;
+  factory IVisitClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$VisitClient._of;
 
   /// visit.guests: its value now, and its changes.
   IStateOf<List<String>> get guests;
@@ -683,12 +698,15 @@ abstract interface class IVisitClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$VisitClient implements IVisitClient {
-  _$VisitClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$VisitClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
-  _$VisitClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$VisitClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 

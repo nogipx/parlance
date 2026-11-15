@@ -114,7 +114,7 @@ abstract class BoardOwnerBase implements IOwner {
   IFactSayerOf<Note>? _$seen;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Keyed.attach(notes, p.state(BoardState.notes).define());
     Single.attach(anything, p.state(BoardState.anything).define());
     _$seen = p.fact(BoardFact.seen).define();
@@ -167,12 +167,18 @@ final class BoardSeenFact {
 abstract interface class IBoardClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IBoardClient(IParticipant participant) = _$BoardClient;
+  factory IBoardClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$BoardClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBoardClient.of(IOwner owner) = _$BoardClient._of;
+  factory IBoardClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$BoardClient._of;
 
   /// note, by note: each value, and its changes.
   IKeyedOf<Note> get notes;
@@ -225,12 +231,15 @@ abstract interface class IBoardClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BoardClient implements IBoardClient {
-  _$BoardClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$BoardClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
-  _$BoardClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$BoardClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 

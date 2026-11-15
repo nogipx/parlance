@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Breaking: link state/fact/call references require canonical provider/word addresses. Button state and press command addresses include their publishing principal.
+
 ## 0.1.1
 
 - Support parlance 0.2.0.

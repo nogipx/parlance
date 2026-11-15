@@ -14,13 +14,16 @@ void main() {
     final host = Host();
     host.participant(const Principal('clock'), owners: [Bedside()]);
     final me = host.participant(const Principal('user', 'ann'));
-    final clock = IClockClient(me);
+    final clock = IClockClient(
+      participant: me,
+      provider: const Principal('clock'),
+    );
     final at = DateTime.utc(2026, 10, 30, 7);
     await clock.setAlarm(at: at);
     await me.settle();
     expect(clock.alarm.value, at);
-    expect(me.raw.read('clock.alarm'), at.toIso8601String());
-    expect(host.registry.stateDescriptor('clock.alarm')!.type.toJson(), {
+    expect(me.raw.read('clock/clock.alarm'), at.toIso8601String());
+    expect(host.registry.stateDescriptor('clock/clock.alarm')!.type.toJson(), {
       'type': 'datetime',
     });
     await host.dispose();

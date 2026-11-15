@@ -49,7 +49,7 @@ final class _Dial extends DialOwnerBase {
     );
     listen(on: power, onData: (on) => this.on = on);
     whenAttached(
-      (p) => GeneratedWords(p)
+      (p) => GeneratedWords.own(p)
           .state(StateWordOf<int>('dial.$serial', const PlainShape(IntType())))
           .define()
           .set(7),
@@ -124,7 +124,10 @@ void main() {
       }
       await host.settle();
       final ann = host.participant(const Principal('user', 'ann'));
-      final words = GeneratedWords(ann);
+      final words = GeneratedWords(
+        participant: ann,
+        provider: const Principal('lamps'),
+      );
       expect(words.keyedOf(LampsState.lit).keys, {'a', 'b'});
       expect(
         await words.command(LampsCommand.drop).call((bulb: 'b')),
@@ -148,7 +151,8 @@ void main() {
     final heard = <String>[];
     final ann = r.participant(const Principal('user', 'ann'));
     GeneratedWords(
-      ann,
+      participant: ann,
+      provider: const Principal('bell'),
     ).factOf(BellFact.rang).facts.listen((f) => heard.add(f.payload.who));
     expect(bell.ring('e1', 'bob'), isTrue);
     expect(bell.ring('e1', 'bob'), isFalse);
@@ -166,16 +170,23 @@ void main() {
     final admin = r.participant(const Principal('admin'));
 
     expect(
-      await GeneratedWords(ann).command(DialCommand.set).call((to: 3)),
+      await GeneratedWords(
+        participant: ann,
+        provider: const Principal('dial'),
+      ).command(DialCommand.set).call((to: 3)),
       isA<CallDone<void>>(),
     );
     final far = await GeneratedWords(
-      ann,
+      participant: ann,
+      provider: const Principal('dial'),
     ).command(DialCommand.set).call((to: 30));
     expect(far, isA<CallRefused>());
     expect(far.why, contains('too far for user/ann'));
     expect(
-      await GeneratedWords(admin).command(DialCommand.set).call((to: 30)),
+      await GeneratedWords(
+        participant: admin,
+        provider: const Principal('dial'),
+      ).command(DialCommand.set).call((to: 30)),
       isA<CallDone<void>>(),
     );
   });
@@ -199,12 +210,16 @@ void main() {
       final agent = host.participant(const Principal('agent', 'a'));
       final ann = host.participant(const Principal('user', 'ann'));
       final refused = await GeneratedWords(
-        agent,
+        participant: agent,
+        provider: const Principal('dial'),
       ).command(DialCommand.set).call((to: 3));
       expect(refused, isA<CallRefused>(), reason: 'across: $across');
-      expect(refused.why, contains('no agent calls dial.set'));
+      expect(refused.why, contains('no agent calls dial/dial.set'));
       expect(
-        await GeneratedWords(ann).command(DialCommand.set).call((to: 3)),
+        await GeneratedWords(
+          participant: ann,
+          provider: const Principal('dial'),
+        ).command(DialCommand.set).call((to: 3)),
         isA<CallDone<void>>(),
       );
     }
@@ -218,16 +233,29 @@ void main() {
     final ann = r.participant(const Principal('user', 'ann'));
     final seen = <WordStatus>[];
     final sub = GeneratedWords(
-      ann,
+      participant: ann,
+      provider: const Principal('dial'),
     ).statusChanges(DialCommand.set).listen(seen.add);
     await ann.settle();
 
     power.add(false);
     await ann.settle();
-    expect(GeneratedWords(ann).status(DialCommand.set), isA<WordUnavailable>());
+    expect(
+      GeneratedWords(
+        participant: ann,
+        provider: const Principal('dial'),
+      ).status(DialCommand.set),
+      isA<WordUnavailable>(),
+    );
     power.add(true);
     await ann.settle();
-    expect(GeneratedWords(ann).status(DialCommand.set), isA<WordReady>());
+    expect(
+      GeneratedWords(
+        participant: ann,
+        provider: const Principal('dial'),
+      ).status(DialCommand.set),
+      isA<WordReady>(),
+    );
     await sub.cancel();
     expect(seen.whereType<WordUnavailable>(), hasLength(1));
   });
@@ -241,7 +269,8 @@ void main() {
     );
     expect(
       GeneratedWords(
-        p,
+        participant: p,
+        provider: const Principal('dial'),
       ).stateOf(const StateWordOf<int>('dial.x1', PlainShape(IntType()))).value,
       7,
     );

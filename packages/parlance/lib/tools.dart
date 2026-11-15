@@ -12,6 +12,7 @@
 /// remote.md, view.md).
 library;
 
+export 'src/registry/address.dart' show WordAddress;
 export 'src/host.dart' show HostRegistry;
 export 'src/registry/cause.dart' show Principal, Cause, Origin;
 export 'src/registry/compat.dart'

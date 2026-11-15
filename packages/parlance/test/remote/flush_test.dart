@@ -37,7 +37,7 @@ void main() {
   test('a flush ends once what it asked is answered, though each answer '
       'is followed at once by another write', () async {
     final level = p.defineState(
-      StateDescriptor('ga.level', type: const IntType()),
+      StateDescriptor('widlet/a/ga.level', type: const IntType()),
     );
     await p.flush();
     var answered = 0;
@@ -55,6 +55,6 @@ void main() {
     await chain(first, 20);
     await second;
     expect(endedAfter, lessThanOrEqualTo(2), reason: 'not after all 21');
-    expect(r.read('ga.level'), 20);
+    expect(r.read('widlet/a/ga.level'), 20);
   });
 }

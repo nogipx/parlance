@@ -52,7 +52,7 @@ abstract class RoomOwnerBase implements IOwner {
   final Single<bool> lamp = Single<bool>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(heat, p.state(RoomState.heat).define());
     Single.attach(lamp, p.state(RoomState.lamp).define());
     p
@@ -79,12 +79,16 @@ abstract class RoomOwnerBase implements IOwner {
 abstract interface class IRoomClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IRoomClient(IParticipant participant) = _$RoomClient;
+  factory IRoomClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$RoomClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IRoomClient.of(IOwner owner) = _$RoomClient._of;
+  factory IRoomClient.of({required IOwner owner, required Principal provider}) =
+      _$RoomClient._of;
 
   /// room.heat: its value now, and its changes.
   IStateOf<int> get heat;
@@ -114,12 +118,13 @@ abstract interface class IRoomClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$RoomClient implements IRoomClient {
-  _$RoomClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$RoomClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(roomWords.words, from: roomWords.from);
   }
 
-  _$RoomClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$RoomClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(roomWords.words, from: roomWords.from);
   }
 

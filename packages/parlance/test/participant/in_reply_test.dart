@@ -36,55 +36,55 @@ void main() {
           'from the call served', () async {
         final p = await owner();
         final before = p.raw.defineState(
-          StateDescriptor('deck.before', type: const IntType()),
+          StateDescriptor('deck/deck.before', type: const IntType()),
         );
         final after = p.raw.defineState(
-          StateDescriptor('deck.after', type: const IntType()),
+          StateDescriptor('deck/deck.after', type: const IntType()),
         );
         final said = p.raw.defineFact(
-          FactDescriptor('deck.said', type: const IntType()),
+          FactDescriptor('deck/deck.said', type: const IntType()),
         );
         String? innerParent;
         p.raw.defineCommand(
-          CommandDescriptor('deck.inner', callers: Callers.only(['deck'])),
+          CommandDescriptor('deck/deck.inner', callers: Callers.only(['deck'])),
           (c) => innerParent = c.cause.parent,
         );
         p.raw.defineCommand(
-          CommandDescriptor('deck.go', callers: Callers.only(['user'])),
+          CommandDescriptor('deck/deck.go', callers: Callers.only(['user'])),
           (c) async {
             before.set(1);
             await Future<void>.delayed(Duration.zero);
             after.set(2);
             said.say(3);
-            await p.raw.call('deck.inner', {});
+            await p.raw.call('deck/deck.inner', {});
           },
         );
         await settled(p);
         final facts = <FactMessage>[];
-        host.registry.facts(fact: 'deck.said').listen(facts.add);
+        host.registry.facts(fact: 'deck/deck.said').listen(facts.add);
         final r = await host
             .participant(user)
             .raw
-            .call('deck.go', {}, id: 'go1');
+            .call('deck/deck.go', {}, id: 'go1');
         expect(r, isA<CallDone<Object?>>());
         await settled(p);
-        for (final s in ['deck.before', 'deck.after']) {
+        for (final s in ['deck/deck.before', 'deck/deck.after']) {
           final change = host.registry.explain(s).change!;
-          expect(change.cause.parent, 'go1', reason: s);
+          expect(change.cause.parent, 'user#go1', reason: s);
           expect(change.cause.by, deck);
         }
-        expect(facts.single.cause.parent, 'go1');
-        expect(innerParent, 'go1');
+        expect(facts.single.cause.parent, 'user#go1');
+        expect(innerParent, 'user#go1');
       });
 
       test('outside a handler, what it does is its own act', () async {
         final p = await owner();
         final level = p.raw.defineState(
-          StateDescriptor('deck.level', type: const IntType()),
+          StateDescriptor('deck/deck.level', type: const IntType()),
         );
         level.set(1);
         await settled(p);
-        final change = host.registry.explain('deck.level').change!;
+        final change = host.registry.explain('deck/deck.level').change!;
         expect(change.cause.parent, isNull);
         expect(change.cause.by, deck);
       });

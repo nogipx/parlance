@@ -65,7 +65,10 @@ void main() {
       addTearDown(host.dispose);
       final owner = DataOwner();
       host.participant(const Principal('producer'), owners: [owner]);
-      final client = IDataClient(host.participant(const Principal('reader')));
+      final client = IDataClient(
+        participant: host.participant(const Principal('reader')),
+        provider: const Principal('producer'),
+      );
       final started = Completer<void>();
       final source = StreamController<int>(onListen: started.complete);
       owner.source = (_, _) => source.stream;
@@ -119,7 +122,10 @@ void main() {
       final owner = DataOwner()..unavailable = 'sensor offline';
       await producer.attach([owner]);
       await producer.settle();
-      final reader = IDataClient(host.participant(const Principal('reader')));
+      final reader = IDataClient(
+        participant: host.participant(const Principal('reader')),
+        provider: const Principal('producer'),
+      );
       expect(reader.status(DataServerStream.numbers), isA<WordUnavailable>());
       await transports.last.close();
       final deadline = DateTime.now().add(const Duration(seconds: 5));
@@ -209,12 +215,12 @@ void main() {
             )
             .raw;
         final state = source.defineState(
-          StateDescriptor('source.changed', type: const BoolType()),
+          StateDescriptor('source/source.changed', type: const BoolType()),
         );
         state.set(false);
         var started = 0;
         source.defineStream(
-          ServerStreamDescriptor('source.work', type: const IntType()),
+          ServerStreamDescriptor('source/source.work', type: const IntType()),
           (_) {
             started++;
             state.set(true);
@@ -249,13 +255,13 @@ void main() {
         }
         queries.defineQuery(
           QueryDescriptor(
-            'queries.peek',
+            'queries/queries.peek',
             returns: const IntType(),
             askers: Callers.anyone,
           ),
           (_) => queries
               .openStream(
-                'source.work',
+                'source/source.work',
                 const <String, Object?>{},
                 const PlainShape(AnyType()),
                 const PlainShape(IntType()),
@@ -266,10 +272,10 @@ void main() {
         final answer = await host
             .participant(const Principal('reader'))
             .raw
-            .call('queries.peek', {});
+            .call('queries/queries.peek', {});
         expect(answer, isA<CallFailed>());
         expect(started, 0);
-        expect(source.read('source.changed'), false);
+        expect(source.read('source/source.changed'), false);
       },
     );
   }

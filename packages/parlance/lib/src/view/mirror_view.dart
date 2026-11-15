@@ -1,3 +1,5 @@
+import '../registry/address.dart';
+import '../registry/cause.dart';
 // Internal to the library: what these files show is not a promise
 // Documented surface lives in schema.dart and app.dart.
 // ignore_for_file: public_member_api_docs
@@ -38,9 +40,17 @@ final class MirrorView implements IRegistryView {
   /// Each word told once, by fingerprint, and again to a new client; the
   /// states among them kept from now on ([keep]).
   @override
-  void builtAgainst(Iterable<IWord> words, {String? from}) {
-    keep(words);
-    final ops = _built.tell(schemasOf(words), from: from);
+  void builtAgainst(
+    Iterable<IWord> words, {
+    String? from,
+    Principal? provider,
+  }) {
+    keep(words, provider: provider);
+    final ops = _built.tell({
+      for (final w in words)
+        (provider == null ? w.name : WordAddress(provider, w.name).toString()):
+            schemaOfWord(w),
+    }, from: from);
     if (ops.isEmpty) return;
     if (_client case final c?) {
       unawaited(_tell(c, _lost ? _built.standing() : ops));
@@ -86,10 +96,12 @@ final class MirrorView implements IRegistryView {
   /// Keeps the states among [words] from now on, for as long as it lives:
   /// what the code holding them reads (a guard, a handler, a screen's
   /// first frame) reads them, listened to or not, once [settled].
-  void keep(Iterable<IWord> words) {
+  void keep(Iterable<IWord> words, {Principal? provider}) {
     final fresh = {
       for (final w in words.whereType<IStateWord<Object?>>())
-        if (_kept.add(w.name)) w.name,
+        if (provider == null ? w.name : WordAddress(provider, w.name).toString()
+            case final name when _kept.add(name))
+          name,
     };
     if (fresh.isNotEmpty) _want(_states, fresh, 1);
   }

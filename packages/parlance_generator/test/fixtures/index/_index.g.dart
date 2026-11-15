@@ -34,7 +34,7 @@ abstract class DoorsOwnerBase implements IOwner {
   final Keyed<Room> room = Keyed<Room>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Keyed.attach(room, p.state(DoorsState.room).define());
   }
 
@@ -53,12 +53,18 @@ abstract class DoorsOwnerBase implements IOwner {
 abstract interface class IDoorsClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IDoorsClient(IParticipant participant) = _$DoorsClient;
+  factory IDoorsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$DoorsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDoorsClient.of(IOwner owner) = _$DoorsClient._of;
+  factory IDoorsClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$DoorsClient._of;
 
   /// door.room, by door: each value, and its changes.
   IKeyedOf<Room> get room;
@@ -81,12 +87,15 @@ abstract interface class IDoorsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DoorsClient implements IDoorsClient {
-  _$DoorsClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$DoorsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
-  _$DoorsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$DoorsClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
@@ -174,7 +183,7 @@ abstract class LightsOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     p.command(LightsCommand.on).serve((x) => on(room: x.room));
   }
 
@@ -195,12 +204,18 @@ abstract class LightsOwnerBase implements IOwner {
 abstract interface class ILightsClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory ILightsClient(IParticipant participant) = _$LightsClient;
+  factory ILightsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$LightsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ILightsClient.of(IOwner owner) = _$LightsClient._of;
+  factory ILightsClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$LightsClient._of;
 
   /// Calls light.on; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
@@ -224,12 +239,15 @@ abstract interface class ILightsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$LightsClient implements ILightsClient {
-  _$LightsClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$LightsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 
-  _$LightsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$LightsClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 

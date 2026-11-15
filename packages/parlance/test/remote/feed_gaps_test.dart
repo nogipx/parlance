@@ -26,7 +26,7 @@ void main() {
         .participant(house, vocabularies: [WordSet.open('house')])
         .defineFact(
           FactDescriptor(
-            'house.rang',
+            'house/house.rang',
             type: const IntType(),
             readers: Callers.anyone,
           ),
@@ -67,7 +67,7 @@ void main() {
 
   test('a fact said right after it listens and settles is heard', () async {
     final heard = <Object?>[];
-    p.facts('house.rang').listen((f) => heard.add(f.payload));
+    p.facts('house/house.rang').listen((f) => heard.add(f.payload));
     await p.settle();
     rang.say(1);
     await until(() => heard.isNotEmpty);
@@ -77,7 +77,7 @@ void main() {
   test('facts said while it was away, past what the host retains, are '
       'told lost', () async {
     final heard = <Object?>[];
-    p.facts('house.rang').listen((f) => heard.add(f.payload));
+    p.facts('house/house.rang').listen((f) => heard.add(f.payload));
     await p.settle();
     await hosts.last.close();
     for (var i = 1; i <= 10; i++) {

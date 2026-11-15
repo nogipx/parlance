@@ -31,7 +31,7 @@ void main() {
         'answers null for it', () async {
       final own = host.participant(shop, vocabularies: [WordSet.open('shop')]);
       final stockOf = own.raw.defineState(
-        StateDescriptor('shop.stock', type: const AnyType(), key: 'item'),
+        StateDescriptor('shop/shop.stock', type: const AnyType(), key: 'item'),
       );
       stockOf.set({'n': 1}, key: 'a');
       stockOf.set('oops', key: 'b');
@@ -39,7 +39,8 @@ void main() {
           ? await host.join(reader)
           : host.participant(reader);
       final keyed = GeneratedWords(
-        p,
+        participant: p,
+        provider: shop,
       ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
       final seen = <Map<String, Stock>>[];
       final sub = keyed.changes.listen(seen.add);
@@ -61,14 +62,15 @@ void main() {
         'answers null for both', () async {
       final own = host.participant(shop, vocabularies: [WordSet.open('shop')]);
       final stockOf = own.raw.defineState(
-        StateDescriptor('shop.stock', type: const AnyType(), key: 'item'),
+        StateDescriptor('shop/shop.stock', type: const AnyType(), key: 'item'),
       );
       stockOf.set(null, key: 'a');
       final IParticipant p = across
           ? await host.join(reader)
           : host.participant(reader);
       final keyed = GeneratedWords(
-        p,
+        participant: p,
+        provider: shop,
       ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
       final sub = keyed.changes.listen((_) {});
       await p.settle();
@@ -87,13 +89,14 @@ void main() {
     final own = host.participant(shop, vocabularies: [WordSet.open('shop')]);
     // Kept as it is, the handle takes the value itself.
     final when = own.raw.defineState(
-      StateDescriptor('shop.when', type: at.type, key: 'item'),
+      StateDescriptor('shop/shop.when', type: at.type, key: 'item'),
       shape: at,
     );
     final kept = DateTime.utc(2020);
     when.set(kept, key: 'a');
     final keyed = GeneratedWords(
-      host.participant(reader),
+      participant: host.participant(reader),
+      provider: shop,
     ).keyedOf(const StateWordOf<DateTime>('shop.when', at, key: 'item'));
     expect(keyed.of('a'), same(kept));
     expect(keyed.all['a'], same(kept));
@@ -102,12 +105,13 @@ void main() {
   test('changesOf tells one key alone', () async {
     final own = host.participant(shop, vocabularies: [WordSet.open('shop')]);
     final stockOf = own.raw.defineState(
-      StateDescriptor('shop.stock', type: const AnyType(), key: 'item'),
+      StateDescriptor('shop/shop.stock', type: const AnyType(), key: 'item'),
     );
     stockOf.set({'n': 1}, key: 'a');
     stockOf.set({'n': 1}, key: 'b');
     final keyed = GeneratedWords(
-      host.participant(reader),
+      participant: host.participant(reader),
+      provider: shop,
     ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
     final seen = <int>[];
     final sub = keyed.changesOf('a').listen((s) => seen.add(s!.n));

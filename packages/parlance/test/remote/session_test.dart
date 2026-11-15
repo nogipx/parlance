@@ -46,19 +46,19 @@ void main() {
     final host = TestHost();
     addTearDown(host.dispose);
     final seen = <Object?>[];
-    host.registry.watch('plug.level').listen(seen.add);
+    host.registry.watch('plugin/p/plug.level').listen(seen.add);
     final p = await host.join(
       plugin,
       vocabularies: [const WordSet.open('plug')],
     );
     final other = await host.join(visitor);
     final h = p.raw.defineState(
-      StateDescriptor('plug.level', type: const IntType()),
+      StateDescriptor('plugin/p/plug.level', type: const IntType()),
     );
     h.set(5);
     await host.settle();
     final there = <Object?>[];
-    other.raw.watch('plug.level').listen(there.add);
+    other.raw.watch('plugin/p/plug.level').listen(there.add);
     await host.settle();
 
     h.dispose();
@@ -66,7 +66,7 @@ void main() {
 
     expect(seen, [null, 5, null]);
     expect(there.last, isNull);
-    expect(other.raw.read('plug.level'), isNull);
+    expect(other.raw.read('plugin/p/plug.level'), isNull);
   });
 
   test(
@@ -81,7 +81,7 @@ void main() {
               'op': 'define',
               'descriptor': {
                 'is': 'state',
-                'name': 'plug.v',
+                'name': 'plugin/p/plug.v',
                 'type': {'type': 'int'},
               },
             },
@@ -91,9 +91,9 @@ void main() {
       final answer = await s.onApply(
         const WireJson({
           'ops': [
-            {'op': 'set', 'state': 'plug.v', 'value': 1},
+            {'op': 'set', 'state': 'plugin/p/plug.v', 'value': 1},
             {'op': 'unknown'},
-            {'op': 'set', 'state': 'plug.v', 'value': 2, 'as': 7},
+            {'op': 'set', 'state': 'plugin/p/plug.v', 'value': 2, 'as': 7},
           ],
         }),
       );
@@ -101,7 +101,7 @@ void main() {
       expect(results[0], isEmpty);
       expect((results[1] as Map)['error'], 'invalidArgument');
       expect((results[2] as Map)['error'], 'invalidArgument');
-      expect(r.read('plug.v'), 1);
+      expect(r.read('plugin/p/plug.v'), 1);
       s.dispose();
     },
   );
@@ -119,7 +119,7 @@ void main() {
             'op': 'define',
             'descriptor': {
               'is': 'state',
-              'name': 'plug.v',
+              'name': 'plugin/p/plug.v',
               'type': {'type': 'int'},
             },
             'as': a,
@@ -130,9 +130,9 @@ void main() {
     final answer = await s.onApply(
       WireJson({
         'ops': [
-          {'op': 'set', 'state': 'plug.v', 'value': 1, 'as': b},
-          {'op': 'undefine', 'name': 'plug.v', 'as': b},
-          {'op': 'set', 'state': 'plug.v', 'value': 2, 'as': a},
+          {'op': 'set', 'state': 'plugin/p/plug.v', 'value': 1, 'as': b},
+          {'op': 'undefine', 'name': 'plugin/p/plug.v', 'as': b},
+          {'op': 'set', 'state': 'plugin/p/plug.v', 'value': 2, 'as': a},
         ],
       }),
     );
@@ -140,7 +140,7 @@ void main() {
     expect((results[0] as Map)['error'], 'permissionDenied');
     expect((results[1] as Map)['error'], 'permissionDenied');
     expect(results[2], isEmpty);
-    expect(r.read('plug.v'), 2);
+    expect(r.read('plugin/p/plug.v'), 2);
     s.dispose();
   });
 
@@ -257,7 +257,7 @@ void main() {
       vocabularies: [const WordSet.open('plug')],
     );
     fresh
-        .defineState(StateDescriptor('plug.x', type: const IntType()))
+        .defineState(StateDescriptor('plugin/p/plug.x', type: const IntType()))
         .dispose();
     fresh.addGuard('g', (_) => null).dispose();
     final (_, t) = RpcChannelTransport.memoryPair();

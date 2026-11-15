@@ -42,8 +42,16 @@ final class Board {
 /// with every break, to [onError], and in development the developer log.
 Future<(IRemoteParticipant, Board)> startBoard(
   RpcPeerEndpoint endpoint, {
+  required Principal appProvider,
+  required Principal notesProvider,
   void Function(ParticipantError error)? onError,
 }) async {
   final p = await Host.joinEndpoint(endpoint, onParticipantError: onError);
-  return (p, Board(IAppClient(p), INotesClient(p)));
+  return (
+    p,
+    Board(
+      IAppClient(participant: p, provider: appProvider),
+      INotesClient(participant: p, provider: notesProvider),
+    ),
+  );
 }

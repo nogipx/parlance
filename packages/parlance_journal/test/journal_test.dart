@@ -26,33 +26,40 @@ final class House {
         )
         .raw;
     final line = p.defineFact(
-      FactDescriptor('intercom.line', type: const TextType()),
+      FactDescriptor('house/intercom.line', type: const TextType()),
     );
     final last = p.defineState(
-      StateDescriptor('clip.last', type: const TextType()),
+      StateDescriptor('house/clip.last', type: const TextType()),
     );
     p.defineCommand(
-      CommandDescriptor('intercom.say', callers: Callers.only(['visitor'])),
+      CommandDescriptor(
+        'house/intercom.say',
+        callers: Callers.only(['visitor']),
+      ),
       (c) => line.say('!clip', cause: c.causeFor(house)),
     );
     p.defineCommand(
       CommandDescriptor(
-        'clip.save',
+        'house/clip.save',
         params: const RecordType({'len': Field(IntType())}),
         callers: Callers.only(['plugin']),
       ),
       (c) => last.set('clip-${c.params['len']}', cause: c.causeFor(house)),
     );
     p.defineCommand(
-      CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
+      CommandDescriptor('house/clip.cover', callers: Callers.only(['user'])),
       (_) {},
     );
     final plugin = host.participant(basics).raw;
-    plugin.facts('intercom.line').listen((f) async {
-      await plugin.call('clip.save', {
+    plugin.facts('house/intercom.line').listen((f) async {
+      await plugin.call('house/clip.save', {
         'len': 90,
       }, cause: Cause(basics, parent: f.id));
-      await plugin.call('clip.cover', {}, cause: Cause(basics, parent: f.id));
+      await plugin.call(
+        'house/clip.cover',
+        {},
+        cause: Cause(basics, parent: f.id),
+      );
     });
     last.set('none');
   }
@@ -61,7 +68,7 @@ final class House {
   Registry get r => host.registry;
 
   Future<void> intercom(String id) async {
-    await host.participant(visitor).raw.call('intercom.say', {}, id: id);
+    await host.participant(visitor).raw.call('house/intercom.say', {}, id: id);
     await pumpEventQueue();
   }
 }
@@ -80,7 +87,7 @@ void main() {
     await w.close();
     await s.r.dispose();
 
-    final talk = JournalReader(dir).conversation('irc:1');
+    final talk = JournalReader(dir).conversation('visitor/gate.7#irc:1');
     String line(JournalEntry e) => switch (e) {
       JournalStart(:final call) => 'start ${call.command} ${call.cause.by}',
       JournalEnd(:final call) =>
@@ -89,13 +96,13 @@ void main() {
       JournalWrite(:final change) => 'write ${change.state}=${change.value}',
     };
     expect(talk.map(line), [
-      'start intercom.say visitor/gate.7',
-      'fact intercom.line',
-      'end intercom.say done',
-      'start clip.save plugin/basics',
-      'write clip.last=clip-90',
-      'end clip.save done',
-      'end clip.cover refused',
+      'start house/intercom.say visitor/gate.7',
+      'fact house/intercom.line',
+      'end house/intercom.say done',
+      'start house/clip.save plugin/basics',
+      'write house/clip.last=clip-90',
+      'end house/clip.save done',
+      'end house/clip.cover refused',
     ]);
     expect(
       talk.map((e) => e.n),
@@ -111,17 +118,31 @@ void main() {
     await s.intercom('irc:2');
     await w.close();
     await s.r.dispose();
-    final led = JournalReader(dir).startedWith('intercom.say', by: visitor);
-    expect({for (final e in led) e.conversation}, {'irc:1', 'irc:2'});
+    final led = JournalReader(
+      dir,
+    ).startedWith('house/intercom.say', by: visitor);
+    expect(
+      {for (final e in led) e.conversation},
+      {'visitor/gate.7#irc:1', 'visitor/gate.7#irc:2'},
+    );
     expect(
       {for (final e in led) e.word},
-      {'intercom.say', 'intercom.line', 'clip.save', 'clip.last', 'clip.cover'},
+      {
+        'house/intercom.say',
+        'house/intercom.line',
+        'house/clip.save',
+        'house/clip.last',
+        'house/clip.cover',
+      },
     );
     expect(
       {for (final e in led) e.origin},
-      {const Origin('intercom.say', visitor)},
+      {const Origin('house/intercom.say', visitor)},
     );
-    expect(JournalReader(dir).startedWith('intercom.say', by: user), isEmpty);
+    expect(
+      JournalReader(dir).startedWith('house/intercom.say', by: user),
+      isEmpty,
+    );
   });
 
   test('from any message: the conversation it was in, and how it came '
@@ -133,24 +154,27 @@ void main() {
     await w.close();
     await s.r.dispose();
     final reader = JournalReader(dir);
-    final write = reader.conversation('irc:1').whereType<JournalWrite>().single;
+    final write = reader
+        .conversation('visitor/gate.7#irc:1')
+        .whereType<JournalWrite>()
+        .single;
     final talk = reader.of(write.id);
-    expect({for (final e in talk) e.conversation}, {'irc:1'});
+    expect({for (final e in talk) e.conversation}, {'visitor/gate.7#irc:1'});
     expect(talk, hasLength(7));
     expect(reader.pathTo(write.id).map((e) => '${e.kind} ${e.word}'), [
-      'start intercom.say',
-      'fact intercom.line',
-      'start clip.save',
-      'write clip.last',
+      'start house/intercom.say',
+      'fact house/intercom.line',
+      'start house/clip.save',
+      'write house/clip.last',
     ]);
     final refused = reader
-        .conversation('irc:2')
+        .conversation('visitor/gate.7#irc:2')
         .whereType<JournalEnd>()
         .singleWhere((e) => e.call.result is CallRefused);
     expect(reader.pathTo(refused.id).map((e) => '${e.kind} ${e.word}'), [
-      'start intercom.say',
-      'fact intercom.line',
-      'end clip.cover',
+      'start house/intercom.say',
+      'fact house/intercom.line',
+      'end house/clip.cover',
     ]);
     expect(reader.of('nothing'), isEmpty);
     expect(reader.pathTo('nothing'), isEmpty);
@@ -168,15 +192,15 @@ void main() {
           '${n.end == null ? '' : ' -> ${n.end!.call.result.toJson().keys.first}'}',
       for (final c in n.children) draw(c, '$indent  '),
     ].join('\n');
-    final roots = JournalReader(dir).tree('irc:1');
+    final roots = JournalReader(dir).tree('visitor/gate.7#irc:1');
     expect(roots.map(draw).join('\n'), '''
-call intercom.say by visitor/gate.7 -> done
-  fact intercom.line by house
-    call clip.save by plugin/basics -> done
-      write clip.last by house
-    call clip.cover by plugin/basics -> refused''');
+call house/intercom.say by visitor/gate.7 -> done
+  fact house/intercom.line by house
+    call house/clip.save by plugin/basics -> done
+      write house/clip.last by house
+    call house/clip.cover by plugin/basics -> refused''');
     final json = roots.single.toJson();
-    expect(json, containsPair('word', 'intercom.say'));
+    expect(json, containsPair('word', 'house/intercom.say'));
     expect(json, containsPair('result', {'done': true}));
     expect(json['ms'], isA<int>());
     final saved =
@@ -199,9 +223,11 @@ call intercom.say by visitor/gate.7 -> done
     final p = host
         .participant(house, vocabularies: [const WordSet.open('x')])
         .raw;
-    final said = p.defineFact(FactDescriptor('x.said', type: const TextType()));
+    final said = p.defineFact(
+      FactDescriptor('house/x.said', type: const TextType()),
+    );
     p.defineCommand(
-      CommandDescriptor('x.do', callers: Callers.only(['user'])),
+      CommandDescriptor('house/x.do', callers: Callers.only(['user'])),
       (_) {},
     );
     final w = JournalWriter(r.journal, dir: dir);
@@ -212,17 +238,20 @@ call intercom.say by visitor/gate.7 -> done
         .participant(user)
         .raw
         .call(
-          'x.do',
+          'house/x.do',
           {},
-          cause: const Cause(user, parent: 'f1', conversation: 'other'),
+          cause: const Cause(
+            user,
+            parent: 'house/x.said#f1',
+            conversation: 'other',
+          ),
         );
     await w.close();
     await host.dispose();
-    expect(JournalReader(dir).conversation('f1').map((e) => e.kind), [
-      'fact',
-      'start',
-      'end',
-    ]);
+    expect(
+      JournalReader(dir).conversation('house/x.said#f1').map((e) => e.kind),
+      ['fact', 'start', 'end'],
+    );
   });
 
   test('without payloads it keeps who did what and how it ended, no '
@@ -236,10 +265,10 @@ call intercom.say by visitor/gate.7 -> done
     expect(text, isNot(contains('clip-90')));
     expect(text, isNot(contains('!clip')));
     expect(text, isNot(contains('"len"')));
-    final talk = JournalReader(dir).conversation('irc:1');
+    final talk = JournalReader(dir).conversation('visitor/gate.7#irc:1');
     expect(talk, hasLength(7));
     final save = talk.whereType<JournalStart>().last.call;
-    expect(save.command, 'clip.save');
+    expect(save.command, 'house/clip.save');
     expect(save.params, isEmpty);
   });
 
@@ -254,10 +283,10 @@ call intercom.say by visitor/gate.7 -> done
     expect(
       JournalReader(dir).links().map((l) => '$l'),
       unorderedEquals([
-        '- -> visitor/gate.7 -> intercom.say x2',
-        'intercom.say -> house -> intercom.line x2',
-        'intercom.line -> plugin/basics -> clip.save x2',
-        'intercom.line -> plugin/basics -> clip.cover x0 (refused x2)',
+        '- -> visitor/gate.7 -> house/intercom.say x2',
+        'house/intercom.say -> house -> house/intercom.line x2',
+        'house/intercom.line -> plugin/basics -> house/clip.save x2',
+        'house/intercom.line -> plugin/basics -> house/clip.cover x0 (refused x2)',
       ]),
     );
   });
@@ -273,14 +302,14 @@ call intercom.say by visitor/gate.7 -> done
     await s.intercom('irc:1');
     await w.close();
     await s.r.dispose();
-    final save = spans.singleWhere((s) => s.name == 'clip.save');
-    expect(save.data, containsPair('conversation', 'irc:1'));
+    final save = spans.singleWhere((s) => s.name == 'house/clip.save');
+    expect(save.data, containsPair('conversation', 'visitor/gate.7#irc:1'));
     final traced = JournalReader(dir).trace(save.traceId!);
     expect(
       traced.map((e) => e.kind),
       containsAllInOrder(['start', 'write', 'end']),
     );
-    expect({for (final e in traced) e.conversation}, {'irc:1'});
+    expect({for (final e in traced) e.conversation}, {'visitor/gate.7#irc:1'});
     logs.dispose();
   });
 
@@ -301,7 +330,7 @@ call intercom.say by visitor/gate.7 -> done
     final talks = {
       for (final e in JournalReader(dir).entries()) e.conversation,
     };
-    expect(talks, {'irc:2'});
+    expect(talks, {'visitor/gate.7#irc:2'});
   });
 
   test('the same questions of lines read anywhere, in a browser too; each '
@@ -315,12 +344,15 @@ call intercom.say by visitor/gate.7 -> done
     final text = JournalReader(dir).files.single.readAsStringSync();
     final j = Journal.parse('$text{"cut sh');
     expect(j.entries, hasLength(JournalReader(dir).entries().length));
-    expect(j.conversation('irc:1'), hasLength(7));
-    expect(j.tree('irc:1').single.word, 'intercom.say');
+    expect(j.conversation('visitor/gate.7#irc:1'), hasLength(7));
+    expect(j.tree('visitor/gate.7#irc:1').single.word, 'house/intercom.say');
     final talks = j.conversations();
-    expect(talks.map((c) => c.id), ['irc:1', 'irc:2']);
+    expect(talks.map((c) => c.id), [
+      'visitor/gate.7#irc:1',
+      'visitor/gate.7#irc:2',
+    ]);
     final first = talks.first;
-    expect(first.origin, const Origin('intercom.say', visitor));
+    expect(first.origin, const Origin('house/intercom.say', visitor));
     expect(
       (first.entries, first.calls, first.refused, first.failed),
       (7, 3, 1, 0),
@@ -348,7 +380,9 @@ call intercom.say by visitor/gate.7 -> done
     final n = await JournalReader(dir).export(out, since: day);
     expect(n, 7);
     expect(
-      Journal.parse(out.readAsStringSync()).conversation('irc:1'),
+      Journal.parse(
+        out.readAsStringSync(),
+      ).conversation('visitor/gate.7#irc:1'),
       hasLength(7),
     );
     expect(await JournalReader(dir).export(out), 8, reason: 'all days');
@@ -377,7 +411,10 @@ call intercom.say by visitor/gate.7 -> done
     expect(names.first, 'journal-2026-10-27.jsonl');
     expect(names, contains('notes.txt'));
     expect(names, isNot(contains('journal-2026-01-01.jsonl')));
-    expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+    expect(
+      JournalReader(dir).conversation('visitor/gate.7#irc:1'),
+      hasLength(7),
+    );
   });
   test('an entry after a line cut short is a line of its own', () async {
     final today = File(
@@ -388,7 +425,10 @@ call intercom.say by visitor/gate.7 -> done
     await s.intercom('irc:1');
     await w.close();
     await s.r.dispose();
-    expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+    expect(
+      JournalReader(dir).conversation('visitor/gate.7#irc:1'),
+      hasLength(7),
+    );
     expect(today.readAsLinesSync().first, '{"epo');
   });
 
@@ -400,7 +440,10 @@ call intercom.say by visitor/gate.7 -> done
     await s.r.dispose();
     final day = JournalReader(dir).files.single;
     day.writeAsBytesSync([...'{"x":"'.codeUnits, 0xD0], mode: FileMode.append);
-    expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+    expect(
+      JournalReader(dir).conversation('visitor/gate.7#irc:1'),
+      hasLength(7),
+    );
     final out = File('${dir.path}/out.jsonl');
     expect(await JournalReader(dir).export(out), 8);
   });
@@ -413,7 +456,10 @@ call intercom.say by visitor/gate.7 -> done
         .participant(house, vocabularies: [const WordSet.open('clip')])
         .raw
         .defineCommand(
-          CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
+          CommandDescriptor(
+            'house/clip.cover',
+            callers: Callers.only(['user']),
+          ),
           (_) {},
         );
     final errors = <Object>[];
@@ -423,7 +469,7 @@ call intercom.say by visitor/gate.7 -> done
       onError: (e, _) => errors.add(e),
     );
     Future<void> cover(String id) async {
-      await host.participant(user).raw.call('clip.cover', {}, id: id);
+      await host.participant(user).raw.call('house/clip.cover', {}, id: id);
       await pumpEventQueue();
     }
 
@@ -441,7 +487,7 @@ call intercom.say by visitor/gate.7 -> done
     expect(errors, hasLength(failed), reason: 'it came back');
     expect(
       {for (final e in JournalReader(dir).days().entries) e.id},
-      {'a', 'c'},
+      {'user/local#a', 'user/local#c'},
     );
   });
   group('when the disk fails', () {
@@ -463,9 +509,9 @@ call intercom.say by visitor/gate.7 -> done
         await w.close();
         await s.r.dispose();
         final read = JournalReader(dir);
-        expect(read.conversation('irc:1'), isEmpty);
+        expect(read.conversation('visitor/gate.7#irc:1'), isEmpty);
         expect(
-          read.conversation('irc:2'),
+          read.conversation('visitor/gate.7#irc:2'),
           hasLength(6),
           reason: 'no write: the clip is as it was',
         );
@@ -480,7 +526,10 @@ call intercom.say by visitor/gate.7 -> done
       await s.intercom('irc:2');
       await w.close();
       await s.r.dispose();
-      expect(JournalReader(dir).conversation('irc:2'), hasLength(6));
+      expect(
+        JournalReader(dir).conversation('visitor/gate.7#irc:2'),
+        hasLength(6),
+      );
     });
 
     test(
@@ -494,7 +543,10 @@ call intercom.say by visitor/gate.7 -> done
         File(
           '${dir.path}/journal-2000-01-01.jsonl',
         ).writeAsBytesSync([0, 1, 2, 0xff, 10, ...'{"a":1}\n'.codeUnits, 0xc3]);
-        expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+        expect(
+          JournalReader(dir).conversation('visitor/gate.7#irc:1'),
+          hasLength(7),
+        );
         expect(JournalReader(dir).entries(), hasLength(7));
       },
     );
@@ -509,7 +561,10 @@ call intercom.say by visitor/gate.7 -> done
         ..writeAsStringSync('{}\n');
       Process.runSync('chmod', ['000', locked.path]);
       addTearDown(() => Process.runSync('chmod', ['600', locked.path]));
-      expect(JournalReader(dir).conversation('irc:1'), hasLength(7));
+      expect(
+        JournalReader(dir).conversation('visitor/gate.7#irc:1'),
+        hasLength(7),
+      );
       final out = File('${dir.path}/out.jsonl');
       expect(await JournalReader(dir).export(out), 7);
     });
@@ -523,16 +578,15 @@ call intercom.say by visitor/gate.7 -> done
         .participant(house, vocabularies: [const WordSet.open('x')])
         .raw
         .defineCommand(
-          CommandDescriptor('x.slow', callers: Callers.only(['user'])),
+          CommandDescriptor('house/x.slow', callers: Callers.only(['user'])),
           (_) {},
         );
     final w = JournalWriter(r.journal, dir: dir);
     final token = CancellationToken();
-    final call = host.participant(user).raw.call(
-      'x.slow',
-      const {},
-      cancel: token,
-    );
+    final call = host
+        .participant(user)
+        .raw
+        .call('house/x.slow', const {}, cancel: token);
     token.cancel();
     await call;
     await pumpEventQueue();
@@ -560,27 +614,29 @@ call intercom.say by visitor/gate.7 -> done
     expect((lost.calls, lost.failed), (1, 0));
   });
 
-  test('a line of a kind this build does not know is skipped, and told',
-      () async {
-    final s = House();
-    final w = JournalWriter(s.r.journal, dir: dir);
-    await s.intercom('irc:1');
-    await w.close();
-    await s.r.dispose();
-    final today = JournalReader(dir).files.last;
-    today.writeAsStringSync(
-      '{"epoch":"e","n":99,"kind":"wave","what":1}\n',
-      mode: FileMode.append,
-    );
-    final told = <String>[];
-    final read = JournalReader(dir, onUnknown: (kind, _) => told.add(kind));
-    expect(read.conversation('irc:1'), hasLength(7));
-    expect(told, ['wave']);
-    final j = Journal.parse(
-      today.readAsStringSync(),
-      onUnknown: (kind, _) => told.add(kind),
-    );
-    expect(j.entries, hasLength(7));
-    expect(told, ['wave', 'wave'], reason: 'every one, to the callback');
-  });
+  test(
+    'a line of a kind this build does not know is skipped, and told',
+    () async {
+      final s = House();
+      final w = JournalWriter(s.r.journal, dir: dir);
+      await s.intercom('irc:1');
+      await w.close();
+      await s.r.dispose();
+      final today = JournalReader(dir).files.last;
+      today.writeAsStringSync(
+        '{"epoch":"e","n":99,"kind":"wave","what":1}\n',
+        mode: FileMode.append,
+      );
+      final told = <String>[];
+      final read = JournalReader(dir, onUnknown: (kind, _) => told.add(kind));
+      expect(read.conversation('visitor/gate.7#irc:1'), hasLength(7));
+      expect(told, ['wave']);
+      final j = Journal.parse(
+        today.readAsStringSync(),
+        onUnknown: (kind, _) => told.add(kind),
+      );
+      expect(j.entries, hasLength(7));
+      expect(told, ['wave', 'wave'], reason: 'every one, to the callback');
+    },
+  );
 }

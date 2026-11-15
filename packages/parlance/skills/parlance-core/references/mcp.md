@@ -34,3 +34,12 @@ The session asks for the tools once and again after `toolsChanged()` (or when as
 
 **A host's own tools.** `McpTool.typed(name:, description:, params: RecordShape<P>, run:)` derives the tool's JSON Schema from the shape (§18): field types, `description`s, defaults, `oneOf` for a `UnionShape` with each variant's description, `additionalProperties: false`. `run` gets the arguments checked and typed; what does not pass is the agent's error, by path (`ops.2.frame: missing`). The description says only what a schema cannot: one undo step, how refs work. `jsonSchema(type)` is the same conversion on its own.
 
+
+### Provider addressing
+
+`providers` lists actual instances by optional `vocabulary` or `word` name.
+`describe` includes `provider` and portable `word` alongside each full `name`.
+Curated `call`, `read`, `recent_facts` and `why` consume that full name verbatim.
+There is no implicit provider selection. Optional command tool names use an
+injective base64url encoding of the full address, prefixed by `p_`; addresses
+that exceed MCP's name length stay accessible through the curated `call` tool.

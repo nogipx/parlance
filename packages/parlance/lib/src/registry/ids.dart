@@ -1,3 +1,4 @@
+import 'address.dart';
 import 'dart:math';
 
 /// A plain source: an id must be unique, not secret. `Random.secure()`
@@ -76,6 +77,10 @@ final RegExp _version = RegExp(r'^v(\d+)$');
 /// has one name for it, never two spellings; and a version is only ever
 /// the last word, so `orders.v2.cancel` is not read as a version.
 void checkWordName(String name, [String what = 'name']) {
+  if (name.contains('/')) {
+    WordAddress.parse(name);
+    return;
+  }
   checkName(name, what);
   final words = name.split('.');
   for (final w in words.take(words.length - 1)) {

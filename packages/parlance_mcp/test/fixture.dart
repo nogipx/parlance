@@ -12,16 +12,16 @@ const owner = Principal('host', 'house');
 base class Fixture {
   Fixture() : host = Host(onError: _rethrow) {
     focus = r.defineState(
-      StateDescriptor('house.focus', type: const TextType()),
+      StateDescriptor('host/house/house.focus', type: const TextType()),
       by: owner,
     );
     locked = r.defineState(
-      StateDescriptor('door.locked', type: const BoolType()),
+      StateDescriptor('host/house/door.locked', type: const BoolType()),
       by: owner,
     );
     chime = r.defineState(
       StateDescriptor(
-        'door.chime',
+        'host/house/door.chime',
         type: const NumType(min: -60, max: 12),
         key: 'input',
       ),
@@ -29,7 +29,7 @@ base class Fixture {
     );
     r.defineCommand(
       CommandDescriptor(
-        'house.show',
+        'host/house/house.show',
         params: const RecordType({'room': Field(TextType())}),
         callers: const Callers({
           'user': Access.allow,
@@ -47,7 +47,7 @@ base class Fixture {
     );
     r.defineCommand(
       CommandDescriptor(
-        'door.lock',
+        'host/house/door.lock',
         params: const RecordType({'on': Field(BoolType())}),
         callers: Callers.only(['user', 'agent', 'system']),
       ),
@@ -58,7 +58,7 @@ base class Fixture {
     );
     r.defineCommand(
       CommandDescriptor(
-        'door.chime.set',
+        'host/house/door.chime.set',
         params: const RecordType({
           'input': Field(TextType()),
           'db': Field(NumType(min: -60, max: 12), defaultValue: 0),

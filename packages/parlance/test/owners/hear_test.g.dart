@@ -38,7 +38,7 @@ abstract class DoorOwnerBase implements IOwner {
   IFactSayerOf<DoorRang>? _$rang;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     _$rang = p.fact(DoorFact.rang).define();
   }
 
@@ -70,12 +70,16 @@ final class DoorRangFact {
 abstract interface class IDoorClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IDoorClient(IParticipant participant) = _$DoorClient;
+  factory IDoorClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$DoorClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDoorClient.of(IOwner owner) = _$DoorClient._of;
+  factory IDoorClient.of({required IOwner owner, required Principal provider}) =
+      _$DoorClient._of;
 
   /// door.rang: what it says from now on, and its messages.
   IFactOf<DoorRang> get rang;
@@ -98,12 +102,13 @@ abstract interface class IDoorClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DoorClient implements IDoorClient {
-  _$DoorClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$DoorClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(doorWords.words, from: doorWords.from);
   }
 
-  _$DoorClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$DoorClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(doorWords.words, from: doorWords.from);
   }
 
@@ -169,7 +174,7 @@ abstract class BookOwnerBase implements IOwner {
   final Single<String> last = Single<String>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(last, p.state(BookState.last).define());
   }
 
@@ -188,12 +193,16 @@ abstract class BookOwnerBase implements IOwner {
 abstract interface class IBookClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IBookClient(IParticipant participant) = _$BookClient;
+  factory IBookClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$BookClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBookClient.of(IOwner owner) = _$BookClient._of;
+  factory IBookClient.of({required IOwner owner, required Principal provider}) =
+      _$BookClient._of;
 
   /// book.last: its value now, and its changes.
   IStateOf<String> get last;
@@ -216,12 +225,13 @@ abstract interface class IBookClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BookClient implements IBookClient {
-  _$BookClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$BookClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(bookWords.words, from: bookWords.from);
   }
 
-  _$BookClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$BookClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(bookWords.words, from: bookWords.from);
   }
 

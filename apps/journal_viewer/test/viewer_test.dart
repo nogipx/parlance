@@ -25,31 +25,39 @@ Future<String> journalLines() async {
       )
       .raw;
   final line = p.defineFact(
-    FactDescriptor('chat.line', type: const TextType()),
+    FactDescriptor('studio/chat.line', type: const TextType()),
   );
   final last = p.defineState(
-    StateDescriptor('clip.last', type: const TextType()),
+    StateDescriptor('studio/clip.last', type: const TextType()),
   );
   p.defineCommand(
-    CommandDescriptor('chat.say', callers: Callers.only(['viewer'])),
+    CommandDescriptor('studio/chat.say', callers: Callers.only(['viewer'])),
     (c) => line.say('!clip', cause: c.causeFor(studio)),
   );
   var n = 0;
   p.defineCommand(
-    CommandDescriptor('clip.save', callers: Callers.only(['plugin'])),
+    CommandDescriptor('studio/clip.save', callers: Callers.only(['plugin'])),
     (c) => last.set('clip-${++n}', cause: c.causeFor(studio)),
   );
   p.defineCommand(
-    CommandDescriptor('clip.cover', callers: Callers.only(['user'])),
+    CommandDescriptor('studio/clip.cover', callers: Callers.only(['user'])),
     (_) {},
   );
   final plugin = host.participant(basics).raw;
-  plugin.facts('chat.line').listen((f) async {
-    await plugin.call('clip.save', {}, cause: Cause(basics, parent: f.id));
-    await plugin.call('clip.cover', {}, cause: Cause(basics, parent: f.id));
+  plugin.facts('studio/chat.line').listen((f) async {
+    await plugin.call(
+      'studio/clip.save',
+      {},
+      cause: Cause(basics, parent: f.id),
+    );
+    await plugin.call(
+      'studio/clip.cover',
+      {},
+      cause: Cause(basics, parent: f.id),
+    );
   });
   for (final id in ['irc:1', 'irc:2']) {
-    await host.participant(viewer).raw.call('chat.say', {}, id: id);
+    await host.participant(viewer).raw.call('studio/chat.say', {}, id: id);
     await Future<void>.delayed(const Duration(milliseconds: 20));
   }
   await sub.cancel();
@@ -65,17 +73,17 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1500, 900));
     await tester.pumpWidget(JournalViewerApp(viewer: v));
 
-    expect(find.text('chat.say'), findsNWidgets(2));
+    expect(find.text('studio/chat.say'), findsNWidgets(2));
     expect(find.textContaining('2 conversations'), findsOneWidget);
 
-    await tester.tap(find.text('chat.say').first);
+    await tester.tap(find.text('studio/chat.say').first);
     await tester.pump();
-    expect(find.text('chat.line'), findsOneWidget);
-    expect(find.text('clip.save'), findsOneWidget);
-    expect(find.text('clip.cover'), findsOneWidget);
-    expect(find.text('clip.last'), findsOneWidget);
+    expect(find.text('studio/chat.line'), findsOneWidget);
+    expect(find.text('studio/clip.save'), findsOneWidget);
+    expect(find.text('studio/clip.cover'), findsOneWidget);
+    expect(find.text('studio/clip.last'), findsOneWidget);
 
-    await tester.tap(find.text('clip.cover'));
+    await tester.tap(find.text('studio/clip.cover'));
     await tester.pump();
     expect(find.text('refused'), findsOneWidget);
     expect(find.text('How it came about'), findsOneWidget);
@@ -93,7 +101,7 @@ void main() {
     final talks = v.all;
     expect(talks, hasLength(2));
     v.seek(talks.first.started);
-    expect(v.conversations.map((c) => c.id), ['irc:1']);
+    expect(v.conversations.map((c) => c.id), ['viewer/twitch.7#irc:1']);
     v.select(talks.first);
     expect(v.tree.single.children, isEmpty, reason: 'only the call so far');
     v.seek(v.last!);

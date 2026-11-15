@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add provider discovery and full provider/word addresses in tool metadata and calls. Encode command tool names without punctuation or provider collisions.
+
 - Breaking: remove the entity directory from `describe` and dynamic choices
   from JSON Schema generation. Domain catalogs use ordinary states or queries;
   static enums continue to expose their values.

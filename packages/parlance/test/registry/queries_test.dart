@@ -90,22 +90,25 @@ void main() {
       vocabularies: [WordSet.open('orders')],
       access: WordAccess(readers: Callers.only(['module'])),
     );
-    GeneratedWords(
+    GeneratedWords.own(
       p,
     ).query(OrdersQuery.page).serve((params) => ['o${params.from}']);
-    expect(r.queryDescriptor('orders.page')!.askers.rules.keys, {'module'});
+    expect(r.queryDescriptor('module/orders/orders.page')!.askers.rules.keys, {
+      'module',
+    });
     final answer = await GeneratedWords(
-      r.participant(asker),
+      participant: r.participant(asker),
+      provider: owner,
     ).query(OrdersQuery.page).ask((from: 3));
     expect((answer as CallDone<List<String>>).value, ['o3']);
 
     final open = Registry();
     addTearDown(open.dispose);
-    GeneratedWords(
+    GeneratedWords.own(
       open.participant(owner, vocabularies: [WordSet.open('orders')]),
     ).query(OrdersQuery.page).serve((_) => const []);
     expect(
-      open.queryDescriptor('orders.page')!.askers.allows(asker),
+      open.queryDescriptor('module/orders/orders.page')!.askers.allows(asker),
       isTrue,
       reason: 'no default: everyone may ask, as everyone may read',
     );
@@ -118,15 +121,22 @@ void main() {
     late IFactSayerOf<String> said;
     void join() {
       orders = r.participant(owner, vocabularies: [WordSet.open('orders')]);
-      asking = GeneratedWords(r.participant(asker));
+      asking = GeneratedWords(
+        participant: r.participant(asker),
+        provider: owner,
+      );
     }
 
     setUp(() {
       join();
-      note = GeneratedWords(orders).state(_Note.text).define()..set('before');
-      said = GeneratedWords(orders).fact(_Said.it).define();
+      note = GeneratedWords.own(orders).state(_Note.text).define()
+        ..set('before');
+      said = GeneratedWords.own(orders).fact(_Said.it).define();
       r.defineCommand(
-        CommandDescriptor('orders.touch', callers: Callers.anyone),
+        CommandDescriptor(
+          'module/orders/orders.touch',
+          callers: Callers.anyone,
+        ),
         (_) {},
       );
     });
@@ -135,7 +145,9 @@ void main() {
     Future<CallResult<List<String>>> askWith(
       FutureOr<void> Function() effect,
     ) async {
-      final h = GeneratedWords(orders).query(OrdersQuery.page).serve((_) async {
+      final h = GeneratedWords.own(orders).query(OrdersQuery.page).serve((
+        _,
+      ) async {
         await effect();
         return const [];
       });
@@ -151,9 +163,9 @@ void main() {
       () async {
         final out = await askWith(() => note.set('after'));
         expect(out, isA<CallFailed>());
-        expect(out.why, contains('orders.page is a query'));
-        expect(out.why, contains('write orders.note'));
-        expect(r.read('orders.note'), 'before');
+        expect(out.why, contains('module/orders/orders.page is a query'));
+        expect(out.why, contains('write module/orders/orders.note'));
+        expect(r.read('module/orders/orders.note'), 'before');
       },
     );
 
@@ -163,35 +175,38 @@ void main() {
         note.set('later');
       });
       expect(out, isA<CallFailed>());
-      expect(r.read('orders.note'), 'before');
+      expect(r.read('module/orders/orders.note'), 'before');
     });
 
     test(
       'a fact or a command from it is refused; another query it may ask',
       () async {
         expect(await askWith(() => said.say('hi')), isA<CallFailed>());
-        expect(r.recent('orders.said'), isEmpty);
+        expect(r.recent('module/orders/orders.said'), isEmpty);
         r.dispose();
         r = Registry();
         join();
         r.defineCommand(
-          CommandDescriptor('orders.touch', callers: Callers.anyone),
+          CommandDescriptor(
+            'module/orders/orders.touch',
+            callers: Callers.anyone,
+          ),
           (_) {},
         );
         r.defineQuery(
           QueryDescriptor(
-            'orders.count',
+            'module/orders/orders.count',
             returns: const IntType(),
             askers: Callers.anyone,
           ),
           (_) => 3,
         );
         final calling = await askWith(
-          () => r.call('orders.touch', {}, by: owner),
+          () => r.call('module/orders/orders.touch', {}, by: owner),
         );
-        expect(calling.why, contains('call orders.touch'));
-        GeneratedWords(orders).query(OrdersQuery.page).serve((_) async {
-          final n = await orders.call('orders.count', {});
+        expect(calling.why, contains('call module/orders/orders.touch'));
+        GeneratedWords.own(orders).query(OrdersQuery.page).serve((_) async {
+          final n = await orders.call('module/orders/orders.count', {});
           return ['${(n as CallDone).value}'];
         });
         final nested = await asking.query(OrdersQuery.page).ask((from: 0));
@@ -201,7 +216,7 @@ void main() {
 
     test('outside a query the same write goes through', () {
       note.set('after');
-      expect(r.read('orders.note'), 'after');
+      expect(r.read('module/orders/orders.note'), 'after');
       expect(answeringQuery(), isNull);
     });
   });

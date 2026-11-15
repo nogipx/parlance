@@ -82,7 +82,10 @@ class _Owner extends TransferOwnerBase {
   }
 
   @override
-  Future<int> forbidden() => ITransferClient.of(this).sum(Stream.value(1));
+  Future<int> forbidden() => ITransferClient.of(
+    owner: this,
+    provider: const Principal('producer'),
+  ).sum(Stream.value(1));
 }
 
 class _Fixture {
@@ -136,7 +139,10 @@ class _Fixture {
     consumer = remoteConsumer
         ? await guest('reader')
         : host.participant(const Principal('reader'));
-    client = ITransferClient(consumer);
+    client = ITransferClient(
+      participant: consumer,
+      provider: const Principal('producer'),
+    );
     await consumer.settle();
   }
 
@@ -394,7 +400,7 @@ void main() {
             await expectLater(
               f.consumer.raw
                   .openStream(
-                    'transfer.sum',
+                    'producer/transfer.sum',
                     (initial: 0),
                     TransferClientStream.sum.params,
                     const PlainShape(IntType()),
@@ -412,7 +418,7 @@ void main() {
             await expectLater(
               f.consumer.raw
                   .openStream(
-                    'transfer.sum',
+                    'producer/transfer.sum',
                     (initial: 0),
                     TransferClientStream.sum.params,
                     const PlainShape(IntType()),
@@ -429,7 +435,7 @@ void main() {
         test('oversized upload element terminates the operation', () async {
           f.producer.raw.defineStream(
             ClientStreamDescriptor(
-              'transfer.bytes',
+              'producer/transfer.bytes',
               input: const TextType(),
               type: const IntType(),
               callers: Callers.anyone,
@@ -440,7 +446,7 @@ void main() {
           await expectLater(
             f.consumer.raw
                 .openStream(
-                  'transfer.bytes',
+                  'producer/transfer.bytes',
                   (),
                   const RecordShape<()>(
                     {},
@@ -496,7 +502,10 @@ void main() {
     var listened = false;
     final input = StreamController<int>(onListen: () => listened = true);
     await expectLater(
-      ITransferClient(p).sum(input.stream),
+      ITransferClient(
+        participant: p,
+        provider: const Principal('producer'),
+      ).sum(input.stream),
       throwsA(failure(StreamFailureCode.unsupported)),
     );
     expect(listened, isFalse);

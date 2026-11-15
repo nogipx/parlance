@@ -87,10 +87,10 @@ void main() {
     final owners = module([Dials(), Other()]);
     await pumpEventQueue();
     expect(ticks, hasLength(1));
-    expect(r.readAll('test.level'), {'a': 1, 'b': 2});
+    expect(r.readAll('host/test.level'), {'a': 1, 'b': 2});
     owners.dispose();
-    expect(r.stateDescriptor('test.level'), isNull);
-    expect(r.stateDescriptor('flag.on'), isNull);
+    expect(r.stateDescriptor('host/test.level'), isNull);
+    expect(r.stateDescriptor('host/flag.on'), isNull);
   });
 
   test('an owner removes stale keys while following its model', () async {
@@ -103,7 +103,7 @@ void main() {
     p.sync();
     await pumpEventQueue();
     expect(changes, isEmpty, reason: 'values are outside the catalog');
-    expect(r.readAll('test.level'), {'b': 2, 'c': 3});
+    expect(r.readAll('host/test.level'), {'b': 2, 'c': 3});
     changes.clear();
     p.sync();
     await pumpEventQueue();
@@ -117,7 +117,11 @@ void main() {
       () => r.participant(const Principal('elsewhere'), owners: [o]),
       throwsStateError,
     );
-    expect(r.stateDescriptor('flag.on'), isNotNull, reason: 'o still has it');
+    expect(
+      r.stateDescriptor('host/flag.on'),
+      isNotNull,
+      reason: 'o still has it',
+    );
   });
 
   test('the participant main made says who reads the owners\' words', () {
@@ -126,22 +130,29 @@ void main() {
       access: WordAccess(readers: Callers.only(['host'])),
       owners: [Dials()],
     );
-    expect(r.stateDescriptor('test.level')!.readers!.rules.keys, {'host'});
+    expect(r.stateDescriptor('host/test.level')!.readers!.rules.keys, {'host'});
   });
 
   test('going, a participant takes its owners with it, and their '
       'vocabularies are free again', () {
     final p = module([Other()]);
     p.dispose();
-    expect(r.stateDescriptor('flag.on'), isNull);
+    expect(r.stateDescriptor('host/flag.on'), isNull);
     module([Other()]);
-    expect(r.stateDescriptor('flag.on'), isNotNull, reason: 'flag is free');
+    expect(
+      r.stateDescriptor('host/flag.on'),
+      isNotNull,
+      reason: 'flag is free',
+    );
   });
 
   test('an owner speaks as the owner named by its vocabulary', () async {
     module([Dials(), Other()]);
-    expect(r.lastChange('test.level', key: 'a')!.cause.by, me.ofOwner('test'));
-    expect(r.lastChange('flag.on'), isNull);
+    expect(
+      r.lastChange('host/test.level', key: 'a')!.cause.by,
+      me.ofOwner('test'),
+    );
+    expect(r.lastChange('host/flag.on'), isNull);
     expect(me.ofOwner('test').selector, 'host@test');
   });
 
@@ -205,30 +216,30 @@ void main() {
     await pumpEventQueue();
     expect(dials.synced, 2, reason: 'once for the turn');
     expect(ticks, hasLength(1), reason: 'one tick for both');
-    expect(r.read('test.level', key: 'a'), 5);
-    expect(r.read('flag.on'), isTrue);
+    expect(r.read('host/test.level', key: 'a'), 5);
+    expect(r.read('host/flag.on'), isTrue);
   });
 
   test('a scope is a participant: going, it leaves nothing of itself, its '
       'words and values, and others see them missing', () async {
     final outsider = r.participant(const Principal('outsider'));
     final statuses = <WordStatus>[];
-    outsider.statusChanges('test.level').listen(statuses.add);
+    outsider.statusChanges('host/test.level').listen(statuses.add);
     final dials = Dials();
     final flag = Flagged()..lit = true;
     final p = module([dials, flag]);
     await pumpEventQueue();
     p.dispose();
     await pumpEventQueue();
-    expect(r.stateDescriptor('test.level'), isNull);
-    expect(r.stateDescriptor('flag.on'), isNull);
-    expect(r.readAll('test.level'), isEmpty);
+    expect(r.stateDescriptor('host/test.level'), isNull);
+    expect(r.stateDescriptor('host/flag.on'), isNull);
+    expect(r.readAll('host/test.level'), isEmpty);
     expect(statuses.last, const WordMissing());
     // What it writes after it went (code still running then) is not
     // written, and throws nothing.
     dials.level.set('a', 9);
-    expect(r.readAll('test.level'), isEmpty, reason: 'withdrawn');
+    expect(r.readAll('host/test.level'), isEmpty, reason: 'withdrawn');
     module([Dials()]);
-    expect(r.read('test.level', key: 'a'), 1, reason: 'the next session');
+    expect(r.read('host/test.level', key: 'a'), 1, reason: 'the next session');
   });
 }

@@ -589,17 +589,20 @@ void main() {
 
         Future<void> lamps() async {
           await k.client.define(
-            StateDescriptor('kittens.lights', type: const BoolType()),
+            StateDescriptor(
+              'plugin/kittens/kittens.lights',
+              type: const BoolType(),
+            ),
           );
           await o.defineCommand(
             CommandDescriptor(
-              'kittens.lights.set',
+              'plugin/kittens/kittens.lights.set',
               params: const RecordType({'on': Field(BoolType())}),
               callers: Callers.only(['user', 'plugin']),
             ),
             (c) async {
               await k.client.write(
-                'kittens.lights',
+                'plugin/kittens/kittens.lights',
                 value: c.params['on'],
                 parent: c.id,
               );
@@ -611,26 +614,29 @@ void main() {
         test('its words are the registry\'s: others call its command, '
             'it serves it, and what it writes follows from the call', () async {
           await lamps();
-          final r = await f.r.call('kittens.lights.set', {
+          final r = await f.r.call('plugin/kittens/kittens.lights.set', {
             'on': true,
           }, by: user);
           expect(r, isA<CallDone<Object?>>());
-          expect(f.r.read('kittens.lights'), true);
-          final change = f.r.lastChange('kittens.lights')!;
+          expect(f.r.read('plugin/kittens/kittens.lights'), true);
+          final change = f.r.lastChange('plugin/kittens/kittens.lights')!;
           expect(change.cause.by, plugin);
           expect(change.cause.parent, isNotNull);
           expect(
             f.r.callRecord(change.cause.parent!)?.command,
-            'kittens.lights.set',
+            'plugin/kittens/kittens.lights.set',
           );
         });
 
         test('a handler that throws fails the call with its words', () async {
           await o.defineCommand(
-            CommandDescriptor('kittens.feed', callers: Callers.only(['user'])),
+            CommandDescriptor(
+              'plugin/kittens/kittens.feed',
+              callers: Callers.only(['user']),
+            ),
             (c) => throw StateError('no fish'),
           );
-          final r = await f.r.call('kittens.feed', {}, by: user);
+          final r = await f.r.call('plugin/kittens/kittens.feed', {}, by: user);
           expect(r.why, contains('no fish'));
         });
 
@@ -640,7 +646,10 @@ void main() {
           expect(
             await status(
               k.client.define(
-                StateDescriptor('house.lights', type: const BoolType()),
+                StateDescriptor(
+                  'plugin/kittens/house.lights',
+                  type: const BoolType(),
+                ),
               ),
             ),
             RpcStatus.permissionDenied,
@@ -648,7 +657,10 @@ void main() {
           expect(
             await status(
               k.client.define(
-                StateDescriptor('kittens.lights', type: const BoolType()),
+                StateDescriptor(
+                  'plugin/kittens/kittens.lights',
+                  type: const BoolType(),
+                ),
               ),
             ),
             RpcStatus.alreadyExists,
@@ -658,7 +670,9 @@ void main() {
             RpcStatus.permissionDenied,
           );
           expect(
-            await status(k.client.write('kittens.lights', value: 'yes')),
+            await status(
+              k.client.write('plugin/kittens/kittens.lights', value: 'yes'),
+            ),
             RpcStatus.invalidArgument,
           );
           final caller = Link.open(f.r, agent, wire: wire);
@@ -666,7 +680,7 @@ void main() {
           expect(
             await status(
               caller.client.define(
-                StateDescriptor('agent.x', type: const BoolType()),
+                StateDescriptor('agent/claude/agent.x', type: const BoolType()),
               ),
             ),
             RpcStatus.permissionDenied,
@@ -681,12 +695,20 @@ void main() {
             by: owner,
           );
           await k.client.define(
-            FactDescriptor('kittens.adopted', type: const AnyType()),
+            FactDescriptor(
+              'plugin/kittens/kittens.adopted',
+              type: const AnyType(),
+            ),
           );
-          expect(await k.client.say('kittens.adopted', {'name': 'Tom'}), true);
+          expect(
+            await k.client.say('plugin/kittens/kittens.adopted', {
+              'name': 'Tom',
+            }),
+            true,
+          );
           expect(
             await k.client.say(
-              'kittens.adopted',
+              'plugin/kittens/kittens.adopted',
               {'name': 'Bo'},
               id: 'f1',
               by: visitor,
@@ -694,16 +716,26 @@ void main() {
             true,
           );
           expect(
-            await k.client.say('kittens.adopted', {}, id: 'f1', by: visitor),
+            await k.client.say(
+              'plugin/kittens/kittens.adopted',
+              {},
+              id: 'f1',
+              by: visitor,
+            ),
             false,
           );
-          expect(f.r.recent('kittens.adopted').last.cause.by, visitor);
+          expect(
+            f.r.recent('plugin/kittens/kittens.adopted').last.cause.by,
+            visitor,
+          );
           expect(
             await status(k.client.say('porch.party', {})),
             RpcStatus.permissionDenied,
           );
           expect(
-            await status(k.client.say('kittens.adopted', {}, by: user)),
+            await status(
+              k.client.say('plugin/kittens/kittens.adopted', {}, by: user),
+            ),
             RpcStatus.permissionDenied,
           );
           expect(
@@ -714,16 +746,19 @@ void main() {
 
         test('what it does in answer to a fact follows from it', () async {
           await k.client.define(
-            FactDescriptor('kittens.adopted', type: const AnyType()),
+            FactDescriptor(
+              'plugin/kittens/kittens.adopted',
+              type: const AnyType(),
+            ),
           );
-          await k.client.say('kittens.adopted', {});
-          final fact = f.r.recent('kittens.adopted').single;
+          await k.client.say('plugin/kittens/kittens.adopted', {});
+          final fact = f.r.recent('plugin/kittens/kittens.adopted').single;
           await lamps();
-          await k.client.call('kittens.lights.set', {
+          await k.client.call('plugin/kittens/kittens.lights.set', {
             'on': true,
           }, parent: fact.id);
           final r = f.r.callRecord(
-            f.r.lastChange('kittens.lights')!.cause.parent!,
+            f.r.lastChange('plugin/kittens/kittens.lights')!.cause.parent!,
           );
           expect(r?.cause.parent, fact.id);
         });
@@ -731,8 +766,8 @@ void main() {
         test('its words go with the session', () async {
           await lamps();
           await k.close();
-          expect(f.r.stateDescriptor('kittens.lights'), isNull);
-          final r = await f.r.call('kittens.lights.set', {
+          expect(f.r.stateDescriptor('plugin/kittens/kittens.lights'), isNull);
+          final r = await f.r.call('plugin/kittens/kittens.lights.set', {
             'on': true,
           }, by: user);
           expect(r, isA<CallRefused>());

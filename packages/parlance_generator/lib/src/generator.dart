@@ -832,7 +832,7 @@ final class _Emitter {
       )
       ..writeln('  /// what `main` gives a part that uses them.')
       ..writeln(
-        '  factory I${_c}Client(IParticipant participant) = _\$${_c}Client;',
+        '  factory I${_c}Client({required IParticipant participant, required Principal provider}) = _\$${_c}Client;',
       )
       ..writeln()
       ..writeln(
@@ -842,7 +842,9 @@ final class _Emitter {
         '  /// for an owner that uses them: made in its constructor, its',
       )
       ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
-      ..writeln('  factory I${_c}Client.of(IOwner owner) = _\$${_c}Client._of;')
+      ..writeln(
+        '  factory I${_c}Client.of({required IOwner owner, required Principal provider}) = _\$${_c}Client._of;',
+      )
       ..writeln();
     for (final (i, m) in all.indexed) {
       if (i > 0) out.writeln();
@@ -862,10 +864,14 @@ final class _Emitter {
     for (final (name, param, words) in [
       (
         '_\$${_c}Client',
-        'IParticipant participant',
-        'GeneratedWords(participant)',
+        '{required IParticipant participant, required Principal provider}',
+        'GeneratedWords(participant: participant, provider: provider)',
       ),
-      ('_\$${_c}Client._of', 'IOwner owner', 'GeneratedWords.of(owner)'),
+      (
+        '_\$${_c}Client._of',
+        '{required IOwner owner, required Principal provider}',
+        'GeneratedWords.of(owner: owner, provider: provider)',
+      ),
     ]) {
       out
         ..writeln('  $name($param)')
@@ -1028,7 +1034,7 @@ final class _Emitter {
         commands.isNotEmpty ||
         queries.isNotEmpty ||
         streams.isNotEmpty) {
-      out.writeln('    final p = GeneratedWords(participant);');
+      out.writeln('    final p = GeneratedWords.own(participant);');
     }
     for (final st in states) {
       final define = 'p.state(${_c}State.${st.member}).define(${opts(st)})';

@@ -56,7 +56,7 @@ abstract class AppOwnerBase implements IOwner {
   final Single<bool> dark = Single<bool>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(dark, p.state(AppState.dark).define());
     p.command(AppCommand.toast).serve((x) => toast(text: x.text));
   }
@@ -79,12 +79,16 @@ abstract class AppOwnerBase implements IOwner {
 abstract interface class IAppClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IAppClient(IParticipant participant) = _$AppClient;
+  factory IAppClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$AppClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IAppClient.of(IOwner owner) = _$AppClient._of;
+  factory IAppClient.of({required IOwner owner, required Principal provider}) =
+      _$AppClient._of;
 
   /// app.dark: its value now, and its changes.
   IStateOf<bool> get dark;
@@ -111,12 +115,13 @@ abstract interface class IAppClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$AppClient implements IAppClient {
-  _$AppClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$AppClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 
-  _$AppClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$AppClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 

@@ -156,7 +156,8 @@ Future<void> main() async {
   for (final sections in [100, 1000]) {
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
-      r.participant(host, vocabularies: [WordSet.open('rt')]),
+      participant: r.participant(host, vocabularies: [WordSet.open('rt')]),
+      provider: host,
     );
     final w = words.state(RtState.task).define();
     final s = words.stateOf(RtState.task);
@@ -193,7 +194,8 @@ Future<void> main() async {
     // change, of what that check holds now.
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
-      r.participant(host, vocabularies: [WordSet.open('rt')]),
+      participant: r.participant(host, vocabularies: [WordSet.open('rt')]),
+      provider: host,
     );
     final w = words.state(RtState.check).define();
     final checks = makeTask(500, 1).sections.expand((s) => s.checks).toList();
@@ -250,7 +252,8 @@ Future<void> main() async {
     // Peers' cursors: each widget watches one peer, every peer moves.
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
-      r.participant(host, vocabularies: [WordSet.open('rt')]),
+      participant: r.participant(host, vocabularies: [WordSet.open('rt')]),
+      provider: host,
     );
     final w = words.state(RtState.cursor).define();
     final s = words.keyedOf(RtState.cursor);

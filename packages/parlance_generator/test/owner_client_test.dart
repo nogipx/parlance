@@ -22,7 +22,10 @@ final class Fan extends FansOwnerBase {
 
   int? volume;
 
-  late final IPlayerClient player = IPlayerClient.of(this);
+  late final IPlayerClient player = IPlayerClient.of(
+    owner: this,
+    provider: const Principal('player'),
+  );
 
   /// What it heard, and the volume it read then.
   final List<(int, int?)> heard = [];

@@ -265,7 +265,10 @@ Future<void> _publicPath(
   final input = _Input();
   final source = StreamController<Reading>();
   owner.readingSource = source;
-  final stream = IDataClient(consumer).readings(from: input, cancel: token);
+  final stream = IDataClient(
+    participant: consumer,
+    provider: const Principal('producer'),
+  ).readings(from: input, cancel: token);
   final done = Completer<void>();
   final sub = stream.listen(
     (_) {},
@@ -365,7 +368,10 @@ Future<void> _repeatedSubscription(
   final source = StreamController<Reading>(onListen: started.complete);
   owner.readingSource = source;
   final input = _Input();
-  final stream = IDataClient(consumer).readings(from: input, cancel: token);
+  final stream = IDataClient(
+    participant: consumer,
+    provider: const Principal('producer'),
+  ).readings(from: input, cancel: token);
   final done = Completer<void>();
   final sub = stream.listen(
     (_) {},
@@ -460,7 +466,10 @@ Future<void> _inputPath(
   final consumer = remoteConsumer
       ? await _join(host, 'consumer', guests, endpoints)
       : host.participant(const Principal('consumer'));
-  final client = IDocumentsClient(consumer);
+  final client = IDocumentsClient(
+    participant: consumer,
+    provider: const Principal('producer'),
+  );
   final payload = _Payload();
   final source = StreamController<int>();
   final input = source.stream.map((v) => '${payload.bytes.length + v}');

@@ -56,11 +56,11 @@ void main() {
       'limits do', () async {
     final (guest, _) = serve('a', 'a', const SessionLimits());
     // Paired controls: small content under default limits is not refused.
-    await guest.define(WireDefine(stateDescriptor('a.s', null)));
+    await guest.define(WireDefine(stateDescriptor('guest/a/a.s', null)));
     await guest.define(
       WireDefine({
         'is': 'fact',
-        'name': 'a.f',
+        'name': 'guest/a/a.f',
         'type': {'type': 'any'},
       }),
     );
@@ -69,7 +69,7 @@ void main() {
     for (var i = 0; i < 256 && byteRefusal == null; i++) {
       try {
         await guest.define(
-          WireDefine(stateDescriptor('a.d$i', {'blob': 'x' * 32768})),
+          WireDefine(stateDescriptor('guest/a/a.d$i', {'blob': 'x' * 32768})),
         );
         defined++;
       } on RpcStatusException catch (e) {
@@ -90,7 +90,7 @@ void main() {
     final (free, _) = serve('b', 'b', SessionLimits.unbounded);
     for (var i = 0; i < 40; i++) {
       await free.define(
-        WireDefine(stateDescriptor('b.d$i', {'blob': 'x' * 32768})),
+        WireDefine(stateDescriptor('guest/b/b.d$i', {'blob': 'x' * 32768})),
       );
     }
   });
@@ -105,10 +105,10 @@ void main() {
       final payload = {'p': 'z' * unit};
       final factWeight = jsonWeight({
         'is': 'fact',
-        'name': 'c.f',
+        'name': 'guest/c/c.f',
         'type': {'type': 'any'},
       });
-      final wordWeight = jsonWeight(stateDescriptor('c.w1', meta1));
+      final wordWeight = jsonWeight(stateDescriptor('guest/c/c.w1', meta1));
       final emitWeight = jsonWeight(payload);
       final (guest, registry) = serve(
         'c',
@@ -118,28 +118,30 @@ void main() {
       await guest.define(
         WireDefine({
           'is': 'fact',
-          'name': 'c.f',
+          'name': 'guest/c/c.f',
           'type': {'type': 'any'},
         }),
       );
-      await guest.define(WireDefine(stateDescriptor('c.w1', meta1)));
-      final taken = await guest.emit(WireEmit(fact: 'c.f', payload: payload));
+      await guest.define(WireDefine(stateDescriptor('guest/c/c.w1', meta1)));
+      final taken = await guest.emit(
+        WireEmit(fact: 'guest/c/c.f', payload: payload),
+      );
       expect(taken.taken, isTrue);
       // The ledger is as full as the limit allows: one more payload of the
       // same size is refused. Before round 3 it sailed.
       try {
-        await guest.emit(WireEmit(fact: 'c.f', payload: payload));
+        await guest.emit(WireEmit(fact: 'guest/c/c.f', payload: payload));
         fail('the second payload was not refused');
       } on RpcStatusException catch (e) {
         expect(e.statusCode, RpcStatus.resourceExhausted);
       }
       // undefine gives the word's bytes back; the same size defines again.
-      await guest.undefine(const WireName('c.w1'));
-      expect(registry.stateDescriptor('c.w1'), isNull);
-      await guest.define(WireDefine(stateDescriptor('c.w2', meta1)));
+      await guest.undefine(const WireName('guest/c/c.w1'));
+      expect(registry.stateDescriptor('guest/c/c.w1'), isNull);
+      await guest.define(WireDefine(stateDescriptor('guest/c/c.w2', meta1)));
       // A small payload still fits: the refusal was about bytes, not emits.
       final small = await guest.emit(
-        WireEmit(fact: 'c.f', payload: {'p': 'z'}),
+        WireEmit(fact: 'guest/c/c.f', payload: {'p': 'z'}),
       );
       expect(small.taken, isTrue);
     },

@@ -42,7 +42,9 @@ void main() {
       await r.dispose();
       expect(lamp.gone, isTrue);
       expect(
-        () => p.defineState(StateDescriptor('lamp.x', type: const IntType())),
+        () => p.defineState(
+          StateDescriptor('lamp/lamp.x', type: const IntType()),
+        ),
         throwsStateError,
       );
       await expectLater(

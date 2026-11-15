@@ -13,6 +13,10 @@ extension RawRegistry on Registry {
   /// `describe` lists it under `aliases`. Dispose the handle to drop it.
   IHandle alias(String old, String to) {
     checkWordName(old, 'old');
+    if ((old.contains('/') || to.contains('/')) &&
+        WordAddress.parse(old).provider != WordAddress.parse(to).provider) {
+      throw ArgumentError('aliases stay within one provider');
+    }
     final target = canonical(to);
     if (_states.containsKey(old) ||
         _commands.containsKey(old) ||

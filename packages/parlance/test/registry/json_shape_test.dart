@@ -127,7 +127,8 @@ void main() {
   setUp(() {
     r = Registry();
     orders = GeneratedWords(
-      r.participant(owner, vocabularies: [WordSet.open('orders')]),
+      participant: r.participant(owner, vocabularies: [WordSet.open('orders')]),
+      provider: owner,
     );
   });
   tearDown(() => r.dispose());
@@ -139,12 +140,12 @@ void main() {
       orders.stateOf(Orders.last).value,
       const Order('o1', Address('Riga')),
     );
-    expect(r.read('orders.last'), {
+    expect(r.read('host/orders.last'), {
       'id': 'o1',
       'to': {'city': 'Riga'},
     });
     expect(
-      r.stateDescriptor('orders.last')!.type.toJson(),
+      r.stateDescriptor('host/orders.last')!.type.toJson(),
       _orderType.toJson(),
     );
   });
@@ -176,10 +177,10 @@ void main() {
     final next = orders.state(Meetings.next).define();
     final at = DateTime.utc(2026, 11, 1, 12);
     next.set(Meeting(at));
-    expect(r.read('orders.next'), {'when': at.toIso8601String()});
+    expect(r.read('host/orders.next'), {'when': at.toIso8601String()});
     expect(orders.stateOf(Meetings.next).value, Meeting(at));
     expect(
-      r.stateDescriptor('orders.next')!.type.toJson(),
+      r.stateDescriptor('host/orders.next')!.type.toJson(),
       _meetingType.toJson(),
     );
   });

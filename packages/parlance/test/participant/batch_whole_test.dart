@@ -35,15 +35,15 @@ void main() {
       test('a batch that throws commits nothing it wrote or said', () async {
         final p = await owner();
         final volume = p.raw.defineState(
-          StateDescriptor('deck.volume', type: const IntType()),
+          StateDescriptor('deck/deck.volume', type: const IntType()),
         );
         final said = p.raw.defineFact(
-          FactDescriptor('deck.said', type: const IntType()),
+          FactDescriptor('deck/deck.said', type: const IntType()),
         );
         volume.set(1);
         await settled(p);
         final heard = <Object?>[];
-        host.registry.facts(fact: 'deck.said').listen((FactMessage f) {
+        host.registry.facts(fact: 'deck/deck.said').listen((FactMessage f) {
           heard.add(f.payload);
         });
         expect(
@@ -55,8 +55,8 @@ void main() {
           throwsStateError,
         );
         await settled(p);
-        expect(host.registry.read('deck.volume'), 1);
-        expect(p.raw.read('deck.volume'), 1, reason: 'its own copy too');
+        expect(host.registry.read('deck/deck.volume'), 1);
+        expect(p.raw.read('deck/deck.volume'), 1, reason: 'its own copy too');
         expect(heard, isEmpty);
       });
 
@@ -68,7 +68,7 @@ void main() {
         Single.attach(
           single,
           StateWriterOf(
-            p.raw.defineState(StateDescriptor('deck.level', type: level)),
+            p.raw.defineState(StateDescriptor('deck/deck.level', type: level)),
             const PlainShape(level),
           ),
         );
@@ -77,7 +77,7 @@ void main() {
           keyed,
           StateWriterOf(
             p.raw.defineState(
-              StateDescriptor('deck.levels', type: level, key: 'channel'),
+              StateDescriptor('deck/deck.levels', type: level, key: 'channel'),
             ),
             const PlainShape(level),
           ),
@@ -100,7 +100,7 @@ void main() {
           Single.attach(
             single,
             StateWriterOf(
-              p.raw.defineState(StateDescriptor('deck.one', type: level)),
+              p.raw.defineState(StateDescriptor('deck/deck.one', type: level)),
               const PlainShape(level),
             ),
           );
@@ -109,7 +109,7 @@ void main() {
             keyed,
             StateWriterOf(
               p.raw.defineState(
-                StateDescriptor('deck.many', type: level, key: 'channel'),
+                StateDescriptor('deck/deck.many', type: level, key: 'channel'),
               ),
               const PlainShape(level),
             ),
@@ -130,7 +130,7 @@ void main() {
           await settled(p);
           expect(single.value, 1);
           expect(keyed.all, {'a': 1});
-          expect(host.registry.read('deck.one'), 1);
+          expect(host.registry.read('deck/deck.one'), 1);
         },
       );
 
@@ -139,10 +139,10 @@ void main() {
         () async {
           final p = await owner();
           final a = p.raw.defineState(
-            StateDescriptor('deck.a', type: const IntType()),
+            StateDescriptor('deck/deck.a', type: const IntType()),
           );
           final b = p.raw.defineState(
-            StateDescriptor('deck.b', type: const IntType()),
+            StateDescriptor('deck/deck.b', type: const IntType()),
           );
           p.batch(() {
             a.set(1);
@@ -157,10 +157,10 @@ void main() {
             }
           });
           await settled(p);
-          expect(host.registry.read('deck.a'), 1);
-          expect(host.registry.read('deck.b'), isNull);
-          expect(p.raw.read('deck.a'), 1);
-          expect(p.raw.read('deck.b'), isNull);
+          expect(host.registry.read('deck/deck.a'), 1);
+          expect(host.registry.read('deck/deck.b'), isNull);
+          expect(p.raw.read('deck/deck.a'), 1);
+          expect(p.raw.read('deck/deck.b'), isNull);
         },
       );
     });

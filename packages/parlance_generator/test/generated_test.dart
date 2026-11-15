@@ -91,44 +91,50 @@ void main() {
   }
 
   test('states carry their values, a class through its toJson', () {
-    final playing = GeneratedWords(p.raw).state(PlayerState.playing).define();
+    final playing = GeneratedWords.own(
+      p.raw,
+    ).state(PlayerState.playing).define();
     const track = Track(title: 'Song', seconds: 200, artist: Artist('Ann'));
     playing.set(track);
-    expect(asAnn.raw.read('player.playing'), {
+    expect(asAnn.raw.read('player/player.playing'), {
       'title': 'Song',
       'length': 200,
       'artist': {'name': 'Ann'},
     });
     expect(
       GeneratedWords(
-        asAnn.raw,
+        participant: asAnn.raw,
+        provider: me,
       ).stateOf(PlayerState.playing).value!.artist!.name,
       'Ann',
     );
-    final volume = GeneratedWords(p.raw).state(PlayerState.volume).define();
+    final volume = GeneratedWords.own(p.raw).state(PlayerState.volume).define();
     expect(() => volume.set(150), throwsA(isA<TypeMismatch>()));
-    final level = GeneratedWords(
+    final level = GeneratedWords.own(
       p.raw,
     ).state(PlayerState.speakerLevel).define();
     level.set(0.5, key: 'left');
-    expect(r.stateDescriptor('player.speaker_level')!.key, 'speaker');
+    expect(r.stateDescriptor('player/player.speaker_level')!.key, 'speaker');
     expect(
-      GeneratedWords(asAnn.raw).keyedOf(PlayerState.speakerLevel).of('left'),
+      GeneratedWords(
+        participant: asAnn.raw,
+        provider: me,
+      ).keyedOf(PlayerState.speakerLevel).of('left'),
       0.5,
     );
   });
 
   test('commands take their params, defaults filled and bounds held', () async {
     final played = <PlayerPlay>[];
-    GeneratedWords(p.raw).state(PlayerState.volume).define();
-    GeneratedWords(
+    GeneratedWords.own(p.raw).state(PlayerState.volume).define();
+    GeneratedWords.own(
       p.raw,
     ).command(PlayerCommand.play).serve((params) => played.add(params));
-    GeneratedWords(
+    GeneratedWords.own(
       p.raw,
     ).command(PlayerCommand.skip).serve((params) => params.count * 2);
-    GeneratedWords(p.raw).command(PlayerCommand.setVolume).serve((_) {});
-    final done = await asAnn.raw.call('player.play', {
+    GeneratedWords.own(p.raw).command(PlayerCommand.setVolume).serve((_) {});
+    final done = await asAnn.raw.call('player/player.play', {
       'track': {'title': 'A'},
       'on': 'left',
     });
@@ -137,39 +143,44 @@ void main() {
     expect(played.single.track.title, 'A');
     expect(played.single.on, 'left');
     final skipped = await GeneratedWords(
-      asAnn.raw,
+      participant: asAnn.raw,
+      provider: me,
     ).command(PlayerCommand.skip).call((count: 3));
     expect((skipped as CallDone<int>).value, 6);
     final loud = await GeneratedWords(
-      asAnn.raw,
+      participant: asAnn.raw,
+      provider: me,
     ).command(PlayerCommand.setVolume).call((volume: 101));
     expect((loud as CallRefused).code, Refusal.invalidParams);
     expect(PlayerCommand.stop.params, same(RecordShape.none));
   });
 
   test('a query answers its type, a fact says its payload', () async {
-    GeneratedWords(p.raw)
+    GeneratedWords.own(p.raw)
         .query(PlayerQuery.search)
         .serve(
           (params) =>
               [Track(title: params.text)].take(params.limit ?? 9).toList(),
         );
     final found = await GeneratedWords(
-      asAnn.raw,
+      participant: asAnn.raw,
+      provider: me,
     ).query(PlayerQuery.search).ask((text: 'B', limit: null));
     expect((found as CallDone<List<Track>>).value.single.title, 'B');
     final long = await GeneratedWords(
-      asAnn.raw,
+      participant: asAnn.raw,
+      provider: me,
     ).query(PlayerQuery.search).ask((text: 'x' * 41, limit: null));
     expect((long as CallRefused).code, Refusal.invalidParams);
 
-    final finished = GeneratedWords(p.raw).fact(PlayerFact.finished).define();
+    final finished = GeneratedWords.own(
+      p.raw,
+    ).fact(PlayerFact.finished).define();
     finished.say(const Track(title: 'C'));
-    expect((await asAnn.raw.recent('player.finished', 9)).single.payload, {
-      'title': 'C',
-      'length': null,
-      'artist': null,
-    });
+    expect(
+      (await asAnn.raw.recent('player/player.finished', 9)).single.payload,
+      {'title': 'C', 'length': null, 'artist': null},
+    );
   });
 
   test('a record is read by place as its map has it, and held alike', () {
@@ -218,19 +229,21 @@ void main() {
     int? shown(IPlayerClient player) => player.volume.value;
 
     attach(Deck());
-    expect(shown(IPlayerClient(asAnn)), 50);
+    expect(shown(IPlayerClient(participant: asAnn, provider: me)), 50);
     expect(
-      IPlayerClient(asAnn).mismatches,
+      IPlayerClient(participant: asAnn, provider: me).mismatches,
       isEmpty,
       reason: 'the words met are the words it was built against',
     );
   });
 
   test('a client made tells the registry what it was built against', () {
-    IPlayerClient(asAnn);
+    IPlayerClient(participant: asAnn, provider: me);
     expect(r.mismatches, isEmpty, reason: 'nothing there yet');
     p.raw.defineState(StateDescriptor('player.volume', type: const TextType()));
-    expect(r.mismatches.map((m) => (m.by, m.word)), [(ann, 'player.volume')]);
+    expect(r.mismatches.map((m) => (m.by, m.word)), [
+      (ann, 'player/player.volume'),
+    ]);
   });
 
   test('an enum value marked @Fallback is what one added later reads as', () {
@@ -287,29 +300,47 @@ void main() {
     });
 
     test('defines every word, and an owner writes only its handlers', () {
-      expect(r.stateDescriptor('player.volume')!.meta, {
+      expect(r.stateDescriptor('player/player.volume')!.meta, {
         'label': 'Volume',
         'steps': [0, 50, 100],
       });
-      expect(GeneratedWords(asAnn.raw).stateOf(PlayerState.volume).value, 50);
       expect(
-        r.commandDescriptor('player.play')!.deadline,
+        GeneratedWords(
+          participant: asAnn.raw,
+          provider: me,
+        ).stateOf(PlayerState.volume).value,
+        50,
+      );
+      expect(
+        r.commandDescriptor('player/player.play')!.deadline,
         const Duration(seconds: 5),
       );
     });
 
     test('serves the calls through its handlers, as its part', () async {
       final done = await GeneratedWords(
-        asAnn.raw,
+        participant: asAnn.raw,
+        provider: me,
       ).command(PlayerCommand.setVolume).call((volume: 95));
       expect(done.ok, isTrue, reason: '$done');
-      expect(GeneratedWords(asAnn.raw).stateOf(PlayerState.volume).value, 95);
-      expect(r.lastChange('player.volume')!.cause.by, me.ofOwner('player'));
-      expect((await asAnn.raw.recent('player.clipped', 9)).single.payload, {
-        'volume': 95,
-      });
+      expect(
+        GeneratedWords(
+          participant: asAnn.raw,
+          provider: me,
+        ).stateOf(PlayerState.volume).value,
+        95,
+      );
+      expect(
+        r.lastChange('player/player.volume')!.cause.by,
+        me.ofOwner('player'),
+      );
+      expect(
+        (await asAnn.raw.recent('player/player.clipped', 9)).single.payload,
+        {'volume': 95},
+      );
       final found = await GeneratedWords(
-        asBob.raw,
+        participant: asBob.raw,
+        provider: me,
       ).query(PlayerQuery.search).ask((text: 'B', limit: null));
       expect((found as CallDone<List<Track>>).value.single.title, 'B');
     });
@@ -317,28 +348,47 @@ void main() {
     test('what a handler writes and says follows from the call, after an '
         'await too', () async {
       await GeneratedWords(
-        asAnn.raw,
+        participant: asAnn.raw,
+        provider: me,
       ).command(PlayerCommand.setVolume).call((volume: 95), id: 'v1');
-      expect(r.lastChange('player.volume')!.cause.parent, 'v1');
       expect(
-        (await asAnn.raw.recent('player.clipped', 9)).single.cause.parent,
-        'v1',
+        r.lastChange('player/player.volume')!.cause.parent,
+        'listener/ann#v1',
       );
-      await GeneratedWords(asAnn.raw).command(PlayerCommand.play).call((
+      expect(
+        (await asAnn.raw.recent(
+          'player/player.clipped',
+          9,
+        )).single.cause.parent,
+        'listener/ann#v1',
+      );
+      await GeneratedWords(
+        participant: asAnn.raw,
+        provider: me,
+      ).command(PlayerCommand.play).call((
         track: const Track(title: 'A'),
         repeat: Repeat.off,
         on: null,
       ), id: 'p1');
-      expect(r.lastChange('player.playing')!.cause.parent, 'p1');
+      expect(
+        r.lastChange('player/player.playing')!.cause.parent,
+        'listener/ann#p1',
+      );
       expect(deck.playing.value?.title, 'A', reason: 'what it set, it reads');
     });
 
     test('a state is removed by remove, and set again', () {
       deck.volume.remove();
       expect(deck.volume.value, isNull);
-      expect(asAnn.raw.readAll('player.volume'), isEmpty);
+      expect(asAnn.raw.readAll('player/player.volume'), isEmpty);
       deck.volume.set(7);
-      expect(GeneratedWords(asAnn.raw).stateOf(PlayerState.volume).value, 7);
+      expect(
+        GeneratedWords(
+          participant: asAnn.raw,
+          provider: me,
+        ).stateOf(PlayerState.volume).value,
+        7,
+      );
     });
 
     test('keyed states, set and removed by key', () async {
@@ -347,26 +397,32 @@ void main() {
       deck.speakerLevel.remove('right');
       expect(deck.speakerLevel.of('left'), 0.5);
       expect(deck.speakerLevel.all, {'left': 0.5});
-      expect(GeneratedWords(asAnn.raw).keyedOf(PlayerState.speakerLevel).all, {
-        'left': 0.5,
-      });
+      expect(
+        GeneratedWords(
+          participant: asAnn.raw,
+          provider: me,
+        ).keyedOf(PlayerState.speakerLevel).all,
+        {'left': 0.5},
+      );
     });
 
     test('says what the class says of who may call, and when', () async {
       final asGuest = await GeneratedWords(
-        asBob.raw,
+        participant: asBob.raw,
+        provider: me,
       ).command(PlayerCommand.stop).call(());
       expect((asGuest as CallRefused).code, Refusal.notPermitted);
       expect(
         (await GeneratedWords(
-          asAnn.raw,
+          participant: asAnn.raw,
+          provider: me,
         ).command(PlayerCommand.stop).call(())).ok,
         isTrue,
       );
       expect(deck.stopped, 1);
       deck.library.clear();
-      p.raw.ofOwner('player').raw.whyNotChanged('player.play');
-      final play = await GeneratedWords(asAnn.raw)
+      p.raw.ofOwner('player').raw.whyNotChanged('player/player.play');
+      final play = await GeneratedWords(participant: asAnn.raw, provider: me)
           .command(PlayerCommand.play)
           .call((track: const Track(title: 'A'), repeat: Repeat.off, on: null));
       expect(play.why, contains('nothing to play'));
@@ -385,7 +441,7 @@ void main() {
     late IPlayerClient asAnn;
     setUp(() {
       attach(deck = Deck());
-      asAnn = IPlayerClient(host.participant(ann));
+      asAnn = IPlayerClient(participant: host.participant(ann), provider: me);
     });
 
     test('watches a keyed state whole: every key, as any comes, changes '
@@ -445,7 +501,8 @@ void main() {
 
     test('a call not done throws, with why', () async {
       final asGuest = IPlayerClient(
-        host.participant(const Principal('guest', 'bob')),
+        participant: host.participant(const Principal('guest', 'bob')),
+        provider: me,
       );
       expect(asGuest.status(PlayerCommand.stop), const WordNotPermitted());
       await expectLater(

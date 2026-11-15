@@ -128,9 +128,9 @@ void main() {
 
   void defineNow() {
     final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-    GeneratedWords(p.raw).state(Now.volume).define();
-    GeneratedWords(p.raw).state(Now.mode).define();
-    GeneratedWords(
+    GeneratedWords.own(p.raw).state(Now.volume).define();
+    GeneratedWords.own(p.raw).state(Now.mode).define();
+    GeneratedWords.own(
       p.raw,
     ).command(NowCommand.set).serve((_) {}, callers: anyone);
   }
@@ -150,12 +150,24 @@ void main() {
           defineNow();
           final b = await asGuest();
           await b.settle();
-          expect(said(GeneratedWords(b.raw).status(Built.volume)), [
-            'type.max: was 100, is 150',
-          ]);
-          expect(GeneratedWords(b.raw).status(Built.mode), const WordReady());
           expect(
-            b.raw.status('deck.volume'),
+            said(
+              GeneratedWords(
+                participant: b.raw,
+                provider: deck,
+              ).status(Built.volume),
+            ),
+            ['type.max: was 100, is 150'],
+          );
+          expect(
+            GeneratedWords(
+              participant: b.raw,
+              provider: deck,
+            ).status(Built.mode),
+            const WordReady(),
+          );
+          expect(
+            b.raw.status('deck/deck.volume'),
             const WordReady(),
             reason: 'by name there is no type to hold it to',
           );
@@ -164,24 +176,37 @@ void main() {
 
       test('every difference is told, at once', () async {
         final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-        GeneratedWords(p.raw).state(Wide.volume).define();
+        GeneratedWords.own(p.raw).state(Wide.volume).define();
         final b = await asGuest();
         await b.settle();
-        expect(said(GeneratedWords(b.raw).status(Built.volume)), [
-          'type.type: was int, is num',
-        ], reason: 'a type changed says no bound of it');
+        expect(
+          said(
+            GeneratedWords(
+              participant: b.raw,
+              provider: deck,
+            ).status(Built.volume),
+          ),
+          ['type.type: was int, is num'],
+          reason: 'a type changed says no bound of it',
+        );
       });
 
       test('a param added beside a break is no break of its own', () async {
         final p = host.participant(deck, vocabularies: [WordSet.open('deck')]);
-        GeneratedWords(
+        GeneratedWords.own(
           p.raw,
         ).command(BrokenCommand.set).serve((_) {}, callers: anyone);
         final b = await asGuest();
         await b.settle();
-        expect(said(GeneratedWords(b.raw).status(BuiltCommand.set)), [
-          'params.fields.volume.type.type: was int, is text',
-        ]);
+        expect(
+          said(
+            GeneratedWords(
+              participant: b.raw,
+              provider: deck,
+            ).status(BuiltCommand.set),
+          ),
+          ['params.fields.volume.type.type: was int, is text'],
+        );
       });
 
       test('a param added that may be left out keeps every promise', () async {
@@ -189,7 +214,10 @@ void main() {
         final b = await asGuest();
         await b.settle();
         expect(
-          GeneratedWords(b.raw).status(BuiltCommand.set),
+          GeneratedWords(
+            participant: b.raw,
+            provider: deck,
+          ).status(BuiltCommand.set),
           const WordReady(),
         );
       });
@@ -199,12 +227,11 @@ void main() {
         final b = await asGuest();
         await b.settle();
         expect(
-          wordMismatches(b.raw, [
-            ...Built.values,
-            ...BuiltCommand.values,
-          ]).map((w, breaks) => MapEntry(w, [for (final x in breaks) '$x'])),
+          GeneratedWords(participant: b.raw, provider: deck)
+              .mismatches([...Built.values, ...BuiltCommand.values])
+              .map((w, breaks) => MapEntry(w, [for (final x in breaks) '$x'])),
           {
-            'deck.volume': ['type.max: was 100, is 150'],
+            'deck/deck.volume': ['type.max: was 100, is 150'],
           },
         );
       });
@@ -215,7 +242,8 @@ void main() {
           final b = await asGuest();
           final seen = <WordStatus>[];
           final sub = GeneratedWords(
-            b.raw,
+            participant: b.raw,
+            provider: deck,
           ).statusChanges(Built.volume).listen(seen.add);
           await pumpEventQueue();
           defineNow();

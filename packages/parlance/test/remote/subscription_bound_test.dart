@@ -52,15 +52,15 @@ void main() {
 
   test('asked past its bound, a session carries everything, and the '
       'participant says so', () async {
-    final r = deckOf(['deck.s1', 'deck.s2', 'deck.s3']);
+    final r = deckOf(['deck/deck.s1', 'deck/deck.s2', 'deck/deck.s3']);
     final p = await RemoteParticipant.joinEndpoint(serve(r, subscription: 2));
     final errors = <ParticipantError>[];
     p.errors.listen(errors.add);
-    expect(await p.fetch('deck.s1'), {null: 1});
-    final s2 = p.watch('deck.s2').listen((_) {});
-    final s3 = p.watch('deck.s3').listen((_) {});
-    expect(await p.fetch('deck.s3'), {null: 3}, reason: 'none left out');
-    expect(p.read('deck.s2'), 2);
+    expect(await p.fetch('deck/deck.s1'), {null: 1});
+    final s2 = p.watch('deck/deck.s2').listen((_) {});
+    final s3 = p.watch('deck/deck.s3').listen((_) {});
+    expect(await p.fetch('deck/deck.s3'), {null: 3}, reason: 'none left out');
+    expect(p.read('deck/deck.s2'), 2);
     expect(errors.single.code, ParticipantErrorCode.overLimit);
     expect(errors.single.op['op'], 'subscribe');
     await s2.cancel();
@@ -71,15 +71,15 @@ void main() {
   test(
     'a call answered in a run its copy has left waits for nothing',
     () async {
-      final r1 = deckOf(['deck.s1']);
-      final r2 = deckOf(['deck.s1']);
+      final r1 = deckOf(['deck/deck.s1']);
+      final r2 = deckOf(['deck/deck.s1']);
       final mirror = RegistryMirror();
       Future<void> synced() => mirror.changes.firstWhere((_) => mirror.synced);
       mirror.follow(ParlanceClient(serve(r1)));
       await synced();
       mirror.follow(ParlanceClient(serve(r2)));
       await mirror.changes.firstWhere(
-        (_) => mirror.synced && mirror.read('deck.s1') == 1,
+        (_) => mirror.synced && mirror.read('deck/deck.s1') == 1,
       );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       final took = Stopwatch()..start();
@@ -93,14 +93,14 @@ void main() {
   test(
     'after a tick, a command\'s check is asked once for every feed',
     () async {
-      final r = deckOf(['deck.s1']);
+      final r = deckOf(['deck/deck.s1']);
       var asked = 0;
       final deck = r.participant(
         const Principal('lamp'),
         vocabularies: [WordSet.open('lamp')],
       );
       deck.defineCommand(
-        CommandDescriptor('lamp.turn', callers: Callers.only(['widlet'])),
+        CommandDescriptor('lamp/lamp.turn', callers: Callers.only(['widlet'])),
         (_) {},
         whyNot: () {
           asked++;
@@ -108,7 +108,7 @@ void main() {
         },
       );
       final light = deck.defineState(
-        StateDescriptor('lamp.on', type: const BoolType()),
+        StateDescriptor('lamp/lamp.on', type: const BoolType()),
       );
       final guests = [
         for (final _ in [1, 2, 3])

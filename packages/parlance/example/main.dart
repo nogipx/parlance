@@ -43,7 +43,8 @@ Future<void> main() async {
     owners: [house],
     access: const WordAccess(callers: Who.household),
     rights: ParticipantRights(
-      speakFor: (call) => call.fact == HouseFact.rang.name
+      speakFor: (call) =>
+          call.fact == WordAddress(Who.home, HouseFact.rang.name).toString()
           ? null
           : 'only the doorbell speaks for anyone',
     ),
@@ -53,8 +54,8 @@ Future<void> main() async {
   // registry to act as anyone. Each uses the house through its client.
   final annSide = host.participant(Who.ann);
   final bobSide = host.participant(Who.bob);
-  final ann = IHouseClient(annSide);
-  final bob = IHouseClient(bobSide);
+  final ann = IHouseClient(participant: annSide, provider: Who.home);
+  final bob = IHouseClient(participant: bobSide, provider: Who.home);
 
   // --- 1. Typed calls, and who may make them --------------------------------
 
@@ -67,7 +68,10 @@ Future<void> main() async {
   print('  kitchen light: ${ann.light.of('kitchen')}');
   // Why it is on: on whose behalf the owner wrote it, the message that set
   // it going, and the call it was answering.
-  final why = registry.explain(HouseState.light.name, key: 'kitchen');
+  final why = registry.explain(
+    WordAddress(Who.home, HouseState.light.name).toString(),
+    key: 'kitchen',
+  );
   final wrote = why.change!;
   print(
     '  why: written by ${wrote.cause.by}, '
@@ -88,7 +92,7 @@ Future<void> main() async {
     '${bob.status(HouseCommand.setHeat)}, '
     '${HouseCommand.setLight.name} '
     '${bob.status(HouseCommand.setLight)}, '
-    '${VisitState.guests.name} ${IVisitClient(bobSide).status(VisitState.guests)}',
+    '${VisitState.guests.name} ${IVisitClient(participant: bobSide, provider: Who.visit).status(VisitState.guests)}',
   );
 
   // --- 2. A guard of the house -----------------------------------------------
@@ -98,7 +102,10 @@ Future<void> main() async {
   final agentSide = host.participant(Who.agent('night'));
   await show(
     'an agent unlocks at night',
-    () => IHouseClient(agentSide).lock(on: false),
+    () => IHouseClient(
+      participant: agentSide,
+      provider: Who.home,
+    ).lock(on: false),
   );
   await show('ann unlocks at night', () => ann.lock(on: false));
   await ann.lock(on: true);
@@ -143,18 +150,20 @@ Future<void> main() async {
   // are there only meanwhile, and leave nothing behind.
   final visitSide = host.participant(
     Who.visit,
-    owners: [GuestBook()],
+    owners: [GuestBook(houseProvider: Who.home)],
     access: const WordAccess(callers: Who.household),
   );
   await annSide.settle();
-  final visit = IVisitClient(annSide);
+  final visit = IVisitClient(participant: annSide, provider: Who.visit);
   print('  during the visit: visit.guests ${visit.status(VisitState.guests)}');
   house.ring(Who.bob, 'bob');
   await annSide.settle();
   print('  guests: ${visit.guests.value}');
   // The guest book wrote it, answering the ring: nobody passed where it
   // started, the registry gives it from the fact the book followed.
-  final booked = registry.lastChange(VisitState.guests.name)!.cause;
+  final booked = registry
+      .lastChange(WordAddress(Who.visit, VisitState.guests.name).toString())!
+      .cause;
   print('  written by ${booked.by}, started by ${booked.origin}');
   visitSide.dispose();
   print('  after the visit: visit.guests ${visit.status(VisitState.guests)}');
@@ -168,7 +177,10 @@ Future<void> main() async {
   final phone = await Phone.join(host, Who.phone('ann-phone'));
   // It knows the house through the same client: getters and streams for
   // states, methods for commands, no word or record in sight.
-  final IHouseClient home = IHouseClient(phone.part);
+  final IHouseClient home = IHouseClient(
+    participant: phone.part,
+    provider: Who.home,
+  );
   final heats = home.heat.changes.listen((_) {});
   final modes = home.mode.changes.listen((_) {});
   await home.setHeat(target: 22);
@@ -198,7 +210,7 @@ Future<void> main() async {
   // The ring's conversation, as it happened: what it led to, by whom, and
   // the message that set it going, on every entry.
   final ring = journal.whereType<JournalFact>().firstWhere(
-    (e) => e.fact.fact == HouseFact.rang.name,
+    (e) => e.fact.fact == WordAddress(Who.home, HouseFact.rang.name).toString(),
   );
   for (final e in journal.where((e) => e.conversation == ring.conversation)) {
     print('  ${e.kind} ${e.word} by ${e.cause.by}, started by ${e.origin}');

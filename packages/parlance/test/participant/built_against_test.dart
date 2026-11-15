@@ -118,56 +118,56 @@ void main() {
       test('a word defined otherwise than a part was built against is told, '
           'saying where', () async {
         final b = await asGuest();
-        b.raw.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values, provider: const Principal('deck'));
         await settled(b);
         expect(host.registry.mismatches, isEmpty, reason: 'nothing there yet');
-        GeneratedWords(owner()).state(Now.volume).define();
+        GeneratedWords.own(owner()).state(Now.volume).define();
         await pumpEventQueue();
         expect(host.registry.mismatches, [
-          const Mismatch(guest, 'deck.volume', higher),
+          const Mismatch(guest, 'deck/deck.volume', higher),
         ]);
-        expect(told, [const Mismatch(guest, 'deck.volume', higher)]);
+        expect(told, [const Mismatch(guest, 'deck/deck.volume', higher)]);
       });
 
       test('a part built against a word there already is judged as it '
           'tells it', () async {
-        GeneratedWords(owner()).state(Now.volume).define();
+        GeneratedWords.own(owner()).state(Now.volume).define();
         final b = await asGuest();
-        b.raw.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values, provider: const Principal('deck'));
         await settled(b);
         expect(host.registry.mismatches, [
-          const Mismatch(guest, 'deck.volume', higher),
+          const Mismatch(guest, 'deck/deck.volume', higher),
         ]);
       });
 
       test('a word defined again as it was built against ends it', () async {
         final o = owner();
-        final now = GeneratedWords(o).state(Now.volume).define();
+        final now = GeneratedWords.own(o).state(Now.volume).define();
         final b = await asGuest();
-        b.raw.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values, provider: const Principal('deck'));
         await settled(b);
         now.dispose();
-        GeneratedWords(o).state(Built.volume).define();
+        GeneratedWords.own(o).state(Built.volume).define();
         await pumpEventQueue();
         expect(host.registry.mismatches, isEmpty);
-        expect(told.last, const Mismatch(guest, 'deck.volume', []));
+        expect(told.last, const Mismatch(guest, 'deck/deck.volume', []));
       });
 
       test('told again, it is told once', () async {
-        GeneratedWords(owner()).state(Now.volume).define();
+        GeneratedWords.own(owner()).state(Now.volume).define();
         final b = await asGuest();
         b.raw
-          ..builtAgainst(Built.values)
-          ..builtAgainst(Built.values)
-          ..builtAgainst([Built.volume]);
+          ..builtAgainst(Built.values, provider: const Principal('deck'))
+          ..builtAgainst(Built.values, provider: const Principal('deck'))
+          ..builtAgainst([Built.volume], provider: const Principal('deck'));
         await settled(b);
-        expect(told, [const Mismatch(guest, 'deck.volume', higher)]);
+        expect(told, [const Mismatch(guest, 'deck/deck.volume', higher)]);
       });
 
       test('a part that goes takes what it was built against', () async {
-        GeneratedWords(owner()).state(Now.volume).define();
+        GeneratedWords.own(owner()).state(Now.volume).define();
         final b = await asGuest();
-        b.raw.builtAgainst(Built.values);
+        b.raw.builtAgainst(Built.values, provider: const Principal('deck'));
         await settled(b);
         if (b is RemoteParticipant) {
           await b.dispose();
@@ -176,16 +176,19 @@ void main() {
         }
         await pumpEventQueue();
         expect(host.registry.mismatches, isEmpty);
-        expect(told.last, const Mismatch(guest, 'deck.volume', []));
+        expect(told.last, const Mismatch(guest, 'deck/deck.volume', []));
       });
 
       test('it for an owner is told as that owner', () async {
-        GeneratedWords(owner()).state(Now.volume).define();
+        GeneratedWords.own(owner()).state(Now.volume).define();
         final b = await asGuest();
-        b.raw.ofOwner('screen').raw.builtAgainst(Built.values);
+        b.raw
+            .ofOwner('screen')
+            .raw
+            .builtAgainst(Built.values, provider: const Principal('deck'));
         await settled(b);
         expect(host.registry.mismatches, [
-          Mismatch(guest.ofOwner('screen'), 'deck.volume', higher),
+          Mismatch(guest.ofOwner('screen'), 'deck/deck.volume', higher),
         ]);
       });
     });
@@ -193,7 +196,7 @@ void main() {
 
   test('parts across connections, told by fingerprint, are judged as by '
       'their schemas, saying the package they took the words from', () async {
-    GeneratedWords(owner()).state(Now.volume).define();
+    GeneratedWords.own(owner()).state(Now.volume).define();
     final seen = <Map<String, Object?>>[];
     Future<IParticipant> joined(Principal who) async {
       final p = await host.join(who);
@@ -204,18 +207,31 @@ void main() {
     final a = await joined(guest);
     final b = await joined(const Principal('widlet', 'c'));
     host.registry.mismatchChanges.listen((m) => seen.add(m.toJson()));
-    a.raw.builtAgainst(Built.values, from: 'deck_words 1.2.0');
+    a.raw.builtAgainst(
+      Built.values,
+      from: 'deck_words 1.2.0',
+      provider: const Principal('deck'),
+    );
     await (a as RemoteParticipant).flush();
     final print = fingerprintOf(schemaOf([Built.volume])['deck.volume']);
     expect(host.registry.knownSchema(print), isNotNull);
-    b.raw.builtAgainst(Built.values, from: 'deck_words 1.2.0');
+    b.raw.builtAgainst(
+      Built.values,
+      from: 'deck_words 1.2.0',
+      provider: const Principal('deck'),
+    );
     await (b as RemoteParticipant).flush();
     await pumpEventQueue();
     expect(host.registry.mismatches, [
-      const Mismatch(guest, 'deck.volume', higher, from: 'deck_words 1.2.0'),
+      const Mismatch(
+        guest,
+        'deck/deck.volume',
+        higher,
+        from: 'deck_words 1.2.0',
+      ),
       const Mismatch(
         Principal('widlet', 'c'),
-        'deck.volume',
+        'deck/deck.volume',
         higher,
         from: 'deck_words 1.2.0',
       ),
@@ -228,19 +244,24 @@ void main() {
         'gone is left out of the calls of code built before it went, and '
         'still told', () async {
       final heard = <int>[];
-      GeneratedWords(owner())
+      GeneratedWords.own(owner())
           .command(NowCommand.turn)
           .serve((params) => heard.add(params.volume), callers: Callers.anyone);
       final b = across ? await host.join(guest) : host.participant(guest);
       if (b is RemoteParticipant) await b.settle();
       final before = await GeneratedWords(
-        b.raw,
+        participant: b.raw,
+        provider: deck,
       ).command(BuiltCommand.turn).call((volume: 3, fade: true));
       expect(before, isA<CallRefused>(), reason: 'not told, it is refused');
-      b.raw.builtAgainst(BuiltCommand.values);
+      b.raw.builtAgainst(
+        BuiltCommand.values,
+        provider: const Principal('deck'),
+      );
       if (b is RemoteParticipant) await b.flush();
       final r = await GeneratedWords(
-        b.raw,
+        participant: b.raw,
+        provider: deck,
       ).command(BuiltCommand.turn).call((volume: 5, fade: true));
       expect(r, isA<CallDone<void>>(), reason: '$r');
       expect(heard, [5]);
@@ -252,26 +273,31 @@ void main() {
   }
 
   test('a word gone is no mismatch: it is missing', () async {
-    final now = GeneratedWords(owner()).state(Now.volume).define();
-    host.participant(guest).raw.builtAgainst(Built.values);
+    final now = GeneratedWords.own(owner()).state(Now.volume).define();
+    host
+        .participant(guest)
+        .raw
+        .builtAgainst(Built.values, provider: const Principal('deck'));
     now.dispose();
     await pumpEventQueue();
     expect(host.registry.mismatches, isEmpty);
-    expect(told.last, const Mismatch(guest, 'deck.volume', []));
+    expect(told.last, const Mismatch(guest, 'deck/deck.volume', []));
   });
 
   test('a word under an old name is held to what the old name was built '
       'against', () async {
-    host.participant(guest).raw.builtAgainst([_Old.volume]);
-    GeneratedWords(owner()).state(Now.volume).define();
-    host.registry.alias('deck.loudness', 'deck.volume');
+    host.participant(guest).raw.builtAgainst([
+      _Old.volume,
+    ], provider: const Principal('deck'));
+    GeneratedWords.own(owner()).state(Now.volume).define();
+    host.registry.alias('deck/deck.loudness', 'deck/deck.volume');
     expect(host.registry.mismatches, [
-      const Mismatch(guest, 'deck.loudness', higher),
+      const Mismatch(guest, 'deck/deck.loudness', higher),
     ]);
   });
 
   test('across a connection, a new session is told again', () async {
-    GeneratedWords(owner()).state(Now.volume).define();
+    GeneratedWords.own(owner()).state(Now.volume).define();
     final r = host.registry;
     final sessions = <RemoteSession>[];
     final hosts = <RpcPeerEndpoint>[];
@@ -287,7 +313,7 @@ void main() {
       backoff: const RpcFixedBackoff(Duration(milliseconds: 10)),
     );
     final p = await RemoteParticipant.join(connection);
-    p.builtAgainst(Built.values);
+    p.builtAgainst(Built.values, provider: const Principal('deck'));
     await p.flush();
     expect(r.mismatches, hasLength(1));
 
@@ -301,7 +327,7 @@ void main() {
     while (r.mismatches.isEmpty && DateTime.now().isBefore(back)) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
-    expect(r.mismatches, [const Mismatch(guest, 'deck.volume', higher)]);
+    expect(r.mismatches, [const Mismatch(guest, 'deck/deck.volume', higher)]);
 
     await p.dispose();
     await connection.dispose();

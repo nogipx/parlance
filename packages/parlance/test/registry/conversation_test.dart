@@ -161,19 +161,30 @@ void main() {
       vocabularies: [WordSet.open('clips')],
     );
     final last = p.raw.defineState(
-      StateDescriptor('clips.last', type: const TextType()),
+      StateDescriptor('plugin/clips/clips.last', type: const TextType()),
     );
     p.raw.defineCommand(
-      CommandDescriptor('clips.save', callers: Callers.only(['user'])),
+      CommandDescriptor(
+        'plugin/clips/clips.save',
+        callers: Callers.only(['user']),
+      ),
       (c) => last.set('clip-1', cause: c.causeFor(p.who)),
     );
     await p.settle();
-    await host.registry.call('clips.save', {}, by: user, id: 'press');
+    await host.registry.call(
+      'plugin/clips/clips.save',
+      {},
+      by: user,
+      id: 'press',
+    );
     await host.settle();
-    expect(host.registry.lastChange('clips.last')!.cause.conversation, 'press');
     expect(
-      host.registry.lastChange('clips.last')!.cause.origin,
-      const Origin('clips.save', user),
+      host.registry.lastChange('plugin/clips/clips.last')!.cause.conversation,
+      'press',
+    );
+    expect(
+      host.registry.lastChange('plugin/clips/clips.last')!.cause.origin,
+      const Origin('plugin/clips/clips.save', user),
     );
     await host.dispose();
   });

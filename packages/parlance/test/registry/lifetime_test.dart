@@ -118,12 +118,15 @@ void main() {
 
   test('a null value of a state that may be null is read with the rest', () {
     final r = Registry();
-    final w = GeneratedWords(
+    final w = GeneratedWords.own(
       r.participant(owner, vocabularies: [WordSet.open('a')]),
     ).state(Maybe.level).define();
     w.set(null, key: 'a');
     w.set(3, key: 'b');
-    expect(r.readAll(Maybe.level.name), {'a': null, 'b': 3});
+    expect(r.readAll(WordAddress(owner, Maybe.level.name).toString()), {
+      'a': null,
+      'b': 3,
+    });
   });
 
   test('a call whose asked guard took a while is refused when its command '

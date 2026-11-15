@@ -46,14 +46,14 @@ void main() {
     final p = r.participant(host, vocabularies: [WordSet.open('count')]);
     final at = p.defineState(
       StateDescriptor(
-        'count.at',
+        'host/count.at',
         type: const IntType(),
         readers: Callers.anyone,
       ),
     );
     final said = p.defineFact(
       FactDescriptor(
-        'count.said',
+        'host/count.said',
         type: const IntType(),
         readers: Callers.anyone,
       ),
@@ -98,7 +98,7 @@ void main() {
       got.lastWhere((i) => i.kind == 'snapshot').json,
     );
     expect(last.factsLost, isTrue);
-    expect(last.states['count.at']!.values.single, 20);
+    expect(last.states['host/count.at']!.values.single, 20);
     expect(
       got.where((i) => i.kind == 'tick').length,
       lessThan(20),
@@ -126,7 +126,7 @@ void main() {
       final got = await slowly(() async {
         for (var i = 0; i < 50; i++) {
           await session.onSubscribe(
-            WireSubscribe(states: [i.isEven ? 'box.a' : 'box.b']),
+            WireSubscribe(states: [i.isEven ? 'host/box.a' : 'host/box.b']),
           );
         }
       });
@@ -134,7 +134,7 @@ void main() {
       final last = Snapshot.fromJson(
         got.lastWhere((i) => i.kind == 'snapshot').json,
       );
-      expect(last.states.keys, ['box.b'], reason: 'the last subscription');
+      expect(last.states.keys, ['host/box.b'], reason: 'the last subscription');
     },
   );
 }

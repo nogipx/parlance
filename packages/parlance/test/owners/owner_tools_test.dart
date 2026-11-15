@@ -80,7 +80,13 @@ void main() {
     expect(lamp.order, ['attached']);
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
-    expect(GeneratedWords(p).stateOf(LampState.level).value, 3);
+    expect(
+      GeneratedWords(
+        participant: p,
+        provider: const Principal('lamp'),
+      ).stateOf(LampState.level).value,
+      3,
+    );
   });
 
   test('it follows its model: on sync, and when the model tells it, once '
@@ -94,7 +100,13 @@ void main() {
       ..turn(6);
     await p.settle();
     expect(lamp.pulls, 3);
-    expect(GeneratedWords(p).stateOf(LampState.level).value, 6);
+    expect(
+      GeneratedWords(
+        participant: p,
+        provider: const Principal('lamp'),
+      ).stateOf(LampState.level).value,
+      6,
+    );
   });
 
   test('a follow said once attached runs at once', () async {

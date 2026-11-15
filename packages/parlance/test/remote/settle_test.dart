@@ -34,7 +34,7 @@ void main() {
       vocabularies: [WordSet.open('house')],
     );
     focus = house.defineState(
-      StateDescriptor('house.focus', type: const IntType()),
+      StateDescriptor('house/house.focus', type: const IntType()),
     );
   });
   tearDown(() async {
@@ -67,7 +67,7 @@ void main() {
     () async {
       final p = await join();
       await p.attach([_Lamp()]);
-      expect(r.read('lamp.on'), isTrue);
+      expect(r.read('widlet/a/lamp.on'), isTrue);
     },
   );
 
@@ -76,11 +76,11 @@ void main() {
     () async {
       final p = await join();
       final seen = <Object?>[];
-      p.watch('house.focus').listen(seen.add);
+      p.watch('house/house.focus').listen(seen.add);
       await p.settle();
       focus.set(7);
       await p.settle();
-      expect(p.read('house.focus'), 7);
+      expect(p.read('house/house.focus'), 7);
       expect(seen.last, 7);
     },
   );
@@ -88,10 +88,10 @@ void main() {
   test('settle waits for nothing more when the copy follows only some '
       'words', () async {
     final p = await join();
-    p.watch('house.focus').listen((_) {});
+    p.watch('house/house.focus').listen((_) {});
     await p.settle();
     final other = house.defineState(
-      StateDescriptor('house.other', type: const IntType()),
+      StateDescriptor('house/house.other', type: const IntType()),
     );
     for (var i = 0; i < 5; i++) {
       other.set(i);

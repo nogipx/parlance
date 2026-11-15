@@ -26,15 +26,25 @@ void main() {
         host.start();
         final own = RpcPeerEndpoint(transport: g)..start();
         final p = await RemoteParticipant.joinEndpoint(own);
-        p.defineState(StateDescriptor('lamp.on', type: const BoolType()));
+        p.defineState(
+          StateDescriptor('widlet/a/lamp.on', type: const BoolType()),
+        );
         await p.flush();
-        expect(r.stateDescriptor('lamp.on'), isNotNull);
+        expect(r.stateDescriptor('widlet/a/lamp.on'), isNotNull);
 
         await own.close();
-        for (var i = 0; i < 50 && r.stateDescriptor('lamp.on') != null; i++) {
+        for (
+          var i = 0;
+          i < 50 && r.stateDescriptor('widlet/a/lamp.on') != null;
+          i++
+        ) {
           await Future<void>.delayed(const Duration(milliseconds: 5));
         }
-        expect(r.stateDescriptor('lamp.on'), isNull, reason: 'its words went');
+        expect(
+          r.stateDescriptor('widlet/a/lamp.on'),
+          isNull,
+          reason: 'its words went',
+        );
         // A new guest of that vocabulary is no longer refused.
         expect(
           () => r.participant(

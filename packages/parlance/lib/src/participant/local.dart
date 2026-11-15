@@ -3,6 +3,7 @@
 // ignore_for_file: public_member_api_docs
 import 'package:clock/clock.dart' show Clock;
 
+import '../registry/address.dart';
 import '../registry/cause.dart';
 import 'serving.dart';
 import '../registry/compat.dart';
@@ -25,8 +26,8 @@ extension Participants on Registry {
   /// [vocabularies]: those whose owners are not here (a guest's, served
   /// across a connection) or whose words come at run time (`WordSet.open`).
   /// A word is named in its vocabulary: `orders.cancel` is in `orders`. A
-  /// vocabulary is one participant's, and one owner's: one given twice, or
-  /// that another live participant has, is refused. When an owner cannot
+  /// vocabulary has one participant and one owner per whole principal: one
+  /// given twice, or held by another participant of that principal, is refused. When an owner cannot
   /// define its words, the participant goes and the error goes on.
   LocalParticipant participant(
     Principal who, {
@@ -71,13 +72,13 @@ extension Participants on Registry {
     bool takesOver(LocalParticipant p) => p.who == who && p._end != null;
     for (final ns in names) {
       checkVocabularyName(ns);
-      if (taken[ns] case final p? when !takesOver(p)) {
+      if (taken[(who.whole, ns)] case final p? when !takesOver(p)) {
         throw NotPermitted('vocabulary $ns is ${p.who}\'s');
       }
     }
     for (final old in {
       for (final ns in names)
-        if (taken[ns] case final p? when takesOver(p)) p,
+        if (taken[(who.whole, ns)] case final p? when takesOver(p)) p,
     }) {
       old._end!('a new session of $who took its place', tell: true);
     }
@@ -89,7 +90,7 @@ extension Participants on Registry {
       access,
     );
     for (final ns in names) {
-      taken[ns] = p;
+      taken[(who.whole, ns)] = p;
     }
     _aliveIn(this).add(p);
     if (attached.isNotEmpty) {
@@ -123,7 +124,7 @@ Set<LocalParticipant> _aliveIn(Registry r) => _alive[r] ??= () {
 }();
 
 /// The vocabularies taken, by name, and whose they are.
-final Expando<Map<String, LocalParticipant>> _taken = Expando();
+final Expando<Map<(Principal, String), LocalParticipant>> _taken = Expando();
 
 /// A participant of a registry in this process: the registry as [who] may
 /// use it.
@@ -251,8 +252,14 @@ final class LocalParticipant implements IRawParticipant {
   }
 
   /// Whether [name] is in its vocabularies.
-  bool owns(String name) =>
-      vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
+  bool owns(String name) {
+    if (name.contains('/')) {
+      final address = WordAddress.parse(name);
+      if (address.provider != who.whole) return false;
+      name = address.word;
+    }
+    return vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
+  }
 
   void _mayDefine(Descriptor d) {
     _live();
@@ -374,7 +381,16 @@ final class LocalParticipant implements IRawParticipant {
   }) {
     _live();
     final c = _as(cause);
-    return _r.call(command, params, by: who, id: id, cause: c, cancel: cancel);
+    return _r
+        .call(
+          command,
+          params,
+          by: who,
+          id: id == null ? null : '${who.whole.selector}#$id',
+          cause: c,
+          cancel: cancel,
+        )
+        .then((r) => id != null && r is CallLost ? CallLost(id, r.how) : r);
   }
 
   @override
@@ -387,14 +403,16 @@ final class LocalParticipant implements IRawParticipant {
     CancellationToken? cancel,
   }) {
     _live();
-    return _r.callKept(
-      command,
-      Kept(params, shape),
-      by: who,
-      id: id,
-      cause: _as(cause),
-      cancel: cancel,
-    );
+    return _r
+        .callKept(
+          command,
+          Kept(params, shape),
+          by: who,
+          id: id == null ? null : '${who.whole.selector}#$id',
+          cause: _as(cause),
+          cancel: cancel,
+        )
+        .then((r) => id != null && r is CallLost ? CallLost(id, r.how) : r);
   }
 
   @override
@@ -411,8 +429,15 @@ final class LocalParticipant implements IRawParticipant {
 
   /// Each word told once as it was built against it, held until it goes.
   @override
-  void builtAgainst(Iterable<IWord> words, {String? from}) =>
-      _builtAgainst(schemasOf(words), from);
+  void builtAgainst(
+    Iterable<IWord> words, {
+    String? from,
+    Principal? provider,
+  }) => _builtAgainst({
+    for (final w in words)
+      (provider == null ? w.name : WordAddress(provider, w.name).toString()):
+          schemaOfWord(w),
+  }, from);
 
   /// What it told the registry it was built against, by word: the
   /// schema's fingerprint and the package it came from.
@@ -492,6 +517,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?>? item,
     Shape<Object?>? input,
   }) {
+    d = d.providedBy(who) as DataStreamDescriptor;
     _mayDefine(d);
     final h = _r.defineStream(
       access.dataStream(d),
@@ -514,6 +540,7 @@ final class LocalParticipant implements IRawParticipant {
 
   @override
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) {
+    d = d.providedBy(who) as StateDescriptor;
     _mayDefine(d);
     return _keep(
       _OwnState(this, _r.defineState(access.state(d), by: who, shape: shape)),
@@ -528,6 +555,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
+    d = d.providedBy(who) as CommandDescriptor;
     _mayDefine(d);
     final h = _r.defineCommand(
       d,
@@ -553,6 +581,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
+    d = d.providedBy(who) as QueryDescriptor;
     _mayDefine(d);
     final h = _r.defineQuery(
       d,
@@ -572,6 +601,7 @@ final class LocalParticipant implements IRawParticipant {
 
   @override
   IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) {
+    d = d.providedBy(who) as FactDescriptor;
     _mayDefine(d);
     return _keep(
       _OwnFact(this, _r.defineFact(access.fact(d), by: who, shape: shape)),
@@ -730,7 +760,11 @@ final class _OwnFact implements IFactHandle {
     }
     cause ??= inReplyAs(p.who);
     final own = cause == null || cause.by == p.who || p._wholeOf(cause.by);
-    return _raw.say(payload, id: id, cause: own ? p._as(cause) : cause);
+    return _raw.say(
+      payload,
+      id: '${descriptor.name}#${id ?? newId()}',
+      cause: own ? p._as(cause) : cause,
+    );
   }
 
   @override

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Breaking: scope vocabularies, runtime word addresses and clients to an exact provider principal. Client factories require named `participant` (or `owner`) and `provider`.
+- Add `WordAddress`, `Principal.whole`, provider discovery and observable publication/access/schema status. Require the `providers` wire feature.
+- Isolate caller-supplied call IDs by caller instance and fact IDs by full publication address; preserve exact receiver addresses through RPC, subscriptions, streams, aliases, diagnostics and journal causes.
+
 - Breaking: remove dynamic choices, `Choice`, `Choices`, `ChoiceType`,
   `@ChoiceOf`, owner/participant registration APIs and `standInChoices`.
   Expose domain catalogs through states or queries and validate IDs in owners;

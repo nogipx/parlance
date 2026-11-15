@@ -6,6 +6,7 @@
 library;
 
 import 'package:rpc_dart/rpc_dart.dart';
+import 'package:parlance/schema.dart' show WordSet;
 
 import 'host.dart';
 
@@ -14,14 +15,15 @@ final List<RpcPeerEndpoint> _opened = [];
 
 /// Loads the guest [id] into [host] and starts it ([start], what its
 /// `main` does with the endpoint it is handed).
-Future<T> loadInMemory<T>(
-  Shell host,
-  String id,
-  Future<T> Function(RpcPeerEndpoint endpoint) start,
-) async {
+Future<T> loadInMemory<T>({
+  required Shell host,
+  required String id,
+  required Future<T> Function(RpcPeerEndpoint endpoint) start,
+  Iterable<WordSet> vocabularies = const [],
+}) async {
   final (guest, hosted) = RpcChannelTransport.pair();
   final side = RpcPeerEndpoint(transport: hosted);
-  host.load(id, side);
+  host.load(id: id, endpoint: side, vocabularies: vocabularies);
   side.start();
   final own = RpcPeerEndpoint(transport: guest)..start();
   _opened.addAll([side, own]);

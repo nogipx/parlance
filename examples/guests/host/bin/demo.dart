@@ -13,8 +13,18 @@ import 'package:notes_words/notes_words.dart';
 
 Future<void> main() async {
   final host = Shell();
-  final notes = await loadInMemory(host, 'notes', startNotes);
-  final (board, b) = await loadInMemory(host, 'board', startBoard);
+  final notes = await loadInMemory(
+    host: host,
+    id: 'notes',
+    vocabularies: [notesWords],
+    start: startNotes,
+  );
+  final (board, b) = await loadInMemory(
+    host: host,
+    id: 'board',
+    start: (e) =>
+        startBoard(e, appProvider: Who.app, notesProvider: Who.widlet('notes')),
+  );
   print('guests: notes as ${notes.who}, board as ${board.who}');
 
   await b.pin('buy milk');
@@ -35,7 +45,7 @@ Future<void> main() async {
   await board.settle();
   print(
     'notes unloaded: notes.add is '
-    '${INotesClient(board).status(NotesCommand.add)}',
+    '${INotesClient(participant: board, provider: Who.widlet('notes')).status(NotesCommand.add)}',
   );
 
   await b.close();

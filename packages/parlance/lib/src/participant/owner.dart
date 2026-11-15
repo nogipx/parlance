@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:clock/clock.dart' as clock_;
 
+import '../registry/address.dart';
 import '../registry/cause.dart' show Principal;
 import '../registry/registry.dart';
 import '../registry/words.dart'
@@ -319,12 +320,14 @@ extension OwnerTools on IOwner {
       (p) => c.handles.keep(
         p.raw.addGuard(
           id,
-          (call) => call.command.name == word.name
+          (call) =>
+              call.command.name ==
+                  WordAddress(p.who.whole, word.name).toString()
               ? check(
                   GuardCall._(
                     word.params.fromJson(call.params),
                     call.by,
-                    word.name,
+                    call.command.name,
                   ),
                 )
               : null,

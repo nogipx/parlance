@@ -90,8 +90,12 @@ final class Links {
   /// How many loads were made: the last one alone starts its links.
   int _loads = 0;
 
-  String get buttonsState => '$vocabulary.links.buttons';
-  String get pressCommand => '$vocabulary.links.press';
+  String get buttonsState => WordAddress(
+    participant.who.whole,
+    '$vocabulary.links.buttons',
+  ).toString();
+  String get pressCommand =>
+      WordAddress(participant.who.whole, '$vocabulary.links.press').toString();
 
   /// The links taken, in order.
   List<Link> get links => _links;
@@ -146,13 +150,15 @@ final class Links {
     Object? unknown;
     await Future.wait([
       for (final s in reads)
-        participant.fetch(s).then(
-          (_) {},
-          onError: (Object e, StackTrace st) {
-            unknown ??= e;
-            _err(e, st);
-          },
-        ),
+        participant
+            .fetch(s)
+            .then(
+              (_) {},
+              onError: (Object e, StackTrace st) {
+                unknown ??= e;
+                _err(e, st);
+              },
+            ),
     ]);
     if (!participant.synced) {
       _err(unknown ??= StateError('the registry is not reachable now'));

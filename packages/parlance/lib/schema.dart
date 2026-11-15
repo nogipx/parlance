@@ -12,6 +12,9 @@
 /// The contract: skills/parlance-core/references/schema.md (§23).
 library;
 
+export 'src/participant/participant.dart'
+    show ProvidedWord, WordProvider, ProviderDiscovery;
+export 'src/registry/address.dart' show WordAddress;
 export 'src/core/core.dart' show IHandle;
 export 'src/participant/owner.dart'
     show IOwner, OwnerTools, GuardCall, failCall, HandlerFailed;

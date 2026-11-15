@@ -27,19 +27,19 @@ Future<void> main(List<String> args) async {
       .raw;
   final rang = p.defineFact(
     FactDescriptor(
-      'house.doorbell.rang',
+      'house/house.doorbell.rang',
       type: const RecordType({'who': Field(TextType())}),
     ),
   );
   final porch = p.defineState(
-    StateDescriptor('house.porch.light', type: const BoolType()),
+    StateDescriptor('house/house.porch.light', type: const BoolType()),
   );
   final locked = p.defineState(
-    StateDescriptor('house.door.locked', type: const BoolType()),
+    StateDescriptor('house/house.door.locked', type: const BoolType()),
   );
   p.defineCommand(
     CommandDescriptor(
-      'house.doorbell.ring',
+      'house/house.doorbell.ring',
       params: const RecordType({'who': Field(TextType())}),
       callers: Callers.only(['guest']),
     ),
@@ -49,7 +49,7 @@ Future<void> main(List<String> args) async {
   var lock = true;
   p.defineCommand(
     CommandDescriptor(
-      'house.porch.light.set',
+      'house/house.porch.light.set',
       params: const RecordType({'on': Field(BoolType())}),
       callers: Callers.only(['module', 'resident']),
     ),
@@ -62,7 +62,7 @@ Future<void> main(List<String> args) async {
   );
   p.defineCommand(
     CommandDescriptor(
-      'house.door.lock.toggle',
+      'house/house.door.lock.toggle',
       callers: Callers.only(['resident', 'module']),
     ),
     (c) async {
@@ -72,7 +72,10 @@ Future<void> main(List<String> args) async {
     },
   );
   p.defineCommand(
-    CommandDescriptor('house.alarm.arm', callers: Callers.only(['resident'])),
+    CommandDescriptor(
+      'house/house.alarm.arm',
+      callers: Callers.only(['resident']),
+    ),
     (_) {},
   );
 
@@ -80,12 +83,14 @@ Future<void> main(List<String> args) async {
   // someone says they are leaving (refused: only a resident arms it).
   const visit = Principal('module', 'visit');
   final module = host.participant(visit).raw;
-  module.facts('house.doorbell.rang').listen((f) async {
+  module.facts('house/house.doorbell.rang').listen((f) async {
     final who = '${(f.payload as Map)['who']}';
     final cause = Cause(visit, parent: f.id);
-    await module.call('house.porch.light.set', {'on': true}, cause: cause);
+    await module.call('house/house.porch.light.set', {
+      'on': true,
+    }, cause: cause);
     if (who.contains('leaving')) {
-      await module.call('house.alarm.arm', {}, cause: cause);
+      await module.call('house/house.alarm.arm', {}, cause: cause);
     }
   });
 
@@ -99,9 +104,9 @@ Future<void> main(List<String> args) async {
       4 => '${guests[i % guests.length]}, leaving',
       _ => guests[i % guests.length],
     };
-    await who.call('house.doorbell.ring', {'who': name}, id: 'bell:$i');
+    await who.call('house/house.doorbell.ring', {'who': name}, id: 'bell:$i');
     if (i % 6 == 2) {
-      await resident.call('house.door.lock.toggle', {}, id: 'panel:$i');
+      await resident.call('house/house.door.lock.toggle', {}, id: 'panel:$i');
     }
     await wait(300 + rnd.nextInt(1500));
   }

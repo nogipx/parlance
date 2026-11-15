@@ -37,13 +37,13 @@ void main() {
     final host = Host();
     addTearDown(host.dispose);
     host.registry.defineState(
-      StateDescriptor('x.a', type: const IntType()),
+      StateDescriptor('host/house/x.a', type: const IntType()),
       by: owner,
     );
-    final h = host.alias('x.old', 'x.a');
-    expect(host.registry.canonical('x.old'), 'x.a');
+    final h = host.alias('host/house/x.old', 'host/house/x.a');
+    expect(host.registry.canonical('host/house/x.old'), 'host/house/x.a');
     h.dispose();
-    expect(host.registry.canonical('x.old'), 'x.old');
+    expect(host.registry.canonical('host/house/x.old'), 'host/house/x.old');
   });
 
   test('an old name is not a word: it is refused as one, and no word may '

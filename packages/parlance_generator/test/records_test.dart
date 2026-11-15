@@ -57,7 +57,7 @@ void main() {
 
   test('a record is an object of its fields, in the order the typedef says '
       'them, each as annotated there', () {
-    final type = r.stateDescriptor('note')!.type.toJson();
+    final type = r.stateDescriptor('board/note')!.type.toJson();
     expect((type['fields']! as Map).keys, [
       'level',
       'text',
@@ -115,7 +115,7 @@ void main() {
 
   test('a record goes in and out as JSON, its fields by their JSON names, '
       'defaults filled', () async {
-    final done = await asAnn.raw.call('note.put', {
+    final done = await asAnn.raw.call('board/note.put', {
       'note': {
         'level': 'warning',
         'text': 'Hi',
@@ -129,7 +129,7 @@ void main() {
     expect(note.author, 'Ann');
     expect(note.tags, isEmpty);
     expect(note.action!.params, isEmpty);
-    expect(asAnn.raw.read('note', key: 'n1'), {
+    expect(asAnn.raw.read('board/note', key: 'n1'), {
       'level': 'warning',
       'text': 'Hi',
       'tags': <Object?>[],
@@ -138,7 +138,8 @@ void main() {
     });
     expect(
       IBoardClient(
-        host.participant(ann.ofOwner('reader')),
+        participant: host.participant(ann.ofOwner('reader')),
+        provider: me,
       ).notes.of('n1')!.author,
       'Ann',
     );
@@ -148,37 +149,47 @@ void main() {
       'name', () async {
     expect(BoardState.notes.name, 'note');
     board.anything.set({'a': 1});
-    expect(asAnn.raw.read('note.anything'), {'a': 1});
+    expect(asAnn.raw.read('board/note.anything'), {'a': 1});
     board.anything.set(null);
-    expect(asAnn.raw.read('note.anything'), isNull);
-    expect(r.commandDescriptor('note.expire')!.params.toJson()['fields'], {
-      'id': {
-        'type': {'type': 'text'},
+    expect(asAnn.raw.read('board/note.anything'), isNull);
+    expect(
+      r.commandDescriptor('board/note.expire')!.params.toJson()['fields'],
+      {
+        'id': {
+          'type': {'type': 'text'},
+        },
+        'in': {
+          'type': {'type': 'duration', 'max': 60000},
+        },
       },
-      'in': {
-        'type': {'type': 'duration', 'max': 60000},
-      },
-    });
-    await asAnn.raw.call('note.put', {
+    );
+    await asAnn.raw.call('board/note.put', {
       'note': {'level': 'info', 'text': 'x'},
     });
-    final done = await asAnn.raw.call('note.expire', {'id': 'n1', 'in': 500});
+    final done = await asAnn.raw.call('board/note.expire', {
+      'id': 'n1',
+      'in': 500,
+    });
     expect(done.ok, isTrue, reason: '$done');
     expect(board.expiries, [const Duration(milliseconds: 500)]);
-    final long = await asAnn.raw.call('note.expire', {'id': 'n1', 'in': 60001});
+    final long = await asAnn.raw.call('board/note.expire', {
+      'id': 'n1',
+      'in': 60001,
+    });
     expect((long as CallRefused).code, Refusal.invalidParams);
   });
 
   test('a param one may leave out is optional, one that must be said but '
       'may be null is nullable', () {
     final put =
-        r.commandDescriptor('note.put')!.params.toJson()['fields']! as Map;
+        r.commandDescriptor('board/note.put')!.params.toJson()['fields']!
+            as Map;
     expect(put['id'], {
       'type': {'type': 'text'},
       'optional': true,
       'description': 'Its id; else a new one.',
     });
-    final count = r.commandDescriptor('note.count')!.params.toJson();
+    final count = r.commandDescriptor('board/note.count')!.params.toJson();
     expect(count['fields'], {
       'readers': {
         'type': {
@@ -190,7 +201,7 @@ void main() {
   });
 
   test('a list said of a kind names entities of it', () {
-    expect(r.commandDescriptor('note.pin')!.params.toJson()['fields'], {
+    expect(r.commandDescriptor('board/note.pin')!.params.toJson()['fields'], {
       'ids': {
         'type': {
           'type': 'list',
@@ -209,7 +220,7 @@ void main() {
       author: null,
       action: null,
     ));
-    expect((await asAnn.raw.recent('note.seen', 9)).single.payload, {
+    expect((await asAnn.raw.recent('board/note.seen', 9)).single.payload, {
       'level': 'info',
       'text': 'seen',
       'tags': <Object?>[],

@@ -30,11 +30,11 @@ void main() {
           )
           .raw;
       final focus = house.defineState(
-        StateDescriptor('house.focus', type: const TextType()),
+        StateDescriptor('house/house.focus', type: const TextType()),
       );
       house.defineCommand(
         CommandDescriptor(
-          'house.show',
+          'house/house.show',
           params: const RecordType({'room': Field(TextType())}),
           callers: const Callers({'agent': Access.allow}),
         ),
@@ -105,12 +105,12 @@ void main() {
       final call = await request('tools/call', {
         'name': 'call',
         'arguments': {
-          'command': 'house.show',
+          'command': 'house/house.show',
           'params': {'room': 'break'},
         },
       });
       expect((call['result'] as Map)['isError'], isFalse);
-      expect(house.read('house.focus'), 'break');
+      expect(house.read('house/house.focus'), 'break');
       expect(sessions, hasLength(1));
       await mcp.stdin.close();
       expect(await mcp.exitCode.timeout(const Duration(seconds: 20)), 0);

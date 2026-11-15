@@ -12,7 +12,10 @@ Future<void> main() async {
   server.start();
   final endpoint = RpcPeerEndpoint(transport: b)..start();
   final participant = await Host.joinEndpoint(endpoint);
-  final documents = IDocumentsClient(participant);
+  final documents = IDocumentsClient(
+    participant: participant,
+    provider: const Principal('store'),
+  );
   try {
     final saved = await documents.save(
       Stream.fromIterable(['first line', 'second line']),

@@ -171,7 +171,8 @@ Future<void> main() async {
     final w = state.claim();
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
-      r.participant(host, vocabularies: [WordSet.open('bench')]),
+      participant: r.participant(host, vocabularies: [WordSet.open('bench')]),
+      provider: host,
     );
     final s = words.state(BenchState.item).define();
     final reader = words.stateOf(BenchState.item);
@@ -196,7 +197,8 @@ Future<void> main() async {
     final w = state.claim();
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
-      r.participant(host, vocabularies: [WordSet.open('bench')]),
+      participant: r.participant(host, vocabularies: [WordSet.open('bench')]),
+      provider: host,
     );
     final s = words.state(BenchState.items).define();
     final reader = words.stateOf(BenchState.items);
@@ -221,11 +223,14 @@ Future<void> main() async {
   {
     final command = LocalCommand<Toggle, bool>()..serve((p) => p.done);
     final r = Registry(onError: (e, _) => throw e);
-    GeneratedWords(r.participant(host, vocabularies: [WordSet.open('bench')]))
+    GeneratedWords.own(
+          r.participant(host, vocabularies: [WordSet.open('bench')]),
+        )
         .command(BenchCommand.toggle)
         .serve((params) => params.done, callers: Callers.only(['user']));
     final cmd = GeneratedWords(
-      r.participant(user),
+      participant: r.participant(user),
+      provider: host,
     ).command(BenchCommand.toggle);
     row(
       'call',

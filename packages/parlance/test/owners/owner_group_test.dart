@@ -79,17 +79,17 @@ void main() {
       ..value = 1
       ..fails = true;
     expect(p.sync, throwsStateError);
-    expect(r.read('a.level'), 1);
-    expect(r.read('b.level'), 0);
+    expect(r.read('host/a.level'), 1);
+    expect(r.read('host/b.level'), 0);
   });
 
   test('owners are attached all or none, and the participant goes with '
       'them', () {
     expect(() => mix([LevelA(), LevelB(defineFails: true)]), throwsStateError);
-    expect(r.stateDescriptor('a.level'), isNull);
-    expect(r.stateDescriptor('b.level'), isNull);
+    expect(r.stateDescriptor('host/a.level'), isNull);
+    expect(r.stateDescriptor('host/b.level'), isNull);
     mix([LevelA()]);
-    expect(r.read('a.level'), 0, reason: 'its principal and a are free');
+    expect(r.read('host/a.level'), 0, reason: 'its principal and a are free');
   });
 
   test(
@@ -102,8 +102,8 @@ void main() {
             r.participant(const Principal('other'), owners: [LevelC(), twice]),
         throwsStateError,
       );
-      expect(r.stateDescriptor('c.level'), isNull);
-      expect(r.stateDescriptor('a.level'), isNotNull);
+      expect(r.stateDescriptor('host/c.level'), isNull);
+      expect(r.stateDescriptor('host/a.level'), isNotNull);
     },
   );
 }

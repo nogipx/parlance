@@ -56,7 +56,7 @@ void main() {
 
   test('a session closed by main is told, and not joined again', () async {
     final lamp = p.defineState(
-      StateDescriptor('kittens.lamp', type: const BoolType()),
+      StateDescriptor('plugin/kittens/kittens.lamp', type: const BoolType()),
     );
     lamp.set(false);
     await p.flush();
@@ -69,7 +69,11 @@ void main() {
 
     lamp.set(true);
     await Future<void>.delayed(const Duration(milliseconds: 50));
-    expect(r.stateDescriptor('kittens.lamp'), isNull, reason: 'its words went');
+    expect(
+      r.stateDescriptor('plugin/kittens/kittens.lamp'),
+      isNull,
+      reason: 'its words went',
+    );
     expect(hosts, hasLength(1), reason: 'it did not join again');
   });
 

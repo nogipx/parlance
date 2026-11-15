@@ -1,3 +1,4 @@
+import 'address.dart';
 import 'cause.dart';
 import 'ids.dart';
 import 'json.dart';
@@ -445,4 +446,22 @@ final class BidiStreamDescriptor extends DataStreamDescriptor {
   final ValueType<Object?> input;
   @override
   String get kind => 'bidiStream';
+}
+
+/// Binds publication to its exact principal, rejecting foreign addresses.
+extension DescriptorAddress on Descriptor {
+  /// A runtime descriptor, with an address instead of its portable name.
+  Descriptor providedBy(Principal principal) {
+    final provider = principal.whole;
+    if (name.contains('/')) {
+      if (WordAddress.parse(name).provider != provider) {
+        throw ArgumentError('$principal cannot provide $name');
+      }
+      return this;
+    }
+    return Descriptor.fromJson({
+      ...toJson(),
+      'name': WordAddress(provider, name).toString(),
+    });
+  }
 }

@@ -56,7 +56,7 @@ abstract class ClockOwnerBase implements IOwner {
   final Single<DateTime> alarm = Single<DateTime>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(alarm, p.state(ClockState.alarm).define());
     p
         .command(ClockCommand.setAlarm)
@@ -81,12 +81,18 @@ abstract class ClockOwnerBase implements IOwner {
 abstract interface class IClockClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IClockClient(IParticipant participant) = _$ClockClient;
+  factory IClockClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$ClockClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IClockClient.of(IOwner owner) = _$ClockClient._of;
+  factory IClockClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$ClockClient._of;
 
   /// clock.alarm: its value now, and its changes.
   IStateOf<DateTime> get alarm;
@@ -113,12 +119,15 @@ abstract interface class IClockClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$ClockClient implements IClockClient {
-  _$ClockClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$ClockClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(clockWords.words, from: clockWords.from);
   }
 
-  _$ClockClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$ClockClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(clockWords.words, from: clockWords.from);
   }
 

@@ -18,3 +18,5 @@ so.
   links and watch them fire.
 - Depends on `package:parlance`.
 - Not frozen before `package:parlance` 1.0: what it shows may still change.
+
+All state, fact and command references use full addresses such as `module/work/notes.add`. Identical vocabularies at other providers stay independent. `buttonsState` and `pressCommand` also return full addresses.

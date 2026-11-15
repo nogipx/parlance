@@ -57,7 +57,10 @@ class _Fixture {
     reader = remoteReader
         ? await guest('editor')
         : host.participant(const Principal('editor'));
-    client = IDocumentsClient(reader);
+    client = IDocumentsClient(
+      participant: reader,
+      provider: const Principal('store'),
+    );
   }
 
   Future<void> close() async {
@@ -124,7 +127,7 @@ void main() {
       late IHandle definition;
       var invoked = false;
       definition = owner.raw.defineStream(
-        ServerStreamDescriptor('source.values', type: const IntType()),
+        ServerStreamDescriptor('source/source.values', type: const IntType()),
         (_) {
           invoked = true;
           return Stream.value(1);
@@ -137,7 +140,7 @@ void main() {
       await expectLater(
         reader.raw
             .openStream(
-              'source.values',
+              'source/source.values',
               (),
               const RecordShape<()>({}, to: _to, from: _from, get: _at),
               const PlainShape(IntType()),
@@ -176,7 +179,7 @@ void main() {
             expect(initial.kind, 'clientStream');
             expect(initial.by.selector, 'editor');
             expect(
-              f.host.registry.usesOf('documents.save').single.listening,
+              f.host.registry.usesOf('store/documents.save').single.listening,
               1,
             );
             input.add('secret payload one');
@@ -200,7 +203,7 @@ void main() {
             expect(ended.failure, isNull);
             expect(ended.input.closed, isTrue);
             expect(f.host.registry.activeStreams, isEmpty);
-            final usage = f.host.registry.usesOf('documents.save').single;
+            final usage = f.host.registry.usesOf('store/documents.save').single;
             expect(usage.reads, 1);
             expect(usage.listening, 0);
             await Future<void>.delayed(Duration.zero);
@@ -223,7 +226,7 @@ void main() {
               await expectLater(
                 f.reader.raw
                     .openStream(
-                      'documents.read',
+                      'store/documents.read',
                       (name: 'notes'),
                       DocumentsServerStream.read.params,
                       const PlainShape(TextType()),
@@ -242,7 +245,7 @@ void main() {
             await expectLater(
               f.reader.raw
                   .openStream(
-                    'documents.read',
+                    'store/documents.read',
                     (name: 'notes'),
                     DocumentsServerStream.read.params,
                     const PlainShape(TextType()),
@@ -264,7 +267,7 @@ void main() {
           expect(
             await f.reader.raw
                 .openStream(
-                  'documents.save',
+                  'store/documents.save',
                   (name: 'notes'),
                   DocumentsClientStream.save.params,
                   const PlainShape(IntType()),
@@ -294,27 +297,28 @@ void main() {
         test('a stream opened by a command is its child span', () async {
           f.owner.raw.defineCommand(
             CommandDescriptor(
-              'documents.run',
+              'store/documents.run',
               callers: Callers.anyone,
               returns: const IntType(),
             ),
             (_) => IDocumentsClient(
-              f.owner,
+              participant: f.owner,
+              provider: const Principal('store'),
             ).save(Stream.value('line'), name: 'notes'),
           );
           await f.owner.settle();
           final result = await f.reader.raw.call(
-            'documents.run',
+            'store/documents.run',
             {},
             id: 'root',
           );
           expect(result, isA<CallDone<Object?>>());
           await Future<void>.delayed(Duration.zero);
           final command = f.records.whereType<LogSpan>().singleWhere(
-            (s) => s.name == 'documents.run',
+            (s) => s.name == 'store/documents.run',
           );
           final stream = f.records.whereType<LogSpan>().singleWhere(
-            (s) => s.name == 'documents.save',
+            (s) => s.name == 'store/documents.save',
           );
           expect(stream.parentSpanId, command.spanId);
           expect(stream.traceId, command.traceId);
@@ -322,13 +326,13 @@ void main() {
 
         test('commands from a stream owner follow the stream trace', () async {
           f.owner.raw.defineCommand(
-            CommandDescriptor('documents.touch', callers: Callers.anyone),
+            CommandDescriptor('store/documents.touch', callers: Callers.anyone),
             (_) {},
           );
           await f.owner.settle();
           f.store.processing = (_) async* {
             final result = await f.owner.raw.call(
-              'documents.touch',
+              'store/documents.touch',
               {},
               id: 'touch',
             );
@@ -340,10 +344,10 @@ void main() {
           ]);
           await Future<void>.delayed(Duration.zero);
           final stream = f.records.whereType<LogSpan>().singleWhere(
-            (s) => s.name == 'documents.preview',
+            (s) => s.name == 'store/documents.preview',
           );
           final command = f.records.whereType<LogSpan>().singleWhere(
-            (s) => s.name == 'documents.touch',
+            (s) => s.name == 'store/documents.touch',
           );
           expect(command.parentSpanId, stream.spanId);
           expect(command.traceId, stream.traceId);
@@ -367,7 +371,10 @@ void main() {
             );
             expect(f.host.registry.activeStreams, isEmpty);
             expect(
-              f.host.registry.usesOf('documents.preview').single.listening,
+              f.host.registry
+                  .usesOf('store/documents.preview')
+                  .single
+                  .listening,
               0,
             );
             unawaited(input.close());
@@ -381,7 +388,7 @@ void main() {
             await expectLater(
               f.reader.raw
                   .openStream(
-                    'documents.missing',
+                    'store/documents.missing',
                     (),
                     const RecordShape<()>({}, to: _to, from: _from, get: _at),
                     const PlainShape(TextType()),
@@ -392,7 +399,7 @@ void main() {
             expect(f.events.single.kind, StreamEventKind.rejected);
             expect(f.events.single.stream.failure, StreamFailureCode.missing);
             expect(f.host.registry.activeStreams, isEmpty);
-            expect(f.host.registry.usesOf('documents.missing'), isEmpty);
+            expect(f.host.registry.usesOf('store/documents.missing'), isEmpty);
             unawaited(input.close());
           },
         );

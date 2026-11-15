@@ -32,12 +32,16 @@ abstract class FansOwnerBase implements IOwner {
 abstract interface class IFansClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IFansClient(IParticipant participant) = _$FansClient;
+  factory IFansClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$FansClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IFansClient.of(IOwner owner) = _$FansClient._of;
+  factory IFansClient.of({required IOwner owner, required Principal provider}) =
+      _$FansClient._of;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -57,12 +61,13 @@ abstract interface class IFansClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$FansClient implements IFansClient {
-  _$FansClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$FansClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(fansWords.words, from: fansWords.from);
   }
 
-  _$FansClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$FansClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(fansWords.words, from: fansWords.from);
   }
 

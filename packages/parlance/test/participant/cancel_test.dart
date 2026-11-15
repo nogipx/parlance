@@ -33,7 +33,7 @@ void main() {
 
   /// A command [name] that answers once [release] completes, telling when
   /// its call expired.
-  void defineSlow(IRawParticipant p, [String name = 'slow.go']) =>
+  void defineSlow(IRawParticipant p, [String name = 'owner/slow.go']) =>
       p.defineCommand(CommandDescriptor(name, callers: Callers.anyone), (
         call,
       ) async {
@@ -48,7 +48,7 @@ void main() {
     defineSlow(own);
     final me = host.participant(caller).raw;
     final cancel = CancellationToken();
-    final r = me.call('slow.go', const {}, id: 'c1', cancel: cancel);
+    final r = me.call('owner/slow.go', const {}, id: 'c1', cancel: cancel);
     await host.settle();
     cancel.cancel();
     expect(await r, isA<CallCancelled>());
@@ -58,11 +58,14 @@ void main() {
     release.complete();
     await host.settle();
     expect(
-      await me.call('slow.go', const {}, id: 'c1'),
+      await me.call('owner/slow.go', const {}, id: 'c1'),
       isA<CallDone<Object?>>(),
     );
     expect(ran, 1, reason: 'it ran once');
-    expect(host.calls.lastWhere((c) => c.command == 'slow.go').late, isTrue);
+    expect(
+      host.calls.lastWhere((c) => c.command == 'owner/slow.go').late,
+      isTrue,
+    );
   });
 
   test('a call cancelled before its handler began runs when retried with '
@@ -71,7 +74,7 @@ void main() {
     final me = host.participant(caller).raw;
     expect(
       await me.call(
-        'slow.go',
+        'owner/slow.go',
         const {},
         id: 'c2',
         cancel: CancellationToken()..cancel(),
@@ -80,7 +83,7 @@ void main() {
     );
     await host.settle();
     expect(ran, 0);
-    final again = me.call('slow.go', const {}, id: 'c2');
+    final again = me.call('owner/slow.go', const {}, id: 'c2');
     await host.settle();
     expect(ran, 1);
     release.complete();
@@ -92,12 +95,12 @@ void main() {
     defineSlow(own);
     final me = host.participant(caller).raw;
     final cancel = CancellationToken();
-    final first = me.call('slow.go', const {}, id: 'c3', cancel: cancel);
+    final first = me.call('owner/slow.go', const {}, id: 'c3', cancel: cancel);
     await host.settle();
     cancel.cancel();
     expect(await first, isA<CallCancelled>());
     var answered = false;
-    final again = me.call('slow.go', const {}, id: 'c3')
+    final again = me.call('owner/slow.go', const {}, id: 'c3')
       ..then((_) => answered = true);
     await host.settle();
     expect(answered, isFalse, reason: 'its handler still runs');
@@ -117,7 +120,7 @@ void main() {
     );
     final me = host.participant(caller).raw;
     final cancel = CancellationToken();
-    final r = me.call('slow.go', const {}, cancel: cancel);
+    final r = me.call('owner/slow.go', const {}, cancel: cancel);
     await host.settle();
     cancel.cancel();
     expect(await r.timeout(const Duration(seconds: 1)), isA<CallCancelled>());
@@ -142,7 +145,7 @@ void main() {
     }
 
     final (client, end) = link();
-    unawaited(client.call('slow.go', const {}, id: 'd1'));
+    unawaited(client.call('owner/slow.go', const {}, id: 'd1'));
     await host.settle();
     expect(ran, 1);
     await end.close();
@@ -150,7 +153,7 @@ void main() {
     expect(told, isEmpty, reason: 'a connection gone cancels nothing');
 
     final (again, _) = link();
-    final r = again.call('slow.go', const {}, id: 'd1');
+    final r = again.call('owner/slow.go', const {}, id: 'd1');
     release.complete();
     expect(await r, isA<CallDone<Object?>>());
     expect(ran, 1);
@@ -161,18 +164,18 @@ void main() {
     () async {
       defineSlow(own);
       own.defineCommand(
-        CommandDescriptor('slow.quick', callers: Callers.anyone),
+        CommandDescriptor('owner/slow.quick', callers: Callers.anyone),
         (_) => 'done',
       );
       final me = host.participant(caller).raw;
       final screen = CancellationToken();
       for (var i = 0; i < 3; i++) {
         expect(
-          await me.call('slow.quick', const {}, cancel: screen),
+          await me.call('owner/slow.quick', const {}, cancel: screen),
           isA<CallDone<Object?>>(),
         );
       }
-      final r = me.call('slow.go', const {}, cancel: screen);
+      final r = me.call('owner/slow.go', const {}, cancel: screen);
       await host.settle();
       screen.cancel();
       expect(await r, isA<CallCancelled>());
@@ -184,7 +187,11 @@ void main() {
     defineSlow(own);
     final me = host.participant(caller).raw;
     expect(
-      await me.call('slow.go', const {}, cancel: CancellationToken()..cancel()),
+      await me.call(
+        'owner/slow.go',
+        const {},
+        cancel: CancellationToken()..cancel(),
+      ),
       isA<CallCancelled>(),
     );
     expect(ran, 0);
@@ -193,7 +200,7 @@ void main() {
   test('a query cancelled answers cancelled', () async {
     own.defineQuery(
       QueryDescriptor(
-        'slow.look',
+        'owner/slow.look',
         returns: const TextType(),
         askers: Callers.anyone,
       ),
@@ -201,7 +208,7 @@ void main() {
     );
     final me = host.participant(caller).raw;
     final cancel = CancellationToken();
-    final r = me.call('slow.look', const {}, cancel: cancel);
+    final r = me.call('owner/slow.look', const {}, cancel: cancel);
     cancel.cancel();
     expect(await r, isA<CallCancelled>());
     release.complete();
@@ -212,7 +219,7 @@ void main() {
     defineSlow(own);
     final guest = (await host.join(caller)).raw;
     final cancel = CancellationToken();
-    final r = guest.call('slow.go', const {}, cancel: cancel);
+    final r = guest.call('owner/slow.go', const {}, cancel: cancel);
     await host.settle();
     expect(ran, 1);
     cancel.cancel();
@@ -228,7 +235,7 @@ void main() {
     final guest = (await host.join(caller)).raw;
     expect(
       await guest.call(
-        'slow.go',
+        'owner/slow.go',
         const {},
         cancel: CancellationToken()..cancel(),
       ),
@@ -244,11 +251,11 @@ void main() {
       const Principal('guest'),
       vocabularies: [WordSet.open('far')],
     )).raw;
-    defineSlow(guest, 'far.go');
+    defineSlow(guest, 'guest/far.go');
     await guest.settle();
     final me = host.participant(caller).raw;
     final cancel = CancellationToken();
-    final r = me.call('far.go', const {}, cancel: cancel);
+    final r = me.call('guest/far.go', const {}, cancel: cancel);
     await host.settle();
     expect(ran, 1);
     cancel.cancel();

@@ -24,7 +24,14 @@ Future<void> main() async {
   print('its tools: ${[for (final t in tools) t.name].join(', ')}');
 
   final add = tools.firstWhere(
-    (t) => t.name == commandToolName(NotesCommand.add.name),
+    (t) =>
+        t.name ==
+        commandToolName(
+          WordAddress(
+            const Principal('notes'),
+            NotesCommand.add.name,
+          ).toString(),
+        ),
   );
   print('${add.name}: ${add.properties}');
   print(

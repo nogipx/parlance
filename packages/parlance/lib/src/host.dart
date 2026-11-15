@@ -1,3 +1,4 @@
+import 'registry/address.dart';
 import 'package:clock/clock.dart' show Clock;
 import 'package:rpc_dart/rpc_dart.dart'
     show IRpcInterceptor, RpcClientConnection, RpcPeerEndpoint;
@@ -102,7 +103,12 @@ final class Host {
 
   /// Says [old] is a name of the word [to] (SPEC §6.4): what asks by the
   /// old name gets the word, until the handle is disposed.
-  IHandle alias(String old, String to) => _registry.alias(old, to);
+  IHandle alias(String old, String to) {
+    if (WordAddress.parse(old).provider != WordAddress.parse(to).provider) {
+      throw ArgumentError('aliases stay within one provider');
+    }
+    return _registry.alias(old, to);
+  }
 
   /// Ends every participant and session, the last made first, and the
   /// registry. The parts across are not told: their connections go with

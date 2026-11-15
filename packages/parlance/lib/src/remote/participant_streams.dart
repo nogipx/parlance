@@ -76,6 +76,7 @@ extension on RemoteParticipant {
     WhyNot? whyNot,
     Principal? as,
   ) {
+    raw = raw.providedBy(who) as DataStreamDescriptor;
     _mayDefine(raw);
     if (!_supportsData(raw.kind)) {
       throw const StreamFailure(

@@ -136,7 +136,10 @@ class _Fixture {
         ? await guest('reader')
         : host.participant(const Principal('reader'));
     await consumer.settle();
-    client = IDataClient(consumer);
+    client = IDataClient(
+      participant: consumer,
+      provider: const Principal('producer'),
+    );
   }
 
   Future<void> close() async {
@@ -273,7 +276,7 @@ void main() {
         test('a missing word fails explicitly', () async {
           await expectLater(
             f.consumer.raw.openStream(
-              'data.absent',
+              'producer/data.absent',
               const {},
               const PlainShape(RecordType({})),
               const PlainShape(IntType()),
@@ -297,13 +300,16 @@ void main() {
           'malformed owner elements fail instead of reaching the consumer',
           () async {
             f.producer.raw.defineStream(
-              ServerStreamDescriptor('data.broken', type: const IntType()),
+              ServerStreamDescriptor(
+                'producer/data.broken',
+                type: const IntType(),
+              ),
               (_) => Stream.value('wrong type'),
             );
             await f.producer.settle();
             await expectLater(
               f.consumer.raw.openStream(
-                'data.broken',
+                'producer/data.broken',
                 const <String, Object?>{},
                 const PlainShape(AnyType()),
                 const PlainShape(IntType()),
@@ -340,7 +346,7 @@ void main() {
           () async {
             await expectLater(
               f.consumer.raw.openStream(
-                'data.numbers',
+                'producer/data.numbers',
                 const {'start': 'wrong'},
                 const PlainShape(AnyType()),
                 const PlainShape(IntType()),
@@ -456,7 +462,10 @@ void main() {
         owns: true,
         features: {...parlanceFeatures}..remove('streams'),
       );
-      final client = IDataClient(p);
+      final client = IDataClient(
+        participant: p,
+        provider: const Principal('producer'),
+      );
       final errors = <ParticipantError>[];
       final sub = p.errors.listen(errors.add);
       await p.settle();
@@ -485,11 +494,13 @@ void main() {
           );
           addTearDown(f.close);
           await f.start(remoteOwner: remote);
-          expect(await IDataClient(f.producer).numbers(start: 1).toList(), [
-            1,
-            2,
-            3,
-          ]);
+          expect(
+            await IDataClient(
+              participant: f.producer,
+              provider: const Principal('producer'),
+            ).numbers(start: 1).toList(),
+            [1, 2, 3],
+          );
         },
       );
       test(
@@ -602,7 +613,7 @@ void main() {
   test('the streams feature can be required before joining', () async {
     final f = _Fixture();
     addTearDown(f.close);
-    final p = await f.guest('old', features: const {});
+    final p = await f.guest('old', features: const {'providers'});
     await expectLater(
       Host.joinEndpoint(
         (p as RemoteParticipant).endpoint,

@@ -123,7 +123,7 @@ abstract class TransferOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     p.query(TransferQuery.forbidden).serve((_) => forbidden());
     p
         .clientStream(TransferClientStream.sum)
@@ -187,12 +187,18 @@ abstract class TransferOwnerBase implements IOwner {
 abstract interface class ITransferClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory ITransferClient(IParticipant participant) = _$TransferClient;
+  factory ITransferClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$TransferClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ITransferClient.of(IOwner owner) = _$TransferClient._of;
+  factory ITransferClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$TransferClient._of;
 
   /// Asks transfer.forbidden; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
@@ -239,12 +245,15 @@ abstract interface class ITransferClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$TransferClient implements ITransferClient {
-  _$TransferClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$TransferClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(transferWords.words, from: transferWords.from);
   }
 
-  _$TransferClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$TransferClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(transferWords.words, from: transferWords.from);
   }
 

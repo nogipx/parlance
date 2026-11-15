@@ -17,27 +17,27 @@ void main() {
       'name', () async {
     final owner = host.participant(deck, vocabularies: [WordSet.open('deck')]);
     final old = owner.raw.defineState(
-      StateDescriptor('deck.old', type: const IntType()),
+      StateDescriptor('deck/deck.old', type: const IntType()),
     )..set(1);
     final guest = await host.join(const Principal('widlet', 'b'));
     final seen = <Object?>[];
-    final sub = guest.raw.watch('deck.old').listen(seen.add);
-    await guest.raw.fetch('deck.old');
+    final sub = guest.raw.watch('deck/deck.old').listen(seen.add);
+    await guest.raw.fetch('deck/deck.old');
     await pumpEventQueue();
-    expect(guest.raw.read('deck.old'), 1);
+    expect(guest.raw.read('deck/deck.old'), 1);
 
     // The owner comes back with the word renamed; the host keeps the old
     // name for it.
     old.dispose();
     final now = owner.raw.defineState(
-      StateDescriptor('deck.new', type: const IntType()),
+      StateDescriptor('deck/deck.new', type: const IntType()),
     );
-    host.registry.alias('deck.old', 'deck.new');
+    host.registry.alias('deck/deck.old', 'deck/deck.new');
     now.set(5);
     for (var i = 0; i < 10; i++) {
       await pumpEventQueue();
     }
-    expect(guest.raw.read('deck.old'), 5);
+    expect(guest.raw.read('deck/deck.old'), 5);
     expect(seen.last, 5);
     await sub.cancel();
   });
@@ -46,12 +46,12 @@ void main() {
       'name', () async {
     final owner = host.participant(deck, vocabularies: [WordSet.open('deck')]);
     final old = owner.raw.defineFact(
-      FactDescriptor('deck.said', type: const IntType()),
+      FactDescriptor('deck/deck.said', type: const IntType()),
     );
     final guest = await host.join(const Principal('widlet', 'b'));
     final heard = <Object?>[];
     final sub = guest.raw
-        .facts('deck.said')
+        .facts('deck/deck.said')
         .listen((f) => heard.add(f.payload));
     await guest.settle();
     await pumpEventQueue();
@@ -59,9 +59,9 @@ void main() {
     await pumpEventQueue();
     old.dispose();
     final now = owner.raw.defineFact(
-      FactDescriptor('deck.told', type: const IntType()),
+      FactDescriptor('deck/deck.told', type: const IntType()),
     );
-    host.registry.alias('deck.said', 'deck.told');
+    host.registry.alias('deck/deck.said', 'deck/deck.told');
     for (var i = 0; i < 10; i++) {
       await pumpEventQueue();
     }
@@ -81,20 +81,20 @@ void main() {
         vocabularies: [WordSet.open('deck')],
       );
       final old = owner.raw.defineState(
-        StateDescriptor('deck.old', type: const IntType()),
+        StateDescriptor('deck/deck.old', type: const IntType()),
       )..set(1);
       final reader = host.participant(const Principal('screen'));
       final seen = <Object?>[];
-      final sub = reader.raw.watch('deck.old').listen(seen.add);
+      final sub = reader.raw.watch('deck/deck.old').listen(seen.add);
       await pumpEventQueue();
       old.dispose();
       final now = owner.raw.defineState(
-        StateDescriptor('deck.new', type: const IntType()),
+        StateDescriptor('deck/deck.new', type: const IntType()),
       );
-      host.registry.alias('deck.old', 'deck.new');
+      host.registry.alias('deck/deck.old', 'deck/deck.new');
       now.set(5);
       await pumpEventQueue();
-      expect(reader.raw.read('deck.old'), 5);
+      expect(reader.raw.read('deck/deck.old'), 5);
       expect(seen.last, 5);
       await sub.cancel();
     },

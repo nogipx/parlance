@@ -55,10 +55,10 @@ final class Deck extends PlayerOwnerBase {
 
 `main` makes the module's participant with the owner: `host.participant(Who.player, owners: [Deck()])`, which grants it the vocabulary of `Player` (it speaks as `player@player`, the owner named by its vocabulary); its name is written only in `@Vocabulary`, and disposing the participant takes the owner with it.
 
-Every word is named in its vocabulary, and a vocabulary is one owner's. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `IPlayerClient.of(this)`, and hears it at once: `hear(fact: IPlayerClient.of(this).clipped, onData: ...)`.
+Every word is named in its vocabulary, and a vocabulary has one owner per exact provider principal. Different instances may publish the same vocabulary. Another module uses the words through the client, over its participant, here or across a connection: the one way a part uses words. An owner that uses them makes the client in its constructor, `IPlayerClient.of(owner: this, provider: playerProvider)`, and hears it at once: `hear(fact: IPlayerClient.of(owner: this, provider: playerProvider).clipped, onData: ...)`.
 
 ```dart
-final IPlayerClient player = IPlayerClient(participant); // a test: over a TestHost
+final IPlayerClient player = IPlayerClient(participant: participant, provider: playerProvider); // a test: over a TestHost
 player.volume.changes.listen(show);   // player.volume.value now
 await player.setVolume(volume: 30); // throws CallNotDone when refused
 ```
@@ -74,6 +74,8 @@ expect(breaksSince(releases, schemaOf(playerWords.words)), isEmpty);
 `test/fixtures/player.dart` shows every kind of word, bounds, defaults and a json_serializable class; `test/generated_test.dart` holds what its words do in a registry, `test/errors_test.dart` what the generator refuses.
 
 ## Before a release: the frozen libraries
+
+The unreleased provider migration intentionally breaks pre-provider clients and removes dynamic choices. Regenerate all word packages with explicit named `participant` (or `owner`) and `provider` arguments. Old generated clients are not supported by this migration; the checks below show its intentional surface changes.
 
 `package:parlance/schema.dart` and `app.dart` are frozen: what they show only grows, and a words package's `.g.dart` made by an earlier release builds with the library now. Before a release, from the repository's root (`tool/`, beside `tool/surface_map.dart`, which maps the same surface to the tests):
 

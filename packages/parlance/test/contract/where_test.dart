@@ -162,7 +162,7 @@ void main() {
             owner = host.participant(deckOwner, owners: [deck]);
           }
           you = userAcross ? await host.join(user) : host.participant(user);
-          client = IDeckClient(you);
+          client = IDeckClient(participant: you, provider: deckOwner);
           await settle();
         });
         tearDown(() async {
@@ -318,7 +318,10 @@ void main() {
           );
 
           test('a retry with the same id runs once', () async {
-            final turn = GeneratedWords(you).command(DeckCommand.turn);
+            final turn = GeneratedWords(
+              participant: you,
+              provider: deckOwner,
+            ).command(DeckCommand.turn);
             final a = await turn.call((to: 3), id: 'same');
             final b = await turn.call((to: 3), id: 'same');
             expect(a.ok, isTrue);
@@ -401,7 +404,7 @@ void main() {
                 host
                     .participant(const Principal('observer'))
                     .raw
-                    .read('deck.volume'),
+                    .read('deck/deck.volume'),
                 isNull,
               );
               expect(
@@ -415,7 +418,7 @@ void main() {
           test('a participant gone refuses what it is asked', () async {
             await end(you);
             await expectLater(
-              Future.sync(() => you.raw.call('deck.play', {})),
+              Future.sync(() => you.raw.call('deck/deck.play', {})),
               throwsStateError,
             );
           });

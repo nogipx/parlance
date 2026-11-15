@@ -150,6 +150,9 @@ final class Principal {
     return null;
   }
 
+  /// This principal without its owner; a named instance keeps its id.
+  Principal get whole => owner.isEmpty ? this : Principal(kind, id);
+
   /// Its JSON.
   Map<String, Object?> toJson() => {
     'kind': kind,

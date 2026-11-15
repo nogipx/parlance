@@ -82,7 +82,7 @@ abstract class KittensOwnerBase implements IOwner {
   IFactSayerOf<KittensPurred>? _$purred;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(lamp, p.state(KittensState.lamp).define());
     _$purred = p.fact(KittensFact.purred).define();
     p
@@ -125,12 +125,18 @@ final class KittensPurredFact {
 abstract interface class IKittensClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IKittensClient(IParticipant participant) = _$KittensClient;
+  factory IKittensClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$KittensClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IKittensClient.of(IOwner owner) = _$KittensClient._of;
+  factory IKittensClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$KittensClient._of;
 
   /// kittens.lamp: its value now, and its changes.
   IStateOf<bool> get lamp;
@@ -160,12 +166,15 @@ abstract interface class IKittensClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$KittensClient implements IKittensClient {
-  _$KittensClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$KittensClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(kittensWords.words, from: kittensWords.from);
   }
 
-  _$KittensClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$KittensClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(kittensWords.words, from: kittensWords.from);
   }
 

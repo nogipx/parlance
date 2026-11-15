@@ -52,12 +52,12 @@ void main() {
       final room = _Room();
       r.participant(const Principal('room'), owners: [room]);
       expect(room.by, isNull, reason: 'outside a handler');
-      await r.participant(user).call('room.warm', {}, id: 'w1');
+      await r.participant(user).call('room/room.warm', {}, id: 'w1');
       expect(room.warmedBy, user);
-      expect(r.explain('room.heat').change!.cause.parent, 'w1');
+      expect(r.explain('room/room.heat').change!.cause.parent, 'user/ann#w1');
       await room.cooled.future;
-      expect(r.read('room.heat'), 20);
-      expect(r.explain('room.heat').change!.cause.parent, isNull);
+      expect(r.read('room/room.heat'), 20);
+      expect(r.explain('room/room.heat').change!.cause.parent, isNull);
     },
   );
 

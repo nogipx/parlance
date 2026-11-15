@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:parlance/tools.dart';
 import 'protocol.dart';
 import 'schema.dart';
@@ -10,6 +12,10 @@ can be done), queries (questions that change nothing) and facts (what
 happened). A state is written by its owner only; a command asks the owner.
 
 How to work:
+- providers finds the instances that actually publish a vocabulary or word.
+  Choose a provider explicitly; discovery does not select one for you.
+- Every word name in describe is a full provider/word address. Use that exact
+  address in call, read, recent_facts and why; an unscoped name is not routed.
 - describe first: the commands you may call (their params, whether each
   can run now), the states and the facts.
 - read tells the states now; recent_facts what happened lately; why tells
@@ -24,7 +30,7 @@ How to work:
 
 /// The tool a command is, when a host asks for one per command.
 String commandToolName(String command) =>
-    command.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    'p_${base64Url.encode(utf8.encode(command)).replaceAll('=', '')}';
 
 /// The curated tools of a parlance (SPEC §16): look and act, as the agent's
 /// participant [p], in this process or across a connection. With
@@ -59,6 +65,33 @@ Future<List<McpTool>> parlanceTools(
 
   final curated = [
     McpTool(
+      name: 'providers',
+      description:
+          'Actual providers of a vocabulary or word, with exact addresses and access status. Select a provider explicitly before calling.',
+      properties: {
+        'vocabulary': {'type': 'string'},
+        'word': {'type': 'string'},
+      },
+      run: (a) async {
+        final vocabulary = a['vocabulary'] as String?;
+        final word = a['word'] as String?;
+        final providers = await agent.providers();
+        return McpResult.json([
+          for (final provider in providers)
+            if (provider.words
+                    .where(
+                      (w) =>
+                          (vocabulary == null ||
+                              w.address.word.startsWith('$vocabulary.')) &&
+                          (word == null || w.address.word == word),
+                    )
+                    .toList()
+                case final words when words.isNotEmpty)
+              WordProvider(provider.principal, words).toJson(),
+        ]);
+      },
+    ),
+    McpTool(
       name: 'describe',
       description:
           'The words of the parlance: commands you may call (their '
@@ -79,6 +112,10 @@ Future<List<McpTool>> parlanceTools(
               if (keep(c))
                 {
                   'name': c['name'],
+                  'provider': WordAddress.parse(
+                    c['name'] as String,
+                  ).provider.selector,
+                  'word': WordAddress.parse(c['name'] as String).word,
                   'label': ?(c['meta'] as Map?)?['label'],
                   'params': cat.schema(c['params']),
                   if (c['returns'] != null) 'returns': cat.schema(c['returns']),
@@ -92,6 +129,10 @@ Future<List<McpTool>> parlanceTools(
               if (keep(s))
                 {
                   'name': s['name'],
+                  'provider': WordAddress.parse(
+                    s['name'] as String,
+                  ).provider.selector,
+                  'word': WordAddress.parse(s['name'] as String).word,
                   'label': ?(s['meta'] as Map?)?['label'],
                   'type': cat.schema(s['type']),
                   'key': ?s['key'],
@@ -99,7 +140,15 @@ Future<List<McpTool>> parlanceTools(
           ],
           'facts': [
             for (final f in cat.facts)
-              if (keep(f)) {'name': f['name'], 'type': cat.schema(f['type'])},
+              if (keep(f))
+                {
+                  'name': f['name'],
+                  'provider': WordAddress.parse(
+                    f['name'] as String,
+                  ).provider.selector,
+                  'word': WordAddress.parse(f['name'] as String).word,
+                  'type': cat.schema(f['type']),
+                },
           ],
           // Old names of words: they still work; use the new one.
           if (cat.aliases case final Map<Object?, Object?> a when a.isNotEmpty)

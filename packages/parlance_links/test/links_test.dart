@@ -16,10 +16,12 @@ final class Bench {
   Bench({Callers? callers}) {
     s = host.participant(house, vocabularies: [const WordSet.open('st')]).raw;
     p = host.participant(plug, vocabularies: [const WordSet.open('plug')]).raw;
-    level = s.defineState(StateDescriptor('st.level', type: const IntType()));
+    level = s.defineState(
+      StateDescriptor('house/st.level', type: const IntType()),
+    );
     said = s.defineFact(
       FactDescriptor(
-        'st.said',
+        'house/st.said',
         type: const RecordType({
           'visitor': Field(TextType(), optional: true),
           'n': Field(IntType(), optional: true),
@@ -28,7 +30,7 @@ final class Bench {
     );
     s.defineCommand(
       CommandDescriptor(
-        'st.note',
+        'house/st.note',
         params: const RecordType({
           'n': Field(IntType(), optional: true),
           'visitor': Field(TextType(), optional: true),
@@ -74,7 +76,7 @@ void main() {
         'id': 'note',
         'when': [
           {
-            'fact': 'st.said',
+            'fact': 'house/st.said',
             'where': {
               'n': {'>=': 2},
             },
@@ -82,7 +84,7 @@ void main() {
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': r'$trigger.n', 'visitor': r'$trigger.visitor'},
           },
         ],
@@ -96,8 +98,8 @@ void main() {
     ]);
     final cause = b.notes.single.cause;
     expect(cause.by, plug);
-    expect(cause.parent, 'f1');
-    expect(cause.conversationOf('x'), 'f1');
+    expect(cause.parent, 'house/st.said#f1');
+    expect(cause.conversationOf('x'), 'house/st.said#f1');
   });
 
   test('a state the participant may not read: load does not start the '
@@ -107,7 +109,7 @@ void main() {
     b.s
         .defineState(
           StateDescriptor(
-            'st.secret',
+            'house/st.secret',
             type: const BoolType(),
             readers: const Callers({'house': Access.allow}),
           ),
@@ -116,12 +118,12 @@ void main() {
     await b.links.load([
       {
         'id': 'note',
-        'only': {'state': 'st.secret', 'is': true},
+        'only': {'state': 'house/st.secret', 'is': true},
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
         ],
         'do': [
-          {'call': 'st.note'},
+          {'call': 'house/st.note'},
         ],
       },
     ]);
@@ -141,10 +143,10 @@ void main() {
       {
         'id': 'note',
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
         ],
         'do': [
-          {'call': 'st.note'},
+          {'call': 'house/st.note'},
         ],
       },
     ]);
@@ -162,11 +164,11 @@ void main() {
       {
         'id': 'changed',
         'when': [
-          {'state': 'st.level', 'becomes': 0},
+          {'state': 'house/st.level', 'becomes': 0},
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': 0},
           },
         ],
@@ -174,11 +176,11 @@ void main() {
       {
         'id': 'already',
         'when': [
-          {'state': 'st.level', 'becomes': 0, 'already': true},
+          {'state': 'house/st.level', 'becomes': 0, 'already': true},
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': 100},
           },
         ],
@@ -202,10 +204,10 @@ void main() {
       {
         'id': 'already',
         'when': [
-          {'state': 'st.level', 'becomes': 0, 'already': true},
+          {'state': 'house/st.level', 'becomes': 0, 'already': true},
         ],
         'do': [
-          {'call': 'st.note'},
+          {'call': 'house/st.note'},
         ],
       },
     ]);
@@ -221,10 +223,10 @@ void main() {
           {
             'id': 'quiet',
             'when': [
-              {'state': 'st.level', 'becomes': 0, 'for': '1m'},
+              {'state': 'house/st.level', 'becomes': 0, 'for': '1m'},
             ],
             'do': [
-              {'call': 'st.note'},
+              {'call': 'house/st.note'},
             ],
           },
         ]),
@@ -252,11 +254,11 @@ void main() {
       {
         'id': 'note',
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
         ],
-        'only': {'state': 'st.level', '>': 0},
+        'only': {'state': 'house/st.level', '>': 0},
         'do': [
-          {'call': 'st.note'},
+          {'call': 'house/st.note'},
         ],
       },
     ]);
@@ -278,13 +280,13 @@ void main() {
             'id': 'note',
             'when': [
               {
-                'fact': 'st.said',
+                'fact': 'house/st.said',
                 'throttle': {'every': '1m', 'per': r'$trigger.visitor'},
               },
             ],
             'do': [
               {
-                'call': 'st.note',
+                'call': 'house/st.note',
                 'params': {'visitor': r'$trigger.visitor'},
               },
             ],
@@ -315,13 +317,13 @@ void main() {
             'id': 'note',
             'when': [
               {
-                'fact': 'st.said',
+                'fact': 'house/st.said',
                 'throttle': {'every': '1m', 'per': r'$trigger.visitor'},
               },
             ],
             'do': [
               {
-                'call': 'st.note',
+                'call': 'house/st.note',
                 'params': {'visitor': r'$trigger.visitor'},
               },
             ],
@@ -358,13 +360,13 @@ void main() {
               'label': 'Up',
               'litLabel': 'Up!',
               'icon': 'up',
-              'lit': {'state': 'st.level', 'is': 1},
+              'lit': {'state': 'house/st.level', 'is': 1},
             },
           },
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': 1},
           },
         ],
@@ -372,18 +374,18 @@ void main() {
     ]);
     await pump();
     final desk = b.host.participant(user).raw;
-    expect(desk.read('plug.links.buttons'), [
+    expect(desk.read('plugin/plug/plug.links.buttons'), [
       {'id': 'up', 'icon': 'up', 'label': 'Up', 'lit': false},
     ]);
     b.level.set(1);
     await pump();
-    expect((desk.read('plug.links.buttons')! as List).single, {
+    expect((desk.read('plugin/plug/plug.links.buttons')! as List).single, {
       'id': 'up',
       'icon': 'up',
       'label': 'Up!',
       'lit': true,
     });
-    final r = await desk.call('plug.links.press', {'button': 'up'});
+    final r = await desk.call('plugin/plug/plug.links.press', {'button': 'up'});
     expect(r, isA<CallDone<Object?>>());
     expect(b.notes.single.cause.by, plug);
   });
@@ -400,12 +402,13 @@ void main() {
           },
         ],
         'do': [
-          {'call': 'st.note'},
+          {'call': 'house/st.note'},
         ],
       },
     ]);
     await pump();
-    final shown = (b.p.read('plug.links.buttons')! as List).single as Map;
+    final shown =
+        (b.p.read('plugin/plug/plug.links.buttons')! as List).single as Map;
     expect(shown['unavailable'], isNotNull);
     expect(await b.links.press('up'), isNotNull);
   });
@@ -421,7 +424,7 @@ void main() {
         extensions: [
           TriggerExtension(
             'says',
-            translate: (o) => const FactTrigger('st.said', Filter({})),
+            translate: (o) => const FactTrigger('house/st.said', Filter({})),
             accept: (data, o) => (data! as Map)['visitor'] == o['says']
                 ? {'visitor': 'it was ${o['says']}'}
                 : null,
@@ -437,7 +440,7 @@ void main() {
           ],
           'do': [
             {
-              'call': 'st.note',
+              'call': 'house/st.note',
               'params': {'visitor': r'$trigger.visitor'},
             },
           ],
@@ -458,7 +461,7 @@ void main() {
       // A command that says the fact that calls it.
       b.s.defineCommand(
         CommandDescriptor(
-          'st.again',
+          'house/st.again',
           callers: Callers({'plugin': Access.allow}),
         ),
         (call) => b.said.say({}, cause: call.causeFor(house)),
@@ -477,10 +480,10 @@ void main() {
           'id': 'loop',
           'mode': 'queue',
           'when': [
-            {'fact': 'st.said'},
+            {'fact': 'house/st.said'},
           ],
           'do': [
-            {'call': 'st.again'},
+            {'call': 'house/st.again'},
           ],
         },
       ]);
@@ -538,11 +541,11 @@ void main() {
         'id': 'note',
         'mode': 'queue',
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': r'$trigger.n'},
           },
         ],
@@ -562,16 +565,16 @@ void main() {
       addTearDown(b.dispose);
       Map<String, Object?> link(String id) => {
         'id': id,
-        'only': {'state': 'st.level', '>': 0},
+        'only': {'state': 'house/st.level', '>': 0},
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
           {
             'button': {'label': id},
           },
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'visitor': id},
           },
         ],
@@ -603,22 +606,22 @@ void main() {
         'id': 'many',
         'queueLimit': '10',
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
         ],
       },
       {
         'id': 'keyed',
         'when': [
-          {'state': 'st.level', 'key': 5, 'becomes': 1},
+          {'state': 'house/st.level', 'key': 5, 'becomes': 1},
         ],
       },
       {
         'id': 'good',
         'when': [
-          {'fact': 'st.said'},
+          {'fact': 'house/st.said'},
         ],
         'do': [
-          {'call': 'st.note'},
+          {'call': 'house/st.note'},
         ],
       },
     ]);
@@ -646,18 +649,18 @@ void main() {
         ],
         'do': [
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': 1},
           },
           {
-            'call': 'st.note',
+            'call': 'house/st.note',
             'params': {'n': -1},
           },
         ],
       },
     ]);
     final why = await b.links.press('two');
-    expect(why, startsWith('step 2 of 2 (st.note), after step 1 done: '));
+    expect(why, startsWith('step 2 of 2 (house/st.note), after step 1 done: '));
   });
   group('when the world fails', () {
     test('a link that stops ends a run waiting on a call that does not '
@@ -667,7 +670,7 @@ void main() {
       final never = Completer<void>();
       b.s.defineCommand(
         CommandDescriptor(
-          'st.hang',
+          'house/st.hang',
           callers: Callers({'plugin': Access.allow}),
           deadline: const Duration(hours: 1),
         ),
@@ -682,8 +685,8 @@ void main() {
             },
           ],
           'do': [
-            {'call': 'st.hang'},
-            {'call': 'st.note'},
+            {'call': 'house/st.hang'},
+            {'call': 'house/st.note'},
           ],
         },
       ]);
@@ -709,7 +712,7 @@ void main() {
           extensions: [
             TriggerExtension(
               'says',
-              translate: (o) => const FactTrigger('st.said', Filter({})),
+              translate: (o) => const FactTrigger('house/st.said', Filter({})),
               accept: (data, o) => throw StateError('accept'),
             ),
           ],
@@ -722,16 +725,16 @@ void main() {
               {'says': 'ann'},
             ],
             'do': [
-              {'call': 'st.note'},
+              {'call': 'house/st.note'},
             ],
           },
           {
             'id': 'plain',
             'when': [
-              {'fact': 'st.said'},
+              {'fact': 'house/st.said'},
             ],
             'do': [
-              {'call': 'st.note'},
+              {'call': 'house/st.note'},
             ],
           },
         ]);
@@ -768,10 +771,10 @@ void main() {
           {
             'id': 'plain',
             'when': [
-              {'fact': 'st.said'},
+              {'fact': 'house/st.said'},
             ],
             'do': [
-              {'call': 'st.note'},
+              {'call': 'house/st.note'},
             ],
           },
         ]);

@@ -124,9 +124,13 @@ void main() {
   setUp(() {
     f = Fixture();
     house = GeneratedWords(
-      f.r.participant(owner, vocabularies: [WordSet.open('test')]),
+      participant: f.r.participant(owner, vocabularies: [WordSet.open('test')]),
+      provider: owner,
     );
-    asUser = GeneratedWords(f.r.participant(user));
+    asUser = GeneratedWords(
+      participant: f.r.participant(user),
+      provider: owner,
+    );
     house.state(TestState.level).define();
     tune = house.state(TestState.tune).define();
     tuned = house.fact(TestFact.tuned).define();
@@ -150,7 +154,7 @@ void main() {
         level: Level.high,
       ));
       expect((r as CallDone<Heard>).value.inputs, ['front']);
-      expect(f.r.read('test.tune', key: 'front'), {
+      expect(f.r.read('host/house/test.tune', key: 'front'), {
         'input': 'front',
         'db': -6,
         'level': 'high',
@@ -171,7 +175,8 @@ void main() {
     );
     expect(
       await GeneratedWords(
-        f.r.participant(visitor),
+        participant: f.r.participant(visitor),
+        provider: owner,
       ).command(TestCommand.reset).call(()),
       isA<CallRefused>(),
     );
@@ -182,7 +187,7 @@ void main() {
   });
 
   test('the catalog sees the shapes as types', () {
-    final d = f.r.commandDescriptor('test.tune.set')!;
+    final d = f.r.commandDescriptor('host/house/test.tune.set')!;
     expect(d.params.fields.keys, ['input', 'db', 'level']);
     expect(d.params.fields['level']!.optional, isTrue);
     expect((d.params.fields['level']!.type as EnumType).values, [
@@ -222,7 +227,7 @@ void main() {
           (params) => only.set(params.apps),
           callers: Callers.only(['user', 'system']),
         );
-    expect(f.r.has('test.only'), isTrue);
+    expect(f.r.has('host/house/test.only'), isTrue);
     expect(asUser.stateOf(NullableState.only).value, isNull);
     expect(
       await asUser.command(NullableCommand.setOnly).call((apps: [])),

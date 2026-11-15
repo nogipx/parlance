@@ -36,9 +36,15 @@ abstract class Lamp {
 /// heater's command, and says so.
 final class _Thermostat extends ThermostatOwnerBase {
   _Thermostat() {
-    final heater = IHeaterClient.of(this);
+    final heater = IHeaterClient.of(
+      owner: this,
+      provider: const Principal('heater'),
+    );
     listen(
-      on: IWeatherClient.of(this).outside.changes,
+      on: IWeatherClient.of(
+        owner: this,
+        provider: const Principal('weather'),
+      ).outside.changes,
       onData: (t) async {
         final on = (t ?? 20) < 15;
         await heater.setPower(on: on);
@@ -58,52 +64,82 @@ void main() {
 
   test('stand-ins answer for the modules a test leaves out; what the module '
       'did is read back', () async {
-    final outside = host.standInState(WeatherState.outside, 10);
-    final heater = host.standInCommand(HeaterCommand.setPower);
+    final outside = host.standInState(
+      WeatherState.outside,
+      10,
+      provider: const Principal('weather'),
+    );
+    final heater = host.standInCommand(
+      HeaterCommand.setPower,
+      provider: const Principal('heater'),
+    );
     host.participant(me, owners: [_Thermostat()]);
     await host.settle();
     outside.set(25);
     await host.settle();
 
     expect(heater.params, [(on: true), (on: false)]);
-    expect(host.written(ThermostatState.heating), [true, false]);
-    expect(host.said(ThermostatFact.adjusted), [(on: true), (on: false)]);
-    expect(host.callsOf(HeaterCommand.setPower).map((c) => c.cause.by), [
-      me.ofOwner('thermostat'),
-      me.ofOwner('thermostat'),
+    expect(host.written(ThermostatState.heating, provider: me), [true, false]);
+    expect(host.said(ThermostatFact.adjusted, provider: me), [
+      (on: true),
+      (on: false),
     ]);
+    expect(
+      host
+          .callsOf(HeaterCommand.setPower, provider: const Principal('heater'))
+          .map((c) => c.cause.by),
+      [me.ofOwner('thermostat'), me.ofOwner('thermostat')],
+    );
     expect(host.errors, isEmpty);
   });
 
   test('the same module across a connection, as a plugin or a phone', () async {
-    host.standInState(WeatherState.outside, 10);
-    final heater = host.standInCommand(HeaterCommand.setPower);
+    host.standInState(
+      WeatherState.outside,
+      10,
+      provider: const Principal('weather'),
+    );
+    final heater = host.standInCommand(
+      HeaterCommand.setPower,
+      provider: const Principal('heater'),
+    );
     final p = await host.join(me, vocabularies: [WordSet.open('thermostat')]);
     p.attach([_Thermostat()]);
     await host.settle();
     expect(heater.params, [(on: true)]);
-    expect(host.written(ThermostatState.heating), [true]);
+    expect(host.written(ThermostatState.heating, provider: me), [true]);
     expect(
-      host.registry.usesOf('heater.set_power').single.by,
+      host.registry.usesOf('heater/heater.set_power').single.by,
       me.ofOwner('thermostat'),
     );
   });
 
   test('a stand-in takes only the vocabulary of its word', () async {
     host.participant(me, vocabularies: [WordSet.open('garden')]);
-    final outside = host.standInState(WeatherState.outside, 10);
+    final outside = host.standInState(
+      WeatherState.outside,
+      10,
+      provider: const Principal('weather'),
+    );
     outside.set(12);
     await host.settle();
-    expect(host.written(WeatherState.outside), [10, 12]);
+    expect(
+      host.written(WeatherState.outside, provider: const Principal('weather')),
+      [10, 12],
+    );
   });
 
   test('a stand-in command answers what it is told', () async {
     host.standInCommand(
       HeaterCommand.setPower,
       answer: (p) => throw StateError('broken'),
+      provider: const Principal('heater'),
     );
     await expectLater(
-      IHeaterClient(host.participant(me)).setPower(on: true),
+      IHeaterClient(
+        participant: host.participant(me),
+        provider: const Principal('heater'),
+      ).setPower(on: true),
       throwsA(
         isA<CallNotDone>().having((e) => e.result, 'result', isA<CallFailed>()),
       ),
@@ -113,20 +149,33 @@ void main() {
   test('a stand-in state is kept as an owner keeps its own', () async {
     final host = TestHost();
     final reader = host.participant(const Principal('module', 'reader'));
-    final outside = host.standInState(WeatherState.outside, 10);
-    final lamps = host.standInKeyed(LampState.on, {'hall': true});
+    final outside = host.standInState(
+      WeatherState.outside,
+      10,
+      provider: const Principal('weather'),
+    );
+    final lamps = host.standInKeyed(LampState.on, {
+      'hall': true,
+    }, provider: const Principal('lamp'));
     await host.settle();
-    expect(reader.raw.read('weather.outside'), 10);
-    expect(reader.raw.read('lamp.on', key: 'hall'), isTrue);
+    expect(reader.raw.read('weather/weather.outside'), 10);
+    expect(reader.raw.read('lamp/lamp.on', key: 'hall'), isTrue);
     outside.set(12);
     lamps
       ..set('kitchen', false)
       ..remove('hall');
     await host.settle();
-    expect(host.written(WeatherState.outside), [10, 12]);
-    expect(reader.raw.readAll('lamp.on'), {'kitchen': false});
     expect(
-      () => host.standInKeyed(WeatherState.outside, {}),
+      host.written(WeatherState.outside, provider: const Principal('weather')),
+      [10, 12],
+    );
+    expect(reader.raw.readAll('lamp/lamp.on'), {'kitchen': false});
+    expect(
+      () => host.standInKeyed(
+        WeatherState.outside,
+        {},
+        provider: const Principal('weather'),
+      ),
       throwsArgumentError,
     );
     await host.dispose();

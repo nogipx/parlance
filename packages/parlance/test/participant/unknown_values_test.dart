@@ -158,7 +158,7 @@ void main() {
 
   group('the rule', () {
     Map<String, Object?> stateOf(ValueType<Object?> t) =>
-        schemaOfDescriptor(StateDescriptor('deck.mode', type: t));
+        schemaOfDescriptor(StateDescriptor('deck/deck.mode', type: t));
 
     test('a value added breaks no code that has a fallback for it', () {
       final now = stateOf(abc);
@@ -177,7 +177,7 @@ void main() {
           schemaOfWord(S('deck.pets', pets)),
           schemaOfDescriptor(
             StateDescriptor(
-              'deck.pets',
+              'deck/deck.pets',
               type: UnionType('is', {
                 'cat': const RecordType({}),
                 'dog': const RecordType({}),
@@ -229,17 +229,17 @@ void main() {
       test('a typed read of a value its code does not know gives none, '
           'and does not throw', () async {
         final errors = <ParticipantError>[];
-        GeneratedWords(owner()).state(nowMode).define().set('c');
+        GeneratedWords.own(owner()).state(nowMode).define().set('c');
         final b = await asGuest();
         if (b is RemoteParticipant) b.errors.listen(errors.add);
         final seen = <Mode?>[];
         final sub = b.raw
-            .watchAs('deck.mode', builtMode.shape)
+            .watchAs('deck/deck.mode', builtMode.shape)
             .listen(seen.add);
-        await b.raw.fetch('deck.mode');
+        await b.raw.fetch('deck/deck.mode');
         await pumpEventQueue();
-        expect(b.raw.readAs('deck.mode', builtMode.shape), isNull);
-        expect(b.raw.read('deck.mode'), 'c', reason: 'its JSON is there');
+        expect(b.raw.readAs('deck/deck.mode', builtMode.shape), isNull);
+        expect(b.raw.read('deck/deck.mode'), 'c', reason: 'its JSON is there');
         expect(seen, [null]);
         await sub.cancel();
         if (across) {
@@ -248,7 +248,7 @@ void main() {
             ParticipantErrorCode.unreadable,
             reason: 'told once',
           );
-          expect(errors.single.why, contains('deck.mode'));
+          expect(errors.single.why, contains('deck/deck.mode'));
         }
       });
 
@@ -256,22 +256,22 @@ void main() {
           'read, gives none too, told once a word', () async {
         final errors = <ParticipantError>[];
         final o = owner();
-        GeneratedWords(
+        GeneratedWords.own(
           o,
         ).state(nowTurn).define().set(const <String, Object?>{});
-        GeneratedWords(o).state(nowBox).define().set(const {'n': 'x'});
+        GeneratedWords.own(o).state(nowBox).define().set(const {'n': 'x'});
         final b = await asGuest();
         if (b is RemoteParticipant) b.errors.listen(errors.add);
-        await b.raw.fetch('deck.turn');
-        await b.raw.fetch('deck.box');
+        await b.raw.fetch('deck/deck.turn');
+        await b.raw.fetch('deck/deck.box');
         await pumpEventQueue();
-        expect(b.raw.readAs('deck.turn', builtTurn.shape), isNull);
-        expect(b.raw.readAs('deck.box', builtBox.shape), isNull);
-        expect(b.raw.readAs('deck.box', builtBox.shape), isNull);
+        expect(b.raw.readAs('deck/deck.turn', builtTurn.shape), isNull);
+        expect(b.raw.readAs('deck/deck.box', builtBox.shape), isNull);
+        expect(b.raw.readAs('deck/deck.box', builtBox.shape), isNull);
         if (across) {
           expect(
             [for (final e in errors) e.op['word']],
-            ['deck.turn', 'deck.box'],
+            ['deck/deck.turn', 'deck/deck.box'],
           );
           expect(
             {for (final e in errors) e.code},
@@ -282,10 +282,12 @@ void main() {
 
       test('a fact holding a value its code does not know is not heard; '
           'the next one is', () async {
-        final say = GeneratedWords(owner()).fact(nowSaid).define();
+        final say = GeneratedWords.own(owner()).fact(nowSaid).define();
         final b = await asGuest();
         final heard = <Mode>[];
-        final sub = b.raw.factsAs('deck.said', builtSaid.shape).listen((f) {
+        final sub = b.raw.factsAs('deck/deck.said', builtSaid.shape).listen((
+          f,
+        ) {
           heard.add(f.$1);
         });
         await b.settle();
@@ -306,8 +308,9 @@ void main() {
     test('is told certain once a value written meets it', () async {
       final told = <Mismatch>[];
       host.registry.mismatchChanges.listen(told.add);
-      final b = host.participant(guest)..raw.builtAgainst([builtMode]);
-      final mode = GeneratedWords(owner()).state(nowMode).define();
+      final b = host.participant(guest)
+        ..raw.builtAgainst([builtMode], provider: const Principal('deck'));
+      final mode = GeneratedWords.own(owner()).state(nowMode).define();
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks, [possible]);
       mode.set('b');
@@ -317,7 +320,7 @@ void main() {
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks.single.certain, isTrue);
       expect(told.last.breaks.single.certain, isTrue);
-      expect(b.raw.readAs('deck.mode', builtMode.shape), isNull);
+      expect(b.raw.readAs('deck/deck.mode', builtMode.shape), isNull);
     });
 
     test('deep in what is written: a field of an item of a list', () async {
@@ -325,8 +328,8 @@ void main() {
           ListType(RecordType({'mode': Field(mode)}));
       host.participant(guest).raw.builtAgainst([
         S('deck.queue', PlainShape(queue(const EnumType(['a', 'b'])))),
-      ]);
-      final q = GeneratedWords(
+      ], provider: const Principal('deck'));
+      final q = GeneratedWords.own(
         owner(),
       ).state(S<Object?>('deck.queue', PlainShape(queue(abc))));
       final w = q.define();
@@ -349,8 +352,10 @@ void main() {
     });
 
     test('a needed field left out, once a value lacks it', () async {
-      host.participant(guest).raw.builtAgainst([builtTurn]);
-      final turn = GeneratedWords(owner()).state(nowTurn).define();
+      host.participant(guest).raw.builtAgainst([
+        builtTurn,
+      ], provider: const Principal('deck'));
+      final turn = GeneratedWords.own(owner()).state(nowTurn).define();
       await pumpEventQueue();
       final only = host.registry.mismatches.single.breaks.single;
       expect(only.path, 'type.fields.volume');
@@ -364,8 +369,10 @@ void main() {
     });
 
     test('by a fact said', () async {
-      host.participant(guest).raw.builtAgainst([builtSaid]);
-      final say = GeneratedWords(owner()).fact(nowSaid).define();
+      host.participant(guest).raw.builtAgainst([
+        builtSaid,
+      ], provider: const Principal('deck'));
+      final say = GeneratedWords.own(owner()).fact(nowSaid).define();
       await pumpEventQueue();
       say.say('a');
       await pumpEventQueue();
@@ -376,12 +383,17 @@ void main() {
     });
 
     test('by an answer, to the one who asked only', () async {
-      final b = host.participant(guest)..raw.builtAgainst([builtPick]);
+      final b = host.participant(guest)
+        ..raw.builtAgainst([builtPick], provider: const Principal('deck'));
       const other = Principal('widlet', 'c');
-      final c = host.participant(other)..raw.builtAgainst([builtPick]);
-      GeneratedWords(owner()).query(nowPick).serve((_) => 'c');
+      final c = host.participant(other)
+        ..raw.builtAgainst([builtPick], provider: const Principal('deck'));
+      GeneratedWords.own(owner()).query(nowPick).serve((_) => 'c');
       await pumpEventQueue();
-      final answer = await GeneratedWords(b.raw).query(builtPick).ask(());
+      final answer = await GeneratedWords(
+        participant: b.raw,
+        provider: deck,
+      ).query(builtPick).ask(());
       expect(answer, isA<CallFailed>(), reason: 'its code cannot read it');
       final byWho = {
         for (final m in host.registry.mismatches) m.by: m.breaks.single.certain,

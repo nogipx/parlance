@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:clock/clock.dart' show Clock;
 
+import '../registry/address.dart';
+import '../registry/json.dart' show jsonEquals;
 import '../registry/cause.dart';
-import '../registry/compat.dart' show WordBreak;
+import '../registry/compat.dart' show WordBreak, wordBreaks;
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
@@ -12,6 +14,9 @@ import '../registry/words.dart';
 import '../registry/streams.dart';
 import '../view/view.dart';
 import 'owner.dart';
+
+part 'addressed_words.dart';
+part 'providers.dart';
 
 /// A participant asked for what it may not do: a word outside its
 /// vocabularies, a right it lacks, an act as someone else (SPEC §22.2).
@@ -414,64 +419,89 @@ extension RawAccess on IParticipant {
 /// not a way to write an app by hand: a part uses a client, an owner its
 /// base. A tool with words named at run time (`StateWordOf`) takes it too.
 final class GeneratedWords {
-  GeneratedWords._(this._resolve, this._owner);
+  GeneratedWords._(this._resolve, this._owner, this._provider);
 
   /// The words through [participant].
-  factory GeneratedWords(IParticipant participant) {
+  factory GeneratedWords({
+    required IParticipant participant,
+    required Principal provider,
+  }) {
+    WordAddress(provider, 'check.word');
     final raw = participant.raw;
-    return GeneratedWords._(() => raw, null);
+    return GeneratedWords._(() => raw, null, () => provider);
   }
 
   /// The words through the participant [owner] is attached to, found when
   /// they are used: an owner's client, made in its constructor. Used
   /// before it is attached, a read or a call throws a [StateError]; a
   /// stream waits until it is listened to ([later]).
-  static GeneratedWords of(IOwner owner) =>
-      GeneratedWords._(() => OwnerParticipant(owner).participant.raw, owner);
+  static GeneratedWords of({
+    required IOwner owner,
+    required Principal provider,
+  }) {
+    WordAddress(provider, 'check.word');
+    return GeneratedWords._(
+      () => OwnerParticipant(owner).participant.raw,
+      owner,
+      () => provider,
+    );
+  }
+
+  /// The owner's own publication target; definitions cannot claim another.
+  factory GeneratedWords.own(IParticipant participant) => GeneratedWords._(
+    () => participant.raw,
+    null,
+    () => participant.who.whole,
+  );
+
+  final Principal Function() _provider;
 
   final IRawParticipant Function() _resolve;
   final IOwner? _owner;
 
   /// The state [word], for the owner base to define.
   GeneratedState<T> state<T>(IStateWord<T> word) =>
-      GeneratedState._(_resolve(), word);
+      GeneratedState._(_resolve(), _StateAt(word, _provider));
 
   /// The command [word], for the owner base to serve and the client to
   /// call.
   GeneratedCommand<P, R> command<P, R>(ICommandWord<P, R> word) =>
-      GeneratedCommand._(_resolve(), word);
+      GeneratedCommand._(_resolve(), _CommandAt(word, _provider));
 
   /// The fact [word], for the owner base to define.
   GeneratedFact<T> fact<T>(IFactWord<T> word) =>
-      GeneratedFact._(_resolve(), word);
+      GeneratedFact._(_resolve(), _FactAt(word, _provider));
 
   /// The query [word], for the owner base to serve and the client to ask.
   GeneratedQuery<P, R> query<P, R>(IQueryWord<P, R> word) =>
-      GeneratedQuery._(_resolve(), word);
+      GeneratedQuery._(_resolve(), _QueryAt(word, _provider));
 
   /// The stream [word], for the owner base or the client.
   GeneratedServerStream<P, T> serverStream<P, T>(
     IServerStreamWord<P, T> word,
-  ) => GeneratedServerStream._(_resolve, word);
+  ) => GeneratedServerStream._(_resolve, _ServerStreamAt(word, _provider));
 
   /// The state [word] as a part reads it ([IStateOf]).
-  IStateOf<T> stateOf<T>(IStateWord<T> word) => _StateOf(this, word);
+  IStateOf<T> stateOf<T>(IStateWord<T> word) =>
+      _StateOf(this, _StateAt(word, _provider));
 
   /// The keyed state [word] as a part reads it ([IKeyedOf]).
-  IKeyedOf<T> keyedOf<T>(IStateWord<T> word) => _KeyedOf(this, word);
+  IKeyedOf<T> keyedOf<T>(IStateWord<T> word) =>
+      _KeyedOf(this, _StateAt(word, _provider));
 
   /// The fact [word] as a part hears it ([IFactOf]).
-  IFactOf<T> factOf<T>(IFactWord<T> word) => _FactOf(this, word);
+  IFactOf<T> factOf<T>(IFactWord<T> word) =>
+      _FactOf(this, _FactAt(word, _provider));
 
   /// The client stream as served or invoked by generated code.
   GeneratedClientStream<P, I, R> clientStream<P, I, R>(
     IClientStreamWord<P, I, R> word,
-  ) => GeneratedClientStream._(_resolve, word);
+  ) => GeneratedClientStream._(_resolve, _ClientStreamAt(word, _provider));
 
   /// The bidirectional stream as served or invoked by generated code.
   GeneratedBidiStream<P, I, O> bidiStream<P, I, O>(
     IBidiStreamWord<P, I, O> word,
-  ) => GeneratedBidiStream._(_resolve, word);
+  ) => GeneratedBidiStream._(_resolve, _BidiStreamAt(word, _provider));
 
   /// [make]'s stream, made when it is listened to: an owner's client hands
   /// out its streams before the owner is attached, and its tools listen
@@ -483,24 +513,31 @@ final class GeneratedWords {
   /// an owner's client once the owner is attached.
   void builtAgainst(Iterable<IWord> words, {String? from}) {
     if (_owner case final o?) {
-      OwnerParticipant(
-        o,
-      ).whenAttached((p) => p.raw.builtAgainst(words, from: from));
+      OwnerParticipant(o).whenAttached(
+        (p) => p.raw.builtAgainst(
+          words.map((w) => _wordAt(w, _provider)),
+          from: from,
+        ),
+      );
     } else {
-      _resolve().builtAgainst(words, from: from);
+      _resolve().builtAgainst(
+        words.map((w) => _wordAt(w, _provider)),
+        from: from,
+      );
     }
   }
 
   /// Whether [word] is there now, as this code was built against it.
-  WordStatus status(IWord word) => wordStatus(_resolve(), word);
+  WordStatus status(IWord word) =>
+      wordStatus(_resolve(), _wordAt(word, _provider));
 
   /// [status], then whenever it changes.
   Stream<WordStatus> statusChanges(IWord word) =>
-      later(() => wordStatusChanges(_resolve(), word));
+      later(() => wordStatusChanges(_resolve(), _wordAt(word, _provider)));
 
   /// Each of [words] there but not as this code was built against.
   Map<String, List<WordBreak>> mismatches(Iterable<IWord> words) =>
-      wordMismatches(_resolve(), words);
+      wordMismatches(_resolve(), words.map((w) => _wordAt(w, _provider)));
 }
 
 final class _StateOf<T> implements IStateOf<T> {

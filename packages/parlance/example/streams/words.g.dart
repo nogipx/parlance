@@ -94,7 +94,7 @@ abstract class DocumentsOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     p.serverStream(DocumentsServerStream.read).serve((x) => read(name: x.name));
     p
         .clientStream(DocumentsClientStream.save)
@@ -133,12 +133,18 @@ abstract class DocumentsOwnerBase implements IOwner {
 abstract interface class IDocumentsClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IDocumentsClient(IParticipant participant) = _$DocumentsClient;
+  factory IDocumentsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$DocumentsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDocumentsClient.of(IOwner owner) = _$DocumentsClient._of;
+  factory IDocumentsClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$DocumentsClient._of;
 
   /// documents.read: opens on listen; cancellation ends this operation.
   Stream<String> read({required String name, CancellationToken? cancel});
@@ -175,12 +181,15 @@ abstract interface class IDocumentsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DocumentsClient implements IDocumentsClient {
-  _$DocumentsClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$DocumentsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(documentsWords.words, from: documentsWords.from);
   }
 
-  _$DocumentsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$DocumentsClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(documentsWords.words, from: documentsWords.from);
   }
 

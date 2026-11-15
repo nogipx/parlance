@@ -34,7 +34,7 @@ abstract class AOwnerBase implements IOwner {
   final Single<int> level = Single<int>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(level, p.state(AState.level).define());
   }
 
@@ -53,12 +53,16 @@ abstract class AOwnerBase implements IOwner {
 abstract interface class IAClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IAClient(IParticipant participant) = _$AClient;
+  factory IAClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$AClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IAClient.of(IOwner owner) = _$AClient._of;
+  factory IAClient.of({required IOwner owner, required Principal provider}) =
+      _$AClient._of;
 
   /// a.level: its value now, and its changes.
   IStateOf<int> get level;
@@ -81,11 +85,13 @@ abstract interface class IAClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$AClient implements IAClient {
-  _$AClient(IParticipant participant) : _$words = GeneratedWords(participant) {
+  _$AClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(aWords.words, from: aWords.from);
   }
 
-  _$AClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$AClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(aWords.words, from: aWords.from);
   }
 
@@ -143,7 +149,7 @@ abstract class BOwnerBase implements IOwner {
   final Single<int> level = Single<int>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(level, p.state(BState.level).define());
   }
 
@@ -162,12 +168,16 @@ abstract class BOwnerBase implements IOwner {
 abstract interface class IBClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IBClient(IParticipant participant) = _$BClient;
+  factory IBClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$BClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBClient.of(IOwner owner) = _$BClient._of;
+  factory IBClient.of({required IOwner owner, required Principal provider}) =
+      _$BClient._of;
 
   /// b.level: its value now, and its changes.
   IStateOf<int> get level;
@@ -190,11 +200,13 @@ abstract interface class IBClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BClient implements IBClient {
-  _$BClient(IParticipant participant) : _$words = GeneratedWords(participant) {
+  _$BClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(bWords.words, from: bWords.from);
   }
 
-  _$BClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$BClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(bWords.words, from: bWords.from);
   }
 
@@ -252,7 +264,7 @@ abstract class COwnerBase implements IOwner {
   final Single<int> level = Single<int>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(level, p.state(CState.level).define());
   }
 
@@ -271,12 +283,16 @@ abstract class COwnerBase implements IOwner {
 abstract interface class ICClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory ICClient(IParticipant participant) = _$CClient;
+  factory ICClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$CClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ICClient.of(IOwner owner) = _$CClient._of;
+  factory ICClient.of({required IOwner owner, required Principal provider}) =
+      _$CClient._of;
 
   /// c.level: its value now, and its changes.
   IStateOf<int> get level;
@@ -299,11 +315,13 @@ abstract interface class ICClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$CClient implements ICClient {
-  _$CClient(IParticipant participant) : _$words = GeneratedWords(participant) {
+  _$CClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(cWords.words, from: cWords.from);
   }
 
-  _$CClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$CClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(cWords.words, from: cWords.from);
   }
 

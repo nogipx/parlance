@@ -10,6 +10,7 @@ import '../participant/owner.dart';
 import '../participant/participant.dart';
 import '../participant/serving.dart';
 import '../registry/cancellation.dart' show untilCancelled;
+import '../registry/address.dart';
 import '../registry/cause.dart';
 import '../registry/compat.dart';
 import '../registry/descriptors.dart';
@@ -199,6 +200,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     int keepAway,
     Set<String> requires,
   ) async {
+    requires = {...requires, 'providers'};
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
     final speaks = checkProtocol(
@@ -518,8 +520,14 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     if (_disposed) throw StateError('participant $who is gone');
   }
 
-  bool _owns(String name) =>
-      vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
+  bool _owns(String name) {
+    if (name.contains('/')) {
+      final address = WordAddress.parse(name);
+      if (address.provider != who.whole) return false;
+      name = address.word;
+    }
+    return vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
+  }
 
   void _mayDefine(Descriptor d) {
     _live();
@@ -1002,7 +1010,18 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// new session. The states among them its copy keeps from now on: its
   /// code reads them as in the host's process, listened to or not.
   @override
-  void builtAgainst(Iterable<IWord> words, {String? from}) {
+  void builtAgainst(
+    Iterable<IWord> words, {
+    String? from,
+    Principal? provider,
+  }) {
+    if (provider != null) {
+      GeneratedWords(
+        participant: this,
+        provider: provider,
+      ).builtAgainst(words, from: from);
+      return;
+    }
     _view.keep(words);
     _builtAgainst(schemasOf(words), from, null);
     _watchBuilt(words, from);
@@ -1111,6 +1130,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _defineState(d, null);
 
   IStateHandle _defineState(StateDescriptor raw, Principal? as) {
+    raw = raw.providedBy(who) as StateDescriptor;
     _mayDefine(raw);
     final d = access.state(raw);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
@@ -1144,6 +1164,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     WhyNot? whyNot,
     Principal? as,
   ) {
+    d = d.providedBy(who) as CallableDescriptor;
     _mayDefine(d);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
     final c = _Command(d, serving(handler), whyNot, as);
@@ -1160,6 +1181,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _defineFact(d, null);
 
   IFactHandle _defineFact(FactDescriptor raw, Principal? as) {
+    raw = raw.providedBy(who) as FactDescriptor;
     _mayDefine(raw);
     final d = access.fact(raw);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});

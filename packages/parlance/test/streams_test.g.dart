@@ -72,7 +72,7 @@ abstract class DataOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     p
         .serverStream(DataServerStream.numbers)
         .serve(
@@ -128,12 +128,16 @@ abstract class DataOwnerBase implements IOwner {
 abstract interface class IDataClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IDataClient(IParticipant participant) = _$DataClient;
+  factory IDataClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$DataClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDataClient.of(IOwner owner) = _$DataClient._of;
+  factory IDataClient.of({required IOwner owner, required Principal provider}) =
+      _$DataClient._of;
 
   /// data.numbers: opens on listen; cancellation ends this operation.
   Stream<int> numbers({
@@ -175,12 +179,13 @@ abstract interface class IDataClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DataClient implements IDataClient {
-  _$DataClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$DataClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(dataWords.words, from: dataWords.from);
   }
 
-  _$DataClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$DataClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(dataWords.words, from: dataWords.from);
   }
 

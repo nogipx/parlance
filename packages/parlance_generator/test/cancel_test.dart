@@ -67,7 +67,10 @@ void main() {
 
   test('a call cancelled throws CallNotDone of cancelled; the owner '
       'serving it is told, and what it then does stands', () async {
-    final player = IPlayerClient(host.participant(const Principal('listener')));
+    final player = IPlayerClient(
+      participant: host.participant(const Principal('listener')),
+      provider: const Principal('deck'),
+    );
     final stop = CancellationToken();
     final play = player.play(
       track: const Track(title: 'A'),
@@ -90,12 +93,21 @@ void main() {
 
     deck.release.complete();
     await host.settle();
-    expect(host.written(PlayerState.playing).last?.title, 'A');
+    expect(
+      host
+          .written(PlayerState.playing, provider: const Principal('deck'))
+          .last
+          ?.title,
+      'A',
+    );
   });
 
   test('a token cancels its own call only: the client and its other calls '
       'go on', () async {
-    final player = IPlayerClient(host.participant(const Principal('listener')));
+    final player = IPlayerClient(
+      participant: host.participant(const Principal('listener')),
+      provider: const Principal('deck'),
+    );
     final first = CancellationToken();
     final a = player.play(
       track: const Track(title: 'A'),
@@ -115,7 +127,10 @@ void main() {
   });
 
   test('expired is there while a handler serves a call', () async {
-    final player = IPlayerClient(host.participant(const Principal('listener')));
+    final player = IPlayerClient(
+      participant: host.participant(const Principal('listener')),
+      provider: const Principal('deck'),
+    );
     await player.setVolume(volume: 10);
     expect(deck.expiredOutside, isNotNull);
     expect(deck.expired, isNull, reason: 'outside a handler, none');

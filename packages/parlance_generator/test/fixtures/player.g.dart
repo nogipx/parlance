@@ -240,7 +240,7 @@ abstract class PlayerOwnerBase implements IOwner {
   IFactSayerOf<Track>? _$finished;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(
       volume,
       p
@@ -350,12 +350,18 @@ final class PlayerFinishedFact {
 abstract interface class IPlayerClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IPlayerClient(IParticipant participant) = _$PlayerClient;
+  factory IPlayerClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$PlayerClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IPlayerClient.of(IOwner owner) = _$PlayerClient._of;
+  factory IPlayerClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$PlayerClient._of;
 
   /// player.volume: its value now, and its changes.
   IStateOf<int> get volume;
@@ -422,12 +428,15 @@ abstract interface class IPlayerClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$PlayerClient implements IPlayerClient {
-  _$PlayerClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$PlayerClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
-  _$PlayerClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$PlayerClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 

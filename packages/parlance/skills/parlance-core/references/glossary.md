@@ -5,7 +5,9 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Values, names, types
 
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
-- **Name** (§1): a word's address, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first word is the owner's vocabulary (§22.1); ownership is by handle, not by name.
+- **Name** (§1): a word's portable contract name, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first word is the owner's vocabulary (§22.1); ownership is by handle, not by name.
+- **Address** (§1): exact whole provider principal plus portable word, `WordAddress(provider, word)`, rendered as `kind[/id]/vocabulary.word`. Runtime descriptors, operations and journal entries use it.
+- **Provider**: an exact whole principal publishing words; `providers` and `providerChanges` discover actual publications and their per-word status without choosing a dependency.
 - **Key** (§1): the entity id a keyed state's value belongs to (`kitchen` in `house.light[kitchen]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `list`, `object`, `map`, `nullable`, `oneOf`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **Custom type** (§2): a host's own checker under a name; the package never reads it.
@@ -110,7 +112,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`standInState`, `standInKeyed`, `standInCommand`, `standInFact`) and what happened read back (`written`, `said`, `callsOf`).
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
-- **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first word of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
+- **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first word of theirs, one owner's per provider; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
 - **`listen`**: a subscription that lives while the owner is attached, for what its work reports by itself.
 - **`failCall(why)`**: ends a call `failed` with the owner's reason; refusals with a code come only from the registry's stages.
 
@@ -131,7 +133,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 - **IRegistryView** (`tools.dart`): what the client and tools read and call: values now, told when the states it draws change (`changes`), facts said from now on, `recent`, calls on behalf of one principal, `synced`.
 - **LocalView** (`tools.dart`): a view of a registry in the same process, as one principal.
-- **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords(participant)` (`GeneratedWords.of(owner)` for an owner's client); the generator's contract, not a way to write by hand. It gives `GeneratedState` and `GeneratedFact` (`define`), `GeneratedCommand` (`serve`, `call`) and `GeneratedQuery` (`serve`, `ask`), and the reads of a client (`stateOf`, `keyedOf`, `factOf`, `status`). The only typed way to a word: a tool with words named at run time takes it too.
+- **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords(participant: participant, provider: target)` (`GeneratedWords.of(owner: owner, provider: target)` for an owner's client); the generator's contract, not a way to write by hand. It gives `GeneratedState` and `GeneratedFact` (`define`), `GeneratedCommand` (`serve`, `call`) and `GeneratedQuery` (`serve`, `ask`), and the reads of a client (`stateOf`, `keyedOf`, `factOf`, `status`). The only typed way to a word: a tool with words named at run time takes it too.
 - **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
 - **`ProtocolMismatch`**, **`HostUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
 - **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, calls in flight; on by default, `unbounded` for a trusted part; past one, that op is refused (`resourceExhausted`).

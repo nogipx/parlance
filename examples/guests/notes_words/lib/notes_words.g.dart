@@ -102,7 +102,7 @@ abstract class NotesOwnerBase implements IOwner {
   IFactSayerOf<NotesAdded>? _$added;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(all, p.state(NotesState.all).define());
     _$added = p.fact(NotesFact.added).define();
     p.command(NotesCommand.add).serve((x) => add(text: x.text));
@@ -144,12 +144,18 @@ final class NotesAddedFact {
 abstract interface class INotesClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory INotesClient(IParticipant participant) = _$NotesClient;
+  factory INotesClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$NotesClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory INotesClient.of(IOwner owner) = _$NotesClient._of;
+  factory INotesClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$NotesClient._of;
 
   /// notes.all: its value now, and its changes.
   IStateOf<List<Note>> get all;
@@ -182,12 +188,15 @@ abstract interface class INotesClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$NotesClient implements INotesClient {
-  _$NotesClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$NotesClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
-  _$NotesClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$NotesClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 

@@ -14,7 +14,7 @@ final class Board extends Fixture {
   Board() {
     party = r.defineFact(
       FactDescriptor(
-        'porch.party',
+        'plugin/gate/porch.party',
         type: const RecordType({
           'from': Field(TextType()),
           'visitors': Field(IntType(min: 0)),
@@ -111,7 +111,7 @@ void main() {
     final f = Fixture();
     String? why = 'not yet';
     f.r.defineCommand(
-      CommandDescriptor('x.go', callers: Callers.only(['agent'])),
+      CommandDescriptor('host/house/x.go', callers: Callers.only(['agent'])),
       (_) {},
       whyNot: () => why,
     );
@@ -121,7 +121,8 @@ void main() {
     expect('$listed', isNot(contains('not yet')));
     Future<Object?> now() async => [
       for (final x
-          in (await c.json('describe', {'prefix': 'x.'}) as Map)['commands']
+          in (await c.json('describe', {'prefix': 'host/house/x.'})
+                  as Map)['commands']
               as List)
         (x as Map)['unavailable'],
     ].single;
@@ -130,11 +131,67 @@ void main() {
     expect(await now(), isNull);
   });
 
+  test(
+    'MCP discovers equal words and routes only the selected provider',
+    () async {
+      final f = Fixture();
+      addTearDown(f.host.dispose);
+      final ran = <String>[];
+      for (final id in ['work', 'personal']) {
+        final p = f.host
+            .participant(
+              Principal('module', id),
+              vocabularies: [const WordSet.open('notes')],
+            )
+            .raw;
+        p.defineCommand(
+          CommandDescriptor('notes.add', callers: Callers.only(['agent'])),
+          (_) {
+            ran.add(id);
+          },
+        );
+      }
+      final c = Client(f.host.participant(agent).raw, commandTools: true);
+      addTearDown(c.close);
+      final providers =
+          await c.json('providers', {'vocabulary': 'notes'}) as List;
+      expect(
+        [for (final p in providers) (p as Map)['principal']],
+        [
+          {'kind': 'module', 'id': 'personal'},
+          {'kind': 'module', 'id': 'work'},
+        ],
+      );
+      final d = await c.json('describe') as Map;
+      final words = (d['commands'] as List)
+          .cast<Map<String, Object?>>()
+          .where((w) => w['word'] == 'notes.add')
+          .toList();
+      expect(words.map((w) => w['name']).toSet(), {
+        'module/work/notes.add',
+        'module/personal/notes.add',
+      });
+      expect((await c.call('call', {'command': 'notes.add'})).error, isTrue);
+      expect(ran, isEmpty);
+      expect(
+        (await c.call('call', {'command': 'module/work/notes.add'})).error,
+        isFalse,
+      );
+      await c.call(commandToolName('module/personal/notes.add'));
+      expect(ran, ['work', 'personal']);
+    },
+  );
+
   test('a command whose tool name is taken, or too long, is called by call '
       'alone', () async {
     final f = Fixture();
     final ran = <String>[];
-    for (final name in ['recent.facts', 'a.b_c', 'a_b.c', 'x.${'y' * 70}']) {
+    for (final name in [
+      'host/house/recent.facts',
+      'module/a-b/x.go',
+      'module/a_b/x.go',
+      'host/house/x.${'y' * 70}',
+    ]) {
       f.r.defineCommand(
         CommandDescriptor(name, callers: Callers.only(['agent'])),
         (_) => ran.add(name),
@@ -144,15 +201,21 @@ void main() {
     addTearDown(c.close);
     final tools = await c.tools();
     expect(tools.toSet(), hasLength(tools.length), reason: 'each its own');
-    expect(tools.where((t) => t.startsWith('x_')), isEmpty);
-    expect(tools, contains('a_b_c'));
+    expect(tools, isNot(contains(commandToolName('host/house/x.${'y' * 70}'))));
+    expect(
+      tools,
+      containsAll([
+        commandToolName('module/a-b/x.go'),
+        commandToolName('module/a_b/x.go'),
+      ]),
+    );
     expect(
       (await c.call('recent_facts', {'fact': 'no.such'})).text,
       'no fact no.such',
     );
-    await c.call('call', {'command': 'recent.facts'});
-    await c.call('a_b_c');
-    expect(ran, ['recent.facts', 'a.b_c']);
+    await c.call('call', {'command': 'host/house/recent.facts'});
+    await c.call(commandToolName('module/a-b/x.go'));
+    expect(ran, ['host/house/recent.facts', 'module/a-b/x.go']);
   });
 
   test(
@@ -161,7 +224,10 @@ void main() {
       final f = Fixture();
       final slow = Completer<void>();
       f.r.defineCommand(
-        CommandDescriptor('x.slow', callers: Callers.only(['agent'])),
+        CommandDescriptor(
+          'host/house/x.slow',
+          callers: Callers.only(['agent']),
+        ),
         (_) => slow.future,
       );
       final c = Client(f.host.participant(agent).raw);
@@ -172,7 +238,7 @@ void main() {
       c.session.toolsChanged();
       await c.tools();
       expect(c.toolsMade, 2);
-      final pending = c.call('call', {'command': 'x.slow'});
+      final pending = c.call('call', {'command': 'host/house/x.slow'});
       await c.request('ping').timeout(const Duration(seconds: 1));
       slow.complete();
       expect((await pending).error, isFalse);
@@ -194,33 +260,40 @@ void main() {
       f.r
           .defineState(
             StateDescriptor(
-              'house.secret',
+              'host/house/house.secret',
               type: const TextType(),
               readers: const Callers({'agent': Access.deny, '*': Access.allow}),
             ),
             by: owner,
           )
           .set('hush');
-      final one = await c.call('read', {'state': 'house.secret'});
-      expect((one.error, one.text), (true, 'you may not read house.secret'));
-      final all = await c.call('read', {'prefix': 'house.'});
+      final one = await c.call('read', {'state': 'host/house/house.secret'});
+      expect(
+        (one.error, one.text),
+        (true, 'you may not read host/house/house.secret'),
+      );
+      final all = await c.call('read', {'prefix': 'host/house/house.'});
       expect(all.error, isFalse);
       expect(all.text, isNot(contains('hush')));
-      expect((await c.call('why', {'state': 'house.secret'})).error, isTrue);
       expect(
-        await f.host.participant(agent).raw.fetch('house.secret'),
+        (await c.call('why', {'state': 'host/house/house.secret'})).error,
+        isTrue,
+      );
+      expect(
+        await f.host.participant(agent).raw.fetch('host/house/house.secret'),
         isEmpty,
       );
-      expect(await f.host.participant(user).raw.fetch('house.secret'), {
-        null: 'hush',
-      });
+      expect(
+        await f.host.participant(user).raw.fetch('host/house/house.secret'),
+        {null: 'hush'},
+      );
     });
 
     test('a fact it may not hear: no recent of it', () async {
       f.r
           .defineFact(
             FactDescriptor(
-              'house.whisper',
+              'host/house/house.whisper',
               type: const TextType(),
               readers: const Callers({'agent': Access.deny, '*': Access.allow}),
             ),
@@ -228,11 +301,16 @@ void main() {
           )
           .say('psst');
       expect(
-        (await c.call('recent_facts', {'fact': 'house.whisper'})).error,
+        (await c.call('recent_facts', {
+          'fact': 'host/house/house.whisper',
+        })).error,
         isTrue,
       );
       expect(
-        await f.host.participant(agent).raw.recent('house.whisper', 5),
+        await f.host
+            .participant(agent)
+            .raw
+            .recent('host/house/house.whisper', 5),
         isEmpty,
       );
     });
@@ -249,7 +327,14 @@ void main() {
 
     test('the curated tools, and no command tools unless asked', () async {
       final names = await c.tools();
-      expect(names, ['describe', 'read', 'call', 'recent_facts', 'why']);
+      expect(names, [
+        'providers',
+        'describe',
+        'read',
+        'call',
+        'recent_facts',
+        'why',
+      ]);
       final withCommands = Client(
         f.host.participant(agent).raw,
         commandTools: true,
@@ -257,11 +342,14 @@ void main() {
       addTearDown(withCommands.close);
       expect(
         await withCommands.tools(),
-        containsAll(['house_show', 'door_lock']),
+        containsAll([
+          commandToolName('host/house/house.show'),
+          commandToolName('host/house/door.lock'),
+        ]),
       );
       expect(
         await withCommands.tools(),
-        isNot(contains('door_chime_set')),
+        isNot(contains(commandToolName('host/house/door.chime.set'))),
         reason: 'not for agents',
       );
     });
@@ -273,17 +361,18 @@ void main() {
         final commands = {
           for (final x in d['commands'] as List) (x as Map)['name']: x,
         };
-        expect(commands.keys, contains('house.show'));
-        expect(commands.keys, isNot(contains('door.chime.set')));
-        final show = commands['house.show'] as Map;
+        expect(commands.keys, contains('host/house/house.show'));
+        expect(commands.keys, isNot(contains('host/house/door.chime.set')));
+        final show = commands['host/house/house.show'] as Map;
         expect(((show['params'] as Map)['properties'] as Map)['room'], {
           'type': 'string',
         });
         expect(d.containsKey('entities'), isFalse);
-        final door = await c.json('describe', {'prefix': 'door.'}) as Map;
+        final door =
+            await c.json('describe', {'prefix': 'host/house/door.'}) as Map;
         expect(
           [for (final x in door['states'] as List) (x as Map)['name']],
-          ['door.locked', 'door.chime'],
+          ['host/house/door.locked', 'host/house/door.chime'],
         );
       },
     );
@@ -291,14 +380,17 @@ void main() {
     test('call does it; a refusal says why; read tells the state', () async {
       expect(
         (await c.call('call', {
-          'command': 'house.show',
+          'command': 'host/house/house.show',
           'params': {'room': 'break'},
         })).error,
         isFalse,
       );
-      expect(await c.json('read', {'state': 'house.focus'}), 'break');
+      expect(
+        await c.json('read', {'state': 'host/house/house.focus'}),
+        'break',
+      );
       final bad = await c.call('call', {
-        'command': 'house.show',
+        'command': 'host/house/house.show',
         'params': {'room': 'nowhere'},
       });
       expect(bad.error, isTrue);
@@ -308,22 +400,26 @@ void main() {
     test('a word that comes or changes after the tools were made is read as '
         'it is now, without relisting them', () async {
       expect(
-        (await c.call('read', {'state': 'door.bell'})).text,
-        'no state door.bell',
+        (await c.call('read', {'state': 'host/house/door.bell'})).text,
+        'no state host/house/door.bell',
       );
       final bell = f.r.defineState(
-        StateDescriptor('door.bell', type: const BoolType()),
+        StateDescriptor('host/house/door.bell', type: const BoolType()),
         by: owner,
       )..set(true);
-      expect(await c.json('read', {'state': 'door.bell'}), true);
+      expect(await c.json('read', {'state': 'host/house/door.bell'}), true);
       bell.dispose();
       final keyed = f.r.defineState(
-        StateDescriptor('door.bell', type: const BoolType(), key: 'input'),
+        StateDescriptor(
+          'host/house/door.bell',
+          type: const BoolType(),
+          key: 'input',
+        ),
         by: owner,
       );
       keyed.set(false, key: 'front');
       keyed.set(true, key: 'music');
-      expect(await c.json('read', {'state': 'door.bell'}), {
+      expect(await c.json('read', {'state': 'host/house/door.bell'}), {
         'front': false,
         'music': true,
       });
@@ -331,13 +427,17 @@ void main() {
 
     test('why tells the last change and the calls that led to it', () async {
       await c.call('call', {
-        'command': 'door.lock',
+        'command': 'host/house/door.lock',
         'params': {'on': true},
       });
-      final why = await c.json('why', {'state': 'door.locked'}) as Map;
+      final why =
+          await c.json('why', {'state': 'host/house/door.locked'}) as Map;
       expect(why['value'], true);
       expect((why['changed'] as Map)['by'], 'host/house');
-      expect(((why['trail'] as List).first as Map)['call'], 'door.lock');
+      expect(
+        ((why['trail'] as List).first as Map)['call'],
+        'host/house/door.lock',
+      );
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
     });
 
@@ -345,7 +445,8 @@ void main() {
       f.party.say({'from': 'a', 'visitors': 3});
       await pumpEventQueue();
       final facts =
-          await c.json('recent_facts', {'fact': 'porch.party'}) as List;
+          await c.json('recent_facts', {'fact': 'plugin/gate/porch.party'})
+              as List;
       expect((facts.single as Map)['payload'], {'from': 'a', 'visitors': 3});
     });
   });
@@ -383,19 +484,21 @@ void main() {
     test('the same tools work over remote, as the session may', () async {
       final d = await c.json('describe') as Map;
       final names = [for (final x in d['commands'] as List) (x as Map)['name']];
-      expect(names, contains('house.show'));
-      expect(names, isNot(contains('door.chime.set')));
+      expect(names, contains('host/house/house.show'));
+      expect(names, isNot(contains('host/house/door.chime.set')));
       await c.call('call', {
-        'command': 'house.show',
+        'command': 'host/house/house.show',
         'params': {'room': 'test'},
       });
-      expect(await c.json('read', {'state': 'house.focus'}), 'test');
-      final why = await c.json('why', {'state': 'house.focus'}) as Map;
+      expect(await c.json('read', {'state': 'host/house/house.focus'}), 'test');
+      final why =
+          await c.json('why', {'state': 'host/house/house.focus'}) as Map;
       expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
       f.party.say({'from': 'b', 'visitors': 1});
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(
-        (await c.json('recent_facts', {'fact': 'porch.party'}) as List),
+        (await c.json('recent_facts', {'fact': 'plugin/gate/porch.party'})
+            as List),
         hasLength(1),
       );
     });
@@ -403,21 +506,21 @@ void main() {
     test('a read right after a call reads what it wrote', () async {
       for (final room in ['test', 'break', 'main']) {
         await c.call('call', {
-          'command': 'house.show',
+          'command': 'host/house/house.show',
           'params': {'room': room},
         });
-        expect(await c.json('read', {'state': 'house.focus'}), room);
+        expect(await c.json('read', {'state': 'host/house/house.focus'}), room);
       }
     });
 
     test('a state it reads by name is kept from then on, counted as its '
         'use', () async {
       f.locked.set(false);
-      expect(await c.json('read', {'state': 'door.locked'}), false);
+      expect(await c.json('read', {'state': 'host/house/door.locked'}), false);
       f.locked.set(true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(p.read('door.locked'), true, reason: 'kept: at once');
-      expect(f.r.usesOf('door.locked').single.listening, 1);
+      expect(p.read('host/house/door.locked'), true, reason: 'kept: at once');
+      expect(f.r.usesOf('host/house/door.locked').single.listening, 1);
     });
 
     test(
@@ -427,11 +530,11 @@ void main() {
         session.dispose();
         await responder.close();
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        final read = await c.call('read', {'state': 'house.focus'});
+        final read = await c.call('read', {'state': 'host/house/house.focus'});
         expect(read.error, isTrue);
         expect(read.text, contains('not reachable'));
         final call = await c.call('call', {
-          'command': 'house.show',
+          'command': 'host/house/house.show',
           'params': {'room': 'test'},
           'id': 'mine',
         });
@@ -443,18 +546,23 @@ void main() {
     test('a read of every state is a look: it leaves no follower', () async {
       f.locked.set(true);
       final all = await c.json('read') as Map;
-      expect(all['door.locked'], true);
+      expect(all['host/house/door.locked'], true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(session.states, isEmpty, reason: 'let go after the look');
-      expect(await c.json('read', {'state': 'door.locked'}), true);
+      expect(await c.json('read', {'state': 'host/house/door.locked'}), true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(session.states, {'door.locked'}, reason: 'one by name is kept');
+      expect(session.states, {
+        'host/house/door.locked',
+      }, reason: 'one by name is kept');
     });
 
     test('a word added later is a catalog change the tools follow', () async {
       final seen = <void>[];
       final sub = p.catalogChanges.listen(seen.add);
-      f.r.defineFact(FactDescriptor('x.new', type: const AnyType()), by: owner);
+      f.r.defineFact(
+        FactDescriptor('host/house/x.new', type: const AnyType()),
+        by: owner,
+      );
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(seen, isNotEmpty);
       await sub.cancel();

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:test/test.dart';
+import 'package:parlance_mcp/parlance_mcp.dart';
 
 import '../example/agent.dart' as example;
 
@@ -15,10 +16,10 @@ void main() {
       ),
     );
     expect(lines, [
-      'its tools: describe, read, call, recent_facts, why, notes_add',
-      'notes_add: {text: {type: string, maxLength: 500}}',
+      'its tools: providers, describe, read, call, recent_facts, why, ${commandToolName('notes/notes.add')}',
+      '${commandToolName('notes/notes.add')}: {text: {type: string, maxLength: 500}}',
       'the agent adds a note: Done.',
-      "a guest's tools: describe, read, call, recent_facts, why",
+      "a guest's tools: providers, describe, read, call, recent_facts, why",
     ]);
   });
 }

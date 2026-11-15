@@ -69,9 +69,9 @@ void main() {
     r = Registry();
     owner = r.participant(deck, vocabularies: [WordSet.open('deck')]);
     listener = r.participant(ann);
-    final playing = GeneratedWords(owner).state(DeckState.playing).define();
-    final started = GeneratedWords(owner).fact(DeckFact.started).define();
-    GeneratedWords(owner).command(DeckCommand.play).serve((params) {
+    final playing = GeneratedWords.own(owner).state(DeckState.playing).define();
+    final started = GeneratedWords.own(owner).fact(DeckFact.started).define();
+    GeneratedWords.own(owner).command(DeckCommand.play).serve((params) {
       sent.add(params);
       playing.set(params);
       started.say(params);
@@ -85,15 +85,22 @@ void main() {
 
   test('a call in this process sends and answers the value itself', () async {
     final song = (title: 'one', volume: 40);
-    final heard = GeneratedWords(listener).factOf(DeckFact.started).facts.first;
+    final heard = GeneratedWords(
+      participant: listener,
+      provider: deck,
+    ).factOf(DeckFact.started).facts.first;
     final done = await GeneratedWords(
-      listener,
+      participant: listener,
+      provider: deck,
     ).command(DeckCommand.play).call(song);
     expect(identical(sent.single, song), isTrue, reason: 'no JSON between');
     expect(identical((done as CallDone<Song>).value, song), isTrue);
     expect(
       identical(
-        GeneratedWords(listener).stateOf(DeckState.playing).value,
+        GeneratedWords(
+          participant: listener,
+          provider: deck,
+        ).stateOf(DeckState.playing).value,
         song,
       ),
       isTrue,
@@ -103,14 +110,14 @@ void main() {
   });
 
   test('by name it is JSON, as before', () async {
-    final done = await listener.call('deck.play', {
+    final done = await listener.call('deck/deck.play', {
       'title': 'two',
       'volume': 50,
     });
     expect((done as CallDone).value, {'title': 'two', 'volume': 50});
     expect(sent.single, (title: 'two', volume: 50));
-    expect(listener.read('deck.playing'), {'title': 'two', 'volume': 50});
-    final refused = await listener.call('deck.play', {
+    expect(listener.read('deck/deck.playing'), {'title': 'two', 'volume': 50});
+    final refused = await listener.call('deck/deck.play', {
       'title': 'x',
       'volume': 500,
     });
@@ -123,7 +130,8 @@ void main() {
     final sub = r.ticks.listen(ticks.add);
     final rec = r.calls.listen(calls.add);
     await GeneratedWords(
-      listener,
+      participant: listener,
+      provider: deck,
     ).command(DeckCommand.play).call((title: 'three', volume: 1));
     await Future<void>.delayed(Duration.zero);
     final changes = [for (final t in ticks) ...t.changes];
@@ -141,7 +149,8 @@ void main() {
 
   test('a typed value is refused as its JSON would be', () async {
     final refused = await GeneratedWords(
-      listener,
+      participant: listener,
+      provider: deck,
     ).command(DeckCommand.play).call((title: 'loud', volume: 101));
     expect(refused.why, 'volume: above 100');
     expect(sent, isEmpty);

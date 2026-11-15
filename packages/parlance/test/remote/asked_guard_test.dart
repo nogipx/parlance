@@ -20,7 +20,7 @@ void main() {
         )
         .raw
         .defineCommand(
-          CommandDescriptor('deck.go', callers: Callers.only(['user'])),
+          CommandDescriptor('deck/deck.go', callers: Callers.only(['user'])),
           (_) => ran = true,
         );
     final guest = await host.join(
@@ -29,16 +29,27 @@ void main() {
     );
     guest.raw
       ..defineCommand(
-        CommandDescriptor('widlet.do', callers: Callers.only(['user'])),
+        CommandDescriptor(
+          'widlet/b/widlet.do',
+          callers: Callers.only(['user']),
+        ),
         (_) {},
       )
       ..addGuard('quiet', (_) => 'no');
     await guest.settle();
-    final done = host.registry.call('deck.go', {}, by: const Principal('user'));
+    final done = host.registry.call(
+      'deck/deck.go',
+      {},
+      by: const Principal('user'),
+    );
     expect(ran, isTrue, reason: 'begun as it was called');
     expect(await done, isA<CallDone<Object?>>());
     expect(
-      await host.registry.call('widlet.do', {}, by: const Principal('user')),
+      await host.registry.call(
+        'widlet/b/widlet.do',
+        {},
+        by: const Principal('user'),
+      ),
       isA<CallRefused>(),
       reason: 'its own command it still judges',
     );

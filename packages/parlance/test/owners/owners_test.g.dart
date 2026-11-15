@@ -34,7 +34,7 @@ abstract class TestOwnerBase implements IOwner {
   final Keyed<num> level = Keyed<num>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Keyed.attach(level, p.state(TestState.level).define());
   }
 
@@ -53,12 +53,16 @@ abstract class TestOwnerBase implements IOwner {
 abstract interface class ITestClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory ITestClient(IParticipant participant) = _$TestClient;
+  factory ITestClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$TestClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ITestClient.of(IOwner owner) = _$TestClient._of;
+  factory ITestClient.of({required IOwner owner, required Principal provider}) =
+      _$TestClient._of;
 
   /// test.level, by dial: each value, and its changes.
   IKeyedOf<num> get level;
@@ -81,12 +85,13 @@ abstract interface class ITestClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$TestClient implements ITestClient {
-  _$TestClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$TestClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(testWords.words, from: testWords.from);
   }
 
-  _$TestClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$TestClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(testWords.words, from: testWords.from);
   }
 
@@ -144,7 +149,7 @@ abstract class FlagOwnerBase implements IOwner {
   final Single<bool> on = Single<bool>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(on, p.state(FlagState.on).define());
   }
 
@@ -163,12 +168,16 @@ abstract class FlagOwnerBase implements IOwner {
 abstract interface class IFlagClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IFlagClient(IParticipant participant) = _$FlagClient;
+  factory IFlagClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$FlagClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IFlagClient.of(IOwner owner) = _$FlagClient._of;
+  factory IFlagClient.of({required IOwner owner, required Principal provider}) =
+      _$FlagClient._of;
 
   /// flag.on: its value now, and its changes.
   IStateOf<bool> get on;
@@ -191,12 +200,13 @@ abstract interface class IFlagClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$FlagClient implements IFlagClient {
-  _$FlagClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$FlagClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(flagWords.words, from: flagWords.from);
   }
 
-  _$FlagClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$FlagClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(flagWords.words, from: flagWords.from);
   }
 
@@ -257,12 +267,18 @@ abstract class KnobWordsOwnerBase implements IOwner {
 abstract interface class IKnobWordsClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IKnobWordsClient(IParticipant participant) = _$KnobWordsClient;
+  factory IKnobWordsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$KnobWordsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IKnobWordsClient.of(IOwner owner) = _$KnobWordsClient._of;
+  factory IKnobWordsClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$KnobWordsClient._of;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -282,12 +298,15 @@ abstract interface class IKnobWordsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$KnobWordsClient implements IKnobWordsClient {
-  _$KnobWordsClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$KnobWordsClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(knobWordsWords.words, from: knobWordsWords.from);
   }
 
-  _$KnobWordsClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$KnobWordsClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(knobWordsWords.words, from: knobWordsWords.from);
   }
 

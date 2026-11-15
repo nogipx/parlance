@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Breaking: generate fully named client factories (`participant:`, `provider:`; `.of(owner:, provider:)`) and bind owner publications to their own principal. Portable schemas remain independent of instances.
+
 - Breaking: remove `@ChoiceOf` support and generated `<Class>Choices`
   constants. Keyed states retain `keyOf` as the key parameter name; string IDs
   use their ordinary text shape and are validated by the owner.

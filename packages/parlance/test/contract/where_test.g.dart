@@ -128,7 +128,7 @@ abstract class DeckOwnerBase implements IOwner {
   IFactSayerOf<DeckPlayed>? _$played;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(volume, p.state(DeckState.volume).define());
     Keyed.attach(level, p.state(DeckState.level).define());
     _$played = p.fact(DeckFact.played).define();
@@ -210,12 +210,16 @@ final class DeckPlayedFact {
 abstract interface class IDeckClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IDeckClient(IParticipant participant) = _$DeckClient;
+  factory IDeckClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$DeckClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDeckClient.of(IOwner owner) = _$DeckClient._of;
+  factory IDeckClient.of({required IOwner owner, required Principal provider}) =
+      _$DeckClient._of;
 
   /// deck.volume: its value now, and its changes.
   IStateOf<int> get volume;
@@ -276,12 +280,13 @@ abstract interface class IDeckClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DeckClient implements IDeckClient {
-  _$DeckClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$DeckClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(deckWords.words, from: deckWords.from);
   }
 
-  _$DeckClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$DeckClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(deckWords.words, from: deckWords.from);
   }
 

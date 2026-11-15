@@ -1,3 +1,4 @@
+import '../registry/address.dart';
 import 'dart:async';
 
 import 'package:rpc_dart/rpc_dart.dart';
@@ -874,6 +875,17 @@ final class RemoteSession extends ParlanceContractPeer
 
   void _define(Descriptor d, [LocalParticipant? acting]) {
     final p = acting ?? _p;
+    late final WordAddress address;
+    try {
+      address = WordAddress.parse(d.name);
+    } on FormatException catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, e.message);
+    } on ArgumentError catch (e) {
+      throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
+    }
+    if (address.provider != p.who.whole) {
+      _deny('${p.who} cannot provide ${d.name}');
+    }
     final words =
         _states.length + _facts.length + _commands.length + _streams.length;
     if (limits.words case final max? when words >= max) {
@@ -1013,7 +1025,7 @@ final class RemoteSession extends ParlanceContractPeer
       final said = _permitted(
         () => sayer.say(
           payload,
-          id: id == null ? null : '${principal.selector}#$id',
+          id: id,
           cause: _cause(parent: parent, by: by ?? p.who),
         ),
       );

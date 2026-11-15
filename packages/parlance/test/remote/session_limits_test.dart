@@ -50,34 +50,40 @@ void main() {
     // values; of 20 values, five fit.
     final (p, errors) = await join(const SessionLimits(stateBytes: 400));
     final seen = p.defineState(
-      StateDescriptor('notes.seen', type: const TextType(), key: 'visitor'),
+      StateDescriptor(
+        'widlet/g/notes.seen',
+        type: const TextType(),
+        key: 'visitor',
+      ),
     );
     for (var i = 0; i < 20; i++) {
       seen.set('x' * 20, key: 'v$i');
     }
     await p.flush();
-    final held = r.readAll('notes.seen');
+    final held = r.readAll('widlet/g/notes.seen');
     expect(held, isNotEmpty);
     expect(held.length, lessThan(20));
     expect(errors.map((e) => e.code).toSet(), {ParticipantErrorCode.overLimit});
     seen.remove(key: 'v0');
     seen.set('x' * 20, key: 'new');
     await p.flush();
-    expect(r.read('notes.seen', key: 'new'), 'x' * 20);
+    expect(r.read('widlet/g/notes.seen', key: 'new'), 'x' * 20);
   });
 
   test('so many words and no more; one withdrawn makes room', () async {
     final (p, errors) = await join(const SessionLimits(words: 2));
-    p.defineState(StateDescriptor('notes.a', type: const IntType()));
-    final b = p.defineState(StateDescriptor('notes.b', type: const IntType()));
-    p.defineState(StateDescriptor('notes.c', type: const IntType()));
+    p.defineState(StateDescriptor('widlet/g/notes.a', type: const IntType()));
+    final b = p.defineState(
+      StateDescriptor('widlet/g/notes.b', type: const IntType()),
+    );
+    p.defineState(StateDescriptor('widlet/g/notes.c', type: const IntType()));
     await p.flush();
-    expect(r.stateDescriptor('notes.c'), isNull);
+    expect(r.stateDescriptor('widlet/g/notes.c'), isNull);
     expect(errors.single.code, ParticipantErrorCode.overLimit);
     b.dispose();
-    p.defineState(StateDescriptor('notes.d', type: const IntType()));
+    p.defineState(StateDescriptor('widlet/g/notes.d', type: const IntType()));
     await p.flush();
-    expect(r.stateDescriptor('notes.d'), isNotNull);
+    expect(r.stateDescriptor('widlet/g/notes.d'), isNotNull);
   });
 
   test('so many guards and no more', () async {
@@ -99,16 +105,19 @@ void main() {
           vocabularies: [WordSet.open('deck')],
         )
         .defineCommand(
-          CommandDescriptor('deck.slow', callers: Callers.only(['widlet'])),
+          CommandDescriptor(
+            'deck/deck.slow',
+            callers: Callers.only(['widlet']),
+          ),
           (_) async {
             ran++;
             await gate.future;
           },
         );
     final (p, _) = await join(const SessionLimits(calls: 1));
-    final first = p.call('deck.slow', {});
+    final first = p.call('deck/deck.slow', {});
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    final second = await p.call('deck.slow', {});
+    final second = await p.call('deck/deck.slow', {});
     expect(
       second,
       isA<CallRefused>()
@@ -117,17 +126,19 @@ void main() {
     );
     gate.complete();
     expect(await first, isA<CallDone<Object?>>());
-    expect(await p.call('deck.slow', {}), isA<CallDone<Object?>>());
+    expect(await p.call('deck/deck.slow', {}), isA<CallDone<Object?>>());
     expect(ran, 2);
   });
 
   test('none bounds nothing', () async {
     final (p, errors) = await join(SessionLimits.unbounded);
     for (var i = 0; i < 300; i++) {
-      p.defineState(StateDescriptor('notes.s$i', type: const IntType()));
+      p.defineState(
+        StateDescriptor('widlet/g/notes.s$i', type: const IntType()),
+      );
     }
     await p.flush();
     expect(errors, isEmpty);
-    expect(r.stateDescriptor('notes.s299'), isNotNull);
+    expect(r.stateDescriptor('widlet/g/notes.s299'), isNotNull);
   });
 }

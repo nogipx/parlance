@@ -35,7 +35,9 @@ void main() {
           const Principal('deck'),
           vocabularies: [WordSet.open('deck')],
         )
-        .defineState(StateDescriptor('deck.volume', type: const IntType()));
+        .defineState(
+          StateDescriptor('deck/deck.volume', type: const IntType()),
+        );
   });
   tearDown(() async {
     for (final e in opened) {
@@ -66,10 +68,24 @@ void main() {
     expect({...d['features']! as List}, parlanceFeatures);
   });
 
+  test(
+    'provider addressing is required even when no optional features are requested',
+    () async {
+      await expectLater(
+        join(features: const {}),
+        throwsA(
+          isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
+            'providers',
+          }),
+        ),
+      );
+    },
+  );
+
   test('a host without a feature a guest requires is refused, saying '
       'which', () async {
     await expectLater(
-      join(features: const {}, requires: {'built'}),
+      join(features: const {'providers'}, requires: {'built'}),
       throwsA(
         isA<ProtocolMismatch>()
             .having((e) => e.missing, 'missing', {'built'})
@@ -81,30 +97,30 @@ void main() {
   test('a guest uses what the host does not speak not at all, and works '
       'on', () async {
     final errors = <ParticipantError>[];
-    final p = await join(features: const {});
+    final p = await join(features: const {'providers'});
     p.errors.listen(errors.add);
-    p.builtAgainst(Built.values);
+    p.builtAgainst(Built.values, provider: const Principal('deck'));
     await p.flush();
     expect(r.mismatches, isEmpty, reason: 'nothing told an older host');
     // Nothing it sent was refused; what does not meet the code it learns
     // itself, from the catalog, whatever the host speaks.
     expect(errors.map((e) => e.code), [ParticipantErrorCode.mismatch]);
-    expect(errors.single.op, {'op': 'built', 'word': 'deck.volume'});
-    expect(p.status('deck.volume'), const WordReady());
+    expect(errors.single.op, {'op': 'built', 'word': 'deck/deck.volume'});
+    expect(p.status('deck/deck.volume'), const WordReady());
     await p.dispose();
   });
 
   test('a host that speaks it is told', () async {
     final p = await join();
-    p.builtAgainst(Built.values);
+    p.builtAgainst(Built.values, provider: const Principal('deck'));
     await p.flush();
-    expect(r.mismatches.single.word, 'deck.volume');
+    expect(r.mismatches.single.word, 'deck/deck.volume');
     await p.dispose();
   });
 
   test('a feature a guest does not know is passed over', () async {
     final p = await join(features: {...parlanceFeatures, 'grease-zz'});
-    p.builtAgainst(Built.values);
+    p.builtAgainst(Built.values, provider: const Principal('deck'));
     await p.flush();
     expect(r.mismatches, hasLength(1));
     await p.dispose();

@@ -39,7 +39,7 @@ abstract class WeatherOwnerBase implements IOwner {
   final Single<num> outside = Single<num>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(outside, p.state(WeatherState.outside).define());
   }
 
@@ -58,12 +58,18 @@ abstract class WeatherOwnerBase implements IOwner {
 abstract interface class IWeatherClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IWeatherClient(IParticipant participant) = _$WeatherClient;
+  factory IWeatherClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$WeatherClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IWeatherClient.of(IOwner owner) = _$WeatherClient._of;
+  factory IWeatherClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$WeatherClient._of;
 
   /// weather.outside: its value now, and its changes.
   IStateOf<num> get outside;
@@ -86,12 +92,15 @@ abstract interface class IWeatherClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$WeatherClient implements IWeatherClient {
-  _$WeatherClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$WeatherClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(weatherWords.words, from: weatherWords.from);
   }
 
-  _$WeatherClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$WeatherClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(weatherWords.words, from: weatherWords.from);
   }
 
@@ -159,7 +168,7 @@ abstract class HeaterOwnerBase implements IOwner {
   }
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     p.command(HeaterCommand.setPower).serve((x) => setPower(on: x.on));
   }
 
@@ -180,12 +189,18 @@ abstract class HeaterOwnerBase implements IOwner {
 abstract interface class IHeaterClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IHeaterClient(IParticipant participant) = _$HeaterClient;
+  factory IHeaterClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$HeaterClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IHeaterClient.of(IOwner owner) = _$HeaterClient._of;
+  factory IHeaterClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$HeaterClient._of;
 
   /// Calls heater.set_power; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
@@ -209,12 +224,15 @@ abstract interface class IHeaterClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$HeaterClient implements IHeaterClient {
-  _$HeaterClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$HeaterClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(heaterWords.words, from: heaterWords.from);
   }
 
-  _$HeaterClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$HeaterClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(heaterWords.words, from: heaterWords.from);
   }
 
@@ -313,7 +331,7 @@ abstract class ThermostatOwnerBase implements IOwner {
   IFactSayerOf<ThermostatAdjusted>? _$adjusted;
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Single.attach(heating, p.state(ThermostatState.heating).define());
     _$adjusted = p.fact(ThermostatFact.adjusted).define();
   }
@@ -347,12 +365,18 @@ final class ThermostatAdjustedFact {
 abstract interface class IThermostatClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory IThermostatClient(IParticipant participant) = _$ThermostatClient;
+  factory IThermostatClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$ThermostatClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IThermostatClient.of(IOwner owner) = _$ThermostatClient._of;
+  factory IThermostatClient.of({
+    required IOwner owner,
+    required Principal provider,
+  }) = _$ThermostatClient._of;
 
   /// thermostat.heating: its value now, and its changes.
   IStateOf<bool> get heating;
@@ -378,12 +402,15 @@ abstract interface class IThermostatClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$ThermostatClient implements IThermostatClient {
-  _$ThermostatClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$ThermostatClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(thermostatWords.words, from: thermostatWords.from);
   }
 
-  _$ThermostatClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$ThermostatClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(thermostatWords.words, from: thermostatWords.from);
   }
 
@@ -456,7 +483,7 @@ abstract class LampOwnerBase implements IOwner {
   final Keyed<bool> on = Keyed<bool>();
 
   void _$define(IParticipant participant) {
-    final p = GeneratedWords(participant);
+    final p = GeneratedWords.own(participant);
     Keyed.attach(on, p.state(LampState.on).define());
   }
 
@@ -475,12 +502,16 @@ abstract class LampOwnerBase implements IOwner {
 abstract interface class ILampClient {
   /// The words through [participant], here or across a connection:
   /// what `main` gives a part that uses them.
-  factory ILampClient(IParticipant participant) = _$LampClient;
+  factory ILampClient({
+    required IParticipant participant,
+    required Principal provider,
+  }) = _$LampClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ILampClient.of(IOwner owner) = _$LampClient._of;
+  factory ILampClient.of({required IOwner owner, required Principal provider}) =
+      _$LampClient._of;
 
   /// lamp.on, by room: each value, and its changes.
   IKeyedOf<bool> get on;
@@ -503,12 +534,13 @@ abstract interface class ILampClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$LampClient implements ILampClient {
-  _$LampClient(IParticipant participant)
-    : _$words = GeneratedWords(participant) {
+  _$LampClient({required IParticipant participant, required Principal provider})
+    : _$words = GeneratedWords(participant: participant, provider: provider) {
     _$words.builtAgainst(lampWords.words, from: lampWords.from);
   }
 
-  _$LampClient._of(IOwner owner) : _$words = GeneratedWords.of(owner) {
+  _$LampClient._of({required IOwner owner, required Principal provider})
+    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
     _$words.builtAgainst(lampWords.words, from: lampWords.from);
   }
 

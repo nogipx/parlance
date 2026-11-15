@@ -2,7 +2,7 @@
 /// registry; the engine reads and calls through its participant.
 library;
 
-import 'package:parlance/tools.dart' show jsonAt, jsonEquals;
+import 'package:parlance/tools.dart' show jsonAt, jsonEquals, WordAddress;
 
 Never _bad(String what) => throw FormatException(what);
 
@@ -23,15 +23,16 @@ String _str(Object? v, String what) =>
 /// Text, or nothing.
 String? _maybeStr(Object? v, String what) => v == null ? null : _str(v, what);
 
-final _namePattern = RegExp(r'^[a-z][a-z0-9_-]*(\.[a-z0-9][a-z0-9_-]*)*$');
-
-/// A word's name: dotted, lower-case.
+/// An exact provider/word address; link data never selects a provider implicitly.
 String _name(Object? v, String what) {
   final s = _str(v, what);
-  if (!_namePattern.hasMatch(s)) {
-    _bad('$what: $s is not a dotted lower-case name');
+  try {
+    return WordAddress.parse(s).toString();
+  } on FormatException catch (e) {
+    return _bad('$what: ${e.message}');
+  } on ArgumentError catch (e) {
+    return _bad('$what: ${e.message}');
   }
-  return s;
 }
 
 /// A duration in a link: milliseconds, or text like `500ms`, `15s`, `2m`,

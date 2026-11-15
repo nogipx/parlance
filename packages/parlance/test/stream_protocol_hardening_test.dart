@@ -138,7 +138,7 @@ void main() {
     });
     final caller = ParlanceContractPeerCaller(endpoint);
     final header = {
-      'name': 'probe.values',
+      'name': 'source/probe.values',
       'params': <String, Object?>{},
       'as': const Principal('admin').toJson(),
     };
@@ -178,7 +178,7 @@ void main() {
       });
       var invoked = 0;
       owner.raw.defineStream(
-        ServerStreamDescriptor('probe.values', type: const IntType()),
+        ServerStreamDescriptor('source/probe.values', type: const IntType()),
         (_) {
           invoked++;
           return Stream.value(1);
@@ -187,7 +187,7 @@ void main() {
       await owner.settle();
       final caller = ParlanceOwnerContractPeerCaller(server);
       final valid = <String, Object?>{
-        'name': 'probe.values',
+        'name': 'source/probe.values',
         'params': <String, Object?>{},
         'id': 'probe',
         'cause': Cause(const Principal('reader')).toJson(),
@@ -312,7 +312,7 @@ void main() {
               );
           producer.raw.defineStream(
             ClientStreamDescriptor(
-              'probe.upload',
+              WordAddress(producer.who.whole, 'probe.upload').toString(),
               input: const IntType(),
               type: const IntType(),
               callers: Callers.anyone,
@@ -355,7 +355,13 @@ void main() {
           // rpc_dart client streams are cold on the wire until their first
           // request. Bidi calls open on listen, before their first request.
           if (firstKind == 'clientStream') {
-            input.add(WireJson(opening('probe.upload')));
+            input.add(
+              WireJson(
+                opening(
+                  WordAddress(producer.who.whole, 'probe.upload').toString(),
+                ),
+              ),
+            );
           }
           final token = RpcCancellationToken();
           final first = decodeDataStream(

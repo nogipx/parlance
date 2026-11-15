@@ -31,27 +31,30 @@ void main() {
       test('a word defined again is refused, and keeps what it had', () async {
         final p = await owner();
         final lamp = p.raw.defineState(
-          StateDescriptor('deck.lamp', type: const BoolType()),
+          StateDescriptor('deck/deck.lamp', type: const BoolType()),
         );
         lamp.set(true);
         await settled(p);
         expect(
           () => p.raw.defineState(
-            StateDescriptor('deck.lamp', type: const BoolType()),
+            StateDescriptor('deck/deck.lamp', type: const BoolType()),
           ),
           throwsStateError,
         );
         expect(
           () => p.raw.defineCommand(
-            CommandDescriptor('deck.lamp', callers: Callers.only(['user'])),
+            CommandDescriptor(
+              'deck/deck.lamp',
+              callers: Callers.only(['user']),
+            ),
             (_) {},
           ),
           throwsStateError,
           reason: 'a name is one word, of whatever kind',
         );
         await settled(p);
-        expect(p.raw.read('deck.lamp'), true);
-        expect(host.registry.read('deck.lamp'), true);
+        expect(p.raw.read('deck/deck.lamp'), true);
+        expect(host.registry.read('deck/deck.lamp'), true);
       });
 
       test(
@@ -67,15 +70,19 @@ void main() {
 
       test('a word let go frees its name', () async {
         final p = await owner();
-        p.raw.defineState(StateDescriptor('deck.lamp', type: const BoolType()))
+        p.raw.defineState(
+            StateDescriptor('deck/deck.lamp', type: const BoolType()),
+          )
           ..set(true)
           ..dispose();
         await settled(p);
         p.raw
-            .defineState(StateDescriptor('deck.lamp', type: const BoolType()))
+            .defineState(
+              StateDescriptor('deck/deck.lamp', type: const BoolType()),
+            )
             .set(false);
         await settled(p);
-        expect(host.registry.read('deck.lamp'), false);
+        expect(host.registry.read('deck/deck.lamp'), false);
       });
     });
   }

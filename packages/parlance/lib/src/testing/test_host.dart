@@ -9,6 +9,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import '../participant/local.dart';
 import '../participant/owner.dart' show IOwner, OwnerGroup;
 import '../participant/participant.dart';
+import '../registry/address.dart';
 import '../registry/cause.dart';
 import '../registry/descriptors.dart';
 import '../registry/messages.dart';
@@ -59,7 +60,7 @@ final class TestHost {
 
   late final StreamSubscription<Tick> _ticks;
   late final StreamSubscription<CallRecord> _calls;
-  final Map<String, LocalParticipant> _standIns = {};
+  final Map<(Principal, String), LocalParticipant> _standIns = {};
   final List<IParticipant> _modules = [];
   final List<IRemoteSession> _sessions = [];
   final List<RpcPeerEndpoint> _hosts = [];
@@ -122,10 +123,10 @@ final class TestHost {
   /// The participant standing in for the owner of [name]: the owner of
   /// its vocabulary (`water` of `water.level`), another module's than the
   /// one under test.
-  LocalParticipant _standInFor(String name) {
+  LocalParticipant _standInFor(Principal provider, String name) {
     final vocabulary = name.split('.').first;
-    return _standIns[vocabulary] ??= registry.participant(
-      Principal('stand-in', vocabulary),
+    return _standIns[(provider, vocabulary)] ??= registry.participant(
+      provider,
       vocabularies: [WordSet.open(vocabulary)],
     );
   }
@@ -133,14 +134,18 @@ final class TestHost {
   /// A stand-in owner of another module's state [word], one with no key,
   /// holding [value]: a [Single], as an owner keeps its own, set and
   /// removed again by the test.
-  Single<T> standInState<T>(IStateWord<T> word, T value) {
+  Single<T> standInState<T>(
+    IStateWord<T> word,
+    T value, {
+    required Principal provider,
+  }) {
     if (word.key != null) {
       throw ArgumentError('${word.name} is keyed: standInKeyed it');
     }
     final s = Single<T>()..set(value);
     Single.attach(
       s,
-      GeneratedWords(_standInFor(word.name)).state(word).define(),
+      GeneratedWords.own(_standInFor(provider, word.name)).state(word).define(),
     );
     Single.write(s);
     return s;
@@ -149,7 +154,11 @@ final class TestHost {
   /// A stand-in owner of another module's keyed state [word], holding
   /// [values] by key: a [Keyed], as an owner keeps its own, set and
   /// removed again by the test.
-  Keyed<T> standInKeyed<T>(IStateWord<T> word, Map<String, T> values) {
+  Keyed<T> standInKeyed<T>(
+    IStateWord<T> word,
+    Map<String, T> values, {
+    required Principal provider,
+  }) {
     if (word.key == null) {
       throw ArgumentError('${word.name} has no key: standInState it');
     }
@@ -159,7 +168,7 @@ final class TestHost {
     }
     Keyed.attach(
       k,
-      GeneratedWords(_standInFor(word.name)).state(word).define(),
+      GeneratedWords.own(_standInFor(provider, word.name)).state(word).define(),
     );
     Keyed.writeAll(k);
     return k;
@@ -171,6 +180,7 @@ final class TestHost {
   /// otherwise). Anyone may call it, unless [callers] say otherwise.
   CommandStandIn<P, R> standInCommand<P, R>(
     ICommandWord<P, R> word, {
+    required Principal provider,
     FutureOr<R> Function(P params)? answer,
     Callers callers = Callers.anyone,
   }) {
@@ -180,7 +190,9 @@ final class TestHost {
       );
     }
     final stub = CommandStandIn<P, R>._();
-    GeneratedWords(_standInFor(word.name)).command(word).serve((params) {
+    GeneratedWords.own(_standInFor(provider, word.name)).command(word).serve((
+      params,
+    ) {
       stub.params.add(params);
       if (answer != null) return answer(params);
       return null as R;
@@ -189,31 +201,45 @@ final class TestHost {
   }
 
   /// A stand-in speaker of another module's fact [word].
-  IFactSayerOf<T> standInFact<T>(IFactWord<T> word) =>
-      GeneratedWords(_standInFor(word.name)).fact(word).define();
+  IFactSayerOf<T> standInFact<T>(
+    IFactWord<T> word, {
+    required Principal provider,
+  }) =>
+      GeneratedWords.own(_standInFor(provider, word.name)).fact(word).define();
 
   /// The values [word] (of [key]) was given, in order, as committed: null
   /// for a removal. Read after [settle].
-  List<T?> written<T>(IStateWord<T> word, {String? key}) => [
+  List<T?> written<T>(
+    IStateWord<T> word, {
+    required Principal provider,
+    String? key,
+  }) => [
     for (final t in ticks)
       for (final c in t.changes)
-        if (c.state == registry.canonical(word.name) && c.key == key)
+        if (c.state ==
+                registry.canonical(
+                  WordAddress(provider, word.name).toString(),
+                ) &&
+            c.key == key)
           c.removed ? null : word.shape.fromJson(c.value),
   ];
 
   /// The payloads of [word] said, in order. Read after [settle].
-  List<T> said<T>(IFactWord<T> word) => [
+  List<T> said<T>(IFactWord<T> word, {required Principal provider}) => [
     for (final t in ticks)
       for (final f in t.facts)
-        if (f.fact == registry.canonical(word.name))
+        if (f.fact ==
+            registry.canonical(WordAddress(provider, word.name).toString()))
           word.shape.fromJson(f.payload),
   ];
 
   /// The finished calls of [word], a command or a query, in order. Read
   /// after [settle].
-  List<CallRecord> callsOf(IWord word) => [
+  List<CallRecord> callsOf(IWord word, {required Principal provider}) => [
     for (final c in calls)
-      if (c.command == registry.canonical(word.name)) c,
+      if (c.command ==
+          registry.canonical(WordAddress(provider, word.name).toString()))
+        c,
   ];
 
   /// Lets what is under way come: participants across a connection

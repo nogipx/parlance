@@ -4,7 +4,33 @@
 
 A screen, a heating module, a plugin, a phone on the network, an AI agent. Keeping such parts apart is nothing new: interfaces, dependency injection, an event bus. But each of those draws the line its own way, pair by pair, and leaves the rest to every team: who owns a value, who may change it, why it changed, how a part outside the process joins in.
 
-parlance draws the line once, as a language. The parts speak a common vocabulary; each knows the words, never who stands behind them, and ownership, rights and causes come with the language rather than with each pair. *Parlance* is the way of speaking used in a particular place; here, the place is your app.
+parlance draws the line once, as a language. Each part uses a common vocabulary and an explicit provider principal, and ownership, rights and causes come with the language rather than with each pair. *Parlance* is the way of speaking used in a particular place; here, the place is your app.
+
+## Providers
+
+A word is addressed by its exact provider and portable name:
+`module/work/notes.add` and `module/personal/notes.add` are independent operations.
+Both instances use the same vocabulary and implementation. One principal may own
+several vocabularies; one `(principal, vocabulary)` has one active owner.
+
+```dart
+final client = IHouseClient(participant: viewer, provider: houseProvider);
+// Inside an owner, resolve its calling participant after attachment:
+final dependency = IHouseClient.of(owner: this, provider: houseProvider);
+```
+
+`participant` is who calls; `provider` is the chosen receiver. Clients can be
+bound before the provider appears. A missing provider is reported as missing;
+there is no automatic fallback or broadcast. `participant.providers(vocabulary:
+houseWords)` discovers actual publications, and `providerChanges` observes them.
+Discovery reports permissions, availability and contract compatibility for each
+published word; the application selects its dependency explicitly.
+
+Raw tools use `WordAddress(provider, 'house.light').toString()`. Catalog entries,
+subscriptions, events, streams, diagnostics and the journal use that same full
+address. `module` and `module/work` are separate targets; the existing `module`
+ACL selector still covers both. Remote participants require the `providers`
+protocol feature. The old unscoped client API is intentionally removed.
 
 ## The words
 

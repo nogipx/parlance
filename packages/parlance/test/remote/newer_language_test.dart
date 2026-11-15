@@ -77,7 +77,7 @@ final class _Peer extends ParlanceContractPeer {
         'seq': 1,
         'descriptors': const <Object?>[],
         'protocol': protocol,
-        'features': const <String>[],
+        'features': const <String>['providers'],
         'principal': {'kind': 'agent'},
       });
 
@@ -135,21 +135,24 @@ void main() {
           'descriptors': [
             {
               'is': 'state',
-              'name': 'deck.when',
+              'name': 'deck/deck.when',
               'type': {'type': 'date'},
             },
           ],
         });
       final view = MirrorView(mirror);
       expect(
-        wordStatus(view, when),
+        wordStatus(view, when, provider: const Principal('deck')),
         isA<WordMismatch>().having(
           (m) => m.breaks.single,
           'break',
           const WordBreak('type.type', BreakKind.type, 'text', 'date'),
         ),
       );
-      expect(wordMismatches(view, const [when]), hasLength(1));
+      expect(
+        wordMismatches(view, const [when], provider: const Principal('deck')),
+        hasLength(1),
+      );
     });
 
     test('the registry takes no word of it', () {
@@ -161,7 +164,7 @@ void main() {
       expect(
         () => p.defineState(
           StateDescriptor(
-            'deck.when',
+            'deck/deck.when',
             type: ValueType.fromJson({'type': 'date'}),
           ),
         ),
@@ -185,10 +188,10 @@ void main() {
     final mirror = RegistryMirror()
       ..takeCatalog({
         'descriptors': [
-          {'is': 'serverStream', 'name': 'deck.feed'},
+          {'is': 'serverStream', 'name': 'deck/deck.feed'},
         ],
       });
-    expect(mirror.descriptorOf('deck.feed'), isNull);
+    expect(mirror.descriptorOf('deck/deck.feed'), isNull);
   });
 
   test('a command whose params, or a variant, are of a type it does not '
@@ -198,12 +201,12 @@ void main() {
         'descriptors': [
           {
             'is': 'command',
-            'name': 'deck.at',
+            'name': 'deck/deck.at',
             'params': {'type': 'date'},
           },
           {
             'is': 'state',
-            'name': 'deck.shape',
+            'name': 'deck/deck.shape',
             'type': {
               'type': 'oneOf',
               'key': 'is',
@@ -214,8 +217,8 @@ void main() {
           },
         ],
       });
-    expect(mirror.descriptorOf('deck.at'), isNull);
-    expect(mirror.descriptorOf('deck.shape'), isNull);
+    expect(mirror.descriptorOf('deck/deck.at'), isNull);
+    expect(mirror.descriptorOf('deck/deck.shape'), isNull);
   });
 
   test('a host it joins again speaking another protocol is told', () async {
@@ -268,24 +271,24 @@ void main() {
       const Principal('deck'),
       vocabularies: [WordSet.open('deck')],
     );
-    final w1 = GeneratedWords(
+    final w1 = GeneratedWords.own(
       deck.raw,
     ).state(S<String>('deck.w1', abc)).define();
-    GeneratedWords(deck.raw).state(S<String>('deck.w2', abc)).define();
+    GeneratedWords.own(deck.raw).state(S<String>('deck.w2', abc)).define();
     host.participant(const Principal('widlet', 'b')).raw.builtAgainst(const [
       S('deck.old', EnumShape(Mode.values)),
-    ]);
-    final toW1 = host.registry.alias('deck.old', 'deck.w1');
+    ], provider: const Principal('deck'));
+    final toW1 = host.registry.alias('deck/deck.old', 'deck/deck.w1');
     await pumpEventQueue();
     toW1.dispose();
-    host.registry.alias('deck.old', 'deck.w2');
+    host.registry.alias('deck/deck.old', 'deck/deck.w2');
     await pumpEventQueue();
     w1.set('c');
     await pumpEventQueue();
     expect(
       host.registry.mismatches.single.breaks.single.certain,
       isFalse,
-      reason: 'w1 is not what deck.old stands for any more',
+      reason: 'w1 is not what deck/deck.old stands for any more',
     );
   });
 }
