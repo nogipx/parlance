@@ -3,6 +3,7 @@
 
 # FVM (local SDK symlink and cache)
 .fvm/
+.zed/
 
 # Dart / Flutter
 pubspec_overrides.yaml
