@@ -19,12 +19,6 @@ enum DoorsState<T> implements IStateWord<T> {
   final String? key;
 }
 
-/// The kinds of choices [Doors] speaks of: what an owner gives by
-/// `choices(DoorsChoices.door, ...)`.
-abstract final class DoorsChoices {
-  static const String door = 'door';
-}
-
 /// The owner base of [Doors]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
 /// by a method of its params, and serves each command and
@@ -118,7 +112,7 @@ final class _$DoorsClient implements IDoorsClient {
 const doorsWords = WordSet(
   'door',
   [...DoorsState.values],
-  from: 'parlance_generator',
+  from: 'parlance_generator 0.2.0',
   dartName: 'doorsWords',
 );
 
@@ -267,7 +261,7 @@ final class _$LightsClient implements ILightsClient {
 const lightsWords = WordSet(
   'light',
   [...LightsCommand.values],
-  from: 'parlance_generator',
+  from: 'parlance_generator 0.2.0',
   dartName: 'lightsWords',
 );
 

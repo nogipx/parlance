@@ -85,6 +85,6 @@ final class _$PlugClient implements IPlugClient {
 const plugWords = WordSet(
   'plug',
   [],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'plugWords',
 );

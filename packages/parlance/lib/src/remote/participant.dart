@@ -18,7 +18,6 @@ import '../registry/json.dart';
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/shapes.dart';
-import '../registry/types.dart';
 import '../registry/words.dart';
 import '../view/mirror_view.dart';
 import '../view/view.dart' show wordStatusChanges;
@@ -37,7 +36,7 @@ part 'participant_streams.dart';
 /// A participant across a connection (SPEC §22.4): the same
 /// [IParticipant] a part has in the host's process, over its session.
 ///
-/// What it asks the registry (defining, writing, saying, its kinds, its
+/// What it asks the registry (defining, writing, saying, its
 /// guards, its commands' availability) goes in its order, what it asks in
 /// one turn of its event loop as one tick; the handle comes back at once,
 /// and a refusal comes after, to [errors]. It reads its own states as it
@@ -435,10 +434,9 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   /// What it has defined, as it stands now, in the order a session takes
-  /// it: choices before the values that name them, states before the
+  /// it: states before the
   /// commands that set them.
   List<Map<String, Object?>> _standing() => [
-    for (final c in _choices.values) _choicesOp(c.choices, c.as),
     for (final s in _states.values)
       {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
     for (final f in _facts.values)
@@ -507,7 +505,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// Its guards and its owners', by the id the host knows them by.
   final Map<String, ({String id, GuardCheck check, Principal? as})> _guards =
       {};
-  final Map<String, ({Choices choices, Principal? as})> _choices = {};
 
   final Map<Principal, _OfOwner> _ofOwners = {};
 
@@ -1190,37 +1187,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     });
   }
 
-  @override
-  IHandle addChoices(Choices choices) => _addChoices(choices, null);
-
-  IHandle _addChoices(Choices choices, Principal? as) {
-    _live();
-    if (_choices.containsKey(choices.name)) {
-      throw StateError('the choices of ${choices.name} exist');
-    }
-    _choices[choices.name] = (choices: choices, as: as);
-    _ask(_choicesOp(choices, as));
-    return Disposer(() {
-      if (_choices.remove(choices.name) == null) return;
-      _ask({'op': 'unkind', 'name': choices.name, ..._asOf(as)});
-    });
-  }
-
-  /// [choices] as the wire says them: a kind and its entities.
-  static Map<String, Object?> _choicesOp(Choices choices, Principal? as) => {
-    'op': 'kind',
-    'name': choices.name,
-    'entities': [for (final c in choices.list()) c.toJson()],
-    ..._asOf(as),
-  };
-
-  @override
-  void choicesChanged(String name) {
-    final c = _choices[name];
-    if (c == null) throw NotPermitted('$who gives no choices of $name');
-    _ask(_choicesOp(c.choices, c.as));
-  }
-
   /// It for its owner [name] (SPEC §22.3): its words, writes, calls and
   /// facts go as that owner's, and the host holds them to it.
   @override
@@ -1282,11 +1248,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       if (!mine(e.value.as)) continue;
       _guards.remove(e.key);
       _ask({'op': 'unguard', 'id': e.value.id, ..._asOf(e.value.as)});
-    }
-    for (final e in [..._choices.entries]) {
-      if (!mine(e.value.as)) continue;
-      _choices.remove(e.key);
-      _ask({'op': 'unkind', 'name': e.key, ..._asOf(e.value.as)});
     }
     _ofOwners.removeWhere((p, _) => p.isWithin(as));
   }
@@ -1380,7 +1341,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   late final OwnerGroup _group = OwnerGroup(this);
 
   /// All or none, as in the host's process: when the host refuses to
-  /// define a word or a kind of one of [owners], those attached here are
+  /// define a word of one of [owners], those attached here are
   /// withdrawn, and it completes with the error ([NotPermitted] for one it
   /// may not define).
   @override
@@ -1393,8 +1354,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     };
     ParticipantError? refused;
     final sub = errors.listen((e) {
-      if (e.op['op'] case 'define' || 'kind'
-          when speakers.contains(_speakerOf(e.op))) {
+      if (e.op['op'] case 'define' when speakers.contains(_speakerOf(e.op))) {
         refused ??= e;
       }
     });
@@ -1446,7 +1406,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     await Future<void>.delayed(Duration.zero);
   }
 
-  /// Withdraws its words, guards and choices, stops its mirror and closes its
+  /// Withdraws its words, guards, stops its mirror and closes its
   /// endpoint; completes once it is closed.
   @override
   Future<void> dispose() async {
@@ -1471,9 +1431,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     for (final g in _guards.values) {
       _ask({'op': 'unguard', 'id': g.id, ..._asOf(g.as)});
     }
-    for (final name in _choices.keys) {
-      _ask({'op': 'unkind', 'name': name});
-    }
     final unbuilt = _built.forget();
     if (_speaks.contains('built')) unbuilt.forEach(_ask);
     _life = _Life.disposed;
@@ -1493,7 +1450,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       ),
     );
     _guards.clear();
-    _choices.clear();
     await flush();
     await _connection?.cancel();
     await _changes?.cancel();

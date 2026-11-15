@@ -11,14 +11,8 @@ const owner = Principal('host', 'house');
 /// gains, all served by handlers that write what they are asked.
 base class Fixture {
   Fixture() : host = Host(onError: _rethrow) {
-    r.addChoices(
-      Choices('room', list: () => [for (final s in rooms) Choice(s)]),
-    );
-    r.addChoices(
-      Choices('input', list: () => [for (final i in inputs) Choice(i)]),
-    );
     focus = r.defineState(
-      StateDescriptor('house.focus', type: const ChoiceType('room')),
+      StateDescriptor('house.focus', type: const TextType()),
       by: owner,
     );
     locked = r.defineState(
@@ -36,7 +30,7 @@ base class Fixture {
     r.defineCommand(
       CommandDescriptor(
         'house.show',
-        params: const RecordType({'room': Field(ChoiceType('room'))}),
+        params: const RecordType({'room': Field(TextType())}),
         callers: const Callers({
           'user': Access.allow,
           'agent': Access.allow,
@@ -45,7 +39,9 @@ base class Fixture {
         }),
       ),
       (c) {
-        shown.add(c.params['room'] as String);
+        final room = c.params['room'] as String;
+        if (!rooms.contains(room)) throw ArgumentError('no room $room');
+        shown.add(room);
         focus.set(c.params['room'], cause: c.causeFor(owner));
       },
     );
@@ -64,7 +60,7 @@ base class Fixture {
       CommandDescriptor(
         'door.chime.set',
         params: const RecordType({
-          'input': Field(ChoiceType('input')),
+          'input': Field(TextType()),
           'db': Field(NumType(min: -60, max: 12), defaultValue: 0),
         }),
         callers: Callers.only(['user', 'system']),

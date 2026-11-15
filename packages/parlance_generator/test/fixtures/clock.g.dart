@@ -156,7 +156,7 @@ final class _$ClockClient implements IClockClient {
 const clockWords = WordSet(
   'clock',
   [...ClockState.values, ...ClockCommand.values],
-  from: 'parlance_generator',
+  from: 'parlance_generator 0.2.0',
   dartName: 'clockWords',
 );
 

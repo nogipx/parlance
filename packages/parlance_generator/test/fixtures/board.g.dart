@@ -43,7 +43,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
     'note.expire',
     RecordShape<BoardExpire>(
       {
-        'id': Part(PlainShape(ChoiceType('note'))),
+        'id': Part(PlainShape(TextType())),
         'in': Part(DurationShape(max: Duration(microseconds: 60000000))),
       },
       to: _$BoardExpireTo,
@@ -55,7 +55,7 @@ enum BoardCommand<P, R> implements ICommandWord<P, R> {
   pin<BoardPin, void>(
     'note.pin',
     RecordShape<BoardPin>(
-      {'ids': Part(ListShape(PlainShape(ChoiceType('note')), maxItems: 3))},
+      {'ids': Part(ListShape(PlainShape(TextType()), maxItems: 3))},
       to: _$BoardPinTo,
       from: _$BoardPinFrom,
       get: _$BoardPinAt,
@@ -91,12 +91,6 @@ enum BoardFact<T> implements IFactWord<T> {
   final String name;
   @override
   final Shape<T> shape;
-}
-
-/// The kinds of choices [Board] speaks of: what an owner gives by
-/// `choices(BoardChoices.note, ...)`.
-abstract final class BoardChoices {
-  static const String note = 'note';
 }
 
 /// The owner base of [Board]: it defines every word, keeps what
@@ -317,7 +311,7 @@ final class _$BoardClient implements IBoardClient {
 const boardWords = WordSet(
   'note',
   [...BoardState.values, ...BoardCommand.values, ...BoardFact.values],
-  from: 'parlance_generator',
+  from: 'parlance_generator 0.2.0',
   dartName: 'boardWords',
 );
 

@@ -261,8 +261,8 @@ abstract interface class IRawParticipant
   /// not read it; counted as its use of the word (§6.8).
   Future<Explanation> explain(String state, {String? key});
 
-  /// Told when the catalog it sees changes: a word came or went, the
-  /// choices of a name changed.
+  /// Told when the catalog it sees changes: a word came or went, or an
+  /// alias changed.
   Stream<void> get catalogChanges;
 
   /// Its vocabularies' names, the first word of the names it may define:
@@ -369,13 +369,6 @@ abstract interface class IRawParticipant
   /// name it so, and another participant's guard of the same [id] is
   /// another guard.
   IHandle addGuard(String id, GuardCheck check);
-
-  /// Gives [choices] (SPEC §3): what a `ChoiceType` of their name holds a
-  /// value to.
-  IHandle addChoices(Choices choices);
-
-  /// The choices of [name], ones it gives, changed.
-  void choicesChanged(String name);
 
   /// The whyNot of [command], its own, would answer otherwise
   /// now, though no tick says so: it reads what the registry does not keep.

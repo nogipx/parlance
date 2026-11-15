@@ -188,17 +188,6 @@ final class TestHost {
     return stub;
   }
 
-  /// A stand-in giver of the choices of [name], as another module's owner
-  /// gives them (`choices(name:, list:)`): what a `@ChoiceOf(name)` and a
-  /// state keyed by [name] are held to. [ChoicesStandIn.set] changes them.
-  ChoicesStandIn standInChoices(String name, Iterable<Choice> choices) {
-    final stub = ChoicesStandIn._([...choices]);
-    final p = _standInFor('$name.choices');
-    p.addChoices(Choices(name, list: () => [...stub._now]));
-    stub._changed = () => p.choicesChanged(name);
-    return stub;
-  }
-
   /// A stand-in speaker of another module's fact [word].
   IFactSayerOf<T> standInFact<T>(IFactWord<T> word) =>
       GeneratedWords(_standInFor(word.name)).fact(word).define();
@@ -269,23 +258,6 @@ final class TestHost {
     await _ticks.cancel();
     await _calls.cancel();
     await _host.dispose();
-  }
-}
-
-/// A stand-in for another module's choices ([TestHost.standInChoices]).
-final class ChoicesStandIn {
-  ChoicesStandIn._(this._now);
-
-  List<Choice> _now;
-  void Function()? _changed;
-
-  /// The choices there are now.
-  List<Choice> get choices => List.unmodifiable(_now);
-
-  /// Makes [choices] the ones there are: who asks is told.
-  void set(Iterable<Choice> choices) {
-    _now = [...choices];
-    _changed?.call();
   }
 }
 

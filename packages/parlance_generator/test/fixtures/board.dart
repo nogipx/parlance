@@ -40,13 +40,13 @@ abstract class Board {
   /// Takes a note down after a while.
   @CommandWord('expire')
   void expire({
-    @ChoiceOf('note') required String id,
+    required String id,
     @FieldName('in') @Longest(Duration(minutes: 1)) required Duration after,
   });
 
-  /// Pins some notes: `@ChoiceOf` on a list names its items.
+  /// Pins note IDs; their existence is checked by the owner.
   @CommandWord('pin')
-  void pin({@ChoiceOf('note') @Length(max: 3) required List<String> ids});
+  void pin({@Length(max: 3) required List<String> ids});
 
   /// How many read it; null when no one knows.
   @CommandWord('count')

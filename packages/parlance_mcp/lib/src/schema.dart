@@ -1,12 +1,7 @@
 import 'package:parlance/tools.dart';
 
-/// [t] as JSON Schema, for an agent's tool (SPEC §16). [kinds] are the
-/// entities by kind, as `describe` lists them: a ref to a kind with any
-/// becomes a choice of their ids.
-Map<String, Object?> jsonSchema(
-  ValueType<Object?> t, {
-  Map<String, List<Map<String, Object?>>> kinds = const {},
-}) => switch (t) {
+/// [t] as JSON Schema, for an agent's tool (SPEC §16).
+Map<String, Object?> jsonSchema(ValueType<Object?> t) => switch (t) {
   BoolType() => {'type': 'boolean'},
   IntType(:final min, :final max) => {
     'type': 'integer',
@@ -30,35 +25,26 @@ Map<String, Object?> jsonSchema(
     'type': 'integer',
     'description': 'milliseconds since the epoch, UTC',
   },
-  ChoiceType(:final of) => {
-    'type': 'string',
-    'description': 'a $of',
-    if (kinds[of] case final e? when e.isNotEmpty)
-      'enum': [for (final x in e) x['id']],
-  },
   ListType(:final item, :final maxItems) => {
     'type': 'array',
-    'items': jsonSchema(item, kinds: kinds),
+    'items': jsonSchema(item),
     'maxItems': ?maxItems,
   },
-  RecordType() => _object(t, kinds),
+  RecordType() => _object(t),
   MapType(:final value, :final maxEntries) => {
     'type': 'object',
-    'additionalProperties': jsonSchema(value, kinds: kinds),
+    'additionalProperties': jsonSchema(value),
     'maxProperties': ?maxEntries,
   },
   UnionType(:final key, :final variants, :final descriptions) => {
     'oneOf': [
       for (final MapEntry(key: tag, value: o) in variants.entries)
-        {
-          ..._object(o, kinds, tag: (key, tag)),
-          'description': ?descriptions[tag],
-        },
+        {..._object(o, tag: (key, tag)), 'description': ?descriptions[tag]},
     ],
   },
   NullableType(:final of) => {
     'anyOf': [
-      jsonSchema(of, kinds: kinds),
+      jsonSchema(of),
       {'type': 'null'},
     ],
   },
@@ -66,17 +52,13 @@ Map<String, Object?> jsonSchema(
   AnyType() || UnknownType() => const {},
 };
 
-Map<String, Object?> _object(
-  RecordType o,
-  Map<String, List<Map<String, Object?>>> kinds, {
-  (String, String)? tag,
-}) => {
+Map<String, Object?> _object(RecordType o, {(String, String)? tag}) => {
   'type': 'object',
   'properties': {
     if (tag case (final key, final value)) key: {'const': value},
     for (final MapEntry(:key, value: f) in o.fields.entries)
       key: {
-        ...jsonSchema(f.type, kinds: kinds),
+        ...jsonSchema(f.type),
         'description': ?f.description,
         'default': ?f.defaultValue,
       },

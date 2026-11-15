@@ -383,10 +383,6 @@ final class _Judge {
             certain: false,
           );
         }
-      case 'ref':
-        if (r['kind'] != w['kind']) {
-          _add('$at.kind', BreakKind.type, r['kind'], w['kind']);
-        }
       case 'custom':
         if (r['name'] != w['name']) {
           _add('$at.name', BreakKind.type, r['name'], w['name']);

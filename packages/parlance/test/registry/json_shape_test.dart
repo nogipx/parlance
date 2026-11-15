@@ -58,18 +58,12 @@ final class Meeting {
   int get hashCode => when.hashCode;
 }
 
-const _meetingType = RecordType({
-  'when': Field(DateTimeType()),
-});
+const _meetingType = RecordType({'when': Field(DateTimeType())});
 
 enum Meetings<T> implements IStateWord<T> {
   next<Meeting>(
     'orders.next',
-    JsonShape(
-      from: Meeting.fromJson,
-      to: _meetingToJson,
-      type: _meetingType,
-    ),
+    JsonShape(from: Meeting.fromJson, to: _meetingToJson, type: _meetingType),
   );
 
   const Meetings(this.name, this.shape);
@@ -93,7 +87,10 @@ final class Draft {
 }
 
 enum Drafts<T> implements IStateWord<T> {
-  open<Draft>('orders.draft', JsonShape(from: Draft.fromJson, to: _draftToJson));
+  open<Draft>(
+    'orders.draft',
+    JsonShape(from: Draft.fromJson, to: _draftToJson),
+  );
 
   const Drafts(this.name, this.shape);
   @override

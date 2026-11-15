@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Breaking: remove dynamic choices, `Choice`, `Choices`, `ChoiceType`,
+  `@ChoiceOf`, owner/participant registration APIs and `standInChoices`.
+  Expose domain catalogs through states or queries and validate IDs in owners;
+  keyed states remain, with explicit removal by their owner.
+- Remove the `kinds` wire feature and `kind`/`unkind` operations.
+- Remove `ITypeContext` and `Shape.checkedAlone`: structural checks now use
+  `ValueType.check(value, [path])` and `Shape.check(value, {was})`.
+
 ## 0.2.0
 
 - Require rpc_dart 7.1.0 and reuse its integration primitives for stream lifetimes, bounded delivery and buffer accounting while preserving the word API.

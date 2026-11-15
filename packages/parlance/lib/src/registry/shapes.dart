@@ -39,14 +39,9 @@ abstract base class Shape<T> {
   /// would fail, at the same path.
   ///
   /// [was] is the value kept before in its place: a part of [value] that
-  /// is the same part of it is kept already, and when its check asks
-  /// nothing of the registry ([checkedAlone]) it passes again as it is,
-  /// unvisited. So a list of a thousand with one item new costs one item.
-  T check(T value, ITypeContext ctx, {T? was});
-
-  /// Whether a value of it is checked by itself alone, asking no choices
-  /// of the registry: a value kept once passes again as it is.
-  bool get checkedAlone => _aloneOf[this] ??= _alone(type);
+  /// is the same part of it is kept already and passes again unvisited.
+  /// So a list of a thousand with one item new costs one item.
+  T check(T value, {T? was});
 
   /// Whether [a] and [b] are one value: whether their JSON is equal.
   bool equals(T a, T b);
@@ -55,8 +50,7 @@ abstract base class Shape<T> {
   int weigh(T value);
 }
 
-/// The lists and maps the shapes made: unmodifiable, and checked already
-/// but for what the registry knows now (the choices there are).
+/// The lists and maps the shapes made: unmodifiable and checked already.
 final Expando<bool> _kept = Expando('kept');
 
 /// The fields of each record shape in order, read once a shape.
@@ -64,20 +58,6 @@ final Expando<List<(String, Part)>> _partsOf = Expando('parts');
 
 /// The weight of each list and map the shapes made, weighed once.
 final Expando<int> _weights = Expando('weight');
-
-/// Whether each shape is checked alone, found once a shape.
-final Expando<bool> _aloneOf = Expando('alone');
-
-/// Whether a value of [t] is checked asking nothing of the registry.
-bool _alone(ValueType<Object?> t) => switch (t) {
-  ChoiceType() => false,
-  ListType(:final item) => _alone(item),
-  MapType(:final value) => _alone(value),
-  NullableType(:final of) => _alone(of),
-  RecordType(:final fields) => fields.values.every((f) => _alone(f.type)),
-  UnionType(:final variants) => variants.values.every(_alone),
-  _ => true,
-};
 
 /// [e], refused at its path within [at], refused at their path together.
 /// A part is checked at its own root and its refusal told where it is on
@@ -106,10 +86,10 @@ final class JsonValue extends Shape<Object?> {
   Object? fromJson(Object? json) => json;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, {Object? was}) =>
-      was != null && identical(value, was) && checkedAlone
+  Object? check(Object? value, {Object? was}) =>
+      was != null && identical(value, was)
       ? value
-      : _keepJson(type.check(value, ctx));
+      : _keepJson(type.check(value));
 
   @override
   bool equals(Object? a, Object? b) => jsonEquals(a, b);
@@ -118,7 +98,7 @@ final class JsonValue extends Shape<Object?> {
   int weigh(Object? value) => jsonWeight(value);
 }
 
-/// A value kept as it is: a bool, an int, a num, a text or a choice's id.
+/// A value kept as it is: a bool, an int, a num or a text.
 /// Its Dart type is its type's: `PlainShape(BoolType())` is a `Shape<bool>`.
 final class PlainShape<T> extends Shape<T> {
   /// Const constructor.
@@ -136,9 +116,9 @@ final class PlainShape<T> extends Shape<T> {
   /// One equal to the value kept before is that one: what holds it
   /// passes as the same, and an equality asked of it is answered at once.
   @override
-  T check(T value, ITypeContext ctx, {T? was}) {
-    if (was != null && identical(value, was) && checkedAlone) return value;
-    final c = _keepJson(type.check(value, ctx)) as T;
+  T check(T value, {T? was}) {
+    if (was != null && identical(value, was)) return value;
+    final c = _keepJson(type.check(value)) as T;
     return was != null && c == was ? was : c;
   }
 
@@ -199,8 +179,7 @@ final class JsonShape<T> extends Shape<T> {
   bool get keptAsIs => false;
 
   @override
-  T check(T value, ITypeContext ctx, {T? was}) =>
-      fromJson(freezeJson(type.check(toJson(value), ctx)));
+  T check(T value, {T? was}) => fromJson(freezeJson(type.check(toJson(value))));
 
   @override
   bool equals(T a, T b) => jsonEquals(toJson(a), toJson(b));
@@ -260,7 +239,7 @@ final class EnumShape<E extends Enum> extends Shape<E> {
 
   /// One of [values] by its type: nothing to check.
   @override
-  E check(E value, ITypeContext ctx, {E? was}) => value;
+  E check(E value, {E? was}) => value;
 
   @override
   bool equals(E a, E b) => identical(a, b);
@@ -288,8 +267,8 @@ final class DurationShape extends Shape<Duration> {
   Duration fromJson(Object? json) => Duration(milliseconds: json! as int);
 
   @override
-  Duration check(Duration value, ITypeContext ctx, {Duration? was}) {
-    type.check(value.inMilliseconds, ctx);
+  Duration check(Duration value, {Duration? was}) {
+    type.check(value.inMilliseconds);
     return value;
   }
 
@@ -317,7 +296,7 @@ final class DateTimeShape extends Shape<DateTime> {
   DateTime fromJson(Object? json) => DateTime.parse(json! as String);
 
   @override
-  DateTime check(DateTime value, ITypeContext ctx, {DateTime? was}) => value;
+  DateTime check(DateTime value, {DateTime? was}) => value;
 
   @override
   bool equals(DateTime a, DateTime b) => a.isAtSameMomentAs(b);
@@ -351,19 +330,16 @@ final class ListShape<T> extends Shape<List<T>> {
   @override
   bool get keptAsIs => item.keptAsIs;
 
-  /// An item the same as the one kept in its place before, when items are
-  /// checked alone, passes unvisited; the weight is the one before, told
-  /// what changed.
+  /// An item the same as the one kept in its place before passes unvisited;
+  /// its previous weight is updated only for changed items.
   @override
-  List<T> check(List<T> value, ITypeContext ctx, {List<T>? was}) {
+  List<T> check(List<T> value, {List<T>? was}) {
     if (maxItems case final m? when value.length > m) {
       throw TypeMismatch('', 'more than $m items');
     }
     // One the shapes made is checked already, all of it.
-    if (_kept[value] == true && item.checkedAlone) return value;
-    final before = was != null && _kept[was] == true && item.checkedAlone
-        ? was
-        : null;
+    if (_kept[value] == true) return value;
+    final before = was != null && _kept[was] == true ? was : null;
     var weight = before == null ? null : _weights[before];
     var same = _kept[value] == true;
     // Whether every item is the one kept in its place before: then the
@@ -377,7 +353,7 @@ final class ListShape<T> extends Shape<List<T>> {
         final v = value[i];
         final had = before != null && i < before.length;
         if (had && identical(v, before[i])) continue;
-        final c = item.check(v, ctx, was: had ? before[i] : null);
+        final c = item.check(v, was: had ? before[i] : null);
         final kept = had && identical(c, before[i]);
         if (asBefore && !kept) asBefore = false;
         if (!identical(c, v)) {
@@ -454,8 +430,8 @@ final class NullableShape<T> extends Shape<T?> {
   bool get keptAsIs => of.keptAsIs;
 
   @override
-  T? check(T? value, ITypeContext ctx, {T? was}) =>
-      value == null ? null : of.check(value, ctx, was: was);
+  T? check(T? value, {T? was}) =>
+      value == null ? null : of.check(value, was: was);
 
   @override
   bool equals(T? a, T? b) =>
@@ -493,21 +469,14 @@ final class MapShape<T> extends Shape<Map<String, T>> {
   @override
   bool get keptAsIs => value.keptAsIs;
 
-  /// An entry the same as the one kept under its key before, when values
-  /// are checked alone, passes unvisited.
+  /// An entry the same as the one kept under its key before passes unvisited.
   @override
-  Map<String, T> check(
-    Map<String, T> v,
-    ITypeContext ctx, {
-    Map<String, T>? was,
-  }) {
+  Map<String, T> check(Map<String, T> v, {Map<String, T>? was}) {
     if (maxEntries case final m? when v.length > m) {
       throw TypeMismatch('', 'more than $m entries');
     }
-    if (_kept[v] == true && value.checkedAlone) return v;
-    final before = was != null && _kept[was] == true && value.checkedAlone
-        ? was
-        : null;
+    if (_kept[v] == true) return v;
+    final before = was != null && _kept[was] == true ? was : null;
     var same = _kept[v] == true;
     var asBefore = before != null && before.length == v.length;
     final out = <String, T>{};
@@ -519,7 +488,7 @@ final class MapShape<T> extends Shape<Map<String, T>> {
       }
       final T c;
       try {
-        c = value.check(e, ctx, was: had ? before[key] : null);
+        c = value.check(e, was: had ? before[key] : null);
       } on TypeMismatch catch (x) {
         throw _within(key, x);
       }
@@ -675,7 +644,7 @@ final class RecordShape<T> extends Shape<T> {
   /// gives a left-out one its default; a new record only when a field
   /// changed.
   @override
-  T check(T value, ITypeContext ctx, {T? was}) {
+  T check(T value, {T? was}) {
     final get = this.get;
     final dart = get == null ? _fieldsOf(value) : null;
     final before = was == null || get != null ? null : to(was);
@@ -692,10 +661,10 @@ final class RecordShape<T> extends Shape<T> {
       final Object? c;
       try {
         if (_said(p, v)) {
-          c = v == null ? null : p.shape.check(v, ctx, was: w);
+          c = v == null ? null : p.shape.check(v, was: w);
         } else if (p.defaultValue != null) {
-          final json = p.shape.type.check(p.defaultValue, ctx);
-          c = p.shape.check(p.shape.fromJson(json), ctx);
+          final json = p.shape.type.check(p.defaultValue);
+          c = p.shape.check(p.shape.fromJson(json));
         } else if (!p.optional) {
           throw const TypeMismatch('', 'missing');
         } else {
@@ -830,11 +799,9 @@ final class UnionShape<T> extends Shape<T> {
   }
 
   @override
-  T check(T value, ITypeContext ctx, {T? was}) => _variant(value).check(
+  T check(T value, {T? was}) => _variant(
     value,
-    ctx,
-    was: was != null && tagOf(was) == tagOf(value) ? was : null,
-  );
+  ).check(value, was: was != null && tagOf(was) == tagOf(value) ? was : null);
 
   @override
   bool equals(T a, T b) =>

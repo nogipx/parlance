@@ -20,9 +20,6 @@ const parlanceFeatures = {
   // What a part was built against, by fingerprint (SPEC §6.9, §25.4):
   // the ops `built` and `unbuilt`.
   'built',
-  // A feed whose client speaks it tells the entities of a kind that
-  // changed as a `kind` item, not the whole catalog again.
-  'kinds',
   // A session `main` ends, the connection still up, tells the part across
   // why by an `ended` item, the last of its feeds: it does not join again.
   'ended',
@@ -167,8 +164,7 @@ final class WireSubscribe implements IRpcSerializable {
 /// One item of the feed, by [kind]: `catalog` (the words anew),
 /// `snapshot` (the states as they stand, to follow from),
 /// `tick` (what changed), `values` (what a subscription took in),
-/// `kind` (a choices kind's entities changed), `unavailable` (what
-/// cannot run now moved), or `ended` (the feed's end, with why).
+/// `unavailable` (what cannot run now moved), or `ended` (the feed's end, with why).
 final class WireFeedItem implements IRpcSerializable {
   const WireFeedItem(this.kind, this.json);
 

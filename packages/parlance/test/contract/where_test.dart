@@ -55,7 +55,6 @@ abstract class Deck {
 
 final class DeckOwner extends DeckOwnerBase {
   DeckOwner() {
-    choices(name: 'channel', list: () => [Choice('a'), Choice('b')]);
     guard(
       id: 'gentle',
       word: DeckCommand.turn,

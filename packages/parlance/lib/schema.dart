@@ -29,7 +29,7 @@ export 'src/participant/participant.dart'
 export 'src/registry/cause.dart' show Principal;
 export 'src/registry/compat.dart' show WordBreak, BreakKind;
 export 'src/registry/cancellation.dart' show CancellationToken;
-export 'src/registry/descriptors.dart' show Callers, Access, Choice;
+export 'src/registry/descriptors.dart' show Callers, Access;
 export 'src/registry/messages.dart'
     show
         CallResult,
@@ -63,7 +63,6 @@ export 'src/registry/shapes.dart'
         UnknownValue;
 export 'src/registry/types.dart'
     show
-        ITypeContext,
         ValueType,
         BoolType,
         IntType,
@@ -72,7 +71,6 @@ export 'src/registry/types.dart'
         EnumType,
         DurationType,
         DateTimeType,
-        ChoiceType,
         ListType,
         RecordType,
         Field,

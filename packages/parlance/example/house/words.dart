@@ -41,8 +41,7 @@ abstract final class Who {
 
 enum Mode { home, away, night }
 
-/// The house's words, in its one vocabulary; its rooms are what it
-/// speaks of, keys and refs, for an agent or an editor to choose from.
+/// The house's words; the keys of [House.light] list its rooms.
 @Vocabulary('house')
 abstract class House {
   /// Whether a room's light is on, by room.
@@ -62,7 +61,7 @@ abstract class House {
 
   /// Anyone may light a room; a guest's call is shown in an editor.
   @CommandWord('set_light', callers: Who.anyone)
-  void setLight({@ChoiceOf('room') required String room, required bool on});
+  void setLight({required String room, required bool on});
 
   @CommandWord('set_heat')
   void setHeat({@Range(min: 10, max: 28) required num target});
@@ -82,11 +81,11 @@ abstract class House {
 
   /// Recorded room temperatures, oldest first; the stream ends after its snapshot.
   @ServerStreamWord('temperature_history', readers: Who.household)
-  Stream<num> temperatureHistory({@ChoiceOf('room') required String room});
+  Stream<num> temperatureHistory({required String room});
 
   /// The current room temperature, then readings from the shared sensor source.
   @ServerStreamWord('temperature_samples', readers: Who.household)
-  Stream<num> temperatureSamples({@ChoiceOf('room') required String room});
+  Stream<num> temperatureSamples({required String room});
 
   /// Someone rang the doorbell.
   @FactWord('rang')

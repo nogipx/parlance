@@ -28,7 +28,7 @@ enum HouseCommand<P, R> implements ICommandWord<P, R> {
     'house.set_light',
     RecordShape<HouseSetLight>(
       {
-        'room': Part(PlainShape(ChoiceType('room'))),
+        'room': Part(PlainShape(TextType())),
         'on': Part(PlainShape(BoolType())),
       },
       to: _$HouseSetLightTo,
@@ -104,7 +104,7 @@ enum HouseServerStream<P, T> implements IServerStreamWord<P, T> {
   temperatureHistory<HouseTemperatureHistory, num>(
     'house.temperature_history',
     RecordShape<HouseTemperatureHistory>(
-      {'room': Part(PlainShape(ChoiceType('room')))},
+      {'room': Part(PlainShape(TextType()))},
       to: _$HouseTemperatureHistoryTo,
       from: _$HouseTemperatureHistoryFrom,
       get: _$HouseTemperatureHistoryAt,
@@ -114,7 +114,7 @@ enum HouseServerStream<P, T> implements IServerStreamWord<P, T> {
   temperatureSamples<HouseTemperatureSamples, num>(
     'house.temperature_samples',
     RecordShape<HouseTemperatureSamples>(
-      {'room': Part(PlainShape(ChoiceType('room')))},
+      {'room': Part(PlainShape(TextType()))},
       to: _$HouseTemperatureSamplesTo,
       from: _$HouseTemperatureSamplesFrom,
       get: _$HouseTemperatureSamplesAt,
@@ -157,12 +157,6 @@ enum HouseFact<T> implements IFactWord<T> {
   final String name;
   @override
   final Shape<T> shape;
-}
-
-/// The kinds of choices [House] speaks of: what an owner gives by
-/// `choices(HouseChoices.room, ...)`.
-abstract final class HouseChoices {
-  static const String room = 'room';
 }
 
 /// The owner base of [House]: it defines every word, keeps what
@@ -492,7 +486,7 @@ const houseWords = WordSet(
     ...HouseFact.values,
     ...HouseServerStream.values,
   ],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'houseWords',
 );
 
@@ -729,7 +723,7 @@ final class _$VisitClient implements IVisitClient {
 const visitWords = WordSet(
   'visit',
   [...VisitState.values, ...VisitCommand.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'visitWords',
 );
 

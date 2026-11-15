@@ -63,7 +63,7 @@ void main() {
   });
 
   test('values are checked, keyed states want keys', () {
-    expect(() => f.focus.set('nowhere'), throwsA(isA<TypeMismatch>()));
+    expect(() => f.focus.set(123), throwsA(isA<TypeMismatch>()));
     expect(() => f.chime.set(0), throwsArgumentError);
     expect(() => f.locked.set(true, key: 'x'), throwsArgumentError);
     f.chime.set(-3, key: 'front');
@@ -149,7 +149,7 @@ void main() {
     expect(back.change?.seq, e.change?.seq);
   });
 
-  test('describe lists the catalog and the kinds', () {
+  test('describe lists the word catalog', () {
     f.r.defineState(
       StateDescriptor(
         'house.secret',

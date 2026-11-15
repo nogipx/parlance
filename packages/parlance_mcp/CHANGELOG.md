@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Breaking: remove the entity directory from `describe` and dynamic choices
+  from JSON Schema generation. Domain catalogs use ordinary states or queries;
+  static enums continue to expose their values.
+
 ## 0.1.2
 
 - Support parlance 0.2.0 and its generator.

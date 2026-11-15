@@ -32,6 +32,12 @@ A **query** is a command that only answers: a question by params that no state h
 | a write, a fact, a command from its handler | done | refused: the query fails, nothing changed |
 | in Dart | `ICommandWord`, `.call(params)` | `IQueryWord`, `.ask(params)` |
 
+A **keyed state** holds one value per ID under a stable word: `house.light`
+has a value for each room. Owners set and remove keys explicitly; clients read
+and watch individual keys or the whole state. Domain entity lists, labels and
+metadata are ordinary states or queries. Owners validate ID existence in their
+handlers; static alternatives use enums.
+
 Many consumers of one value that changes: a state. One asker's answer to its own params: a query. Anything that changes the world: a command.
 
 A **serverStream** is a lazy `Stream<T>` provided by its owner on each subscription.

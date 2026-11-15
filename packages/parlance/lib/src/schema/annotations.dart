@@ -47,8 +47,8 @@ final class StateWord {
   /// new word beside the old one (SPEC §1).
   final int? version;
 
-  /// The choices its keys are of, for a keyed state: one value per key,
-  /// the keys those its owner gives (`choices`), as `@ChoiceOf` names them.
+  /// The key parameter name of a keyed state: one value per identifier.
+  /// The owner validates identifiers and removes values explicitly.
   final String? keyOf;
 
   /// Who may read it, when not the participant's default (SPEC §22.2).
@@ -178,18 +178,6 @@ final class Length {
 
   /// The most it holds.
   final int max;
-}
-
-/// A text that is one of the choices of [of] (SPEC §3), as an owner
-/// gives them (`choices(name: of, list: ...)`): a call naming none of them is
-/// refused before its handler, and an agent or an editor offers them. On
-/// a list, of its items.
-final class ChoiceOf {
-  /// Const constructor.
-  const ChoiceOf(this.of);
-
-  /// The choices it is one of: the `name` of the `choices` that gives them.
-  final String of;
 }
 
 /// What a parameter or a field of a record is, for people and agents: the

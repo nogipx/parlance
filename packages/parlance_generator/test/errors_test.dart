@@ -186,11 +186,11 @@ $body
     expect(logs.join('\n'), contains('"orders.archive" is no name of a'));
   });
 
-  test('it refuses a kind that is no name', () async {
+  test('it refuses a key parameter that is no name', () async {
     final logs = await errorsOf(
-      "@CommandWord('go') void go({@ChoiceOf('a.b') required String room});",
+      "@StateWord('room', keyOf: 'a.b') bool get room;",
     );
-    expect(logs.join('\n'), contains('choices "a.b" is no name'));
+    expect(logs.join('\n'), contains('key "a.b" is no name'));
   });
 
   test('it refuses an enum with two fallbacks', () async {

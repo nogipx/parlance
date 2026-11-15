@@ -235,18 +235,17 @@ Future<void> main() async {
   }
 
   print('--- the passes over a list, alone (us per write) ---');
-  final r = Registry(onError: (e, _) => throw e);
   const shape = ListShape(itemShape);
   final type = shape.type;
   for (final n in [100, 1000, 10000]) {
     final items = makeItems(n);
     final json = shape.toJson(items);
-    final checked = type.check(json, r);
+    final checked = type.check(json);
     final frozen = freezeJson(checked);
     final other = freezeJson(shape.toJson(flip(items, 0)));
     final ops = opsFor(n);
     final to = measure(ops, (_) => shape.toJson(items));
-    final check = measure(ops, (_) => type.check(json, r));
+    final check = measure(ops, (_) => type.check(json));
     final freeze = measure(ops, (_) => freezeJson(checked));
     final eq = measure(ops, (_) => jsonEquals(frozen, other));
     final from = measure(ops, (_) => shape.fromJson(frozen));

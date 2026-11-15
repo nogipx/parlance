@@ -92,7 +92,7 @@ void main() {
         const WireJson({
           'ops': [
             {'op': 'set', 'state': 'plug.v', 'value': 1},
-            {'op': 'kind', 'name': 'Not A Name', 'entities': <Object?>[]},
+            {'op': 'unknown'},
             {'op': 'set', 'state': 'plug.v', 'value': 2, 'as': 7},
           ],
         }),

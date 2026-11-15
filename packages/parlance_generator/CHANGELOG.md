@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Breaking: remove `@ChoiceOf` support and generated `<Class>Choices`
+  constants. Keyed states retain `keyOf` as the key parameter name; string IDs
+  use their ordinary text shape and are validated by the owner.
+
 ## 0.2.0
 
 - Generate typed owners and clients for `@ServerStreamWord`, `@ClientStreamWord`

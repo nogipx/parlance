@@ -95,13 +95,12 @@ void main() {
   });
 
   test('null is a value of its own for a nullable field with a default', () {
-    final r = Registry();
     const t = RecordType({
       'x': Field(NullableType(IntType()), defaultValue: 5),
       'y': Field(IntType(), defaultValue: 1),
     });
-    expect(t.check({'x': null, 'y': null}, r), {'x': null, 'y': 1});
-    expect(t.check(<String, Object?>{}, r), {'x': 5, 'y': 1});
+    expect(t.check({'x': null, 'y': null}), {'x': null, 'y': 1});
+    expect(t.check(<String, Object?>{}), {'x': 5, 'y': 1});
   });
 
   test('an end this side does not know is not taken for one it does', () {

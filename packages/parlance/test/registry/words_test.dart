@@ -11,7 +11,7 @@ typedef Tune = ({String input, num db, Level? level});
 
 const _tune = RecordShape<Tune>(
   {
-    'input': Part(PlainShape(ChoiceType('input'))),
+    'input': Part(PlainShape(TextType())),
     'db': Part(PlainShape(NumType(min: -60, max: 12))),
     'level': Part(EnumShape(Level.values), optional: true),
   },
@@ -161,8 +161,8 @@ void main() {
 
   test('what is wrong is refused as by name, typed for any answer', () async {
     final r = await asUser.command(TestCommand.tune).call((
-      input: 'nope',
-      db: 0,
+      input: 'front',
+      db: 13,
       level: null,
     ));
     expect(

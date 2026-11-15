@@ -231,7 +231,7 @@ const documentsWords = WordSet(
     ...DocumentsClientStream.values,
     ...DocumentsBidiStream.values,
   ],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'documentsWords',
 );
 

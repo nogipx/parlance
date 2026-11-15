@@ -7,26 +7,6 @@ import 'package:test/test.dart';
 /// path; [Shape.equals] is the JSON's equality and [Shape.weigh] its
 /// weight. So a value written in this process and one come as JSON are
 /// held to one rule.
-final class _Ctx implements ITypeContext {
-  @override
-  bool hasChoices(String kind) => kind == 'room';
-
-  @override
-  bool hasChoice(String kind, String id) => kind == 'room' && id == 'main';
-}
-
-/// Rooms that come and go.
-final class _Known implements ITypeContext {
-  _Known(this.ids);
-  final Set<String> ids;
-
-  @override
-  bool hasChoices(String kind) => kind == 'room';
-
-  @override
-  bool hasChoice(String kind, String id) => ids.contains(id);
-}
-
 enum Mood { calm, loud }
 
 typedef Track = ({String title, int volume, Mood mood, List<String> tags});
@@ -56,7 +36,7 @@ const track = RecordShape<Track>(
 );
 
 /// Fields that may be left out, one with a default, one that may be null,
-/// one that must be there, and a ref.
+/// one that must be there, and a room identifier.
 typedef Cue = ({String? room, String? note, int? fade, String? label});
 
 Map<String, Object?> _cueTo(Cue c) => {
@@ -74,7 +54,7 @@ Cue _cueFrom(Map<String, Object?> m) => (
 
 const cue = RecordShape<Cue>(
   {
-    'room': Part(PlainShape(ChoiceType('room'))),
+    'room': Part(PlainShape(TextType())),
     'note': Part(NullableShape(PlainShape(TextType()))),
     'fade': Part(PlainShape(IntType(max: 500)), defaultValue: 250),
     'label': Part(PlainShape(TextType()), optional: true),
@@ -147,12 +127,10 @@ Track t(
 }) => (title: title, volume: volume, mood: mood, tags: tags);
 
 void main() {
-  final ctx = _Ctx();
-
   /// What the type does to [v]'s JSON: the JSON kept, or the refusal.
   Object? byJson<T>(Shape<T> s, T v) {
     try {
-      return freezeJson(s.type.check(s.toJson(v), ctx));
+      return freezeJson(s.type.check(s.toJson(v)));
     } on TypeMismatch catch (e) {
       return e;
     }
@@ -161,7 +139,7 @@ void main() {
   /// What the shape does to [v]: the JSON of what it keeps, or the refusal.
   Object? byShape<T>(Shape<T> s, T v) {
     try {
-      return s.toJson(s.check(v, ctx));
+      return s.toJson(s.check(v));
     } on TypeMismatch catch (e) {
       return e;
     }
@@ -176,7 +154,7 @@ void main() {
       expect(dart, isA<TypeMismatch>());
     } else {
       expect(jsonEquals(dart, json), isTrue, reason: '$dart vs $json');
-      expect(s.weigh(s.check(v, ctx)), jsonWeight(json), reason: 'weight');
+      expect(s.weigh(s.check(v)), jsonWeight(json), reason: 'weight');
     }
   }
 
@@ -199,18 +177,13 @@ void main() {
     }
   });
 
-  test('left-out fields: defaults, nulls, missing, refs', () {
+  test('left-out fields: defaults, nulls and missing values', () {
     same(cue, (room: 'main', note: null, fade: null, label: null));
     same(cue, (room: 'main', note: 'hi', fade: 100, label: 'x'));
     same(cue, (room: 'side', note: null, fade: 1, label: null));
     same(cue, (room: null, note: null, fade: 1, label: null));
     same(cue, (room: 'main', note: null, fade: 900, label: null));
-    final kept = cue.check((
-      room: 'main',
-      note: null,
-      fade: null,
-      label: null,
-    ), ctx);
+    final kept = cue.check((room: 'main', note: null, fade: null, label: null));
     expect(kept.fade, 250, reason: 'the default is given');
   });
 
@@ -262,28 +235,28 @@ void main() {
 
   test('what is kept cannot change: its lists are its own', () {
     final tags = ['a'];
-    final kept = track.check(t('song', tags: tags), ctx);
+    final kept = track.check(t('song', tags: tags));
     tags.add('b');
     expect(kept.tags, ['a'], reason: 'the writer keeps no hold on it');
     expect(() => kept.tags.add('c'), throwsUnsupportedError);
-    final list = playlist.check([t('a')], ctx);
+    final list = playlist.check([t('a')]);
     expect(() => list.add(t('b')), throwsUnsupportedError);
-    final map = levels.check({'front': 1}, ctx);
+    final map = levels.check({'front': 1});
     expect(() => map['desk'] = 2, throwsUnsupportedError);
   });
 
   test('a value kept already is kept as it is, nothing copied', () {
-    final kept = track.check(t('song', tags: ['a']), ctx);
-    expect(identical(track.check(kept, ctx), kept), isTrue);
-    final list = playlist.check([kept], ctx);
-    expect(identical(playlist.check(list, ctx), list), isTrue);
-    final map = levels.check({'front': 1}, ctx);
-    expect(identical(levels.check(map, ctx), map), isTrue);
+    final kept = track.check(t('song', tags: ['a']));
+    expect(identical(track.check(kept), kept), isTrue);
+    final list = playlist.check([kept]);
+    expect(identical(playlist.check(list), list), isTrue);
+    final map = levels.check({'front': 1});
+    expect(identical(levels.check(map), map), isTrue);
   });
 
   test('what is the same as the value kept before passes as it is', () {
     const songs = ListShape(track);
-    final before = songs.check([t('a'), t('b'), t('c')], ctx);
+    final before = songs.check([t('a'), t('b'), t('c')]);
     expect(songs.weigh(before), jsonWeight(songs.toJson(before)));
     for (final next in [
       [before[0], t('B'), before[2]],
@@ -291,8 +264,8 @@ void main() {
       [before[0], before[1], before[2], t('d')],
       <Track>[],
     ]) {
-      final kept = songs.check(next, ctx, was: before);
-      final whole = songs.check(next, ctx);
+      final kept = songs.check(next, was: before);
+      final whole = songs.check(next);
       expect(jsonEquals(songs.toJson(kept), songs.toJson(whole)), isTrue);
       expect(
         songs.weigh(kept),
@@ -306,7 +279,7 @@ void main() {
       }
     }
     expect(
-      () => songs.check([before[0], t('far too long title')], ctx, was: before),
+      () => songs.check([before[0], t('far too long title')], was: before),
       throwsA(
         isA<TypeMismatch>().having(
           (e) => '$e',
@@ -321,47 +294,26 @@ void main() {
       'an equality asked at once', () {
     const songs = ListShape(track);
     for (final s in [track, trackByPlace]) {
-      final before = s.check(t('song', tags: ['a', 'b']), ctx);
+      final before = s.check(t('song', tags: ['a', 'b']));
       // Equal, every part of it another instance.
       final again = s.check(
         t(String.fromCharCodes('song'.codeUnits), tags: ['a', 'b']),
-        ctx,
         was: before,
       );
       expect(identical(again, before), isTrue);
-      final other = s.check(t('song', tags: ['a', 'c']), ctx, was: before);
+      final other = s.check(t('song', tags: ['a', 'c']), was: before);
       expect(identical(other, before), isFalse);
       expect(other.tags, ['a', 'c']);
     }
-    final list = songs.check([t('a'), t('b')], ctx);
-    expect(
-      identical(songs.check([t('a'), t('b')], ctx, was: list), list),
-      isTrue,
-    );
-    final more = songs.check([t('a'), t('b'), t('c')], ctx, was: list);
+    final list = songs.check([t('a'), t('b')]);
+    expect(identical(songs.check([t('a'), t('b')], was: list), list), isTrue);
+    final more = songs.check([t('a'), t('b'), t('c')], was: list);
     expect(identical(more, list), isFalse);
     expect(identical(more[0], list[0]), isTrue, reason: 'an equal item kept');
     const byName = MapShape(PlainShape(IntType()));
-    final m = byName.check({'a': 1, 'b': 2}, ctx);
-    expect(identical(byName.check({'a': 1, 'b': 2}, ctx, was: m), m), isTrue);
-    expect(byName.check({'a': 1}, ctx, was: m), {'a': 1});
-  });
-
-  test('what asks the registry is asked again, the same or not', () {
-    const cues = ListShape(cue);
-    final known = _Known({'main'});
-    final before = cues.check([
-      (room: 'main', note: null, fade: 1, label: null),
-    ], known);
-    expect(cue.checkedAlone, isFalse);
-    expect(track.checkedAlone, isTrue);
-    known.ids.clear();
-    expect(
-      () => cues.check([before[0]], known, was: before),
-      throwsA(
-        isA<TypeMismatch>().having((e) => '$e', 'text', '0.room: no room main'),
-      ),
-    );
+    final m = byName.check({'a': 1, 'b': 2});
+    expect(identical(byName.check({'a': 1, 'b': 2}, was: m), m), isTrue);
+    expect(byName.check({'a': 1}, was: m), {'a': 1});
   });
 
   test('a class that serializes itself is kept as its JSON only', () {

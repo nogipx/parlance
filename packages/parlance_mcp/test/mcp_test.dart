@@ -237,31 +237,6 @@ void main() {
       );
     });
 
-    test('an entity that tells the type of its value shows it', () async {
-      f.r.addChoices(
-        Choices(
-          'gauge',
-          list: () => [
-            Choice(
-              'g1',
-              label: 'Gauge',
-              meta: {'type': const NumType(min: 0, max: 1).toJson()},
-            ),
-            const Choice('g2', label: 'PlainShape'),
-          ],
-        ),
-      );
-      final d = jsonDecode((await c.call('describe')).text) as Map;
-      expect((d['entities'] as Map)['gauge'], [
-        {
-          'id': 'g1',
-          'label': 'Gauge',
-          'takes': {'type': 'number', 'minimum': 0, 'maximum': 1},
-        },
-        'g2 (PlainShape)',
-      ]);
-    });
-
     test('initialize tells the server and how to work', () async {
       final r = await c.request('initialize', {
         'protocolVersion': '2025-06-18',
@@ -292,7 +267,7 @@ void main() {
     });
 
     test(
-      'describe: only what the agent may call, with schemas and entities',
+      'describe: only what the agent may call, with structural schemas',
       () async {
         final d = await c.json('describe') as Map;
         final commands = {
@@ -301,11 +276,10 @@ void main() {
         expect(commands.keys, contains('house.show'));
         expect(commands.keys, isNot(contains('door.chime.set')));
         final show = commands['house.show'] as Map;
-        expect(
-          ((show['params'] as Map)['properties'] as Map)['room'],
-          containsPair('enum', ['main', 'break', 'test']),
-        );
-        expect((d['entities'] as Map)['room'], contains('main (main)'));
+        expect(((show['params'] as Map)['properties'] as Map)['room'], {
+          'type': 'string',
+        });
+        expect(d.containsKey('entities'), isFalse);
         final door = await c.json('describe', {'prefix': 'door.'}) as Map;
         expect(
           [for (final x in door['states'] as List) (x as Map)['name']],
@@ -328,7 +302,7 @@ void main() {
         'params': {'room': 'nowhere'},
       });
       expect(bad.error, isTrue);
-      expect(bad.text, startsWith('invalidParams'));
+      expect(bad.text, contains('no room nowhere'));
     });
 
     test('a word that comes or changes after the tools were made is read as '

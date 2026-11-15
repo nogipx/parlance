@@ -155,6 +155,6 @@ final class _$RoomClient implements IRoomClient {
 const roomWords = WordSet(
   'room',
   [...RoomState.values, ...RoomCommand.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'roomWords',
 );

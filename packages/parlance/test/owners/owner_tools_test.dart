@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:parlance/app.dart';
-import 'package:parlance/tools.dart' show HostRegistry, OwnerParticipant;
+import 'package:parlance/tools.dart' show OwnerParticipant;
 import 'package:test/test.dart';
 
 part 'owner_tools_test.g.dart';
@@ -39,11 +39,9 @@ final class _Lamp extends LampOwnerBase {
     listen(on: heard.stream, onData: (_) => listened++);
     whenAttached((_) => order.add('attached'));
     onDispose(() => order.add('gone'));
-    choices(name: 'bulb', list: () => [for (final b in bulbs) Choice(b)]);
   }
 
   final _Device device;
-  final List<String> bulbs = ['a'];
   final StreamController<int> heard = StreamController();
   final List<String> order = [];
   var pulls = 0;
@@ -83,7 +81,6 @@ void main() {
     expect(lamp.pulls, 1);
     expect(lamp.listened, 1);
     expect(GeneratedWords(p).stateOf(LampState.level).value, 3);
-    expect(r.registry.hasChoices('bulb'), isTrue);
   });
 
   test('it follows its model: on sync, and when the model tells it, once '

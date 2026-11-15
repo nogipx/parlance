@@ -239,7 +239,7 @@ extension RegistryStreams on Registry {
                               identical(inputShape, found.input)
                           ? v
                           : found.input!.fromJson(inputShape.toJson(v));
-                      return found.input!.check(value, this);
+                      return found.input!.check(value);
                     } on Object catch (e) {
                       throw StreamFailure(
                         StreamFailureCode.invalidArgument,
@@ -272,7 +272,7 @@ extension RegistryStreams on Registry {
                 'a client stream returns exactly one result',
               );
             }
-            final checked = found.item.check(value, this);
+            final checked = found.item.check(value);
             if (identical(itemShape, found.item)) return checked as T;
             return itemShape.fromJson(found.item.toJson(checked));
           } on Object catch (e) {

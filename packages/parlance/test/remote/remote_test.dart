@@ -84,7 +84,7 @@ void main() {
         final ok = await link.client.call('house.show', {'room': 'main'});
         expect(ok, isA<CallDone<Object?>>());
         expect(f.r.read('house.focus'), 'main');
-        final bad = await link.client.call('house.show', {'room': 'gone'});
+        final bad = await link.client.call('house.show', {'room': 123});
         expect(
           bad,
           isA<CallRefused>().having(

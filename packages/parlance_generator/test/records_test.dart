@@ -9,9 +9,7 @@ const ann = Principal('reader', 'ann');
 const anyone = Callers.anyone;
 
 final class Pinboard extends BoardOwnerBase {
-  Pinboard() {
-    choices(name: 'note', list: () => [for (final id in up.keys) Choice(id)]);
-  }
+  Pinboard();
 
   final Map<String, Note> up = {};
   final List<Duration> expiries = [];
@@ -155,7 +153,7 @@ void main() {
     expect(asAnn.raw.read('note.anything'), isNull);
     expect(r.commandDescriptor('note.expire')!.params.toJson()['fields'], {
       'id': {
-        'type': {'type': 'ref', 'kind': 'note'},
+        'type': {'type': 'text'},
       },
       'in': {
         'type': {'type': 'duration', 'max': 60000},
@@ -196,7 +194,7 @@ void main() {
       'ids': {
         'type': {
           'type': 'list',
-          'item': {'type': 'ref', 'kind': 'note'},
+          'item': {'type': 'text'},
           'maxItems': 3,
         },
       },

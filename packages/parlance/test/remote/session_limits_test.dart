@@ -89,16 +89,6 @@ void main() {
     expect(errors.single.why, contains('1 guards'));
   });
 
-  test('so many choices and no more', () async {
-    final (p, errors) = await join(const SessionLimits(choices: 2));
-    p.addChoices(Choices('note', list: () => const [Choice('a'), Choice('b')]));
-    p.addChoices(Choices('tag', list: () => const [Choice('t')]));
-    await p.flush();
-    expect(r.hasChoices('note'), isTrue);
-    expect(r.hasChoices('tag'), isFalse);
-    expect(errors.single.code, ParticipantErrorCode.overLimit);
-  });
-
   test('a call past its calls in flight runs nowhere and says why; one '
       'answered makes room', () async {
     final gate = Completer<void>();

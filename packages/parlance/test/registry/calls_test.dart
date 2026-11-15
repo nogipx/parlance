@@ -22,7 +22,7 @@ void main() {
       refused(Refusal.unknownCommand),
     );
     expect(
-      await f.r.call('house.show', {'room': 'gone'}, by: user),
+      await f.r.call('house.show', {'room': 123}, by: user),
       refused(Refusal.invalidParams),
     );
     expect(
@@ -334,7 +334,12 @@ void main() {
           depth.set(n, cause: c.causeFor(owner));
           return;
         }
-        await f.r.call('x.dig', {'n': n - 1}, by: user, cause: c.causeFor(owner));
+        await f.r.call(
+          'x.dig',
+          {'n': n - 1},
+          by: user,
+          cause: c.causeFor(owner),
+        );
       },
     );
     await f.r.call('x.dig', {'n': 15}, by: user);

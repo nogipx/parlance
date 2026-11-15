@@ -85,6 +85,6 @@ final class _$FansClient implements IFansClient {
 const fansWords = WordSet(
   'fan',
   [],
-  from: 'parlance_generator',
+  from: 'parlance_generator 0.2.0',
   dartName: 'fansWords',
 );

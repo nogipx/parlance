@@ -8,7 +8,8 @@ import 'package:parlance/src/remote/contract.dart' show parlanceFeatures;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
-import 'streams_test.dart' show DataOwner, IDataClient, DataServerStream, dataWords;
+import 'streams_test.dart'
+    show DataOwner, IDataClient, DataServerStream, dataWords;
 
 Future<void> turn() => Future<void>.delayed(Duration.zero);
 

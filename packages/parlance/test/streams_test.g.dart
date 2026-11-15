@@ -237,7 +237,7 @@ final class _$DataClient implements IDataClient {
 const dataWords = WordSet(
   'data',
   [...DataServerStream.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'dataWords',
 );
 

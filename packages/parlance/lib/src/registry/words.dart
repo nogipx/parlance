@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import '../participant/serving.dart'
-    show droppedOnce, inReplyAs, keyedDefined, onceId;
+import '../participant/serving.dart' show droppedOnce, inReplyAs, onceId;
 import 'cause.dart';
 import 'descriptors.dart';
 import 'ids.dart';
@@ -88,8 +87,8 @@ final class WordSet {
   }
 }
 
-/// A state's name, its value's shape and, for a keyed one, the choices
-/// its keys are of. A host's enum of its states implements it.
+/// A state's name, its value's shape and its optional key parameter.
+/// A host's enum of its states implements it.
 abstract interface class IStateWord<T> implements IWord {
   @override
   String get name;
@@ -97,7 +96,7 @@ abstract interface class IStateWord<T> implements IWord {
   /// The shape of its value.
   Shape<T> get shape;
 
-  /// The choices its keys are of, for a keyed state; null for one value.
+  /// The key parameter name for a keyed state; null for one value.
   String? get key;
 }
 
@@ -344,10 +343,6 @@ final class Keyed<T> {
   /// now on.
   static void attach<T>(Keyed<T> k, IStateWriterOf<T> writer) {
     k._writer = writer;
-    final of = writer is StateWriterOf<T> ? writer.raw.descriptor.key : null;
-    if (of == null) return;
-    (Zone.current[keyedDefined] as void Function(String, Keyed<Object?>)?)
-        ?.call(of, k);
   }
 
   /// For the base the generator made: writes what [k] was set before it

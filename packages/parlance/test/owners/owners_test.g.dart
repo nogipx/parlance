@@ -19,12 +19,6 @@ enum TestState<T> implements IStateWord<T> {
   final String? key;
 }
 
-/// The kinds of choices [Test] speaks of: what an owner gives by
-/// `choices(TestChoices.dial, ...)`.
-abstract final class TestChoices {
-  static const String dial = 'dial';
-}
-
 /// The owner base of [Test]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
 /// by a method of its params, and serves each command and
@@ -118,7 +112,7 @@ final class _$TestClient implements ITestClient {
 const testWords = WordSet(
   'test',
   [...TestState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'testWords',
 );
 
@@ -228,7 +222,7 @@ final class _$FlagClient implements IFlagClient {
 const flagWords = WordSet(
   'flag',
   [...FlagState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'flagWords',
 );
 
@@ -316,6 +310,6 @@ final class _$KnobWordsClient implements IKnobWordsClient {
 const knobWordsWords = WordSet(
   'knob',
   [],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'knobWordsWords',
 );

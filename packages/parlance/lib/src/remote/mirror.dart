@@ -80,7 +80,7 @@ final class RegistryMirror {
   Stream<void> get changes => _changes.stream;
 
   /// The catalog came: first after following, and on every change of it
-  /// (descriptors or entities).
+  /// (descriptors or aliases).
   Stream<void> get catalogChanges => _catalogChanges.stream;
 
   Object? read(String state, {String? key}) => _states[canonical(state)]?[key];
@@ -233,9 +233,7 @@ final class RegistryMirror {
       unavailable = Map<String, String>.from(
         json['unavailable'] as Map? ?? const {},
       );
-      for (final k in json['kinds'] as List? ?? const []) {
-        (k as Map)['name']! as String;
-      }
+
       if (json['aliases'] case final a?) Map<String, String>.from(a as Map);
     } on Object catch (e) {
       throw FormatException('a catalog this side cannot read: $e');
@@ -310,16 +308,6 @@ final class RegistryMirror {
         // the copy follows again from its first item, though nothing may
         // have happened since to send.
         if (_epoch != null && json['epoch'] == _epoch) _synced = true;
-      case RemoteChoices(:final name, :final json):
-        // The choices of one name, in their place among the rest (the
-        // catalog's `kinds`); the rest of the catalog stays as it was.
-        final choices = [
-          for (final c in _catalog['kinds'] as List? ?? const [])
-            if ((c as Map)['name'] != name) c else ?json,
-        ];
-        if (json != null && !choices.contains(json)) choices.add(json);
-        _catalog = {..._catalog, 'kinds': choices};
-        _catalogChanges.add(null);
       case RemoteSnapshot(:final snapshot, :final subscription):
         _subscription = subscription;
         if (_epoch case final was? when was != snapshot.epoch) {

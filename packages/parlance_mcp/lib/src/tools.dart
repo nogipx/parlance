@@ -11,7 +11,7 @@ happened). A state is written by its owner only; a command asks the owner.
 
 How to work:
 - describe first: the commands you may call (their params, whether each
-  can run now), the states, the facts, and the entities a param may name.
+  can run now), the states and the facts.
 - read tells the states now; recent_facts what happened lately; why tells
   why a state is as it is (its last change, on whose behalf, and the calls
   that led to it).
@@ -62,8 +62,8 @@ Future<List<McpTool>> parlanceTools(
       name: 'describe',
       description:
           'The words of the parlance: commands you may call (their '
-          'params, whether each can run now), states, facts, '
-          'and the entities a param may name. prefix narrows it to names '
+          'params, whether each can run now), states and facts. '
+          'prefix narrows it to names '
           'that start so.',
       properties: {
         'prefix': {'type': 'string'},
@@ -101,26 +101,6 @@ Future<List<McpTool>> parlanceTools(
             for (final f in cat.facts)
               if (keep(f)) {'name': f['name'], 'type': cat.schema(f['type'])},
           ],
-          'entities': {
-            for (final e in cat.kinds.entries)
-              e.key: [
-                for (final x in e.value)
-                  // One that tells the type of the value it takes: with it,
-                  // as JSON Schema.
-                  if ((x['meta'] as Map?)?['type']
-                      case final Map<Object?, Object?> t)
-                    {
-                      'id': x['id'],
-                      'label': x['label'],
-                      'takes': {
-                        ...cat.schema(t),
-                        if (t['format'] case final String f) 'format': f,
-                      },
-                    }
-                  else
-                    '${x['id']} (${x['label']})',
-              ],
-          },
           // Old names of words: they still work; use the new one.
           if (cat.aliases case final Map<Object?, Object?> a when a.isNotEmpty)
             'renamed': a,
@@ -258,7 +238,7 @@ Future<List<McpTool>> parlanceTools(
 
 /// The catalog as one run of a tool sees it, derived from
 /// [IRawParticipant.describe]: the words, what the agent may call, what it
-/// may not read or hear, the entities a param may name, and what cannot
+/// may not read or hear, and what cannot
 /// run now.
 final class _Catalog {
   _Catalog(Map<String, Object?> d)
@@ -266,13 +246,6 @@ final class _Catalog {
         for (final x in d['descriptors'] as List? ?? const [])
           (x as Map).cast<String, Object?>(),
       ],
-      kinds = {
-        for (final k in d['kinds'] as List? ?? const [])
-          (k as Map)['name'] as String: [
-            for (final e in k['entities'] as List? ?? const [])
-              (e as Map).cast<String, Object?>(),
-          ],
-      },
       access = (d['access'] as Map?)?.cast<String, Object?>() ?? const {},
       unavailable =
           (d['unavailable'] as Map?)?.cast<String, Object?>() ?? const {},
@@ -281,7 +254,6 @@ final class _Catalog {
       dedupWindowMs = d['dedupWindowMs'];
 
   final List<Map<String, Object?>> descriptors;
-  final Map<String, List<Map<String, Object?>>> kinds;
   final Map<String, Object?> access;
   final Map<String, Object?> unavailable;
   final Map<Object?, Object?>? aliases;
@@ -308,9 +280,9 @@ final class _Catalog {
       if (f['is'] == 'fact' && !unreadable.contains(f['name'])) f,
   ];
 
-  /// The JSON Schema of a value of [type]; a ref lists the entities there are.
+  /// The structural JSON Schema of a value of [type].
   Map<String, Object?> schema(Object? type) =>
-      jsonSchema(ValueType.fromJson(type), kinds: kinds);
+      jsonSchema(ValueType.fromJson(type));
 }
 
 /// A tool of one command. Whether it can run now is not in its

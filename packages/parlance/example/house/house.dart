@@ -68,12 +68,6 @@ final class Devices {
 /// sets follows from its call: no cause is written.
 final class Home extends HouseOwnerBase {
   Home(this.devices) {
-    // The rooms there are, for an agent or an editor to choose from; one
-    // that goes, goes of the lights too.
-    choices(
-      name: HouseChoices.room,
-      list: () => [for (final id in devices.lights.keys) Choice(id)],
-    );
     // What the devices say now: the house's devices are its model, so it
     // follows them, as one tick with its group; when a device changed by
     // hand too, so nobody has to call `sync` on its participant.
@@ -96,6 +90,7 @@ final class Home extends HouseOwnerBase {
 
   @override
   void setLight({required String room, required bool on}) {
+    _requireRoom(room);
     devices.lights[room] = on;
     light.set(room, on);
   }
@@ -132,14 +127,28 @@ final class Home extends HouseOwnerBase {
   ];
 
   @override
-  Stream<num> temperatureHistory({required String room}) =>
-      Stream.fromIterable(List<num>.of(devices.temperatureReadings[room]!));
+  Stream<num> temperatureHistory({required String room}) {
+    _requireRoom(room);
+    return Stream.fromIterable(
+      List<num>.of(devices.temperatureReadings[room]!),
+    );
+  }
 
   @override
-  Stream<num> temperatureSamples({required String room}) =>
-      devices.samples(room);
+  Stream<num> temperatureSamples({required String room}) {
+    _requireRoom(room);
+    return devices.samples(room);
+  }
+
+  void _requireRoom(String room) {
+    if (!devices.lights.containsKey(room)) failCall('no room $room');
+  }
 
   void _pull() {
+    // The keyed state is also the discoverable set of room IDs.
+    for (final room in light.keys.toList()) {
+      if (!devices.lights.containsKey(room)) light.remove(room);
+    }
     for (final MapEntry(:key, :value) in devices.lights.entries) {
       light.set(key, value);
     }

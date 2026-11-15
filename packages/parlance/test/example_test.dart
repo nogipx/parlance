@@ -21,7 +21,7 @@ void main() {
           'started by house.set_light by resident/ann',
       'answering house.set_light {room: kitchen, on: true} by resident/ann',
       'bob, a guest, sets the heating: refused (notPermitted)',
-      'ann lights a room there is not: refused (invalidParams)',
+      'ann lights a room there is not: no room attic',
       'for bob: house.set_heat notPermitted, house.set_light ready, '
           'visit.guests missing',
       'an agent unlocks at night: refused (denied by home@house#night-door)',

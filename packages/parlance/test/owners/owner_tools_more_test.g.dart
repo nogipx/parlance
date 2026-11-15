@@ -135,7 +135,7 @@ final class _$DialClient implements IDialClient {
 const dialWords = WordSet(
   'dial',
   [...DialCommand.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'dialWords',
 );
 
@@ -226,7 +226,7 @@ final class _$RulesClient implements IRulesClient {
 const rulesWords = WordSet(
   'rules',
   [],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'rulesWords',
 );
 
@@ -353,7 +353,7 @@ final class _$BellClient implements IBellClient {
 const bellWords = WordSet(
   'bell',
   [...BellFact.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'bellWords',
 );
 
@@ -383,7 +383,7 @@ enum LampsCommand<P, R> implements ICommandWord<P, R> {
   drop<LampsDrop, void>(
     'lamps.drop',
     RecordShape<LampsDrop>(
-      {'bulb': Part(PlainShape(ChoiceType('bulb')))},
+      {'bulb': Part(PlainShape(TextType()))},
       to: _$LampsDropTo,
       from: _$LampsDropFrom,
       get: _$LampsDropAt,
@@ -398,12 +398,6 @@ enum LampsCommand<P, R> implements ICommandWord<P, R> {
   final RecordShape<P> params;
   @override
   final Shape<R>? returns;
-}
-
-/// The kinds of choices [Lamps] speaks of: what an owner gives by
-/// `choices(LampsChoices.bulb, ...)`.
-abstract final class LampsChoices {
-  static const String bulb = 'bulb';
 }
 
 /// The owner base of [Lamps]: it defines every word, keeps what
@@ -518,7 +512,7 @@ final class _$LampsClient implements ILampsClient {
 const lampsWords = WordSet(
   'lamps',
   [...LampsState.values, ...LampsCommand.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'lampsWords',
 );
 

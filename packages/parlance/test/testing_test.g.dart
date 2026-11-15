@@ -117,7 +117,7 @@ final class _$WeatherClient implements IWeatherClient {
 const weatherWords = WordSet(
   'weather',
   [...WeatherState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'weatherWords',
 );
 
@@ -246,7 +246,7 @@ final class _$HeaterClient implements IHeaterClient {
 const heaterWords = WordSet(
   'heater',
   [...HeaterCommand.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'heaterWords',
 );
 
@@ -413,7 +413,7 @@ final class _$ThermostatClient implements IThermostatClient {
 const thermostatWords = WordSet(
   'thermostat',
   [...ThermostatState.values, ...ThermostatFact.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'thermostatWords',
 );
 
@@ -439,12 +439,6 @@ enum LampState<T> implements IStateWord<T> {
   final Shape<T> shape;
   @override
   final String? key;
-}
-
-/// The kinds of choices [Lamp] speaks of: what an owner gives by
-/// `choices(LampChoices.room, ...)`.
-abstract final class LampChoices {
-  static const String room = 'room';
 }
 
 /// The owner base of [Lamp]: it defines every word, keeps what
@@ -540,6 +534,6 @@ final class _$LampClient implements ILampClient {
 const lampWords = WordSet(
   'lamp',
   [...LampState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'lampWords',
 );

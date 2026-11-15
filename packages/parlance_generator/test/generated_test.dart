@@ -121,7 +121,6 @@ void main() {
   test('commands take their params, defaults filled and bounds held', () async {
     final played = <PlayerPlay>[];
     GeneratedWords(p.raw).state(PlayerState.volume).define();
-    p.raw.addChoices(Choices('speaker', list: () => [Choice('left')]));
     GeneratedWords(
       p.raw,
     ).command(PlayerCommand.play).serve((params) => played.add(params));
@@ -203,8 +202,8 @@ void main() {
     for (final text in ['a', 'x' * 41]) {
       final v = (text: text, limit: null);
       expect(
-        why(() => search.check(v, r)),
-        why(() => search.type.check(search.toJson(v), r)),
+        why(() => search.check(v)),
+        why(() => search.type.check(search.toJson(v))),
       );
     }
     expect(PlayerQuery.search.params.keptAsIs, isTrue);
@@ -340,10 +339,6 @@ void main() {
       expect(asAnn.raw.readAll('player.volume'), isEmpty);
       deck.volume.set(7);
       expect(GeneratedWords(asAnn.raw).stateOf(PlayerState.volume).value, 7);
-    });
-
-    test('the choices its words name are constants, for an owner', () {
-      expect(PlayerChoices.speaker, 'speaker');
     });
 
     test('keyed states, set and removed by key', () async {

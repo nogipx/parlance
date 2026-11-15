@@ -28,15 +28,14 @@ abstract class Bell {
   void rang({required String who});
 }
 
-/// Lamps of bulbs: which are lit, by bulb; a bulb dropped goes of them by
-/// itself, as a choice and as a key.
+/// Lamps expose their bulbs through their keyed state; the owner validates IDs.
 @Vocabulary('lamps')
 abstract class Lamps {
   @StateWord('lit', keyOf: 'bulb')
   bool get lit;
 
   @CommandWord('drop', callers: Callers.anyone)
-  void drop({@ChoiceOf('bulb') required String bulb});
+  void drop({required String bulb});
 }
 
 final class _Dial extends DialOwnerBase {
@@ -88,13 +87,7 @@ final class _Bell extends BellOwnerBase {
 }
 
 final class _Lamps extends LampsOwnerBase {
-  _Lamps({bool listed = true}) {
-    if (listed) {
-      choices(
-        name: LampsChoices.bulb,
-        list: () => [for (final b in bulbs) Choice(b)],
-      );
-    }
+  _Lamps() {
     follow(
       pull: () {
         for (final b in bulbs) {
@@ -107,42 +100,44 @@ final class _Lamps extends LampsOwnerBase {
   final List<String> bulbs = ['a', 'b'];
 
   @override
-  void drop({required String bulb}) => bulbs.remove(bulb);
+  void drop({required String bulb}) {
+    if (!bulbs.remove(bulb)) failCall('no bulb $bulb');
+    lit.remove(bulb);
+  }
 }
 
 void main() {
-  test('a choice that went goes of the keyed states by its kind, with '
-      'no one removing it', () async {
-    final r = Host();
-    addTearDown(r.dispose);
-    final lamps = _Lamps();
-    r.participant(const Principal('lamps'), owners: [lamps]);
-    final ann = r.participant(const Principal('user', 'ann'));
-    expect(GeneratedWords(ann).keyedOf(LampsState.lit).keys, {'a', 'b'});
-
-    expect(
-      await GeneratedWords(ann).command(LampsCommand.drop).call((bulb: 'b')),
-      isA<CallDone<void>>(),
-    );
-    await ann.settle();
-    expect(GeneratedWords(ann).keyedOf(LampsState.lit).keys, {'a'});
-    expect(lamps.lit.keys, ['a']);
-    final gone = await GeneratedWords(
-      ann,
-    ).command(LampsCommand.drop).call((bulb: 'b'));
-    expect(gone.why, contains('no bulb b'));
-  });
-
-  test('a ref to choices no one gives says so', () async {
-    final r = Host();
-    addTearDown(r.dispose);
-    r.participant(const Principal('lamps'), owners: [_Lamps(listed: false)]);
-    final ann = r.participant(const Principal('user', 'ann'));
-    final r1 = await GeneratedWords(
-      ann,
-    ).command(LampsCommand.drop).call((bulb: 'a'));
-    expect(r1.why, contains("choices(name: 'bulb', list: ...)"));
-  });
+  for (final across in [false, true]) {
+    test('an owner validates IDs and removes its keyed values '
+        '(across: $across)', () async {
+      final host = TestHost();
+      addTearDown(host.dispose);
+      final lamps = _Lamps();
+      if (across) {
+        final p = await host.join(
+          const Principal('lamps'),
+          vocabularies: [lampsWords],
+        );
+        await p.attach([lamps]);
+      } else {
+        host.participant(const Principal('lamps'), owners: [lamps]);
+      }
+      await host.settle();
+      final ann = host.participant(const Principal('user', 'ann'));
+      final words = GeneratedWords(ann);
+      expect(words.keyedOf(LampsState.lit).keys, {'a', 'b'});
+      expect(
+        await words.command(LampsCommand.drop).call((bulb: 'b')),
+        isA<CallDone<void>>(),
+      );
+      await host.settle();
+      expect(words.keyedOf(LampsState.lit).keys, {'a'});
+      final gone = await words.command(LampsCommand.drop).call((bulb: 'b'));
+      expect(gone, isA<CallFailed>());
+      expect(gone.why, 'no bulb b');
+      expect(words.keyedOf(LampsState.lit).keys, {'a'});
+    });
+  }
 
   test('a fact said once by its id is said once, however often it '
       'comes', () async {

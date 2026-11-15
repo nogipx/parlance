@@ -107,12 +107,6 @@ enum DeckFact<T> implements IFactWord<T> {
   final Shape<T> shape;
 }
 
-/// The kinds of choices [Deck] speaks of: what an owner gives by
-/// `choices(DeckChoices.channel, ...)`.
-abstract final class DeckChoices {
-  static const String channel = 'channel';
-}
-
 /// The owner base of [Deck]: it defines every word, keeps what
 /// the owner set of each state and writes it, says each fact
 /// by a method of its params, and serves each command and
@@ -391,7 +385,7 @@ const deckWords = WordSet(
     ...DeckQuery.values,
     ...DeckFact.values,
   ],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'deckWords',
 );
 

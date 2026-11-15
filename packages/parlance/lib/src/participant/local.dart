@@ -151,7 +151,7 @@ typedef EndSession = void Function(String why, {required bool tell});
 /// Takes [p] for a session to serve (`serve`): one participant, one
 /// session, and only a new one, so the session owns all it has. Refused
 /// for one served already, or one that did anything here: its words,
-/// guards, choices or owners would go with the session. [end] ends
+/// guards or owners would go with the session. [end] ends
 /// the session, when a new one of the same principal takes its place
 /// ([Participants.participant]). Not exported.
 void takeForServing(LocalParticipant p, {required EndSession end}) {
@@ -222,8 +222,6 @@ final class LocalParticipant implements IRawParticipant {
   /// Its commands and queries with a whyNot.
   final Set<String> _checked = {};
 
-  /// The names of the choices it gives.
-  final Set<String> _choices = {};
   bool _disposed = false;
   bool _served = false;
 
@@ -635,25 +633,6 @@ final class LocalParticipant implements IRawParticipant {
     for (final c in _checked) {
       _r.whyNotChanged(c);
     }
-  }
-
-  @override
-  IHandle addChoices(Choices choices) {
-    _live();
-    final h = _r.addChoices(choices);
-    _choices.add(choices.name);
-    return _keepDoing(() {
-      _choices.remove(choices.name);
-      h.dispose();
-    });
-  }
-
-  @override
-  void choicesChanged(String name) {
-    if (!_choices.contains(name)) {
-      throw NotPermitted('$who gives no choices of $name');
-    }
-    _r.choicesChanged(name);
   }
 
   @override

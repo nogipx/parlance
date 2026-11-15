@@ -18,12 +18,6 @@ final class DescriptorRemoved extends CatalogChange {
   final Descriptor descriptor;
 }
 
-/// The choices of [name] came, went or changed.
-final class ChoicesChanged extends CatalogChange {
-  const ChoicesChanged(this.name);
-  final String name;
-}
-
 /// A word's old name came or went (SPEC §6.4).
 final class AliasChanged extends CatalogChange {
   const AliasChanged(this.alias);

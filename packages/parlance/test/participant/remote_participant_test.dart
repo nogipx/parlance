@@ -343,20 +343,6 @@ void main() {
     await sub.cancel();
   });
 
-  test('it keeps a kind of entities and tells when they change', () async {
-    final p = await join();
-    final names = ['tom'];
-    p.addChoices(
-      Choices('kitten', list: () => [for (final n in names) Choice(n)]),
-    );
-    await p.flush();
-    expect(r.hasChoice('kitten', 'tom'), isTrue);
-    names.add('ivy');
-    p.choicesChanged('kitten');
-    await p.flush();
-    expect(r.hasChoice('kitten', 'ivy'), isTrue);
-  });
-
   test('it speaks for another only when the host lets it', () async {
     final p = await join(
       rights: ParticipantRights(

@@ -356,7 +356,10 @@ void main() {
           f.owner.whenAttached((p) => p.raw.whyNotMayHaveChanged());
           await f.producer.settle();
           await f.consumer.settle();
-          expect(f.client.status(DataServerStream.numbers), isA<WordUnavailable>());
+          expect(
+            f.client.status(DataServerStream.numbers),
+            isA<WordUnavailable>(),
+          );
           await expectLater(
             f.client.numbers(start: 0),
             emitsError(failure(StreamFailureCode.unavailable)),

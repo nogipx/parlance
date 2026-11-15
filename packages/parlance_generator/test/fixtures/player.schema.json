@@ -141,8 +141,7 @@
         },
         "on": {
           "type": {
-            "type": "ref",
-            "kind": "speaker"
+            "type": "text"
           },
           "optional": true
         }

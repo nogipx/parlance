@@ -7,10 +7,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
 - **Name** (§1): a word's address, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first word is the owner's vocabulary (§22.1); ownership is by handle, not by name.
 - **Key** (§1): the entity id a keyed state's value belongs to (`kitchen` in `house.light[kitchen]`).
-- **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `ref`, `list`, `object`, `map`, `nullable`, `oneOf`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
-- **`ref`** (§2): a value naming an entity of a kind; valid while the kind lists it.
+- **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `list`, `object`, `map`, `nullable`, `oneOf`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
 - **Custom type** (§2): a host's own checker under a name; the package never reads it.
-- **Choices**, **choice** (§3): what keys and `ChoiceType` values point at, for whoever asks the registry to choose from. An owner gives them by `choices(name:, list: () => [Choice(id, label:, meta:)])`; underneath, `Choices(name, list:)` given by `addChoices`, and `choicesChanged(name)` when the list changes (the raw API). The wire still says a kind and its entities (`kinds`, `ref`).
 - **`meta`** (§3, §6): what else the host tells of an entity or a word (a label, a unit, the type of value an entity takes), for editors and agents.
 
 ## Core
@@ -55,7 +53,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Emit handle** (§6.3): what says a fact (`RawFactSayer`, typed `FactSayerOf<T>`).
 - **Producer** (§6.3, §14): who says a fact: its owner, the one that defined it.
 - **Dedup window** (§6.3, §9): how long an id answers its first message: a fact seen again is dropped, a call seen again answers the first result.
-- **Catalog** (§6.4): the descriptors and entity kinds there are now; changes at runtime (`catalogChanges`).
+- **Catalog** (§6.4): the descriptors there are now; changes at runtime (`catalogChanges`).
 - **`describe`**, **`describeFor`** (§6.4, §14): the catalog as JSON; for a principal, with what it may call (`access`), what cannot run now (`unavailable`) and what it may not read (`unreadable`).
 - **Word status** (§6.5): whether a principal can use a word now: `WordMissing`, `WordNotPermitted`, `WordUnavailable(why)`, `WordReady`; `statusOf`, `statusChanges`, and the same on a view.
 - **Alias**, **old name** (§6.4): a renamed word's former name, standing for it everywhere (`alias(old, now)`, `canonical(name)`, `aliases` in `describe`); not a word itself.
@@ -96,7 +94,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **IStateWord<T>**, **ICommandWord<P, R>**, **IFactWord<T>**: a word's name with its Dart types; a host's enum of its words implements them, so no name or param key is typed twice.
 - **Shape**: how a Dart value is checked, kept and told as JSON, and the registry type it gives: `PlainShape`, `EnumShape`, `ListShape`, `MapShape`, `NullableShape`, `RecordShape` (an object as a record, its fields read by place with `get`), `UnionShape` (one of several objects as a sealed class), `JsonValue` (JSON itself). Its `check`, `equals` and `weigh` do to a Dart value what its type does to the value's JSON (§18).
 - **Kept as it is** (§18): a word a typed owner in this process defines is kept as its Dart value, JSON made only when asked (by name, across a connection, the journal); `keptAsIs` false for a class that serializes itself. `readAs`, `watchAs`, `factsAs`, `callAs` read, hear and call as a shape has the values.
-- **`was`, `checkedAlone`** (§18): a write is checked against the value kept before; what is the same of it passes unvisited when its check asks nothing of the registry.
+- **`was`** (§18): a write is checked against the value kept before; what is the same of it passes unvisited; checks depend only on the value.
 - **Part**: a field of a `RecordShape`: its shape, optional or default, description.
 - **`RecordShape.none`**: the params of a command that takes none.
 - **Typed handles**: what `GeneratedWords` gives (`GeneratedState`, `GeneratedCommand`, `GeneratedQuery`, `GeneratedFact`) and what they give (`IStateWriterOf<T>`, `IFactSayerOf<T>`), a client's reads (`IStateOf`, `IKeyedOf`, `IFactOf`) and `Fact<T>`. Nothing else is typed.
@@ -113,7 +111,6 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
 - **Vocabulary** (§23): a module's words as an abstract class, `@Vocabulary(name)`, its name the first word of theirs, one owner's; `parlance_generator` makes its typed enums. `schemaOf` / `schemaBreaks`: the schema it keeps and what changed of it.
-- **`choices`** (was `trackKind`): an owner tells which of a kind there are now, for agents and editors to choose from and `@ChoiceOf` to hold to; listed again on its own, and what went goes of its keyed states, whose keyed values the owner removes.
 - **`listen`**: a subscription that lives while the owner is attached, for what its work reports by itself.
 - **`failCall(why)`**: ends a call `failed` with the owner's reason; refusals with a code come only from the registry's stages.
 
@@ -137,8 +134,8 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **GeneratedWords** (§23): the one door the generated owner base and client reach the words by, `GeneratedWords(participant)` (`GeneratedWords.of(owner)` for an owner's client); the generator's contract, not a way to write by hand. It gives `GeneratedState` and `GeneratedFact` (`define`), `GeneratedCommand` (`serve`, `call`) and `GeneratedQuery` (`serve`, `ask`), and the reads of a client (`stateOf`, `keyedOf`, `factOf`, `status`). The only typed way to a word: a tool with words named at run time takes it too.
 - **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
 - **`ProtocolMismatch`**, **`HostUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
-- **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, choices, calls in flight; on by default, `unbounded` for a trusted part; past one, that op is refused (`resourceExhausted`).
-- **Protocol feature** (§14): a name the host lists in `describe` for what it speaks beyond the major (`parlanceFeatures`: `built`, `kinds`; a client tells the host those it speaks in its `feed` request); a participant uses one only when listed, and `requires` the ones it cannot do without. A name never changes its meaning.
+- **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, calls in flight; on by default, `unbounded` for a trusted part; past one, that op is refused (`resourceExhausted`).
+- **Protocol feature** (§14): a name the host lists in `describe` for what it speaks beyond the major (`parlanceFeatures`: `built`; a client tells the host those it speaks in its `feed` request); a participant uses one only when listed, and `requires` the ones it cannot do without. A name never changes its meaning.
 
 ## Agents (§16)
 

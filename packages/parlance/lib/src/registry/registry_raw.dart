@@ -158,24 +158,6 @@ extension RawRegistry on Registry {
     return why;
   }
 
-  /// Takes [choices] (SPEC §3); withdraw them with the handle.
-  IHandle addChoices(Choices choices) {
-    if (_choices.containsKey(choices.name)) {
-      throw StateError('the choices of ${choices.name} exist');
-    }
-    _choices[choices.name] = choices;
-    _announce(ChoicesChanged(choices.name));
-    return Disposer(() {
-      if (_choices[choices.name] == choices) {
-        _choices.remove(choices.name);
-        _announce(ChoicesChanged(choices.name));
-      }
-    });
-  }
-
-  /// The choices of [name] changed.
-  void choicesChanged(String name) => _announce(ChoicesChanged(name));
-
   /// Defines a state; the returned writer is its only write handle.
   ///
   /// Given a [shape] that keeps its values as they are, the registry keeps

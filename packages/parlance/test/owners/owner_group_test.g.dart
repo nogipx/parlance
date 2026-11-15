@@ -111,7 +111,7 @@ final class _$AClient implements IAClient {
 const aWords = WordSet(
   'a',
   [...AState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'aWords',
 );
 
@@ -220,7 +220,7 @@ final class _$BClient implements IBClient {
 const bWords = WordSet(
   'b',
   [...BState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'bWords',
 );
 
@@ -329,6 +329,6 @@ final class _$CClient implements ICClient {
 const cWords = WordSet(
   'c',
   [...CState.values],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'cWords',
 );

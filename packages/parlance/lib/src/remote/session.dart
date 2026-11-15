@@ -156,12 +156,11 @@ final class RemoteSession extends ParlanceContractPeer
   final SessionLimits limits;
 
   /// The bytes of each value it holds, by state and key; of each word's
-  /// descriptor; of each kind's entities; and of the payloads it said, which
+  /// descriptor; and of the payloads it said, which
   /// are not given back while the session lives. Their sum is what
   /// [SessionLimits.stateBytes] bounds.
   final Map<String, Map<String?, int>> _bytes = {};
   final Map<String, int> _wordBytes = {};
-  final Map<String, int> _kindBytes = {};
   int _bytesHeld = 0;
 
   /// Refuses what would put the session past [SessionLimits.stateBytes];
@@ -224,13 +223,6 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// Why each of its commands cannot run now, as the participant told.
   final Map<String, String> _unavailable = {};
-
-  /// The choices it gives, as it sent them last.
-  final Map<
-    String,
-    ({IHandle handle, List<Choice> list, LocalParticipant acting})
-  >
-  _choices = {};
 
   /// Its guards, asked across the connection.
   final Map<String, IHandle> _guards = {};
@@ -813,19 +805,6 @@ final class RemoteSession extends ParlanceContractPeer
         };
       case 'available':
         _available(m['command']! as String, m['why'] as String?, acting);
-      case 'kind':
-        _choicesOf(
-          m['name']! as String,
-          m['entities'] as List? ?? const [],
-          acting,
-        );
-      case 'unkind':
-        if (_choices[m['name']] case final c?) {
-          _mayTouch(c.acting.who, acting, 'the choices of ${m['name']}');
-          _choices.remove(m['name']);
-          _bytesHeld -= _kindBytes.remove(m['name']) ?? 0;
-          c.handle.dispose();
-        }
       case 'guard':
         _guard(m['id']! as String, acting: acting);
       case 'unguard':
@@ -1057,57 +1036,6 @@ final class RemoteSession extends ParlanceContractPeer
     registry.whyNotChanged(command);
   }
 
-  /// The choices of [name], as the wire says them ([entities]).
-  void _choicesOf(
-    String name,
-    List<Object?> entities, [
-    LocalParticipant? acting,
-  ]) {
-    if (limits.choices case final max?) {
-      final others = [
-        for (final MapEntry(:key, :value) in _choices.entries)
-          if (key != name) value.list.length,
-      ].fold(0, (a, b) => a + b);
-      if (others + entities.length > max) {
-        _exhausted(
-          'the session has at most $max choices: $name would '
-          'make it ${others + entities.length}',
-        );
-      }
-    }
-    final weight = [
-      for (final e in entities) jsonWeight(e),
-    ].fold(0, (a, b) => a + b);
-    final had = _kindBytes[name] ?? 0;
-    _chargeBytes(weight - had, 'the choices of $name');
-    final list = [
-      for (final e in entities.cast<Map<Object?, Object?>>())
-        Choice(
-          e['id']! as String,
-          label: e['label'] as String?,
-          meta: _obj(e['meta']),
-        ),
-    ];
-    if (_choices[name] case final c?) {
-      _choices[name] = (handle: c.handle, list: list, acting: c.acting);
-      _kindBytes[name] = weight;
-      _bytesHeld += weight - had;
-      _permitted(() => c.acting.choicesChanged(name));
-      return;
-    }
-    final p = acting ?? _p;
-    try {
-      final handle = p.addChoices(
-        Choices(name, list: () => _choices[name]?.list ?? const []),
-      );
-      _choices[name] = (handle: handle, list: list, acting: p);
-      _kindBytes[name] = weight;
-      _bytesHeld += weight;
-    } on StateError catch (e) {
-      throw RpcStatusException(RpcStatus.alreadyExists, e.message);
-    }
-  }
-
   /// A guard of the session's or one of its owners', on its commands only, asked in
   /// its turn: the participant judges the call. Known as `<acting>/<id>`.
   void _guard(String id, {LocalParticipant? acting}) {
@@ -1292,7 +1220,6 @@ final class RemoteSession extends ParlanceContractPeer
     _facts.clear();
     _states.clear();
     _definedBy.clear();
-    _choices.clear();
     _guards.clear();
     _unavailable.clear();
     _listenTo(const {});
@@ -1327,7 +1254,6 @@ final class SessionLimits {
     this.stateBytes = 1 << 20,
     this.words = 256,
     this.guards = 16,
-    this.choices = 1000,
     this.calls = 16,
     this.subscription = 4096,
     this.backlog = 256,
@@ -1340,7 +1266,6 @@ final class SessionLimits {
     stateBytes: null,
     words: null,
     guards: null,
-    choices: null,
     calls: null,
     subscription: null,
     backlog: null,
@@ -1348,7 +1273,7 @@ final class SessionLimits {
 
   /// About how many bytes of the host's memory the part across may hold
   /// here, as JSON, together: the values of its states, its words'
-  /// descriptors, its kinds' entities, and the payloads it emits. A keyed
+  /// descriptors and the payloads it emits. A keyed
   /// state it never empties stops here; so does a word it never withdraws
   /// or a payload stream that never ends. Of payloads the bytes count for
   /// the session's life, though the host's own retention may drop them
@@ -1360,10 +1285,6 @@ final class SessionLimits {
 
   /// How many guards it adds: each is asked of every call there is.
   final int? guards;
-
-  /// How many entities its kinds have together: they go in the catalog
-  /// every session gets.
-  final int? choices;
 
   /// How many of its calls wait for an answer at once; one past them is
   /// refused (`unavailable`) and runs nowhere.

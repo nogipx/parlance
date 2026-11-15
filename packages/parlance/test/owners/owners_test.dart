@@ -11,7 +11,7 @@ part 'owners_test.g.dart';
 
 const me = Principal('host');
 
-/// Dials and their levels: one keyed state, the choices of its keys.
+/// Dials and their levels: one keyed state, with explicit cleanup by its owner.
 @Vocabulary('test')
 abstract class Test {
   @StateWord('level', keyOf: 'dial')
@@ -33,10 +33,6 @@ abstract class KnobWords {}
 /// moved.
 final class Dials extends TestOwnerBase {
   Dials({Stream<void>? moved}) {
-    choices(
-      name: TestChoices.dial,
-      list: () => [for (final d in dials.keys) Choice(d)],
-    );
     follow(pull: _pull, on: moved);
   }
 
@@ -45,6 +41,9 @@ final class Dials extends TestOwnerBase {
 
   void _pull() {
     synced++;
+    for (final key in level.keys.toList()) {
+      if (!dials.containsKey(key)) level.remove(key);
+    }
     for (final MapEntry(:key, :value) in dials.entries) {
       level.set(key, value);
     }
@@ -92,28 +91,24 @@ void main() {
     owners.dispose();
     expect(r.stateDescriptor('test.level'), isNull);
     expect(r.stateDescriptor('flag.on'), isNull);
-    expect(r.hasChoices('dial'), isFalse);
   });
 
-  test(
-    'choices announce a change, and what went goes of the keyed state',
-    () async {
-      final dials = Dials();
-      final p = module([dials]);
-      final changes = <CatalogChange>[];
-      r.catalogChanges.listen(changes.add);
-      dials.dials.remove('a');
-      dials.dials['c'] = 3;
-      p.sync();
-      await pumpEventQueue();
-      expect(changes.whereType<ChoicesChanged>().map((c) => c.name), ['dial']);
-      expect(r.readAll('test.level'), {'b': 2, 'c': 3});
-      changes.clear();
-      p.sync();
-      await pumpEventQueue();
-      expect(changes, isEmpty, reason: 'nothing changed');
-    },
-  );
+  test('an owner removes stale keys while following its model', () async {
+    final dials = Dials();
+    final p = module([dials]);
+    final changes = <CatalogChange>[];
+    r.catalogChanges.listen(changes.add);
+    dials.dials.remove('a');
+    dials.dials['c'] = 3;
+    p.sync();
+    await pumpEventQueue();
+    expect(changes, isEmpty, reason: 'values are outside the catalog');
+    expect(r.readAll('test.level'), {'b': 2, 'c': 3});
+    changes.clear();
+    p.sync();
+    await pumpEventQueue();
+    expect(changes, isEmpty, reason: 'nothing changed');
+  });
 
   test('an owner attaches once', () {
     final o = Other();
@@ -215,7 +210,7 @@ void main() {
   });
 
   test('a scope is a participant: going, it leaves nothing of itself, its '
-      'words, values and choices, and others see them missing', () async {
+      'words and values, and others see them missing', () async {
     final outsider = r.participant(const Principal('outsider'));
     final statuses = <WordStatus>[];
     outsider.statusChanges('test.level').listen(statuses.add);
@@ -228,7 +223,6 @@ void main() {
     expect(r.stateDescriptor('test.level'), isNull);
     expect(r.stateDescriptor('flag.on'), isNull);
     expect(r.readAll('test.level'), isEmpty);
-    expect(r.hasChoices('dial'), isFalse);
     expect(statuses.last, const WordMissing());
     // What it writes after it went (code still running then) is not
     // written, and throws nothing.

@@ -282,7 +282,6 @@ Future<void> main() async {
 
 /// Where a whole-document write goes.
 void breakdown() {
-  final r = Registry(onError: (e, _) => throw e);
   final a = makeTask(1000, 1), b = makeTask(1000, 2);
   final type = taskShape.type;
   int t(void Function() f) {
@@ -294,12 +293,12 @@ void breakdown() {
   }
 
   final ja = taskShape.toJson(a);
-  final ca = type.check(ja, r);
+  final ca = type.check(ja);
   final fa = freezeJson(ca);
-  final fb = freezeJson(type.check(taskShape.toJson(b), r));
+  final fb = freezeJson(type.check(taskShape.toJson(b)));
   print(
     'toJson ${t(() => taskShape.toJson(a))} ms, '
-    'check ${t(() => type.check(ja, r))} ms, '
+    'check ${t(() => type.check(ja))} ms, '
     'freeze ${t(() => freezeJson(ca))} ms, '
     'equals ${t(() => jsonEquals(fa, fb))} ms, '
     'fromJson ${t(() => taskShape.fromJson(fa))} ms',

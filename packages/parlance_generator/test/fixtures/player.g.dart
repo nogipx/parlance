@@ -104,7 +104,7 @@ enum PlayerCommand<P, R> implements ICommandWord<P, R> {
           EnumShape(Repeat.values, unknown: Repeat.off),
           defaultValue: 'off',
         ),
-        'on': Part(PlainShape(ChoiceType('speaker')), optional: true),
+        'on': Part(PlainShape(TextType()), optional: true),
       },
       to: _$PlayerPlayTo,
       from: _$PlayerPlayFrom,
@@ -203,12 +203,6 @@ enum PlayerFact<T> implements IFactWord<T> {
   final String name;
   @override
   final Shape<T> shape;
-}
-
-/// The kinds of choices [Player] speaks of: what an owner gives by
-/// `choices(PlayerChoices.speaker, ...)`.
-abstract final class PlayerChoices {
-  static const String speaker = 'speaker';
 }
 
 /// The owner base of [Player]: it defines every word, keeps what
@@ -539,7 +533,7 @@ const playerWords = WordSet(
     ...PlayerQuery.values,
     ...PlayerFact.values,
   ],
-  from: 'parlance_generator',
+  from: 'parlance_generator 0.2.0',
   dartName: 'playerWords',
 );
 

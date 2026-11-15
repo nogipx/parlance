@@ -70,9 +70,9 @@ void main() {
     final (g, h) = RpcChannelTransport.memoryPair();
     final hostEp = RpcPeerEndpoint(transport: h);
     final registry = Registry();
-    final session = registry.participant(const Principal('guest', 'g')).serve(
-      hostEp,
-    );
+    final session = registry
+        .participant(const Principal('guest', 'g'))
+        .serve(hostEp);
     hostEp.start();
     final guestEp = RpcPeerEndpoint(transport: g)..start();
     opened.addAll([hostEp, guestEp]);
@@ -101,11 +101,7 @@ void main() {
         {'id': 1, 'command': 'x', 'params': <String, Object?>{}},
         'id',
       ),
-      'why, state a number': (
-        ParlanceContractNames.why,
-        {'state': 7},
-        'state',
-      ),
+      'why, state a number': (ParlanceContractNames.why, {'state': 7}, 'state'),
       'recent, count text': (
         ParlanceContractNames.recent,
         {'fact': 'f', 'count': 'many'},
@@ -113,7 +109,9 @@ void main() {
       ),
       'subscribe, states mixed': (
         ParlanceContractNames.subscribe,
-        {'states': <Object?>['a', 7]},
+        {
+          'states': <Object?>['a', 7],
+        },
         'states',
       ),
       'set, state a number': (
@@ -175,11 +173,13 @@ void main() {
 
     // Ablation: a semantically bad op through `apply` is still refused the
     // way it always was, per-op.
-    final apply = await caller.apply(const WireJson({
-      'ops': <Object?>[
-        {'op': 'set', 'state': 'no.such', 'value': 1},
-      ],
-    }));
+    final apply = await caller.apply(
+      const WireJson({
+        'ops': <Object?>[
+          {'op': 'set', 'state': 'no.such', 'value': 1},
+        ],
+      }),
+    );
     expect((apply.json['results']! as List).single, isNotEmpty);
   });
 }

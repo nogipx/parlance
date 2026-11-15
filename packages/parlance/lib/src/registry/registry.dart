@@ -97,7 +97,7 @@ final Object _cancelledMark = Object();
 ///
 /// One isolate, one writer: every commit happens here in order, so seq is a
 /// total order. Participants hold handles and never each other.
-final class Registry implements ITypeContext {
+final class Registry {
   /// The library's; [limits] for how much it keeps.
   Registry({
     this.limits = const HostLimits(),
@@ -156,7 +156,6 @@ final class Registry implements ITypeContext {
 
   // --- Catalog ---------------------------------------------------------------
 
-  final Map<String, Choices> _choices = {};
   final Map<String, _StateEntry> _states = {};
   final Map<String, _CommandEntry> _commands = {};
   final Map<String, _FactEntry> _facts = {};
@@ -237,15 +236,11 @@ final class Registry implements ITypeContext {
         }
         _builtAgainst.aliasChanged(alias);
         _aliasWatchers(alias);
-      case ChoicesChanged(:final name):
-        if (_catalogLog.isDebug) {
-          _catalogLog.debug('choices changed', data: {'name': name});
-        }
     }
     if (!_catalog.isClosed) _catalog.add(c);
   }
 
-  /// Additions, removals and changes of choices, in order.
+  /// Word additions, removals and alias changes, in order.
   Stream<CatalogChange> get catalogChanges => _catalog.stream;
 
   final StreamController<String> _availability = StreamController.broadcast();
@@ -271,9 +266,6 @@ final class Registry implements ITypeContext {
     for (final f in _facts.values) f.descriptor,
     for (final s in _streams.values) s.descriptor,
   ];
-
-  /// The choices given, by name.
-  Iterable<Choices> get choices => _choices.values;
 
   /// The descriptor of the state [name]; null for none.
   StateDescriptor? stateDescriptor(String name) =>
@@ -302,13 +294,12 @@ final class Registry implements ITypeContext {
       _facts[canonical(name)]?.descriptor;
 
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
-  /// answers its first result, the descriptors and the choices (`kinds`).
+  /// answers its first result, and the descriptors.
   Map<String, Object?> describe() => {
     'epoch': epoch,
     'seq': seq,
     'dedupWindowMs': limits.dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
-    'kinds': [for (final k in _choices.values) k.toJson()],
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
   };
 
@@ -320,13 +311,6 @@ final class Registry implements ITypeContext {
     for (final s in _streams.values)
       if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
   ];
-
-  @override
-  bool hasChoices(String name) => _choices.containsKey(name);
-
-  @override
-  bool hasChoice(String name, String id) =>
-      _choices[name]?.contains(id) ?? false;
 
   void _checkFree(String name) {
     if (_states.containsKey(name) ||
@@ -453,7 +437,7 @@ final class Registry implements ITypeContext {
     // What is the same of the value kept now passes as it is (SPEC §18).
     final was = e.local.read(key);
     final v = asIs
-        ? e.shape.check(value, this, was: was)
+        ? e.shape.check(value, was: was)
         : _admit(e.shape, value, was);
     e.writer.set(key, v, tag: cause);
   }
@@ -463,14 +447,14 @@ final class Registry implements ITypeContext {
   /// keeps.
   Object? _admit(Shape<Object?> shape, Object? json, [Object? was]) =>
       shape is JsonValue
-      ? shape.check(json, this, was: was)
-      : shape.check(shape.fromJson(shape.type.check(json, this)), this);
+      ? shape.check(json, was: was)
+      : shape.check(shape.fromJson(shape.type.check(json)));
 
   /// [params] as [shape] keeps a call's params: as they are when they
   /// come by that shape, else from their JSON.
   Kept _admitParams(Shape<Object?> shape, Kept params) {
     final v = params.shape != null && identical(params.shape, shape)
-        ? shape.check(params.value, this)
+        ? shape.check(params.value)
         : _admit(shape, params.json);
     return Kept(v, shape is JsonValue ? null : shape);
   }
@@ -691,7 +675,7 @@ final class Registry implements ITypeContext {
     _forget(_seenFacts, (at) => at, now);
     if (_seenFacts.containsKey(id)) return false;
     final v = asIs
-        ? entry!.shape.check(payload, this)
+        ? entry!.shape.check(payload)
         : _admit(entry!.shape, payload);
     cause = _inConversation(cause);
     _converse(id, d.name, cause);
@@ -1088,9 +1072,7 @@ final class Registry implements ITypeContext {
     CallResult<Object?> answered(Object? answer) {
       if (entry.returns case final t?) {
         try {
-          return keptDone(
-            Kept(t.check(answer, this), t is JsonValue ? null : t),
-          );
+          return keptDone(Kept(t.check(answer), t is JsonValue ? null : t));
         } on TypeMismatch catch (e) {
           return CallFailed('returned a wrong value: $e');
         }

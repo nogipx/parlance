@@ -23,9 +23,9 @@ String row(String what, int width, String result) =>
     '${what.padRight(width)}$result';
 
 /// A host: a registry whose studio owns [words] states of its own, a
-/// command answered at once, and a kind of [entities] scenes.
+/// command answered at once.
 final class Host {
-  Host({int words = 0, int entities = 10}) {
+  Host({int words = 0}) {
     final p = r.participant(
       studio,
       vocabularies: [const WordSet.open('studio')],
@@ -50,15 +50,10 @@ final class Host {
       ),
       (c) => c.params['n'],
     );
-    scenes = [for (var i = 0; i < entities; i++) Choice('scene$i')];
-    p.addChoices(Choices('scene', list: () => scenes));
-    this.p = p;
   }
 
   final r = Registry();
-  late final LocalParticipant p;
   late final IStateHandle program;
-  late List<Choice> scenes;
   final List<RpcPeerEndpoint> _ends = [];
 
   /// A guest joined over a channel of its own; [features] stand in for an
@@ -215,73 +210,6 @@ Future<void> fanOut(bool wire, int n) async {
   await host.close();
 }
 
-/// A scene added while [n] guests follow a catalog of [words] words: how
-/// long until every one of them has it, told as the one kind (`kinds`) or
-/// as the whole catalog.
-Future<void> entities(
-  bool wire,
-  int n,
-  int words, {
-  required bool kinds,
-}) async {
-  final host = Host(words: words);
-  final guests = [
-    for (var i = 0; i < n; i++)
-      await host.guest(
-        '$i',
-        wire: wire,
-        features: kinds ? null : const {'built'},
-      ),
-  ];
-  var heard = 0;
-  var wantLen = 0;
-  Completer<void>? all;
-  final subs = [
-    for (final g in guests)
-      g.catalogChanges.listen((_) {
-        final scene = (g.catalog['kinds'] as List).firstWhere(
-          (k) => (k as Map)['name'] == 'scene',
-        );
-        if (((scene as Map)['entities'] as List).length == wantLen &&
-            ++heard == n) {
-          all?.complete();
-        }
-      }),
-  ];
-  Future<void> once() async {
-    host.scenes = [...host.scenes, Choice('scene${host.scenes.length}')];
-    wantLen = host.scenes.length;
-    heard = 0;
-    all = Completer();
-    host.p.choicesChanged('scene');
-    await all!.future;
-  }
-
-  for (var i = 0; i < 5; i++) {
-    await once();
-  }
-  const rounds = 50;
-  final sw = Stopwatch()..start();
-  for (var i = 0; i < rounds; i++) {
-    await once();
-  }
-  print(
-    row(
-      'a scene, $n guests, $words words, '
-          '${kinds ? 'the kind' : 'the catalog'}:',
-      46,
-      '${us(sw.elapsedMicroseconds, rounds)} until every guest has it',
-    ),
-  );
-  for (final s in subs) {
-    await s.cancel();
-  }
-  for (final g in guests) {
-    await g.dispose();
-  }
-  await host.close();
-}
-
 Future<void> main() async {
   for (final wire in [true, false]) {
     print('--- ${wire ? 'wire (encoded)' : 'memory'} ---');
@@ -289,9 +217,6 @@ Future<void> main() async {
     await writes(wire);
     for (final n in [1, 10, 100]) {
       await fanOut(wire, n);
-    }
-    for (final kinds in [true, false]) {
-      await entities(wire, 20, 200, kinds: kinds);
     }
   }
 }

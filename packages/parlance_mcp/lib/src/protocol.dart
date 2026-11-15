@@ -66,7 +66,7 @@ final class McpTool {
       run: (args) async {
         final P typed;
         try {
-          typed = params.fromJson(type.check(args, const _Free()));
+          typed = params.fromJson(type.check(args));
         } on TypeMismatch catch (e) {
           return McpResult.error('$e');
         } on Object catch (e) {
@@ -256,15 +256,4 @@ final class McpSession {
     await _sub.cancel();
     _end();
   }
-}
-
-/// A tool's arguments are checked alone: no kinds or host types to ask.
-final class _Free implements ITypeContext {
-  const _Free();
-
-  @override
-  bool hasChoices(String kind) => true;
-
-  @override
-  bool hasChoice(String kind, String id) => true;
 }

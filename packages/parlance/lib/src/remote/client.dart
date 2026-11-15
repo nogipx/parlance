@@ -37,15 +37,6 @@ final class RemoteCatalog extends RemoteFeed {
   final Map<String, Object?> json;
 }
 
-/// The choices of [name] as they are now ([json]; null: they went), to a
-/// client that speaks the feature `kinds`: the rest of the catalog is as
-/// it was.
-final class RemoteChoices extends RemoteFeed {
-  const RemoteChoices(this.name, this.json);
-  final String name;
-  final Map<String, Object?>? json;
-}
-
 /// An item of the feed this client cannot read ([kind], what it said it
 /// was): a host's defect, not one of a newer protocol, which is skipped.
 final class RemoteMalformed extends RemoteFeed {
@@ -161,10 +152,6 @@ final class ParlanceClient {
 
   static RemoteFeed? _item(WireFeedItem i) => switch (i.kind) {
     'catalog' => RemoteCatalog(i.json),
-    'kind' => RemoteChoices(
-      i.json['name']! as String,
-      (i.json['kind'] as Map?)?.cast<String, Object?>(),
-    ),
     'snapshot' => RemoteSnapshot(
       Snapshot.fromJson(i.json),
       subscription: i.json['subscription'] as int? ?? 0,

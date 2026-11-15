@@ -67,7 +67,7 @@ abstract class Player {
   Future<void> play({
     required Track track,
     Repeat repeat = Repeat.off,
-    @ChoiceOf('speaker') String? on,
+    String? on,
   });
 
   /// Answers how many tracks it skipped.

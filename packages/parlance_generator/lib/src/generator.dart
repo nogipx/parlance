@@ -34,7 +34,6 @@ const _stream = TypeChecker.typeNamed(ServerStreamWord, inPackage: 'parlance');
 const _fact = TypeChecker.typeNamed(FactWord, inPackage: 'parlance');
 const _range = TypeChecker.typeNamed(Range, inPackage: 'parlance');
 const _length = TypeChecker.typeNamed(Length, inPackage: 'parlance');
-const _ref = TypeChecker.typeNamed(ChoiceOf, inPackage: 'parlance');
 const _describe = TypeChecker.typeNamed(Describe, inPackage: 'parlance');
 const _fieldName = TypeChecker.typeNamed(FieldName, inPackage: 'parlance');
 const _default = TypeChecker.typeNamed(Default, inPackage: 'parlance');
@@ -265,13 +264,12 @@ final class _Emitter {
   final bool owner;
   final bool client;
 
-  /// The kinds of choices its words speak of (a keyed state's keys, what
-  /// a `@ChoiceOf` names), and where they first name each, in order.
-  final Map<String, Element> _kindsNamed = {};
+  /// The names of keyed-state parameters and where each is declared.
+  final Map<String, Element> _keysNamed = {};
 
-  /// [kind], named by [on] as a key or a ref.
-  void _named(String kind, Element on) =>
-      _kindsNamed.putIfAbsent(kind, () => on);
+  /// A key parameter name declared by [on].
+  void _keyNamed(String kind, Element on) =>
+      _keysNamed.putIfAbsent(kind, () => on);
 
   String get _c => cls.name!;
 
@@ -401,10 +399,9 @@ final class _Emitter {
     }
     if (facts.isNotEmpty) out.write(_factsEnum(facts));
     for (final s in states) {
-      if (s.key case final k?) _named(k, s.element);
+      if (s.key case final k?) _keyNamed(k, s.element);
     }
-    _checkKinds();
-    if (_kindsNamed.isNotEmpty) out.write(_kindsOf());
+    _checkKeys();
     if (owner) out.write(_ownerBase(states, commands, queries, facts, streams));
     if (client) out.write(_clientOf(states, commands, queries, facts, streams));
     out
@@ -909,40 +906,15 @@ final class _Emitter {
       ? '()'
       : '(${[for (final p in ps) '${p.displayName}: ${p.displayName}'].join(', ')})';
 
-  /// A key's parameter: the kind's name in camel case.
-  String _keyParam(String kind) {
-    final parts = kind.split(RegExp('[._-]'));
-    return parts.first + parts.skip(1).map(_pascal).join();
-  }
-
-  /// Every kind its words name is a name of one word.
-  void _checkKinds() {
-    for (final MapEntry(key: k, value: on) in _kindsNamed.entries) {
+  /// Every key parameter name is one word.
+  void _checkKeys() {
+    for (final MapEntry(key: k, value: on) in _keysNamed.entries) {
       if (isValidName(k) && !k.contains('.')) continue;
       throw InvalidGenerationSourceError(
-        '${on.displayName}: choices "$k" is no name: one word, $_nameRule',
+        '${on.displayName}: key "$k" is no name: one word, $_nameRule',
         element: on,
       );
     }
-  }
-
-  /// `<Class>Choices`: a constant of each name of choices its words name,
-  /// for the owner that gives them.
-  String _kindsOf() {
-    final kinds = [..._kindsNamed.keys];
-    final out = StringBuffer()
-      ..writeln(
-        '/// The kinds of choices [$_c] speaks of: what an owner gives by',
-      )
-      ..writeln('/// `choices(${_c}Choices.${_keyParam(kinds.first)}, ...)`.')
-      ..writeln('abstract final class ${_c}Choices {');
-    for (final k in kinds) {
-      out.writeln('  static const String ${_keyParam(k)} = ${_quote(k)};');
-    }
-    out
-      ..writeln('}')
-      ..writeln();
-    return out.toString();
   }
 
   /// The names an owner base has besides its words: what every Dart
@@ -1404,7 +1376,6 @@ final class _Emitter {
               .firstOrNull;
     final range = note(_range);
     final length = note(_length);
-    final ref = note(_ref);
     final longest = note(_longest);
     final max = length == null
         ? null
@@ -1455,11 +1426,6 @@ final class _Emitter {
     }
     if (t.isDartCoreNum) return 'PlainShape(${bounds('NumType')})';
     if (t.isDartCoreString) {
-      if (ref != null) {
-        final kind = ConstantReader(ref).read('of');
-        _named(kind.stringValue, on);
-        return 'PlainShape(ChoiceType(${_code(kind.objectValue, _quote(kind.stringValue))}))';
-      }
       return 'PlainShape(TextType(${max == null ? '' : 'maxLength: $max'}))';
     }
     if (t case InterfaceType(element: final EnumElement e)) {
@@ -1484,14 +1450,12 @@ final class _Emitter {
     }
     if (t is RecordType) return _recordShape(t, on, where);
     if (t is InterfaceType && t.isDartCoreList) {
-      // `@ChoiceOf` on a list names its items' kind; its other bounds are
-      // the list's.
+      // Collection bounds belong to the list, not its elements.
       final item = _shape(
         t.typeArguments.single,
         on,
         '$where[]',
-        bounded: ref != null,
-        notes: ref == null ? null : [ref],
+        bounded: false,
       );
       return 'ListShape($item${max == null ? '' : ', maxItems: $max'})';
     }

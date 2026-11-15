@@ -115,11 +115,6 @@ final class _ContextualStream extends Stream<Object?> {
   );
 }
 
-/// Where an owner's words are being defined, told of each keyed state
-/// defined there and the choices its keys are of: what goes of them goes
-/// of the state too ([OwnerTools.choices]).
-final Object keyedDefined = Object();
-
 final Object _once = Object();
 
 final class _Once {

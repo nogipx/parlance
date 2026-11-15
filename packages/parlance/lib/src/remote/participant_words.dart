@@ -54,7 +54,7 @@ final class _State implements IStateHandle {
     final c = _p._as(cause, _by);
     _checkKey(key);
     // Refused here, as in the host's process, not later in errors.
-    final v = freezeJson(descriptor.type.check(value, const _Unseen()));
+    final v = freezeJson(descriptor.type.check(value));
     _p._ask({
       'op': 'set',
       'state': descriptor.name,
@@ -138,7 +138,7 @@ final class _Fact implements IFactHandle {
     _p._ask({
       'op': 'emit',
       'fact': descriptor.name,
-      'payload': freezeJson(descriptor.type.check(payload, const _Unseen())),
+      'payload': freezeJson(descriptor.type.check(payload)),
       // Its id is given here, so a fact sent again after a drop is dropped
       // by the host if it took it before.
       'id': id ?? newId(),
@@ -154,19 +154,6 @@ final class _Fact implements IFactHandle {
     if (_p._facts.remove(descriptor.name) == null) return;
     _p._ask({'op': 'undefine', 'name': descriptor.name});
   }
-}
-
-/// What a value is checked against before it is sent: its type, as the
-/// host checks it. Choices are the host's to
-/// know: they pass here, and the host checks them.
-final class _Unseen implements ITypeContext {
-  const _Unseen();
-
-  @override
-  bool hasChoices(String name) => true;
-
-  @override
-  bool hasChoice(String name, String id) => true;
 }
 
 final class _Served extends ParlanceOwnerContractPeer {

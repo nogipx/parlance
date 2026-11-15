@@ -185,12 +185,6 @@ final class _OfOwner implements IRawParticipant {
       _root._addGuard(id, check, who);
 
   @override
-  IHandle addChoices(Choices choices) => _root._addChoices(choices, who);
-
-  @override
-  void choicesChanged(String name) => _root.choicesChanged(name);
-
-  @override
   void whyNotChanged(String command) => _root.whyNotChanged(command);
 
   @override

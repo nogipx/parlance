@@ -3,60 +3,6 @@ import 'ids.dart';
 import 'json.dart';
 import 'types.dart';
 
-/// One of what an owner gives to choose from (`OwnerTools.choices`): its
-/// [id], what people see of it ([label], else the id), and what else a
-/// chooser needs ([meta], JSON: the type of the value it takes...).
-final class Choice {
-  /// Const constructor.
-  const Choice(this.id, {this.label, this.meta = const {}});
-
-  /// What it is called by; the label people see defaults to it.
-  final String id;
-
-  /// What people see of it; null: the id.
-  final String? label;
-
-  /// What else a chooser needs, JSON.
-  final Map<String, Object?> meta;
-
-  /// As `describe` lists it (on the wire, an entity).
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'label': label ?? id,
-    if (meta.isNotEmpty) 'meta': meta,
-  };
-}
-
-/// The choices of [name] there are now: rooms, devices, documents
-/// (SPEC §3), what a `ChoiceType` of [name] holds a value to. On the wire
-/// a kind of entities.
-final class Choices {
-  /// One of [name]: [list] gives them as they are now; [meta] as
-  /// [Choice.meta].
-  Choices(this.name, {required this.list, this.meta = const {}}) {
-    checkName(name, 'choices');
-  }
-
-  /// Its name: what a `ChoiceType` holds a value to.
-  final String name;
-
-  /// The choices there are now.
-  final Iterable<Choice> Function() list;
-
-  /// What else a chooser needs, JSON.
-  final Map<String, Object?> meta;
-
-  /// Whether one of them is [id].
-  bool contains(String id) => list().any((e) => e.id == id);
-
-  /// Its JSON.
-  Map<String, Object?> toJson() => {
-    'name': name,
-    'entities': [for (final e in list()) e.toJson()],
-    if (meta.isNotEmpty) 'meta': meta,
-  };
-}
-
 /// What a principal may do with a command.
 enum Access {
   /// Allowed, nothing said.
@@ -155,8 +101,9 @@ sealed class Descriptor {
       'command' => CommandDescriptor.fromJson(m),
       'query' => QueryDescriptor.fromJson(m),
       'fact' => FactDescriptor.fromJson(m),
-      'serverStream' || 'clientStream' || 'bidiStream' =>
-        DataStreamDescriptor.fromJson(m.cast<String, Object?>()),
+      'serverStream' ||
+      'clientStream' ||
+      'bidiStream' => DataStreamDescriptor.fromJson(m.cast<String, Object?>()),
       final x => throw FormatException('unknown descriptor $x'),
     };
   }
@@ -164,7 +111,7 @@ sealed class Descriptor {
 
 /// A value there is now; one writer (SPEC §6.1).
 final class StateDescriptor extends Descriptor {
-  /// One of [name]: its values are [type], one per choice of [key]
+  /// One of [name]: its values are [type], one per [key] identifier
   /// when keyed; [readers] who may read.
   StateDescriptor(
     String name, {
@@ -188,7 +135,7 @@ final class StateDescriptor extends Descriptor {
   /// What its values must pass.
   final ValueType<Object?> type;
 
-  /// The choices its keys are of, when it holds one value per choice.
+  /// The name of the key parameter; null for an unkeyed state.
   final String? key;
 
   /// Who may read its values, as callers name who may call a command
@@ -199,7 +146,7 @@ final class StateDescriptor extends Descriptor {
   /// registry, read anyway.
   final Callers? readers;
 
-  /// Whether it holds one value per choice of [key].
+  /// Whether it holds one value per [key] identifier.
   bool get keyed => key != null;
 
   @override
@@ -429,10 +376,7 @@ sealed class DataStreamDescriptor extends Descriptor {
 
   /// Rebuilds the same kind with resolved access rules.
   DataStreamDescriptor withAccess(Callers access) =>
-      DataStreamDescriptor.fromJson({
-        ...toJson(),
-        'readers': access.toJson(),
-      });
+      DataStreamDescriptor.fromJson({...toJson(), 'readers': access.toJson()});
 
   /// Parameters fixed for this subscription.
   final RecordType params;

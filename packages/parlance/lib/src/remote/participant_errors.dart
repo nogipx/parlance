@@ -91,7 +91,7 @@ enum ParticipantErrorCode {
   /// session another's.
   notPermitted,
 
-  /// What it defined is there already: a word, a guard, choices.
+  /// What it defined is there already: a word or a guard.
   exists,
 
   /// What it sent is not what its word takes, or no op of the protocol.

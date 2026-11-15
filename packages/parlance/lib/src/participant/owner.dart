@@ -1,13 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:clock/clock.dart' as clock_;
 
 import '../registry/cause.dart' show Principal;
-import '../registry/descriptors.dart';
 import '../registry/registry.dart';
 import '../registry/words.dart'
-    show ICommandWord, IFactOf, Keyed, RawFact, WordSet, undoingOnThrow;
+    show ICommandWord, IFactOf, RawFact, WordSet, undoingOnThrow;
 import 'serving.dart';
 import 'serving.dart' as serving_ show apart, once;
 import 'participant.dart';
@@ -95,10 +93,6 @@ final class _Core {
   void Function(IParticipant p)? define;
   void Function()? write;
   final List<void Function()> follows = [];
-  final List<_Listing> choices = [];
-
-  /// Its keyed states, by the choices their keys are of.
-  final Map<String, List<Keyed<Object?>>> keyed = {};
 
   /// What waits for it to be attached, in order; null once it is.
   List<void Function(IParticipant p)>? _due = [];
@@ -127,16 +121,7 @@ final class _Core {
     participant = p;
     this.group = group;
     (_ofParticipant[p] ??= []).add(this);
-    runZoned(
-      () => define?.call(p),
-      zoneValues: {
-        keyedDefined: (String of, Keyed<Object?> k) =>
-            (keyed[of] ??= []).add(k),
-      },
-    );
-    for (final c in choices) {
-      c.attach(p, this);
-    }
+    define?.call(p);
     final due = _due!;
     _due = null;
     for (final f in due) {
@@ -175,28 +160,14 @@ final class _Core {
       f();
     }
     synced = true;
-    _relist();
     moved();
-  }
-
-  /// Lists its choices again: those that changed are told, and what went
-  /// of them goes of its keyed states keyed by them.
-  void _relist() {
-    for (final c in choices) {
-      for (final id in c.relist()) {
-        for (final k in keyed[c.name] ?? const <Keyed<Object?>>[]) {
-          if (k.keys.contains(id)) k.remove(id);
-        }
-      }
-    }
   }
 
   bool _movedDue = false;
 
   /// What it keeps elsewhere may have moved (a handler answered, it heard
-  /// something, it followed its model): its choices are listed again and
-  /// its commands' checks asked again, once in a turn, and what changed
-  /// told. No owner says so itself.
+  /// something, it followed its model): its commands' checks are asked again,
+  /// once in a turn, and what changed is told. No owner says so itself.
   void moved() {
     if (_movedDue || participant == null) return;
     _movedDue = true;
@@ -204,7 +175,6 @@ final class _Core {
       _movedDue = false;
       final p = participant;
       if (group == null || p == null) return;
-      if (choices.isNotEmpty) p.batch(_relist);
       p.raw.whyNotMayHaveChanged();
     });
   }
@@ -388,22 +358,6 @@ extension OwnerTools on IOwner {
   /// (a test host's, given one, both ways).
   DateTime get now =>
       (_Core.of(this).participant?.raw.clock ?? clock_.clock).now();
-
-  /// Tells whoever asks the registry (an agent, an editor, a plugin)
-  /// the choices of [name] there are now (rooms: `HouseChoices.room`):
-  /// [list] gives them, with their labels. What a `@ChoiceOf(name)` names
-  /// is held to them. They are listed again on their own: when it is
-  /// attached, after it followed its model, heard something or answered a
-  /// call; what went goes of its keyed states keyed by [name] too.
-  void choices({
-    required String name,
-    required Iterable<Choice> Function() list,
-  }) {
-    final c = _Core.of(this);
-    final ch = _Listing(name, list);
-    c.choices.add(ch);
-    if (c.participant case final p? when c.group != null) ch.attach(p, c);
-  }
 }
 
 /// A call a guard judges ([OwnerTools.guard], [OwnerTools.guardAll]):
@@ -423,59 +377,11 @@ final class GuardCall<P> {
   final String command;
 }
 
-/// The choices of one name an owner gives, as the registry was last told.
-final class _Listing {
-  _Listing(this.name, this._list);
-
-  final String name;
-  final Iterable<Choice> Function() _list;
-  IParticipant? _participant;
-  List<(String, String)> _known = const [];
-
-  void attach(IParticipant p, _Core core) {
-    if (_participant != null) return;
-    _participant = p;
-    _known = _ids(_list());
-    core.handles.keep(p.raw.addChoices(Choices(name, list: _list)));
-  }
-
-  /// Each choice's id, and all it tells (its label, its meta).
-  static List<(String, String)> _ids(Iterable<Choice> choices) => [
-    for (final c in choices) (c.id, jsonEncode(c.toJson())),
-  ];
-
-  /// Compares the choices with the ones told last: when they differ, the
-  /// registry is told. Answers the ids that went.
-  Set<String> relist() {
-    final p = _participant;
-    if (p == null) return const {};
-    final now = _ids(_list());
-    if (_same(now, _known)) return const {};
-    final ids = {for (final (id, _) in now) id};
-    final gone = {
-      for (final (id, _) in _known)
-        if (!ids.contains(id)) id,
-    };
-    _known = now;
-    p.raw.choicesChanged(name);
-    return gone;
-  }
-
-  static bool _same(List<(String, String)> a, List<(String, String)> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-}
-
 /// The vocabulary [o]'s words are in, as its base said it; null for an
 /// owner that never said it.
 WordSet? wordsOf(IOwner o) => _Core.of(o).words;
 
-/// A handler of [p]'s answered: its owner lists its choices and asks
-/// its checks again.
+/// A handler of [p]'s answered: its owner asks its checks again.
 void ownerServed(IParticipant p) {
   for (final c in [...?_Core._ofParticipant[p]]) {
     c.moved();

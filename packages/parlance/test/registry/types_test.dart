@@ -1,17 +1,8 @@
 import 'package:parlance/tools.dart';
 import 'package:test/test.dart';
 
-final class _Ctx implements ITypeContext {
-  @override
-  bool hasChoices(String kind) => kind == 'room';
-
-  @override
-  bool hasChoice(String kind, String id) => kind == 'room' && id == 'main';
-}
-
 void main() {
-  final ctx = _Ctx();
-  Object? ok(ValueType<Object?> t, Object? v) => t.check(v, ctx);
+  Object? ok(ValueType<Object?> t, Object? v) => t.check(v);
   Matcher fails(String text) =>
       throwsA(isA<TypeMismatch>().having((e) => '$e', 'text', contains(text)));
 
@@ -28,15 +19,6 @@ void main() {
     expect(() => ok(const EnumType(['a']), 'c'), fails('one of'));
     expect(ok(const DurationType(), 1500), 1500);
     expect(() => ok(const DurationType(), -1), fails('below 0'));
-  });
-
-  test('refs need a registered kind and an entity in it', () {
-    expect(ok(const ChoiceType('room'), 'main'), 'main');
-    expect(() => ok(const ChoiceType('room'), 'gone'), fails('no room gone'));
-    expect(
-      () => ok(const ChoiceType('lamp'), 'x'),
-      fails('no one gives the choices of lamp'),
-    );
   });
 
   test('objects fill defaults and refuse unknown and missing fields', () {
@@ -65,7 +47,7 @@ void main() {
 
   test('types round-trip through JSON', () {
     const t = RecordType({
-      'room': Field(ChoiceType('room')),
+      'room': Field(TextType()),
       'n': Field(IntType(min: 1, max: 5), defaultValue: 2),
       'tags': Field(ListType(EnumType(['x', 'y']), maxItems: 3)),
       'd': Field(DurationType(maxMillis: 1000), optional: true),
@@ -107,7 +89,7 @@ void main() {
       'b': Field(IntType(), defaultValue: 3),
       'c': Field(TextType()),
     });
-    expect(t.check({'a': null, 'b': null, 'c': 'x'}, ctx), {'b': 3, 'c': 'x'});
-    expect(() => t.check({'c': null}, ctx), throwsA(isA<TypeMismatch>()));
+    expect(t.check({'a': null, 'b': null, 'c': 'x'}), {'b': 3, 'c': 'x'});
+    expect(() => t.check({'c': null}), throwsA(isA<TypeMismatch>()));
   });
 }

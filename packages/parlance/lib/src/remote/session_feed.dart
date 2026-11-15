@@ -8,10 +8,7 @@ final class _Feed {
   _Feed(this._s, WireFeedRequest request)
     : _last = request.since,
       _sent = request.since,
-      _sentEpoch = request.epoch,
-      _choicesApart =
-          _s.features.contains('kinds') &&
-          (request.features?.contains('kinds') ?? false) {
+      _sentEpoch = request.epoch {
     out = StreamController<WireFeedItem>(
       onListen: _listen,
       onResume: _drain,
@@ -43,10 +40,6 @@ final class _Feed {
   /// The commands that could not run when the feed last told, and why.
   Map<String, String> _unavailable = const {};
 
-  /// Whether choices that changed go alone, as a `kind` item (the feature
-  /// `kinds`), not as the whole catalog.
-  final bool _choicesApart;
-
   /// What waits while the connection is not taking more; ticks carry
   /// their seq.
   final List<(WireFeedItem, int?)> _held = [];
@@ -62,12 +55,7 @@ final class _Feed {
   void _listen() {
     listened = true;
     _describe();
-    _catalog = _registry.catalogChanges.listen(
-      (c) => switch (c) {
-        ChoicesChanged(:final name) when _choicesApart => _choicesOf(name),
-        _ => _describe(),
-      },
-    );
+    _catalog = _registry.catalogChanges.listen((_) => _describe());
     _follow();
   }
 
@@ -94,7 +82,6 @@ final class _Feed {
     // told counts.
     String? last((WireFeedItem, int?) i) => switch (i.$1.kind) {
       'catalog' || 'unavailable' => i.$1.kind,
-      'kind' => 'kind ${i.$1.json['name']}',
       _ => null,
     };
     _valuesDropped |= _held.any((i) => i.$1.kind == 'values');
@@ -158,14 +145,6 @@ final class _Feed {
     final d = _s._description();
     _unavailable = d['unavailable']! as Map<String, String>;
     send(WireFeedItem('catalog', d));
-  }
-
-  /// The choices of [name] as they are now, none when they went; then
-  /// what cannot run, if that moved with them.
-  void _choicesOf(String name) {
-    final now = _registry.choices.where((c) => c.name == name).firstOrNull;
-    send(WireFeedItem('kind', {'name': name, 'kind': ?now?.toJson()}));
-    _availability();
   }
 
   /// After a tick: whether a command came to run or stopped, told as the

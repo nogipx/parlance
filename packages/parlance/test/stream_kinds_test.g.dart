@@ -316,7 +316,7 @@ const transferWords = WordSet(
     ...TransferClientStream.values,
     ...TransferBidiStream.values,
   ],
-  from: 'parlance 0.1.3',
+  from: 'parlance 0.2.0',
   dartName: 'transferWords',
 );
 

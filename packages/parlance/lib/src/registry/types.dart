@@ -1,14 +1,5 @@
 import 'json.dart';
 
-/// What a type check needs from the registry: the choices there are.
-abstract interface class ITypeContext {
-  /// Whether someone gives the choices of [name].
-  bool hasChoices(String name);
-
-  /// Whether [id] is one of the choices of [name] right now.
-  bool hasChoice(String name, String id);
-}
-
 /// A value that does not pass its type.
 final class TypeMismatch implements Exception {
   /// Const constructor.
@@ -33,7 +24,7 @@ sealed class ValueType<T> {
   const ValueType();
 
   /// [value] with defaults filled, or a [TypeMismatch].
-  Object? check(Object? value, ITypeContext ctx, [String path = '']);
+  Object? check(Object? value, [String path = '']);
 
   /// This type as JSON; [ValueType.fromJson] reads it back.
   Map<String, Object?> toJson();
@@ -53,7 +44,6 @@ sealed class ValueType<T> {
       ], unknown: json['unknown'] as String?),
       'duration' => DurationType(maxMillis: n('max')?.toInt()),
       'datetime' => const DateTimeType(),
-      'ref' => ChoiceType(json['kind'] as String),
       'list' => ListType(
         ValueType.fromJson(json['item']),
         maxItems: n('maxItems')?.toInt(),
@@ -95,7 +85,7 @@ final class BoolType extends ValueType<bool> {
   const BoolType();
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
+  Object? check(Object? value, [String path = '']) =>
       value is bool ? value : ValueType._fail(path, 'expected a bool');
 
   @override
@@ -114,7 +104,7 @@ final class IntType extends ValueType<int> {
   final int? max;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     final v = switch (value) {
       int() => value,
       double() when value == value.roundToDouble() && value.isFinite =>
@@ -142,7 +132,7 @@ final class NumType extends ValueType<num> {
   final num? max;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     if (value is! num || !value.isFinite) {
       ValueType._fail(path, 'expected a number');
     }
@@ -164,7 +154,7 @@ final class TextType extends ValueType<String> {
   final int? maxLength;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     if (value is! String) ValueType._fail(path, 'expected text');
     if (maxLength case final m? when value.length > m) {
       ValueType._fail(path, 'longer than $m');
@@ -191,7 +181,7 @@ final class EnumType extends ValueType<String> {
   final String? unknown;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
+  Object? check(Object? value, [String path = '']) =>
       value is String && values.contains(value)
       ? value
       : ValueType._fail(path, 'expected one of ${values.join(', ')}');
@@ -213,8 +203,8 @@ final class DurationType extends ValueType<int> {
   final int? maxMillis;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
-    final v = const IntType(min: 0).check(value, ctx, path) as int;
+  Object? check(Object? value, [String path = '']) {
+    final v = const IntType(min: 0).check(value, path) as int;
     if (maxMillis case final m? when v > m) {
       ValueType._fail(path, 'above $m ms');
     }
@@ -233,7 +223,7 @@ final class DateTimeType extends ValueType<String> {
   const DateTimeType();
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     if (value is! String || DateTime.tryParse(value) == null) {
       ValueType._fail(path, 'expected an ISO-8601 moment');
     }
@@ -242,35 +232,6 @@ final class DateTimeType extends ValueType<String> {
 
   @override
   Map<String, Object?> toJson() => {'type': 'datetime'};
-}
-
-/// One of the choices of [of] (`room`), as its owner gives them: which
-/// must be there when checked. Told as `ref` on the wire.
-final class ChoiceType extends ValueType<String> {
-  /// Const constructor.
-  const ChoiceType(this.of);
-
-  /// The choices it is one of: the `name` of the `choices` that gives them.
-  final String of;
-
-  @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
-    if (value is! String || value.isEmpty) {
-      ValueType._fail(path, 'expected a $of id');
-    }
-    if (!ctx.hasChoices(of)) {
-      ValueType._fail(
-        path,
-        'no one gives the choices of $of: its owner says them, '
-        "choices(name: '$of', list: ...)",
-      );
-    }
-    if (!ctx.hasChoice(of, value)) ValueType._fail(path, 'no $of $value');
-    return value;
-  }
-
-  @override
-  Map<String, Object?> toJson() => {'type': 'ref', 'kind': of};
 }
 
 /// A list of [item], at most [maxItems] long.
@@ -285,14 +246,14 @@ final class ListType extends ValueType<List<Object?>> {
   final int? maxItems;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     if (value is! List) ValueType._fail(path, 'expected a list');
     if (maxItems case final m? when value.length > m) {
       ValueType._fail(path, 'more than $m items');
     }
     return [
       for (var i = 0; i < value.length; i++)
-        item.check(value[i], ctx, path.isEmpty ? '$i' : '$path.$i'),
+        item.check(value[i], path.isEmpty ? '$i' : '$path.$i'),
     ];
   }
 
@@ -366,7 +327,7 @@ final class RecordType extends ValueType<Map<String, Object?>> {
   final Map<String, Field> fields;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     if (value is! Map) ValueType._fail(path, 'expected an object');
     String at(String k) => path.isEmpty ? k : '$path.$k';
     for (final k in value.keys) {
@@ -381,9 +342,9 @@ final class RecordType extends ValueType<Map<String, Object?>> {
       // is that value, not its default.
       if (value.containsKey(k) &&
           !(value[k] == null && f.optional && f.type is! NullableType)) {
-        out[k] = f.type.check(value[k], ctx, at(k));
+        out[k] = f.type.check(value[k], at(k));
       } else if (f.defaultValue != null) {
-        out[k] = f.type.check(f.defaultValue, ctx, at(k));
+        out[k] = f.type.check(f.defaultValue, at(k));
       } else if (!f.optional) {
         ValueType._fail(at(k), 'missing');
       }
@@ -410,7 +371,7 @@ final class MapType extends ValueType<Map<String, Object?>> {
   final int? maxEntries;
 
   @override
-  Object? check(Object? v, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? v, [String path = '']) {
     if (v is! Map) ValueType._fail(path, 'expected an object');
     if (maxEntries case final m? when v.length > m) {
       ValueType._fail(path, 'more than $m entries');
@@ -422,7 +383,6 @@ final class MapType extends ValueType<Map<String, Object?>> {
         else
           e.key as String: value.check(
             e.value,
-            ctx,
             path.isEmpty ? '${e.key}' : '$path.${e.key}',
           ),
     };
@@ -463,7 +423,7 @@ final class UnionType extends ValueType<Map<String, Object?>> {
   final bool unknown;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) {
+  Object? check(Object? value, [String path = '']) {
     if (value is! Map) ValueType._fail(path, 'expected an object');
     final tag = value[key];
     final at = path.isEmpty ? key : '$path.$key';
@@ -475,7 +435,7 @@ final class UnionType extends ValueType<Map<String, Object?>> {
       for (final e in value.entries)
         if (e.key != key) e.key: e.value,
     };
-    return {key: tag, ...variant.check(rest, ctx, path) as Map};
+    return {key: tag, ...variant.check(rest, path) as Map};
   }
 
   @override
@@ -498,8 +458,8 @@ final class NullableType extends ValueType<Object?> {
   final ValueType<Object?> of;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
-      value == null ? null : of.check(value, ctx, path);
+  Object? check(Object? value, [String path = '']) =>
+      value == null ? null : of.check(value, path);
 
   @override
   Map<String, Object?> toJson() => {'type': 'nullable', 'of': of.toJson()};
@@ -519,7 +479,7 @@ final class UnknownType extends ValueType<Object?> {
   final Map<String, Object?> json;
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) => value;
+  Object? check(Object? value, [String path = '']) => value;
 
   @override
   Map<String, Object?> toJson() => json;
@@ -546,7 +506,7 @@ final class AnyType extends ValueType<Object?> {
   const AnyType();
 
   @override
-  Object? check(Object? value, ITypeContext ctx, [String path = '']) =>
+  Object? check(Object? value, [String path = '']) =>
       isJsonValue(value) ? value : ValueType._fail(path, 'not a JSON value');
 
   @override
