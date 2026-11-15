@@ -12,8 +12,14 @@ A journal is JSON lines, one file per day, written so an application stopped
 at any moment loses at most the last few records. Lines written by a newer
 build than the reader are skipped but reported, never silently mangled.
 
-- The writer side (the registry's `JournalWriter`) lives in `package:parlance`;
-  this package is the reader.
+- `JournalWriter(registry.journal, dir: directory)` writes the stream; close it
+  when capture ends. `payloads: false` omits native values before serialization.
+- Capture controls state when recording was active and whether values were
+  omitted. `onIssue` reports malformed input and sequence gaps.
+- `of`, `pathTo`, `conversation` and `tree` accept `epoch` and reject ambiguous
+  cross-epoch IDs. Trees include stream lifecycle and admission decisions.
+- `history(state, key: key)` finds bounded recorded state history across
+  conversations. Runtime retention and file retention are independent.
 - Usage in code: the package's tests under `test/` read journals written the
   way a host writes them.
 - Not frozen before `package:parlance` 1.0: what it shows may still change.

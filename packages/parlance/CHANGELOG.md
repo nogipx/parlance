@@ -2,6 +2,10 @@
 
 ## 0.3.0
 
+- Breaking (tools): `Explanation.trail` now contains mixed `JournalEntry` values. Add bounded causal lookup and call inspection across RPC, pending/admission diagnostics, explicit gaps and selected independent-write capture.
+- Preserve caller timeout/cancellation separately from late completion; redact inaccessible ancestor values and report ambiguous reused IDs.
+- Bound diagnostic metadata and journal queues; release retained history and paused backlogs on host disposal. Verify lifecycle cleanup with forced GC.
+
 - Breaking: discover targets by vocabulary or portable word name and group their publications in PublishedVocabulary entries. Keep contract checks in typed clients. Generated word packages now expose <Class>Vocabulary.name/words/definition instead of <class>Words; regenerate them.
 
 - Require rpc_dart 7.2.0.

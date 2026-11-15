@@ -31,6 +31,7 @@ import 'streams.dart';
 export 'cancellation.dart' show CancellationToken;
 
 part 'registry_calls.dart';
+part 'registry_diagnostics.dart';
 part 'registry_access.dart';
 part 'registry_words.dart';
 part 'registry_raw.dart';
@@ -204,6 +205,25 @@ final class Registry {
 
   void _emitStreamEvent(StreamEvent event) {
     if (_streamEvents.isClosed) return;
+    final s = event.stream;
+    _notice(
+      s.word,
+      'stream.${event.kind.name}',
+      id: s.id,
+      cause: s.cause,
+      data: {
+        'kind': s.kind,
+        'termination': s.termination?.name,
+        'failure': s.failure?.name,
+        'why': s.failureMessage,
+        'inputItems': s.input.items,
+        'outputItems': s.output.items,
+        'inputBytes': s.input.bytes,
+        'outputBytes': s.output.bytes,
+        'pendingItems': s.input.pendingItems + s.output.pendingItems,
+        'peakItems': s.input.peakItems + s.output.peakItems,
+      },
+    );
     _pendingStreamEvents.add(event);
     if (_emittingStreamEvent) return;
     _emittingStreamEvent = true;
@@ -254,20 +274,32 @@ final class Registry {
     _availabilityMoved++;
     switch (c) {
       case DescriptorAdded(:final descriptor):
+        _notice(descriptor.name, 'word.defined');
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('defined', data: {'word': descriptor.name});
         }
         _builtAgainst.wordChanged(descriptor.name);
       case DescriptorRemoved(:final descriptor):
+        _notice(descriptor.name, 'word.withdrawn');
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('removed', data: {'word': descriptor.name});
         }
         _builtAgainst.wordChanged(descriptor.name);
       case AccessChanged(:final word):
+        _notice(
+          word,
+          'access.changed',
+          data: {
+            'revision': accessRevision(word),
+            if (_declared(word) case final d?) 'policy': _policy(d)?.toJson(),
+            'source': _wordAccess.containsKey(word) ? 'host' : 'declaration',
+          },
+        );
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('access changed', data: {'word': word});
         }
       case AliasChanged(:final alias):
+        _notice(alias, 'alias.changed', data: {'canonical': canonical(alias)});
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('alias changed', data: {'alias': alias});
         }
@@ -767,17 +799,27 @@ final class Registry {
     final parent = cause.parent;
     if (parent == null) {
       if (cause.origin == null) return cause;
-      return Cause(cause.by, conversation: cause.conversation);
+      return Cause(
+        cause.by,
+        conversation: cause.conversation,
+        unresolvedParent: cause.unresolvedParent,
+      );
     }
     final known = _conversations[parent];
-    final conversation = cause.conversation ?? known?.conversation ?? parent;
-    final origin = known?.origin ?? cause.origin;
+    final retained = known == null ? message(parent) : null;
+    final conversation =
+        cause.conversation ??
+        known?.conversation ??
+        retained?.conversation ??
+        parent;
+    final origin = known?.origin ?? retained?.origin ?? cause.origin;
     if (conversation == cause.conversation && origin == cause.origin) {
       return cause;
     }
     return Cause(
       cause.by,
       parent: parent,
+      unresolvedParent: cause.unresolvedParent,
       conversation: conversation,
       origin: origin,
     );
@@ -879,7 +921,14 @@ final class Registry {
   /// made while no one listens.
   Stream<JournalEntry> get journal => _journal.stream;
 
+  /// Captures selected independent writes until the returned handle is disposed.
+  IHandle captureStateWrites(Iterable<String> words) =>
+      Disposer(_journal.capture(words.map(canonical).toSet()));
+
   final Map<String, CallStarted> _running = {};
+  final Map<String, JournalDiagnostic> _pendingCalls = {};
+  final Queue<JournalDiagnostic> _diagnostics = Queue();
+  int _diagnosticBytes = 0;
 
   /// Every finished call (SPEC §9).
   Stream<CallRecord> get calls => _records.stream;
@@ -903,7 +952,6 @@ final class Registry {
   // forgotten rather than never there. Names only; as many as states
   // are ever written.
   final Set<({String state, String? key})> _forgottenChanges = {};
-  bool _forgotCalls = false;
 
   void _remember(CallRecord record) {
     // A late end takes the place of the record of its timeout.
@@ -917,7 +965,6 @@ final class Registry {
         (_recentCalls.length > 1 && _recentCallBytes > limits.retainBytes)) {
       final first = _recentCalls.keys.first;
       _recentCallBytes -= _callWeight(_recentCalls.remove(first)!);
-      _forgotCalls = true;
     }
     _records.add(record);
   }
@@ -930,28 +977,19 @@ final class Registry {
   /// retained (when, on whose behalf, through what), and the calls that led
   /// to it, nearest first, as far as they are remembered: at most ten, and
   /// [Explanation.trailCut] says the trail goes further back than given.
-  Explanation explain(String state, {String? key}) {
+  Explanation explain(
+    String state, {
+    String? key,
+    Principal? by,
+    int historyCount = 0,
+  }) {
     state = canonical(state);
     final change = lastChange(state, key: key);
-    final trail = <CallRecord>[];
-    var parent = change?.cause.parent;
-    var cut = false;
-    final seen = <String>{};
-    while (parent != null && seen.add(parent)) {
-      if (trail.length >= 10) {
-        // The trail goes on past these: said so, not given as if these
-        // ten were all of it.
-        cut = true;
-        break;
-      }
-      final call = callRecord(parent);
-      if (call == null) {
-        cut = _forgotCalls;
-        break;
-      }
-      trail.add(call);
-      parent = call.cause.parent;
-    }
+    final path = _pathFrom(change?.cause, by: by);
+    final gap =
+        change == null && _forgottenChanges.contains((state: state, key: key))
+        ? 'last change is not retained'
+        : path.gap;
     return Explanation(
       state: state,
       key: key,
@@ -960,8 +998,10 @@ final class Registry {
       forgotten:
           change == null &&
           _forgottenChanges.contains((state: state, key: key)),
-      trail: trail,
-      trailCut: cut,
+      trail: path.trail,
+      trailCut: gap != null,
+      gap: gap,
+      history: history(state, key: key, count: historyCount.clamp(0, 100)),
     );
   }
 
@@ -987,10 +1027,31 @@ final class Registry {
   }) async {
     final started = clock.now();
     var params = rawParams;
+    final ambiguous =
+        _recentCalls.containsKey(id) ||
+        _running.containsKey(id) ||
+        _pendingCalls.containsKey(id);
+    CallStarted? runningEntry;
 
+    JournalDiagnostic? pendingObservation;
+    CallResult<Object?>? replyResult;
+    DateTime? repliedAt;
     CallResult<Object?> finish(CallResult<Object?> r, {bool late = false}) {
+      if (identical(_pendingCalls[id], pendingObservation)) {
+        _pendingCalls.remove(id);
+      }
       if (r is CallDone<Object?>) _builtAgainst.answered(command, cause.by, r);
       if (r case CallRefused(:final code, why: final reason, :final guard)) {
+        if (record) {
+          _decision(id, command, cause, 'refused', {
+            'code': code.name,
+            'why': reason.length > 1024 ? reason.substring(0, 1024) : reason,
+            'guard': guard,
+            'accessRevision': accessRevision(command),
+            if (code == Refusal.notPermitted)
+              ..._accessEvidence(command, cause.by),
+          });
+        }
         if (_callLog.isEnabled(RpcLogLevel.info)) {
           _callLog.info(
             'refused',
@@ -1008,7 +1069,7 @@ final class Registry {
           );
         }
       }
-      if (record && !_records.isClosed) {
+      if (record && !_disposing && !_records.isClosed) {
         _remember(
           keptRecord(
             id: id,
@@ -1017,192 +1078,249 @@ final class Registry {
             cause: cause,
             result: r,
             started: started,
+            ambiguous:
+                ambiguous ||
+                (_recentCalls[id]?.ambiguous ?? false) ||
+                (_running[id] != null &&
+                    !identical(_running[id], runningEntry)),
             finished: clock.now(),
             late: late,
+            replyResult: late ? replyResult : null,
+            repliedAt: late ? repliedAt : null,
           ),
         );
       }
       return r;
     }
 
-    final entry = _commands[command];
-    if (entry == null) {
-      return finish(CallRefused(Refusal.unknownCommand, 'no command $command'));
-    }
-    final d = entry.descriptor;
     try {
-      params = _admitParams(
-        entry.params,
-        _builtAgainst.adapted(command, entry.descriptor, rawParams, cause.by),
-      );
-    } on TypeMismatch catch (e) {
-      return finish(CallRefused(Refusal.invalidParams, '$e'));
-    }
-    if (_accessFor(command, cause.by) == Access.deny) {
-      return finish(
-        CallRefused(Refusal.notPermitted, '${cause.by} may not call $command'),
-      );
-    }
-    _warnAccess(
-      command,
-      cause.by,
-      entry.query ? AccessOperation.query : AccessOperation.call,
-      id: id,
-      cause: cause,
-    );
-    if (entry.whyNot?.call() case final why?) {
-      return finish(CallRefused(Refusal.unavailable, why));
-    }
-    // The guards are judged here, not in a method of their own: with none
-    // asked, nothing is awaited before the handler runs, and an await of
-    // even a method with nothing to wait for would let other work in first
-    // (the journal's order would show it).
-    final pending = PendingCall._kept(id, d, params, cause);
-    var asked = false;
-    for (final g in [..._guards.values]) {
-      String? why;
-      // One that judges no call of this command is not asked: nothing to
-      // wait for, and the handler still begins as the call is made.
-      if (g.judges case final j? when !j(command)) continue;
-      if (g.ask case final ask?) {
-        asked = true;
-        // Asked across a connection: no answer in time, or none at all,
-        // denies, since the one who keeps the rule could not say.
-        try {
-          // Its caller's cancel ends the wait: the call does not run.
-          why = await untilCancelled(
-            ask(pending).timeout(g.timeout!),
-            cancel,
-            () => null,
-          );
-          if (cancel?.isCancelled ?? false) {
-            return finish(const CallCancelled());
-          }
-        } on Object catch (e) {
-          why = 'its guard ${g.id} could not be asked: $e';
-          if (_callLog.isEnabled(RpcLogLevel.warning)) {
-            _callLog.warning(
-              'guard could not be asked',
-              error: e,
-              data: {'guard': g.id, 'command': command, 'id': id},
-            );
-          }
-        }
-      } else {
-        try {
-          why = g.check!(pending);
-        } catch (e, s) {
-          // A guard that cannot judge denies, as one asked across a
-          // connection that cannot answer does: the rule it keeps holds.
-          why = 'its guard ${g.id} failed: $e';
-          _onError(e, s);
-        }
+      if (record) {
+        pendingObservation = _waiting(id, command, cause, 'attempt', {
+          'accessRevision': accessRevision(command),
+        });
+        _pendingCalls[id] = pendingObservation;
       }
-      if (why == null) continue;
-      return finish(CallRefused(Refusal.denied, why, guard: g.id));
-    }
-
-    // An asked guard may take a while: the command may be gone by now, or
-    // unable to run.
-    if (_commands[command] != entry) {
-      return finish(CallRefused(Refusal.unknownCommand, '$command is gone'));
-    }
-    if (_accessFor(command, cause.by) == Access.deny) {
-      return finish(
-        CallRefused(Refusal.notPermitted, '${cause.by} may not call $command'),
+      final entry = _commands[command];
+      if (entry == null) {
+        return finish(
+          CallRefused(Refusal.unknownCommand, 'no command $command'),
+        );
+      }
+      final d = entry.descriptor;
+      try {
+        params = _admitParams(
+          entry.params,
+          _builtAgainst.adapted(command, entry.descriptor, rawParams, cause.by),
+        );
+      } on TypeMismatch catch (e) {
+        return finish(CallRefused(Refusal.invalidParams, '$e'));
+      }
+      if (_accessFor(command, cause.by) == Access.deny) {
+        return finish(
+          CallRefused(
+            Refusal.notPermitted,
+            '${cause.by} may not call $command',
+          ),
+        );
+      }
+      if (record) {
+        _decision(
+          id,
+          command,
+          cause,
+          'access.allowed',
+          _accessEvidence(command, cause.by),
+        );
+      }
+      _warnAccess(
+        command,
+        cause.by,
+        entry.query ? AccessOperation.query : AccessOperation.call,
+        id: id,
+        cause: cause,
       );
-    }
-    if (asked) {
       if (entry.whyNot?.call() case final why?) {
         return finish(CallRefused(Refusal.unavailable, why));
       }
-    }
-    // Cancelled before its handler began: it does not run.
-    if (cancel?.isCancelled ?? false) return finish(const CallCancelled());
+      // The guards are judged here, not in a method of their own: with none
+      // asked, nothing is awaited before the handler runs, and an await of
+      // even a method with nothing to wait for would let other work in first
+      // (the journal's order would show it).
+      final pending = PendingCall._kept(id, d, params, cause);
+      var asked = false;
+      for (final g in [..._guards.values]) {
+        String? why;
+        // One that judges no call of this command is not asked: nothing to
+        // wait for, and the handler still begins as the call is made.
+        if (g.judges case final j? when !j(command)) continue;
+        if (g.ask case final ask?) {
+          asked = true;
+          if (record) {
+            pendingObservation = _waiting(id, command, cause, 'guard.waiting', {
+              'guard': g.id,
+            });
+            _pendingCalls[id] = pendingObservation;
+          }
+          // Asked across a connection: no answer in time, or none at all,
+          // denies, since the one who keeps the rule could not say.
+          try {
+            // Its caller's cancel ends the wait: the call does not run.
+            why = await untilCancelled(
+              ask(pending).timeout(g.timeout!),
+              cancel,
+              () => null,
+            );
+            if (cancel?.isCancelled ?? false) {
+              return finish(const CallCancelled());
+            }
+          } on Object catch (e) {
+            why = 'its guard ${g.id} could not be asked: $e';
+            if (_callLog.isEnabled(RpcLogLevel.warning)) {
+              _callLog.warning(
+                'guard could not be asked',
+                error: e,
+                data: {'guard': g.id, 'command': command, 'id': id},
+              );
+            }
+          }
+        } else {
+          try {
+            why = g.check!(pending);
+          } catch (e, s) {
+            // A guard that cannot judge denies, as one asked across a
+            // connection that cannot answer does: the rule it keeps holds.
+            why = 'its guard ${g.id} failed: $e';
+            _onError(e, s);
+          }
+        }
+        if (record) {
+          _decision(id, command, cause, 'guard.decided', {
+            'guard': g.id,
+            'allowed': why == null,
+            if (why != null)
+              'why': why.length > 1024 ? why.substring(0, 1024) : why,
+          });
+        }
+        if (why == null) continue;
+        return finish(CallRefused(Refusal.denied, why, guard: g.id));
+      }
 
-    CallResult<Object?> answered(Object? answer) {
-      if (entry.returns case final t?) {
-        try {
-          return keptDone(Kept(t.check(answer), t is JsonValue ? null : t));
-        } on TypeMismatch catch (e) {
-          return CallFailed('returned a wrong value: $e');
+      // An asked guard may take a while: the command may be gone by now, or
+      // unable to run.
+      if (_commands[command] != entry) {
+        return finish(CallRefused(Refusal.unknownCommand, '$command is gone'));
+      }
+      if (_accessFor(command, cause.by) == Access.deny) {
+        return finish(
+          CallRefused(
+            Refusal.notPermitted,
+            '${cause.by} may not call $command',
+          ),
+        );
+      }
+      if (asked) {
+        if (entry.whyNot?.call() case final why?) {
+          return finish(CallRefused(Refusal.unavailable, why));
         }
       }
-      return const CallDone(null);
-    }
+      // Cancelled before its handler began: it does not run.
+      if (cancel?.isCancelled ?? false) return finish(const CallCancelled());
 
-    final expired = CancellationToken();
-    final span = _trace.open(id, command, params, cause, query: entry.query);
-    final returns = entry.returns;
-    final served = CommandCall._kept(
-      id,
-      command,
-      params,
-      cause,
-      expired,
-      returns is JsonValue ? null : returns,
-      span: span,
-    );
-    if (record) {
-      final s = keptStarted(
-        id: id,
-        command: command,
-        params: params,
-        cause: cause,
-        started: started,
-      );
-      _running[id] = s;
-      if (!_starts.isClosed) _starts.add(s);
-      _journal.started(s);
-    }
-    final work = Future.sync(
-      () => entry.query
-          ? asQuery(command, () => entry.local.call(served))
-          : entry.local.call(served),
-    );
-    // The handler goes on after its caller stopped waiting: its end is
-    // recorded as late, and a retry with the call's id waits for it, not
-    // for why this caller stopped.
-    CallResult<Object?> stop(CallResult<Object?> why, String event) {
-      expired.cancel();
-      span.event(event, level: RpcLogLevel.warning);
-      final late = work.then(
-        answered,
-        onError: (Object e, StackTrace s) => _ended(id, e, s),
-      );
-      unawaited(
-        late.then((r) {
-          _running.remove(id);
-          _trace.close(id, span, r, late: true, query: entry.query);
-          finish(r, late: true);
-        }),
-      );
-      if (_calls[id] case final c?) c.result = late;
-      return why;
-    }
+      CallResult<Object?> answered(Object? answer) {
+        if (entry.returns case final t?) {
+          try {
+            return keptDone(Kept(t.check(answer), t is JsonValue ? null : t));
+          } on TypeMismatch catch (e) {
+            return CallFailed('returned a wrong value: $e');
+          }
+        }
+        return const CallDone(null);
+      }
 
-    CallResult<Object?> result;
-    try {
-      // What the caller's cancel says, once it came: a mark, as a handler's
-      // answer can be anything.
-      final first = await untilCancelled<Object?>(
-        work,
-        cancel,
-        () => _cancelledMark,
-      ).timeout(d.deadline);
-      result = identical(first, _cancelledMark)
-          ? stop(const CallCancelled(), 'cancelled')
-          : answered(first);
-    } on TimeoutException {
-      result = stop(const CallTimedOut(), 'timed out');
-    } catch (e, s) {
-      result = _ended(id, e, s);
+      final expired = CancellationToken();
+      final span = _trace.open(id, command, params, cause, query: entry.query);
+      final returns = entry.returns;
+      final served = CommandCall._kept(
+        id,
+        command,
+        params,
+        cause,
+        expired,
+        returns is JsonValue ? null : returns,
+        span: span,
+      );
+      if (record) {
+        if (identical(_pendingCalls[id], pendingObservation)) {
+          _pendingCalls.remove(id);
+        }
+        final s = keptStarted(
+          id: id,
+          command: command,
+          params: params,
+          cause: cause,
+          started: started,
+          ambiguous: ambiguous,
+        );
+        runningEntry = s;
+        _running[id] = s;
+        if (!_starts.isClosed) _starts.add(s);
+        _journal.started(s);
+      }
+      final work = Future.sync(
+        () => entry.query
+            ? asQuery(command, () => entry.local.call(served))
+            : entry.local.call(served),
+      );
+      // The handler goes on after its caller stopped waiting: its end is
+      // recorded as late, and a retry with the call's id waits for it, not
+      // for why this caller stopped.
+      CallResult<Object?> stop(CallResult<Object?> why, String event) {
+        replyResult = why;
+        repliedAt = clock.now();
+        expired.cancel();
+        span.event(event, level: RpcLogLevel.warning);
+        final late = work.then(
+          answered,
+          onError: (Object e, StackTrace s) => _ended(id, e, s),
+        );
+        unawaited(
+          late.then((r) {
+            if (identical(_running[id], runningEntry)) _running.remove(id);
+            _trace.close(id, span, r, late: true, query: entry.query);
+            finish(r, late: true);
+          }),
+        );
+        if (_calls[id] case final c?) c.result = late;
+        return why;
+      }
+
+      CallResult<Object?> result;
+      try {
+        // What the caller's cancel says, once it came: a mark, as a handler's
+        // answer can be anything.
+        final first = await untilCancelled<Object?>(
+          work,
+          cancel,
+          () => _cancelledMark,
+        ).timeout(d.deadline);
+        result = identical(first, _cancelledMark)
+            ? stop(const CallCancelled(), 'cancelled')
+            : answered(first);
+      } on TimeoutException {
+        result = stop(const CallTimedOut(), 'timed out');
+      } catch (e, s) {
+        result = _ended(id, e, s);
+      }
+      if (result is! CallTimedOut && result is! CallCancelled) {
+        if (identical(_running[id], runningEntry)) _running.remove(id);
+        _trace.close(id, span, result, query: entry.query);
+      }
+      return finish(result);
+    } finally {
+      if (identical(_pendingCalls[id], pendingObservation)) {
+        _pendingCalls.remove(id);
+      }
     }
-    if (result is! CallTimedOut && result is! CallCancelled) {
-      _running.remove(id);
-      _trace.close(id, span, result, query: entry.query);
-    }
-    return finish(result);
   }
 
   /// How a call [id] whose handler threw [e] ended: `lost` when its answer
@@ -1222,6 +1340,7 @@ final class Registry {
   /// streams and stops the timers.
   Future<void> dispose() async {
     if (_disposing) return;
+    _notice('parlance.host', 'host.ended');
     _disposing = true;
     _wordAccess.clear();
     _accessRevisions.clear();
@@ -1233,6 +1352,7 @@ final class Registry {
       }
     }
     _beforeDispose.clear();
+    _clearHistory();
     for (final s in [..._streams.keys]) {
       _undefine(s);
     }
@@ -1249,5 +1369,35 @@ final class Registry {
       _starts.close(),
       _journal.close(),
     ]);
+    _clearHistory();
+    _heldWeights.clear();
+    _trace.clear();
+    _states.clear();
+    _commands.clear();
+    _facts.clear();
+    _streams.clear();
+    _names.clear();
+    _shapeOf.clear();
+    _retired.clear();
+    _guards.clear();
+    _streamReaders.clear();
+    _streamLeases.clear();
+  }
+
+  void _clearHistory() {
+    _pendingCalls.clear();
+    _diagnostics.clear();
+    _diagnosticBytes = 0;
+    _calls.clear();
+    _recentCalls.clear();
+    _recentCallBytes = 0;
+    _retained.clear();
+    _retainedWeights.clear();
+    _retainedBytes = 0;
+    _recent.clear();
+    _recentById.clear();
+    _conversations.clear();
+    _forgottenChanges.clear();
+    _running.clear();
   }
 }

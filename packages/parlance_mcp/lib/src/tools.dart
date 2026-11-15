@@ -22,7 +22,7 @@ How to work:
 - describe first: the commands you may call (their params, whether each
   can run now), the states and the facts.
 - read tells the states now; recent_facts what happened lately; why tells
-  why a state is as it is (its last change, on whose behalf, and the calls
+  why a state is as it is (its last change, on whose behalf, and the messages
   that led to it).
 - call runs a command by name. A refusal says why: fix the params, or ask
   the user when it is denied by a guard. A query (is: query) is called
@@ -63,7 +63,13 @@ Future<List<McpTool>> parlanceTools(
     String? id,
   }) async {
     final callId = id ?? newId();
-    return _answer(await p.call(name, params, id: callId), callId);
+    final reply = _answer(await p.call(name, params, id: callId), callId);
+    return McpResult(
+      reply.text,
+      images: reply.images,
+      error: reply.error,
+      structuredContent: {'call': callId},
+    );
   }
 
   final curated = [
@@ -240,21 +246,36 @@ Future<List<McpTool>> parlanceTools(
     McpTool(
       name: 'why',
       description:
-          'Why a state (of a key) is as it is: its value, its last change '
-          '(when, on whose behalf), and the calls that led to it.',
+          'Explain a state and its causal messages, optionally with bounded history; '
+          'or inspect a call by ID, including admission decisions and pending work. '
+          'Give either state or call. Missing evidence is explicit.',
       properties: {
         'state': {
           'type': 'string',
           'enum': [for (final s in first.states) s['name']],
         },
         'key': {'type': 'string'},
+        'call': {'type': 'string'},
+        'historyCount': {'type': 'integer', 'minimum': 0, 'maximum': 100},
       },
-      required: ['state'],
       run: (a) async {
         try {
+          if (a['call'] case final String id) {
+            if (a['state'] != null) {
+              return const McpResult.error('give either state or call');
+            }
+            return McpResult.json(await p.inspectCall(id));
+          }
+          if (a['state'] is! String) {
+            return const McpResult.error('give state or call');
+          }
           return McpResult.json(
             _why(
-              await p.explain(a['state'] as String, key: a['key'] as String?),
+              await p.explain(
+                a['state'] as String,
+                key: a['key'] as String?,
+                historyCount: (a['historyCount'] as int? ?? 0).clamp(0, 100),
+              ),
             ),
           );
         } on NotPermitted catch (e) {
@@ -350,8 +371,7 @@ McpTool _commandTool(
   );
 }
 
-/// Why a state is as it is, as an agent reads it: who and on what calls,
-/// without the wire's ids.
+/// Why a state is as it is: causal messages and IDs an agent can inspect.
 Map<String, Object?> _why(Explanation e) => {
   'state': e.state,
   'key': ?e.key,
@@ -364,20 +384,16 @@ Map<String, Object?> _why(Explanation e) => {
       // What it was part of, for asking what else happened in it, and
       // who set that going.
       'conversation': c.cause.conversationOf(c.id),
+      'id': c.id,
       'origin': c.cause.originOf(c.state).toJson(),
     },
   if (e.forgotten) 'changed': 'not within what the registry remembers',
   if (e.trail.isNotEmpty)
-    'trail': [
-      for (final call in e.trail)
-        {
-          'call': call.command,
-          'params': call.params,
-          'by': call.cause.by.selector,
-          if (call.late) 'late': true,
-        },
-      if (e.trailCut) 'and earlier calls the registry no longer remembers',
-    ],
+    'trail': [for (final entry in e.trail) entry.toJson()],
+  if (e.trailCut) 'incomplete': true,
+  if (e.gap != null) 'gap': e.gap,
+  if (e.history.isNotEmpty)
+    'history': [for (final change in e.history) change.toJson()],
 };
 
 McpResult _answer(CallResult<Object?> r, String id) => switch (r) {

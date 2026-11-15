@@ -114,7 +114,7 @@ void main() {
     );
     expect(why.change!.cause.by, Who.widlet('notes').ofOwner('notes'));
     expect(
-      why.trail.first.command,
+      why.trail.first.word,
       WordAddress(Who.widlet('notes'), 'notes.add').toString(),
     );
     expect(why.trail.first.cause.by, Who.widlet('board'));

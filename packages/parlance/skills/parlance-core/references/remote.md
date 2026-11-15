@@ -96,3 +96,7 @@ revoked values, desired state/fact subscriptions survive denial, states refresh 
 regrant and facts resume without replay. Held feed payloads are rechecked and revoked
 items removed even if access returns before delivery. Data streams end with
 notPermitted. Only Host changes policy; guests have no ACL mutation operation.
+
+For causal inspection, recording coverage and bounded diagnostic retention, see [diagnostics.md](diagnostics.md).
+
+RPC parent resolution also accepts retained changes the participant may read and completed operations previously served by this session, within bounded history. Unknown parents are reported as `unresolvedParent`, without trusting a supplied origin.

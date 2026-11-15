@@ -49,3 +49,11 @@ Host access overrides affect describe, targets, read and call immediately. Warn
 is an allowed interaction with a developer diagnostic at the host; describe retains
 access: warn as metadata. Inspection itself produces no warning. Command tool lists
 follow the existing toolsChanged notification contract when a host caches them.
+
+For causal inspection, recording coverage and bounded diagnostic retention, see [diagnostics.md](diagnostics.md).
+
+`why` accepts either `state` (optional `key` and `historyCount`, 0–100) or `call`. Call inspection is restricted to calls made or served by its participant. State explanations include mixed message trails and explicit gaps.
+
+Parlance call tools return their caller ID as `structuredContent.call`, including
+automatically generated IDs, so `why(call: id)` can inspect admission decisions
+and completion after the tool returns. The primary text still carries the answer.

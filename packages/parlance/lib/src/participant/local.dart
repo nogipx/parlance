@@ -339,12 +339,25 @@ final class LocalParticipant implements IRawParticipant {
   Future<Map<String, Object?>> describe() async => _r.describeFor(who);
 
   @override
-  Future<Explanation> explain(String state, {String? key}) async {
+  Future<Explanation> explain(
+    String state, {
+    String? key,
+    int historyCount = 0,
+  }) async {
     if (!_r.checkRead(who, state, cause: inReplyAs(who))) {
       throw NotPermitted('$who may not read $state');
     }
     _r.usedBy(state, who);
-    return _r.explain(state, key: key);
+    return _r.explain(state, key: key, by: who, historyCount: historyCount);
+  }
+
+  @override
+  Future<Map<String, Object?>> inspectCall(String id) async {
+    try {
+      return _r.inspectCall(id, by: who);
+    } on StateError catch (e) {
+      throw NotPermitted(e.message);
+    }
   }
 
   @override

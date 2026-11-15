@@ -210,7 +210,13 @@ final class Origin {
 /// Why something happens (SPEC §4).
 final class Cause {
   /// Const constructor.
-  const Cause(this.by, {this.parent, this.conversation, this.origin});
+  const Cause(
+    this.by, {
+    this.parent,
+    this.conversation,
+    this.origin,
+    this.unresolvedParent,
+  });
 
   /// [json] as a cause.
   factory Cause.fromJson(Object? json) {
@@ -218,6 +224,7 @@ final class Cause {
     return Cause(
       Principal.fromJson(m['by']),
       parent: m['parent'] as String?,
+      unresolvedParent: m['unresolvedParent'] as String?,
       conversation: m['conversation'] as String?,
       origin: m['origin'] == null ? null : Origin.fromJson(m['origin']),
     );
@@ -228,6 +235,9 @@ final class Cause {
 
   /// The message this one follows from: the call whose handler wrote it.
   final String? parent;
+
+  /// A requested parent the host could not verify; never grants attribution.
+  final String? unresolvedParent;
 
   /// The conversation this one is part of: the id of the message that set
   /// it all going, the same for everything that followed from it, however
@@ -262,13 +272,19 @@ final class Cause {
   );
 
   /// The same cause, on behalf of [by].
-  Cause withBy(Principal by) =>
-      Cause(by, parent: parent, conversation: conversation, origin: origin);
+  Cause withBy(Principal by) => Cause(
+    by,
+    parent: parent,
+    conversation: conversation,
+    origin: origin,
+    unresolvedParent: unresolvedParent,
+  );
 
   /// Its JSON.
   Map<String, Object?> toJson() => {
     'by': by.toJson(),
     'parent': ?parent,
+    'unresolvedParent': ?unresolvedParent,
     'conversation': ?conversation,
     'origin': ?origin?.toJson(),
   };

@@ -93,14 +93,14 @@ final class StateChange {
   final DateTime at;
 
   /// Its JSON.
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson({bool payloads = true}) => {
     'seq': seq,
     'id': id,
     'state': state,
     'key': ?key,
-    if (!removed) 'value': value,
+    if (payloads && !removed) 'value': value,
     if (removed) 'removed': true,
-    'previous': previous,
+    if (payloads) 'previous': previous,
     'cause': cause.toJson(),
     'at': at.toUtc().toIso8601String(),
   };
@@ -247,11 +247,11 @@ final class FactMessage {
   final DateTime at;
 
   /// Its JSON.
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson({bool payloads = true}) => {
     'seq': seq,
     'id': id,
     'fact': fact,
-    'payload': payload,
+    if (payloads) 'payload': payload,
     'cause': cause.toJson(),
     'at': at.toUtc().toIso8601String(),
   };
@@ -710,6 +710,7 @@ final class CallStarted {
     required Map<String, Object?> params,
     required this.cause,
     required this.started,
+    this.ambiguous = false,
   }) : _params = Kept.json(params);
 
   CallStarted._kept({
@@ -718,6 +719,7 @@ final class CallStarted {
     required Kept params,
     required this.cause,
     required this.started,
+    this.ambiguous = false,
   }) : _params = params;
 
   /// [json] as a started call.
@@ -729,6 +731,7 @@ final class CallStarted {
       params: (m['params'] as Map? ?? const {}).cast<String, Object?>(),
       cause: Cause.fromJson(m['cause']),
       started: _at(m['started']),
+      ambiguous: m['ambiguous'] == true,
     );
   }
 
@@ -748,11 +751,15 @@ final class CallStarted {
   /// When the call came, as its record says.
   final DateTime started;
 
+  /// The caller reused this ID after its deduplication record was evicted.
+  final bool ambiguous;
+
   /// Its JSON.
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson({bool payloads = true}) => {
     'id': id,
+    if (ambiguous) 'ambiguous': true,
     'command': command,
-    'params': params,
+    if (payloads) 'params': params,
     'cause': cause.toJson(),
     'started': started.toUtc().toIso8601String(),
   };
@@ -894,8 +901,11 @@ final class CallRecord {
     required this.cause,
     required this.result,
     required this.started,
+    this.ambiguous = false,
     required this.finished,
     this.late = false,
+    this.replyResult,
+    this.repliedAt,
   }) : _params = Kept.json(params);
 
   CallRecord._kept({
@@ -905,8 +915,11 @@ final class CallRecord {
     required this.cause,
     required this.result,
     required this.started,
+    this.ambiguous = false,
     required this.finished,
     this.late = false,
+    this.replyResult,
+    this.repliedAt,
   }) : _params = params;
 
   /// The call's id.
@@ -928,12 +941,21 @@ final class CallRecord {
   /// When the call came.
   final DateTime started;
 
+  /// The caller reused this ID after its deduplication record was evicted.
+  final bool ambiguous;
+
   /// When it ended.
   final DateTime finished;
 
   /// The handler ended after the deadline: the caller was answered
   /// `timedOut`, and this is how the call really ended.
   final bool late;
+
+  /// The result already returned to the caller before this late completion.
+  final CallResult<Object?>? replyResult;
+
+  /// When that earlier result was returned.
+  final DateTime? repliedAt;
 
   /// The handler ended after the deadline: the caller was answered
   /// `timedOut`, and this is how the call really ended.
@@ -946,18 +968,26 @@ final class CallRecord {
       cause: Cause.fromJson(m['cause']),
       result: CallResult.fromJson(m['result']),
       started: _at(m['started']),
+      ambiguous: m['ambiguous'] == true,
       finished: _at(m['finished']),
       late: m['late'] == true,
+      replyResult: m['replyResult'] == null
+          ? null
+          : CallResult.fromJson(m['replyResult']),
+      repliedAt: m['repliedAt'] == null ? null : _at(m['repliedAt']),
     );
   }
 
   /// Its JSON.
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson({bool payloads = true}) => {
     'id': id,
+    if (ambiguous) 'ambiguous': true,
     'command': command,
-    'params': params,
+    if (payloads) 'params': params,
     'cause': cause.toJson(),
-    'result': result.toJson(),
+    'result': _resultJson(result, payloads),
+    if (replyResult != null) 'replyResult': _resultJson(replyResult!, payloads),
+    if (repliedAt != null) 'repliedAt': repliedAt!.toUtc().toIso8601String(),
     'started': started.toUtc().toIso8601String(),
     'finished': finished.toUtc().toIso8601String(),
     if (late) 'late': true,
@@ -970,10 +1000,15 @@ final class CallRecord {
 /// One entry of the journal (SPEC §9.3): what happened in the system at
 /// the level of use, as it happened. A call that began, a call that ended
 /// (refused ones too), a fact said, and a state written in a conversation
-/// (its cause has a parent); never an owner's own write of how the world
-/// is now, which is no history. [n] orders the entries of one [epoch].
+/// (its cause has a parent), selected independent writes, and payload-free
+/// diagnostic decisions. [n] orders the entries of one [epoch].
 sealed class JournalEntry {
-  const JournalEntry({required this.epoch, required this.n, this.trace});
+  const JournalEntry({
+    required this.epoch,
+    required this.n,
+    this.trace,
+    this.payloads = true,
+  });
 
   factory JournalEntry.fromJson(Object? json) {
     final m = (json as Map).cast<String, Object?>();
@@ -986,24 +1021,40 @@ sealed class JournalEntry {
         epoch: epoch,
         n: n,
         trace: trace,
+        payloads: m['payloads'] != false,
       ),
       'end' => JournalEnd(
         CallRecord.fromJson(m),
         epoch: epoch,
         n: n,
         trace: trace,
+        payloads: m['payloads'] != false,
       ),
       'fact' => JournalFact(
         FactMessage.fromJson(m),
         epoch: epoch,
         n: n,
         trace: trace,
+        payloads: m['payloads'] != false,
       ),
       'write' => JournalWrite(
         StateChange.fromJson(m),
         epoch: epoch,
         n: n,
         trace: trace,
+        payloads: m['payloads'] != false,
+      ),
+      'diagnostic' => JournalDiagnostic(
+        id: m['id'] as String,
+        word: m['word'] as String,
+        cause: Cause.fromJson(m['cause']),
+        at: _at(m['at']),
+        event: m['event'] as String,
+        data: (m['data'] as Map? ?? const {}).cast<String, Object?>(),
+        epoch: epoch,
+        n: n,
+        trace: trace,
+        payloads: false,
       ),
       final k => throw FormatException('no journal entry of kind $k'),
     };
@@ -1020,7 +1071,13 @@ sealed class JournalEntry {
   /// lines logged in it are. Null without one.
   final String? trace;
 
-  /// `start`, `end`, `fact` or `write`.
+  /// Whether this recording contains values, rather than metadata alone.
+  final bool payloads;
+
+  /// Approximate bytes retained while this entry waits in a bounded queue.
+  int get retainedBytes => journalEntryWeight(this);
+
+  /// `start`, `end`, `fact`, `write` or `diagnostic`.
   String get kind;
 
   /// The word it is of: the command called, the fact said, the state
@@ -1046,17 +1103,18 @@ sealed class JournalEntry {
 
   /// Its message's JSON, with `epoch`, `n`, `kind`, `conversation`,
   /// `origin` and `trace` beside: one flat object a line of a file holds.
-  Map<String, Object?> toJson() => {
+  Map<String, Object?> toJson({bool payloads = true}) => {
     'epoch': epoch,
     'n': n,
     'kind': kind,
     'conversation': conversation,
     'origin': origin.toJson(),
     'trace': ?trace,
-    ..._message(),
+    if (!this.payloads || !payloads) 'payloads': false,
+    ..._message(payloads: this.payloads && payloads),
   };
 
-  Map<String, Object?> _message();
+  Map<String, Object?> _message({required bool payloads});
 }
 
 /// A call whose handler began: it passed every stage.
@@ -1067,6 +1125,7 @@ final class JournalStart extends JournalEntry {
     required super.epoch,
     required super.n,
     super.trace,
+    super.payloads,
   });
 
   /// The call begun.
@@ -1083,7 +1142,8 @@ final class JournalStart extends JournalEntry {
   @override
   DateTime get at => call.started;
   @override
-  Map<String, Object?> _message() => call.toJson();
+  Map<String, Object?> _message({required bool payloads}) =>
+      call.toJson(payloads: payloads);
 }
 
 /// A call that ended: answered, failed, timed out or refused (a refused
@@ -1095,6 +1155,7 @@ final class JournalEnd extends JournalEntry {
     required super.epoch,
     required super.n,
     super.trace,
+    super.payloads,
   });
 
   /// The call ended.
@@ -1111,7 +1172,8 @@ final class JournalEnd extends JournalEntry {
   @override
   DateTime get at => call.finished;
   @override
-  Map<String, Object?> _message() => call.toJson();
+  Map<String, Object?> _message({required bool payloads}) =>
+      call.toJson(payloads: payloads);
 }
 
 /// A fact said.
@@ -1122,6 +1184,7 @@ final class JournalFact extends JournalEntry {
     required super.epoch,
     required super.n,
     super.trace,
+    super.payloads,
   });
 
   /// The fact said.
@@ -1138,7 +1201,8 @@ final class JournalFact extends JournalEntry {
   @override
   DateTime get at => fact.at;
   @override
-  Map<String, Object?> _message() => fact.toJson();
+  Map<String, Object?> _message({required bool payloads}) =>
+      fact.toJson(payloads: payloads);
 }
 
 /// A state written in a conversation: in reply to a call or a fact.
@@ -1149,6 +1213,7 @@ final class JournalWrite extends JournalEntry {
     required super.epoch,
     required super.n,
     super.trace,
+    super.payloads,
   });
 
   /// The change written.
@@ -1165,11 +1230,12 @@ final class JournalWrite extends JournalEntry {
   @override
   DateTime get at => change.at;
   @override
-  Map<String, Object?> _message() => change.toJson();
+  Map<String, Object?> _message({required bool payloads}) =>
+      change.toJson(payloads: payloads);
 }
 
 /// Why a state (of a key) is as it is (SPEC §9): its value, its last
-/// change still retained, and the calls that led to it, nearest first, as
+/// change still retained, and the messages that led to it, nearest first, as
 /// far as they are remembered.
 final class Explanation {
   /// One explanation: what asks it is told.
@@ -1181,6 +1247,8 @@ final class Explanation {
     required this.trail,
     this.forgotten = false,
     this.trailCut = false,
+    this.gap,
+    this.history = const [],
   });
 
   /// [json] as an explanation.
@@ -1192,10 +1260,16 @@ final class Explanation {
       value: m['value'],
       change: m['change'] == null ? null : StateChange.fromJson(m['change']),
       trail: [
-        for (final c in m['trail'] as List? ?? const []) CallRecord.fromJson(c),
+        for (final c in m['trail'] as List? ?? const [])
+          JournalEntry.fromJson(c),
       ],
       forgotten: m['forgotten'] == true,
       trailCut: m['trailCut'] == true,
+      gap: m['gap'] as String?,
+      history: [
+        for (final c in m['history'] as List? ?? const [])
+          StateChange.fromJson(c),
+      ],
     );
   }
 
@@ -1217,12 +1291,18 @@ final class Explanation {
   /// than none. A state never written is not forgotten.
   final bool forgotten;
 
-  /// The calls that led to [change], nearest first: at most ten, and
+  /// The messages that led to [change], nearest first: at most ten, and
   /// [trailCut] says the trail goes further back than these.
-  final List<CallRecord> trail;
+  final List<JournalEntry> trail;
 
   /// The trail goes on further back than the registry remembers.
   final bool trailCut;
+
+  /// Why the path ends before its verified root, when it does.
+  final String? gap;
+
+  /// Selected recent changes of this state/key, across conversations.
+  final List<StateChange> history;
 
   /// Its JSON.
   Map<String, Object?> toJson() => {
@@ -1233,6 +1313,8 @@ final class Explanation {
     if (forgotten) 'forgotten': true,
     if (trail.isNotEmpty) 'trail': [for (final c in trail) c.toJson()],
     if (trailCut) 'trailCut': true,
+    if (gap != null) 'gap': gap,
+    if (history.isNotEmpty) 'history': [for (final c in history) c.toJson()],
   };
 }
 
@@ -1244,12 +1326,14 @@ CallStarted keptStarted({
   required Kept params,
   required Cause cause,
   required DateTime started,
+  bool ambiguous = false,
 }) => CallStarted._kept(
   id: id,
   command: command,
   params: params,
   cause: cause,
   started: started,
+  ambiguous: ambiguous,
 );
 
 /// A call ended, its [params] as the registry keeps them. The package's
@@ -1261,8 +1345,11 @@ CallRecord keptRecord({
   required Cause cause,
   required CallResult<Object?> result,
   required DateTime started,
+  bool ambiguous = false,
   required DateTime finished,
   bool late = false,
+  CallResult<Object?>? replyResult,
+  DateTime? repliedAt,
 }) => CallRecord._kept(
   id: id,
   command: command,
@@ -1270,6 +1357,86 @@ CallRecord keptRecord({
   cause: cause,
   result: result,
   started: started,
+  ambiguous: ambiguous,
   finished: finished,
   late: late,
+  replyResult: replyResult,
+  repliedAt: repliedAt,
 );
+
+/// A metadata-only observation of a Parlance decision or operation.
+final class JournalDiagnostic extends JournalEntry {
+  /// An immutable diagnostic entry; data never contains user payloads.
+  JournalDiagnostic({
+    required this.id,
+    required this.word,
+    required this.cause,
+    required this.at,
+    required this.event,
+    Map<String, Object?> data = const {},
+    required super.epoch,
+    required super.n,
+    super.trace,
+    super.payloads = false,
+  }) : data = freezeJson(data)! as Map<String, Object?>;
+  @override
+  final String id;
+  @override
+  final String word;
+  @override
+  final Cause cause;
+  @override
+  final DateTime at;
+
+  /// The decision or lifecycle stage.
+  final String event;
+
+  /// Small, payload-free details recorded when the decision happened.
+  final Map<String, Object?> data;
+  @override
+  String get kind => 'diagnostic';
+  @override
+  Map<String, Object?> _message({required bool payloads}) => {
+    'id': id,
+    'word': word,
+    'cause': cause.toJson(),
+    'at': at.toUtc().toIso8601String(),
+    'event': event,
+    'data': data,
+  };
+}
+
+Map<String, Object?> _resultJson(CallResult<Object?> result, bool payloads) =>
+    result is CallDone && !payloads ? {'done': true} : result.toJson();
+
+/// Weighs retained values in their native representation without encoding them.
+int journalEntryWeight(JournalEntry entry) {
+  int kept(Kept p) => p.shape?.weigh(p.value) ?? jsonWeight(p.value);
+  int value(Shape<Object?>? shape, Object? v) =>
+      v == null ? 8 : shape?.weigh(v) ?? jsonWeight(v);
+  final base =
+      256 +
+      2 *
+          (entry.id.length +
+              entry.word.length +
+              entry.cause.toJson().toString().length);
+  if (!entry.payloads) {
+    return base + (entry is JournalDiagnostic ? jsonWeight(entry.data) : 0);
+  }
+  return base +
+      switch (entry) {
+        JournalStart(:final call) => kept(call._params),
+        JournalEnd(:final call) =>
+          kept(call._params) +
+              switch (call.result) {
+                _KeptDone(:final _kept) => kept(_kept),
+                CallDone(:final value) => jsonWeight(value),
+                _ => 16,
+              },
+        JournalFact(:final fact) => value(fact._shape, fact._payload),
+        JournalWrite(:final change) =>
+          value(change._shape, change._value) +
+              value(change._shape, change._previous),
+        JournalDiagnostic(:final data) => jsonWeight(data),
+      };
+}

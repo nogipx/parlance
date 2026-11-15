@@ -44,8 +44,14 @@ final class _OfOwner implements IRawParticipant {
   Future<Map<String, Object?>> describe() => _root.describe();
 
   @override
-  Future<Explanation> explain(String state, {String? key}) =>
-      _root.explain(state, key: key);
+  Future<Explanation> explain(
+    String state, {
+    String? key,
+    int historyCount = 0,
+  }) => _root.explain(state, key: key, historyCount: historyCount);
+
+  @override
+  Future<Map<String, Object?>> inspectCall(String id) => _root.inspectCall(id);
 
   @override
   int accessRevision(String word) => _root.accessRevision(word);

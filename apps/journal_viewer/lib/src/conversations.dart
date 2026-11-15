@@ -37,7 +37,7 @@ class ConversationList extends StatelessWidget {
               Flexible(
                 child: Tooltip(
                   message:
-                      'Only those with a call refused, failed or timed out',
+                      'Calls refused, failed, timed out, cancelled or lost',
                   child: FilterChip(
                     label: const Text('Problems'),
                     selected: viewer.problemsOnly,
@@ -142,6 +142,14 @@ class _Row extends StatelessWidget {
                         _Count(talk.refused, Look.refused, Icons.block),
                       if (talk.failed > 0)
                         _Count(talk.failed, Look.failed, Icons.error_outline),
+                      if (talk.lost > 0)
+                        _Count(talk.lost, Look.failed, Icons.link_off),
+                      if (talk.cancelled > 0)
+                        _Count(
+                          talk.cancelled,
+                          Look.slow,
+                          Icons.cancel_outlined,
+                        ),
                       if (talk.timedOut > 0)
                         _Count(talk.timedOut, Look.slow, Icons.timer_outlined),
                     ],

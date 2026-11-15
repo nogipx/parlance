@@ -801,12 +801,22 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   @override
-  Future<Explanation> explain(String state, {String? key}) async {
+  Future<Map<String, Object?>> inspectCall(String id) {
+    _live();
+    return _asked(() => _client.inspectCall(id));
+  }
+
+  @override
+  Future<Explanation> explain(
+    String state, {
+    String? key,
+    int historyCount = 0,
+  }) async {
     _live();
     // A state there is not explains itself as nothing, as in the host's
     // process: no value, no change.
     return _asked(
-      () => _client.explain(state, key: key),
+      () => _client.explain(state, key: key, historyCount: historyCount),
       missing: () => Explanation(
         state: state,
         key: key,

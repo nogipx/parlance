@@ -2,6 +2,8 @@
 
 Part of the contract the code and its tests follow; sections keep their numbers across these files (`SPEC §n` in the code), and SKILL.md maps them. Where code and contract disagree, the contract is fixed first.
 
+The diagnostic contract is extended by [explanations and resource ownership](diagnostics.md).
+
 **What a host holds.** `main` makes a `Host`, the one door: its participants (`host.participant`, §22), `alias`, `dispose`. Its `registry` (tools) does nothing on anyone's behalf and makes no participant; exported of it is what only tells: the catalog and its changes, `describe`, `ticks` and `seq`, `calls`, `callStarts`, `running`, `callRecord`, `explain`, `lastChange`, `conversation`, `usesOf`, `usage`; what the host says (`alias`, §6.4) it says through `Host`. Everything that acts, the sections below describe as the registry's (defining words with `by:`, calling and writing as any principal, guards, batches, reads, watches and facts by name, status by principal, the feed), is the package's own (`RawRegistry` and the `Participants` that make participants, by name and descriptor; typed words go only through a participant's `GeneratedWords`): participants, sessions and views are built on it, and a part reaches it only as one of them, so no code but the package's can act as someone it is not, or define a word outside its vocabularies. A test of the package imports it from `src/`.
 
 ## 1. Values and names
@@ -55,7 +57,7 @@ A principal has **owners**: `ofOwner(name)` names one (`house` → `house@heatin
 A **cause** is why something happens:
 
 ```
-Cause { by: Principal, parent: message id?, conversation: message id?, origin: Origin? }
+Cause { by: Principal, parent: message id?, conversation: message id?, origin: Origin?, unresolvedParent: message id? }
 Origin { word: name, by: Principal }
 ```
 
@@ -83,7 +85,7 @@ StateDescriptor { name, type, key: entity kind?, readers: { selector: allow | de
 - A state has exactly one writer: whoever defined it holds the only write handle.
 - A state that goes (its handle disposed, its participant gone) takes its values with it as removals, committed in one tick whoever follows them is told: inside a batch they commit with it, and what the batch wrote of the state goes uncommitted. Its name is free at once.
 - `dispose()` ends what holds the registry first, the last made first: its participants (their owners and parts with them) and the sessions it serves, so nothing is closed by hand before it; then what follows it: its watches, status streams and feeds are done.
-- `readers` say who may read its values over remote and to agents, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Code in the registry's own process reads every state: readers bound remote participants, not the host.
+- `readers` say who may read its values over remote and to agents, with the selectors of `callers` (§6.2); none means everyone. Its descriptor stays in the catalog for all; `describeFor` lists the states and facts the principal may not read (`unreadable`), `mayRead(principal, name)` tells one. Participants and views enforce readers locally and over RPC; only trusted raw host tools bypass them.
 - A keyed state holds one value per key; an unkeyed state holds one value.
 - Reading gives the last committed value, or nothing when there is none.
 - Removing a key or the whole state is a change like any other.
@@ -226,9 +228,9 @@ A call goes through these stages, in order; the first refusal ends it:
 4. **Policy.** `callers` for the principal → `notPermitted`.
 5. **WhyNot.** The owner's check → `unavailable`.
 6. **Guards.** Every guard (§10) is asked; the first denial → `denied` with the guard's id and reason.
-7. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, and a retry with the call's id waits for that end (as long as a call waits), not for the `timedOut` its first caller got. **A caller may cancel** (`cancel:`, a `CancellationToken`, on `call`, `GeneratedCommand.call`, `GeneratedQuery.ask` and each method of a generated client): once `token.cancel()` comes, the call answers `cancelled`, as an early deadline of the caller's. Cancelled before the handler began (the token cancelled already, or while an asked guard was judging), it does not run; after, the handler is told (`call.expired`), and what it does stands, its end recorded late, as for `timedOut`. One cancelled before it began holds no id: a retry with it runs the call. A retry with the id that cancels stops its own wait only. Cancelling is not undoing: a command that wrote, wrote.
+7. **Handler.** Gets the call (id, params, cause), bounded by the deadline → `timedOut`; a throw → `failed`; a result that does not pass `returns` → `failed`. **`timedOut` is not an end**: it means no answer came within the deadline. The handler is told (`call.expired`) and may stop; if it goes on, what it does stands, its end is published as a second call record marked `late`, retaining the earlier reply in `replyResult` and its time in `repliedAt`, and a retry with the call's id waits for that end (as long as a call waits), not for the `timedOut` its first caller got. **A caller may cancel** (`cancel:`, a `CancellationToken`, on `call`, `GeneratedCommand.call`, `GeneratedQuery.ask` and each method of a generated client): once `token.cancel()` comes, the call answers `cancelled`, as an early deadline of the caller's. Cancelled before the handler began (the token cancelled already, or while an asked guard was judging), it does not run; after, the handler is told (`call.expired`), and what it does stands, its end recorded late, as for `timedOut`. One cancelled before it began holds no id: a retry with it runs the call. A retry with the id that cancels stops its own wait only. Cancelling is not undoing: a command that wrote, wrote.
 
-`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, why, guard?)`, `failed(error)`, `timedOut`, `cancelled`, or `lost(id, how)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. An end a peer of a newer protocol tells that this side does not know (a refusal code, a shape) is `failed`, saying what came: not done, and nothing to retry. A timed-out call's late end takes the place of its timeout among the call records kept. Every finished call is published as a **call record** (request, cause, stages passed, result, timings) on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
+`CallResult<R>` is `done(value)` (the only end that carries an answer, of type `R` for a typed call, §18) or `refused(code, why, guard?)`, `failed(error)`, `timedOut`, `cancelled`, or `lost(id, how)`: the answer did not come back over remote (§14), so whether it ran is unknown; a retry with the id runs it at most once. An end a peer of a newer protocol tells that this side does not know (a refusal code, a shape) is `failed`, saying what came: not done, and nothing to retry. A timed-out call's late end takes the place of its timeout among the call records kept. Every finished call is published as a **call record** (request, cause, result, timings); bounded diagnostic events carry the admission decisions on the calls stream, for journals. A call whose handler begins is told first on `callStarts` (`CallStarted`: id, command, params, cause, when it came), and `running` lists the calls whose handlers run now, one that timed out too until its handler ends: what a monitor needs to see what is in flight or stuck. Both only tell: nothing in them can change a call. A refused call never begins; a query is not told, as it is not recorded (§6.6).
 
 ### 9.2 Logs and telemetry
 
@@ -242,11 +244,29 @@ The registry logs to a `LogScope` of rpc_dart's logger (`package:rpc_dart/logger
 
 ### 9.3 The journal
 
-`registry.journal` tells what happened in the system at the level of use, as it happens and in one order: every call as it begins (`JournalStart`, its `CallStarted`) and as it ends (`JournalEnd`, its call record: done, failed, timed out, late, or refused, which never began), every fact said (`JournalFact`), and every state written in a conversation (`JournalWrite`: its cause has a parent, a call or a fact it answers). An owner's own write of how the world is now (a meter, a clock) is no history and is not in it; what is worth remembering an owner says as a fact. A query is not in it (§6.6). Logs and spans tell how the code ran and may be off, filtered or sampled; the journal is the record of what was done, by whom, following what.
+`registry.journal` emits calls as they begin and end (`JournalStart`,
+`JournalEnd`), facts (`JournalFact`), committed conversation writes
+(`JournalWrite`), and payload-free decisions (`JournalDiagnostic`). Queries
+are not recorded (§6.6). Independent state writes are opt-in through
+`registry.captureStateWrites([exactAddress])`; dispose its handle when capture ends.
 
-- **Kept by the host, not here.** The stream is synchronous: an entry is with its listeners as it happens, so a writer that listens from the start misses none, whatever comes after. The registry keeps nothing of it, and while no one listens makes nothing of it. A host that must not lose a conversation writes it where it lasts (`parlance_journal` writes JSON lines and reads back a conversation, the one a message is in (`of`), the path to a message (`pathTo`), a conversation as a tree to draw (`tree`), all that one word started (`startedWith`), a trace and the links there are); what the registry remembers (`conversation`, `explain`, call records) is bounded and may forget.
-- **An entry** has the registry's `epoch`, its place `n` in it (from 1, no gaps for a listener there from the start), its `kind` (`start`, `end`, `fact`, `write`), its message with `id` and `cause`, and its `word`, its `conversation` and its `origin` (§4: `{word, by}`, its own for the first). `toJson` is one flat object: the message's JSON with `epoch`, `n`, `kind`, `conversation`, `origin` and `trace` beside; `JournalEntry.fromJson` reads it back.
-- **Linked to telemetry and logs.** With spans kept (§9.2) an entry carries `trace`, the W3C `traceparent` of the span it is in: a call's own; a fact's or a write's, the span of the call it was made in, or of what it follows from. A span carries `call` and `conversation`, and the registry's log lines `id` and `conversation`, so a conversation found in the journal is found in the backend by its id, and a span or a line leads back to its entry.
+- The stream delivers synchronously to an unpaused recorder. Each paused
+  subscription is bounded to 64 entries and 4 MiB; overflow reports a failure and
+  ends that subscription. Reentrant emissions use the same bounds and report
+  dropped entries with `capture.gap`. No listener means no journal entries.
+- Entries carry `epoch`, sequence `n`, `kind`, `id`, `cause`, `word`, conversation,
+  origin and optional trace. Reader identity is `(epoch, id)`; ambiguous executions
+  of one ID are reported. Sequence holes and malformed lines are evidence gaps.
+- `parlance_journal` owns the file writer and readers. Capture controls use `n: 0`,
+  describe coverage and omitted payloads, and do not pretend to be host events.
+  `payloads: false` removes values before native serialization. A missing value
+  must not be displayed as a recorded null.
+- Logs and spans remain telemetry (§9.2). Journal entries link to them through
+  `trace`, call ID and conversation; retained runtime history can expire sooner
+  than the recorder's files.
+
+See [diagnostics.md](diagnostics.md) for mixed causal explanations, active and
+pending calls, late outcomes, access-controlled inspection and exact memory bounds.
 
 ## 10. Guards
 
@@ -274,7 +294,7 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 - Without `since`, or with another epoch, or with a seq older than the retained ticks: first a **snapshot** (every state value, the catalog, the epoch and seq), then live ticks. A snapshot after a gap says `factsLost: true`.
 - With a seq still retained: the retained ticks after it, then live ticks, with no gap and no repeat. What each kind of message is promised across a drop: §14.1.
-- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)` (none for an `n` of none or less), the call records as many as ticks; each of these histories also keeps no more than about `retainBytes` (default 4 MB) of values, weighed roughly as their JSON (a Dart value by its shape, as its JSON would weigh). Whichever bound comes first drops the oldest, but the newest of each history is kept however big, so a big value rewritten often is not held in every version. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` (earlier calls). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
+- The registry retains the last ticks by count (default 1000) and the last facts per name (default 100) for `recent(name, n)` (none for an `n` of none or less), the call records as many as ticks; each of these histories also keeps no more than about `retainBytes` (default 4 MB) of values, weighed roughly as their JSON (a Dart value by its shape, as its JSON would weigh). Whichever bound comes first drops the oldest, but the newest of each history is kept however big, so a big value rewritten often is not held in every version. `explain` says when what it cannot find may be forgotten: `forgotten` (the last change), `trailCut` and `gap` (an incomplete causal path). `describe` tells the dedup window (`dedupWindowMs`): how long an id answers its first result.
 
 ## 17. Versions
 
@@ -302,3 +322,5 @@ A host names its words once, with their Dart types, and works through them; noth
 - `readAll` of a state that may be null (`NullableShape`) keeps its null values: null is a value of its own there.
 - Domain identifiers stay ordinary strings; owners validate them.
 
+
+Diagnostic observations, mixed causal paths, caller/handler outcomes, recording coverage and their memory limits follow [diagnostics.md](diagnostics.md).

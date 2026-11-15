@@ -19,7 +19,7 @@ void main() {
       'ann turns the kitchen light on: done',
       'why: written by home@house, '
           'started by home/house.set_light by resident/ann',
-      'answering home/house.set_light {room: kitchen, on: true} by resident/ann',
+      'following end home/house.set_light by resident/ann',
       'bob, a guest, sets the heating: refused (notPermitted)',
       'ann lights a room there is not: no room attic',
       'for bob: house.set_heat notPermitted, house.set_light ready, '

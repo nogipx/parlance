@@ -6,15 +6,26 @@ import 'schema.dart';
 
 /// What a tool gives back: text, and pictures (PNG, base64 in MCP).
 final class McpResult {
-  const McpResult(this.text, {this.images = const [], this.error = false});
+  const McpResult(
+    this.text, {
+    this.images = const [],
+    this.error = false,
+    this.structuredContent,
+  });
 
-  const McpResult.error(this.text) : images = const [], error = true;
+  const McpResult.error(this.text)
+    : images = const [],
+      error = true,
+      structuredContent = null;
 
   /// [value] as indented JSON, for the agent to read.
   factory McpResult.json(Object? value) =>
       McpResult(const JsonEncoder.withIndent(' ').convert(value));
 
   final String text;
+
+  /// Machine-readable tool data, such as the ID needed to inspect a call.
+  final Map<String, Object?>? structuredContent;
 
   /// PNG bytes.
   final List<List<int>> images;
@@ -29,6 +40,7 @@ final class McpResult {
         {'type': 'image', 'data': base64Encode(i), 'mimeType': 'image/png'},
     ],
     'isError': error,
+    if (structuredContent != null) 'structuredContent': structuredContent,
   };
 }
 

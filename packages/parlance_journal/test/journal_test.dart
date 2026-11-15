@@ -89,13 +89,14 @@ void main() {
 
     final talk = JournalReader(dir).conversation('visitor/gate.7#irc:1');
     String line(JournalEntry e) => switch (e) {
+      JournalDiagnostic(:final event) => 'diagnostic $event',
       JournalStart(:final call) => 'start ${call.command} ${call.cause.by}',
       JournalEnd(:final call) =>
         'end ${call.command} ${call.result.toJson().keys.first}',
       JournalFact(:final fact) => 'fact ${fact.fact}',
       JournalWrite(:final change) => 'write ${change.state}=${change.value}',
     };
-    expect(talk.map(line), [
+    expect(talk.where((e) => e is! JournalDiagnostic).map(line), [
       'start house/intercom.say visitor/gate.7',
       'fact house/intercom.line',
       'end house/intercom.say done',
@@ -160,7 +161,7 @@ void main() {
         .single;
     final talk = reader.of(write.id);
     expect({for (final e in talk) e.conversation}, {'visitor/gate.7#irc:1'});
-    expect(talk, hasLength(7));
+    expect(talk, hasLength(13));
     expect(reader.pathTo(write.id).map((e) => '${e.kind} ${e.word}'), [
       'start house/intercom.say',
       'fact house/intercom.line',
@@ -266,7 +267,7 @@ call house/intercom.say by visitor/gate.7 -> done
     expect(text, isNot(contains('!clip')));
     expect(text, isNot(contains('"len"')));
     final talk = JournalReader(dir).conversation('visitor/gate.7#irc:1');
-    expect(talk, hasLength(7));
+    expect(talk, hasLength(13));
     final save = talk.whereType<JournalStart>().last.call;
     expect(save.command, 'house/clip.save');
     expect(save.params, isEmpty);
@@ -328,7 +329,9 @@ call house/intercom.say by visitor/gate.7 -> done
     await s.intercom('irc:4');
     await s.r.dispose();
     final talks = {
-      for (final e in JournalReader(dir).entries()) e.conversation,
+      for (final e in JournalReader(dir).entries())
+        if (e is! JournalDiagnostic || !e.event.startsWith('capture.'))
+          e.conversation,
     };
     expect(talks, {'visitor/gate.7#irc:2'});
   });
@@ -344,7 +347,7 @@ call house/intercom.say by visitor/gate.7 -> done
     final text = JournalReader(dir).files.single.readAsStringSync();
     final j = Journal.parse('$text{"cut sh');
     expect(j.entries, hasLength(JournalReader(dir).entries().length));
-    expect(j.conversation('visitor/gate.7#irc:1'), hasLength(7));
+    expect(j.conversation('visitor/gate.7#irc:1'), hasLength(13));
     expect(j.tree('visitor/gate.7#irc:1').single.word, 'house/intercom.say');
     final talks = j.conversations();
     expect(talks.map((c) => c.id), [
@@ -355,7 +358,7 @@ call house/intercom.say by visitor/gate.7 -> done
     expect(first.origin, const Origin('house/intercom.say', visitor));
     expect(
       (first.entries, first.calls, first.refused, first.failed),
-      (7, 3, 1, 0),
+      (13, 3, 1, 0),
     );
     expect(first.duration, first.last.difference(first.started));
     expect(first.epoch, isNotEmpty);
@@ -378,14 +381,14 @@ call house/intercom.say by visitor/gate.7 -> done
       '${today.uri.pathSegments.last.substring(8, 18)}T12:00:00Z',
     );
     final n = await JournalReader(dir).export(out, since: day);
-    expect(n, 7);
+    expect(n, 15);
     expect(
       Journal.parse(
         out.readAsStringSync(),
       ).conversation('visitor/gate.7#irc:1'),
-      hasLength(7),
+      hasLength(13),
     );
-    expect(await JournalReader(dir).export(out), 8, reason: 'all days');
+    expect(await JournalReader(dir).export(out), 16, reason: 'all days');
     final none = File('${out.path}.none');
     expect(await JournalReader(dir).export(none, until: DateTime.utc(2000)), 0);
     expect(none.existsSync(), isFalse);
@@ -413,7 +416,7 @@ call house/intercom.say by visitor/gate.7 -> done
     expect(names, isNot(contains('journal-2026-01-01.jsonl')));
     expect(
       JournalReader(dir).conversation('visitor/gate.7#irc:1'),
-      hasLength(7),
+      hasLength(13),
     );
   });
   test('an entry after a line cut short is a line of its own', () async {
@@ -427,7 +430,7 @@ call house/intercom.say by visitor/gate.7 -> done
     await s.r.dispose();
     expect(
       JournalReader(dir).conversation('visitor/gate.7#irc:1'),
-      hasLength(7),
+      hasLength(13),
     );
     expect(today.readAsLinesSync().first, '{"epo');
   });
@@ -442,10 +445,10 @@ call house/intercom.say by visitor/gate.7 -> done
     day.writeAsBytesSync([...'{"x":"'.codeUnits, 0xD0], mode: FileMode.append);
     expect(
       JournalReader(dir).conversation('visitor/gate.7#irc:1'),
-      hasLength(7),
+      hasLength(13),
     );
     final out = File('${dir.path}/out.jsonl');
-    expect(await JournalReader(dir).export(out), 8);
+    expect(await JournalReader(dir).export(out), 16);
   });
 
   test('a day whose file would not open is written once it opens', () async {
@@ -486,7 +489,12 @@ call house/intercom.say by visitor/gate.7 -> done
     await host.dispose();
     expect(errors, hasLength(failed), reason: 'it came back');
     expect(
-      {for (final e in JournalReader(dir).days().entries) e.id},
+      {
+        for (final e in JournalReader(
+          dir,
+        ).days().entries.whereType<JournalEnd>())
+          e.id,
+      },
       {'user/local#a', 'user/local#c'},
     );
   });
@@ -512,7 +520,7 @@ call house/intercom.say by visitor/gate.7 -> done
         expect(read.conversation('visitor/gate.7#irc:1'), isEmpty);
         expect(
           read.conversation('visitor/gate.7#irc:2'),
-          hasLength(6),
+          hasLength(12),
           reason: 'no write: the clip is as it was',
         );
       },
@@ -528,7 +536,7 @@ call house/intercom.say by visitor/gate.7 -> done
       await s.r.dispose();
       expect(
         JournalReader(dir).conversation('visitor/gate.7#irc:2'),
-        hasLength(6),
+        hasLength(12),
       );
     });
 
@@ -545,9 +553,9 @@ call house/intercom.say by visitor/gate.7 -> done
         ).writeAsBytesSync([0, 1, 2, 0xff, 10, ...'{"a":1}\n'.codeUnits, 0xc3]);
         expect(
           JournalReader(dir).conversation('visitor/gate.7#irc:1'),
-          hasLength(7),
+          hasLength(13),
         );
-        expect(JournalReader(dir).entries(), hasLength(7));
+        expect(JournalReader(dir).entries(), hasLength(15));
       },
     );
 
@@ -563,10 +571,10 @@ call house/intercom.say by visitor/gate.7 -> done
       addTearDown(() => Process.runSync('chmod', ['600', locked.path]));
       expect(
         JournalReader(dir).conversation('visitor/gate.7#irc:1'),
-        hasLength(7),
+        hasLength(13),
       );
       final out = File('${dir.path}/out.jsonl');
-      expect(await JournalReader(dir).export(out), 7);
+      expect(await JournalReader(dir).export(out), 15);
     });
   });
 
@@ -629,13 +637,13 @@ call house/intercom.say by visitor/gate.7 -> done
       );
       final told = <String>[];
       final read = JournalReader(dir, onUnknown: (kind, _) => told.add(kind));
-      expect(read.conversation('visitor/gate.7#irc:1'), hasLength(7));
+      expect(read.conversation('visitor/gate.7#irc:1'), hasLength(13));
       expect(told, ['wave']);
       final j = Journal.parse(
         today.readAsStringSync(),
         onUnknown: (kind, _) => told.add(kind),
       );
-      expect(j.entries, hasLength(7));
+      expect(j.entries, hasLength(15));
       expect(told, ['wave', 'wave'], reason: 'every one, to the callback');
     },
   );

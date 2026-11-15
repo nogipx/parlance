@@ -164,3 +164,5 @@ remote-subscription and long-lived cancellation-token tables. This tests
 Parlance's retention, not buffers or unfinished work deliberately kept by an owner.
 It deliberately retains lifecycle events, active snapshots and RPC contexts too;
 those objects must not retain completed sources or their payloads.
+
+For causal inspection, recording coverage and bounded diagnostic retention, see [diagnostics.md](diagnostics.md).

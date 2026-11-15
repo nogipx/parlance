@@ -563,10 +563,64 @@ void main() {
       expect(why['value'], true);
       expect((why['changed'] as Map)['by'], 'host/house');
       expect(
-        ((why['trail'] as List).first as Map)['call'],
+        ((why['trail'] as List).first as Map)['command'],
         'host/house/door.lock',
       );
-      expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
+      expect(
+        Cause.fromJson(
+          ((why['trail'] as List).first as Map)['cause'],
+        ).by.selector,
+        'agent/claude',
+      );
+    });
+
+    test('an automatically generated call ID can be inspected', () async {
+      final response = await c.request('tools/call', {
+        'name': 'call',
+        'arguments': {
+          'command': 'host/house/door.lock',
+          'params': {'on': true},
+        },
+      });
+      final id =
+          ((response['result'] as Map)['structuredContent'] as Map)['call'];
+      expect(id, isA<String>());
+      final inspection = await c.json('why', {'call': id}) as Map;
+      expect((inspection['message'] as Map)['kind'], 'end');
+    });
+
+    test('why inspects a caller ID and bounds state history', () async {
+      for (final on in [true, false]) {
+        await c.call('call', {
+          'command': 'host/house/door.lock',
+          'params': {'on': on},
+          'id': 'lock-$on',
+        });
+      }
+      final call = await c.json('why', {'call': 'lock-false'}) as Map;
+      expect(call['running'], isFalse);
+      expect((call['message'] as Map)['kind'], 'end');
+      expect(
+        (call['decisions'] as List).map((d) => (d as Map)['event']),
+        containsAll(['attempt', 'access.allowed']),
+      );
+      final state =
+          await c.json('why', {
+                'state': 'host/house/door.locked',
+                'historyCount': 2,
+              })
+              as Map;
+      expect((state['history'] as List).map((h) => (h as Map)['value']), [
+        true,
+        false,
+      ]);
+      expect(
+        (await c.call('why', {
+          'state': 'host/house/door.locked',
+          'call': 'lock-false',
+        })).error,
+        isTrue,
+      );
     });
 
     test('recent facts', () async {
@@ -621,7 +675,12 @@ void main() {
       expect(await c.json('read', {'state': 'host/house/house.focus'}), 'test');
       final why =
           await c.json('why', {'state': 'host/house/house.focus'}) as Map;
-      expect(((why['trail'] as List).first as Map)['by'], 'agent/claude');
+      expect(
+        Cause.fromJson(
+          ((why['trail'] as List).first as Map)['cause'],
+        ).by.selector,
+        'agent/claude',
+      );
       f.party.say({'from': 'b', 'visitors': 1});
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(

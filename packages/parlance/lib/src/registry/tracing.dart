@@ -27,6 +27,7 @@ final class CallTraces {
 
   /// How many traces of messages it keeps: as many as ticks are retained.
   final int _keep;
+  bool _closed = false;
 
   /// The spans of the calls whose handlers run now, by call id.
   final Map<String, LogSpanHandle> _spans = {};
@@ -38,7 +39,7 @@ final class CallTraces {
   /// The trace a message is in: its own span's, running or ended, else
   /// the one of what it follows from.
   String? traceOf(String id, Cause cause) {
-    if (!on) return null;
+    if (!on || _closed) return null;
     final parent = cause.parent;
     return _spans[id]?.traceparent ??
         _traces[id] ??
@@ -48,6 +49,7 @@ final class CallTraces {
   }
 
   void _remember(String message, String traceparent) {
+    if (_closed) return;
     _traces[message] = traceparent;
     if (_traces.length > _keep) _traces.remove(_traces.keys.first);
   }
@@ -63,7 +65,7 @@ final class CallTraces {
     required bool query,
     String? streamKind,
   }) {
-    if (!on) return noSpan;
+    if (!on || _closed) return noSpan;
     final span = switch (_spans[cause.parent]) {
       final parent? => parent.startSpan(command),
       // What it follows from is over (a fact said, a call that ended): it
@@ -99,7 +101,7 @@ final class CallTraces {
     bool query = false,
   }) {
     if (!on) return;
-    _spans.remove(id);
+    if (identical(_spans[id], span)) _spans.remove(id);
     // A query leads to nothing that could follow from it: its trace would
     // only push out the ones a later call may link.
     if (!query) {
@@ -121,13 +123,27 @@ final class CallTraces {
   /// A fact of [t] said in a call's span, or following a message that had
   /// one, is in that trace: what answers it links there.
   void said(Tick t) {
-    if (!on) return;
-    for (final f in t.facts) {
-      final p = f.cause.parent;
+    if (!on || _closed) return;
+    void follow(String id, Cause cause) {
+      final p = cause.parent;
       if (_spans[p]?.traceparent ?? _traces[p] case final tp?) {
-        _remember(f.id, tp);
+        _remember(id, tp);
       }
     }
+
+    for (final f in t.facts) {
+      follow(f.id, f.cause);
+    }
+    for (final c in t.changes) {
+      follow(c.id, c.cause);
+    }
+  }
+
+  /// Drops retained trace references when their host ends.
+  void clear() {
+    _closed = true;
+    _spans.clear();
+    _traces.clear();
   }
 
   /// Each write and fact of [t] made in reply to a call, as an event of

@@ -48,6 +48,7 @@ extension RawRegistry on Registry {
   /// [command]'s whyNot may answer otherwise without a tick (SPEC §6.5).
   void whyNotChanged(String command) {
     _availabilityMoved++;
+    _notice(canonical(command), 'availability.changed');
     if (!_availability.isClosed) _availability.add(canonical(command));
   }
 
@@ -562,11 +563,13 @@ extension RawRegistry on Registry {
     final now = clock.now();
     _forget(_calls, (c) => c.at, now);
     if (_calls[callId] case final seen?) {
+      _decision(callId, command, cause, 'retry', {'requested': asked});
       // An id stands for one call: another one with it is refused, not
       // answered the first call's result.
       if (seen.command != command ||
           seen.by != by ||
           !jsonEquals(seen.params.json, params.json)) {
+        _decision(callId, command, cause, 'idConflict');
         return Future.value(
           CallRefused(
             Refusal.idConflict,
@@ -583,6 +586,7 @@ extension RawRegistry on Registry {
       // A retry waits for how the first call ended, late too, as long as
       // a call waits; it stops waiting when it cancels, and the first call
       // goes on.
+      _decision(callId, command, cause, 'reused');
       final deadline = _commands[command]?.descriptor.deadline;
       return untilCancelled(
         deadline == null

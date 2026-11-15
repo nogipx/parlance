@@ -2,6 +2,9 @@
 
 ## 0.2.0
 
+- Extend `why` with call inspection and bounded state history, mixed causal messages and explicit evidence gaps.
+- Return caller IDs in `structuredContent.call`, including automatically generated IDs, for later inspection.
+
 - Require parlance 0.3.0.
 
 - Breaking: group targets tool publications by vocabulary and use the shared name-based discovery filters.

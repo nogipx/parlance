@@ -15,12 +15,15 @@ import 'tree.dart';
 /// is skipped too, and told to [onUnknown], or, without it, once per kind
 /// in the developer log.
 final class JournalReader {
-  JournalReader(this.dir, {this.onUnknown});
+  JournalReader(this.dir, {this.onUnknown, this.onIssue});
 
   final Directory dir;
 
   /// What a line of an entry kind this build does not know is told to.
   final UnknownJournalLine? onUnknown;
+
+  /// Reports unreadable files or lines without retaining their contents.
+  final void Function(JournalIssue issue)? onIssue;
 
   /// What unknown kinds are told to, with no [onUnknown]: once per kind
   /// for the life of this reader.
@@ -34,6 +37,7 @@ final class JournalReader {
   Iterable<JournalEntry> entries({DateTime? since, DateTime? until}) sync* {
     final from = since == null ? null : dayOf(since);
     final to = until == null ? null : dayOf(until);
+    final parser = JournalParser(onUnknown: _tell, onIssue: onIssue);
     for (final (day, f) in journalFiles(dir)) {
       if (from != null && day.compareTo(from) < 0) continue;
       if (to != null && day.compareTo(to) > 0) continue;
@@ -41,14 +45,12 @@ final class JournalReader {
       try {
         bytes = f.readAsBytesSync();
       } on FileSystemException {
+        onIssue?.call(JournalIssue(0, 'cannot read ${f.path}'));
         // A day it may not read now (gone since listed, locked) is passed
         // over, as a line that is no entry is: the other days are read.
         continue;
       }
-      yield* parseJournal(
-        utf8.decode(bytes, allowMalformed: true),
-        onUnknown: _tell,
-      );
+      yield* parser.parse(utf8.decode(bytes, allowMalformed: true));
     }
   }
 
@@ -101,8 +103,12 @@ final class JournalReader {
   }) => days(since: since, until: until).conversation(id, epoch: epoch);
 
   /// [Journal.of], of the days given.
-  List<JournalEntry> of(String id, {DateTime? since, DateTime? until}) =>
-      days(since: since, until: until).of(id);
+  List<JournalEntry> of(
+    String id, {
+    String? epoch,
+    DateTime? since,
+    DateTime? until,
+  }) => days(since: since, until: until).of(id, epoch: epoch);
 
   /// [Journal.tree], of the days given.
   List<JournalNode> tree(
@@ -113,8 +119,12 @@ final class JournalReader {
   }) => days(since: since, until: until).tree(id, epoch: epoch);
 
   /// [Journal.pathTo], of the days given.
-  List<JournalEntry> pathTo(String id, {DateTime? since, DateTime? until}) =>
-      days(since: since, until: until).pathTo(id);
+  List<JournalEntry> pathTo(
+    String id, {
+    String? epoch,
+    DateTime? since,
+    DateTime? until,
+  }) => days(since: since, until: until).pathTo(id, epoch: epoch);
 
   /// [Journal.startedWith], of the days given.
   List<JournalEntry> startedWith(

@@ -63,6 +63,54 @@ final class JournalWriter {
   String? _day;
   DateTime? _fsynced;
   bool _closed = false;
+  Timer? _flushTimer;
+  String? _epoch;
+  DateTime? _lastAt;
+  int _lastN = 0;
+  final String _capture = newId();
+
+  /// Failed writes observed by this recorder; its coverage reports this count.
+  int writeErrors = 0;
+
+  void _control(String event) {
+    if (_file == null || _epoch == null || _lastAt == null) return;
+    final entry = JournalDiagnostic(
+      id: newId(),
+      word: 'parlance.capture',
+      cause: const Cause(Principal.system),
+      at: _lastAt!,
+      event: event,
+      data: {
+        'recording': _capture,
+        'payloads': payloads,
+        'through': _lastN,
+        'writeErrors': writeErrors,
+        'calls': true,
+        'facts': true,
+        'conversationWrites': true,
+        'independentWrites': 'host-selected; selection not enumerated',
+        'queries': false,
+        'streamElements': false,
+      },
+      epoch: _epoch!,
+      n: 0,
+    );
+    _file!.writeStringSync('${jsonEncode(entry.toJson())}\n');
+  }
+
+  void _flushSoon() {
+    if (_flushTimer != null || fsyncEvery <= Duration.zero) return;
+    _flushTimer = Timer(fsyncEvery, () {
+      _flushTimer = null;
+      try {
+        _file?.flushSync();
+        _fsynced = _now();
+      } catch (e, st) {
+        writeErrors++;
+        _onError(e, st);
+      }
+    });
+  }
 
   /// Whether it writes: on, it listens to the journal from now on; off, it
   /// does not, and closes its file.
@@ -71,7 +119,17 @@ final class JournalWriter {
     if (value == on || (value && _closed)) return;
     if (value) {
       _prune(_now());
-      _sub = _journal.listen(_add);
+      _sub = _journal.listen(
+        _add,
+        onError: (Object e, StackTrace st) {
+          writeErrors++;
+          _onError(e, st);
+        },
+        onDone: () {
+          _sub = null;
+          _closeFile();
+        },
+      );
     } else {
       unawaited(_sub!.cancel());
       _sub = null;
@@ -80,8 +138,16 @@ final class JournalWriter {
   }
 
   void _closeFile() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     final file = _file;
     if (file != null) {
+      try {
+        _control('capture.stopped');
+      } catch (err, st) {
+        writeErrors++;
+        _onError(err, st);
+      }
       try {
         file.flushSync();
       } catch (err, st) {
@@ -122,8 +188,15 @@ final class JournalWriter {
         _file = _open(_path = File('${dir.path}/${fileOfDay(day)}'));
         _day = day;
         _fsynced = null;
+        _epoch = e.epoch;
+        _lastAt = e.at;
+        _lastN = e.n;
+        _control('capture.started');
       }
-      final json = payloads ? e.toJson() : _bare(e.toJson());
+      _epoch = e.epoch;
+      _lastAt = e.at;
+      _lastN = e.n;
+      final json = e.toJson(payloads: payloads);
       _file!.writeStringSync('${jsonEncode(json)}\n');
       // Made durable at most fsyncEvery behind the last entry: an fsync
       // on every entry would make a burst of them (a fader dragged) wait
@@ -131,8 +204,11 @@ final class JournalWriter {
       if (_fsynced == null || e.at.difference(_fsynced!) >= fsyncEvery) {
         _file!.flushSync();
         _fsynced = e.at;
+      } else {
+        _flushSoon();
       }
     } catch (err, st) {
+      writeErrors++;
       _onError(err, st);
     }
     if (turned) _prune(e.at);
@@ -182,15 +258,3 @@ final class JournalWriter {
     _closeFile();
   }
 }
-
-/// [json] without its values.
-Map<String, Object?> _bare(Map<String, Object?> json) => {
-  for (final MapEntry(:key, :value) in json.entries)
-    if (!const {'params', 'payload', 'value', 'previous'}.contains(key))
-      key: key == 'result' && value is Map
-          ? {
-              for (final r in value.entries)
-                if (r.key != 'value') r.key as String: r.value,
-            }
-          : value,
-};

@@ -77,7 +77,9 @@ class _HomeState extends State<Home> {
                           '${v.files.length} '
                           '${v.files.length == 1 ? 'file' : 'files'}, '
                           '${v.entries.length} entries, '
-                          '${v.all.length} conversations',
+                          '${v.all.length} conversations'
+                          '${v.issueCount == 0 ? '' : ', ${v.issueCount} recording ${v.issueCount == 1 ? 'gap' : 'gaps'}'}'
+                          '${v.omittedValues ? ', values omitted' : ''}',
                           style: theme.textTheme.bodySmall,
                         ),
                       ),

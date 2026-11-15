@@ -2,6 +2,10 @@
 
 ## 0.2.0
 
+- Read diagnostic decisions and stream lifecycle, distinguish omitted values, and scope historical IDs by epoch.
+- Report malformed input and sequence gaps across files; expose bounded state history and explicit capture coverage.
+- Serialize metadata-only recordings before native value encoding; flush after quiet periods and cancel flush timers on close.
+
 - Require parlance 0.3.0.
 
 - Require rpc_dart 7.2.0.

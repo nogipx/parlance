@@ -13,7 +13,7 @@ import 'dart:async';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:parlance/app.dart';
 import 'package:parlance/tools.dart'
-    show HostRegistry, JournalEntry, JournalFact;
+    show HostRegistry, JournalEntry, JournalFact, JournalDiagnostic;
 
 import 'house/house.dart';
 import 'house/visit.dart';
@@ -78,7 +78,7 @@ Future<void> main() async {
     'started by ${wrote.cause.originOf(wrote.state)}',
   );
   for (final c in why.trail) {
-    print('    answering ${c.command} ${c.params} by ${c.cause.by}');
+    print('    following ${c.kind} ${c.word} by ${c.cause.by}');
   }
   await show('bob, a guest, sets the heating', () => bob.setHeat(target: 25));
   await show(
@@ -213,7 +213,10 @@ Future<void> main() async {
   for (final e in journal.where((e) => e.conversation == ring.conversation)) {
     print('  ${e.kind} ${e.word} by ${e.cause.by}, started by ${e.origin}');
   }
-  final talks = {for (final e in journal) e.conversation};
+  final talks = {
+    for (final e in journal)
+      if (e is! JournalDiagnostic) e.conversation,
+  };
   print('  in all: ${journal.length} entries, ${talks.length} conversations');
   await journaling.cancel();
 

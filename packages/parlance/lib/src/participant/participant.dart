@@ -250,7 +250,14 @@ abstract interface class IRawParticipant
   /// Why [state] (of [key]) is as it is (SPEC §9): its value, its last
   /// change, the calls that led to it. Refused ([NotPermitted]) when it may
   /// not read it; counted as its use of the word (§6.8).
-  Future<Explanation> explain(String state, {String? key});
+  Future<Explanation> explain(
+    String state, {
+    String? key,
+    int historyCount = 0,
+  });
+
+  /// Inspect a call made or served by this participant, within retained history.
+  Future<Map<String, Object?>> inspectCall(String id);
 
   /// Told when the catalog it sees changes: a word came or went, or an
   /// alias changed.

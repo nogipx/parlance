@@ -265,9 +265,34 @@ final class RemoteSession extends ParlanceContractPeer
 
   /// The cause of what the session does: following from [parent] (a call
   /// it serves, or a fact the registry still keeps), else a new chain.
+  final Set<String> _servedParents = {};
+  int _servedParentBytes = 0;
+
+  void _rememberParent(String id) {
+    final budget = registry.limits.retainBytes.clamp(0, 64 << 10);
+    final weight = id.length * 2;
+    if (registry.limits.retainTicks == 0 ||
+        weight > budget ||
+        !_servedParents.add(id)) {
+      return;
+    }
+    _servedParentBytes += weight;
+    while (_servedParents.length > registry.limits.retainTicks ||
+        _servedParentBytes > budget) {
+      final first = _servedParents.first;
+      _servedParentBytes -= first.length * 2;
+      _servedParents.remove(first);
+    }
+  }
+
   Cause _cause({String? parent, Principal? by}) {
     final who = by ?? principal;
     if (parent != null) {
+      if (registry.message(parent) case JournalDiagnostic(
+        event: 'id.ambiguous',
+      )) {
+        return Cause(who, unresolvedParent: parent);
+      }
       if (_serving[parent] case final c?) return c.causeFor(who);
       if (_servingData[parent] case final stream?) {
         return stream.cause.child(stream.id, by: who, word: stream.word);
@@ -276,7 +301,11 @@ final class RemoteSession extends ParlanceContractPeer
         return f.cause.child(f.id, by: who, word: f.fact);
       }
     }
-    return Cause(who);
+    return registry.causeFrom(
+      parent,
+      who,
+      served: _servedParents.contains(parent),
+    );
   }
 
   @override
@@ -425,14 +454,37 @@ final class RemoteSession extends ParlanceContractPeer
   @override
   Future<WireJson> onWhy(WireWhyRequest request, {RpcContext? context}) async {
     _open();
-    if (registry.stateDescriptor(request.state) == null) {
+    if (request.call != null && request.state == null) {
+      try {
+        return WireJson(registry.inspectCall(request.call!, by: principal));
+      } on StateError catch (e) {
+        _deny(e.message);
+      }
+    }
+    if (request.state == null || request.call != null) {
+      throw RpcStatusException(
+        RpcStatus.invalidArgument,
+        'give either state or call',
+      );
+    }
+    final state = request.state!;
+    if (registry.stateDescriptor(state) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
     }
-    if (!registry.checkRead(principal, request.state)) {
-      _deny(_unreadable(request.state));
+    if (!registry.checkRead(principal, state)) {
+      _deny(_unreadable(state));
     }
-    registry.usedBy(request.state, principal);
-    return WireJson(registry.explain(request.state, key: request.key).toJson());
+    registry.usedBy(state, principal);
+    return WireJson(
+      registry
+          .explain(
+            state,
+            key: request.key,
+            by: principal,
+            historyCount: request.historyCount,
+          )
+          .toJson(),
+    );
   }
 
   /// What the session's feeds carry ([onSubscribe]): these states and
@@ -666,6 +718,13 @@ final class RemoteSession extends ParlanceContractPeer
     // The session for one of its owners calls as that owner (SPEC §22.3).
     final by = _actingAs(request.as).who;
     if (limits.calls case final max? when _calling >= max) {
+      registry.observeDecision(
+        operation: '${principal.selector}#${request.id}',
+        word: request.command,
+        by: by,
+        event: 'session.limit',
+        data: {'limit': max},
+      );
       // Nothing ran: it may call again once one of its calls is answered.
       return WireCallReply(
         CallRefused(
@@ -1131,6 +1190,7 @@ final class RemoteSession extends ParlanceContractPeer
       );
     }
     _servingData[c.id] = c;
+    _rememberParent(c.id);
     final lease = StreamLease();
     _data.add(lease);
     _servedData.add(lease);
@@ -1178,6 +1238,7 @@ final class RemoteSession extends ParlanceContractPeer
   /// Serves a call of a command of the session's: the participant does.
   Future<Object?> _serve(CommandCall c) async {
     _serving[c.id] = c;
+    _rememberParent(c.id);
     // Expired here (its caller cancelled it, or its deadline passed): the
     // participant is told, so its handler can stop; its answer still comes.
     final expiry = c.expired.onCancel(() {
@@ -1272,6 +1333,8 @@ final class RemoteSession extends ParlanceContractPeer
     _facts.clear();
     _states.clear();
     _definedBy.clear();
+    _servedParents.clear();
+    _servedParentBytes = 0;
     _guards.clear();
     _unavailable.clear();
     _listenTo(const {});

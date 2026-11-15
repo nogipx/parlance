@@ -276,16 +276,29 @@ final class WireJson implements IRpcSerializable {
 
 /// Asks why a state (of a key) is as it is.
 final class WireWhyRequest implements IRpcSerializable {
-  const WireWhyRequest(this.state, {this.key});
-
-  factory WireWhyRequest.fromJson(Map<String, dynamic> m) =>
-      WireWhyRequest(_str(m, 'state'), key: _strOrNull(m, 'key'));
-
-  final String state;
+  const WireWhyRequest({
+    this.state,
+    this.key,
+    this.call,
+    this.historyCount = 0,
+  });
+  factory WireWhyRequest.fromJson(Map<String, dynamic> m) => WireWhyRequest(
+    state: _strOrNull(m, 'state'),
+    key: _strOrNull(m, 'key'),
+    call: _strOrNull(m, 'call'),
+    historyCount: (m['historyCount'] as int? ?? 0).clamp(0, 100),
+  );
+  final String? state;
   final String? key;
-
+  final String? call;
+  final int historyCount;
   @override
-  Map<String, dynamic> toJson() => {'state': state, 'key': ?key};
+  Map<String, dynamic> toJson() => {
+    'state': ?state,
+    'key': ?key,
+    'call': ?call,
+    if (historyCount != 0) 'historyCount': historyCount,
+  };
 }
 
 /// A word to define for the session, as `Descriptor.toJson` gives it.

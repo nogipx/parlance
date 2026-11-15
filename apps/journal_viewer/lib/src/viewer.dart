@@ -13,6 +13,18 @@ final class Viewer extends ChangeNotifier {
   List<JournalEntry> _entries = const [];
   List<JournalConversation> _all = const [];
   List<String> _files = const [];
+  final List<JournalIssue> _issues = [];
+  int _issueCount = 0;
+
+  /// The first bounded set of missing/unreadable recording fragments.
+  List<JournalIssue> get issues => List.unmodifiable(_issues);
+
+  /// Total reported gaps, including those omitted from the bounded detail list.
+  int get issueCount => _issueCount;
+
+  /// Whether the recording itself says that values were intentionally omitted.
+  bool get omittedValues =>
+      _entries.any((e) => e is! JournalDiagnostic && !e.payloads);
 
   /// The names of the files loaded, in the order read.
   List<String> get files => _files;
@@ -21,7 +33,9 @@ final class Viewer extends ChangeNotifier {
   List<JournalEntry> get entries => _entries;
 
   /// Every conversation loaded, in the order it started.
-  List<JournalConversation> get all => _all;
+  List<JournalConversation> get all => _query.trim().isEmpty
+      ? _all.where((c) => !c.metadataOnly).toList()
+      : _all;
 
   /// Why the last load gave nothing to show; null when it did.
   String? get problem => _problem;
@@ -37,9 +51,18 @@ final class Viewer extends ChangeNotifier {
   /// names, which for a writer's files is the order of their days.
   void load(List<JournalFile> files) {
     final sorted = [...files]..sort((a, b) => a.name.compareTo(b.name));
-    _entries = [for (final f in sorted) ...parseJournal(f.text)];
+    _issues.clear();
+    _issueCount = 0;
+    final parser = JournalParser(
+      onIssue: (issue) {
+        _issueCount++;
+        if (_issues.length < 100) _issues.add(issue);
+      },
+    );
+    _entries = [for (final f in sorted) ...parser.parse(f.text)];
     _journal = Journal(_entries);
-    _all = _journal.conversations();
+    _matched = null;
+    _all = _journal.conversations(includeDiagnostics: true);
     _files = [for (final f in sorted) f.name];
     _first = _entries.isEmpty ? null : _entries.first.at;
     _last = _entries.isEmpty
@@ -60,12 +83,14 @@ final class Viewer extends ChangeNotifier {
 
   String _query = '';
   bool _problemsOnly = false;
+  Set<(String, String)>? _matched;
 
   /// Text a conversation's word, principal or id holds.
   String get query => _query;
   set query(String v) {
     if (v == _query) return;
     _query = v;
+    _matched = null;
     notifyListeners();
   }
 
@@ -83,20 +108,29 @@ final class Viewer extends ChangeNotifier {
   List<JournalConversation> get conversations {
     final q = _query.trim().toLowerCase();
     final at = _playhead;
+    if (q.isNotEmpty) {
+      _matched ??= {
+        for (final e in _entries)
+          if (e.word.toLowerCase().contains(q) ||
+              (e is JournalWrite &&
+                  (e.change.key?.toLowerCase().contains(q) ?? false)))
+            (e.epoch, e.conversation),
+      };
+    }
     return [
-      for (final c in _all)
+      for (final c in all)
         if ((at == null || !c.started.isAfter(at)) &&
             (!_problemsOnly || hasProblems(c)) &&
             (q.isEmpty ||
                 c.origin.word.toLowerCase().contains(q) ||
                 c.origin.by.selector.toLowerCase().contains(q) ||
-                c.id.toLowerCase().contains(q)))
+                c.id.toLowerCase().contains(q) ||
+                (_matched?.contains((c.epoch, c.id)) ?? false)))
           c,
     ];
   }
 
-  static bool hasProblems(JournalConversation c) =>
-      c.refused + c.failed + c.timedOut > 0;
+  static bool hasProblems(JournalConversation c) => c.hasProblems;
 
   // --- The conversation chosen ------------------------------------------
 
@@ -138,7 +172,39 @@ final class Viewer extends ChangeNotifier {
   /// conversation.
   List<JournalEntry> get pathToNode {
     final n = _node;
-    return n == null ? const [] : Journal(_chosenEntries).pathTo(n.id);
+    return n == null || n.ambiguous
+        ? const []
+        : Journal(_chosenEntries).pathTo(n.id, epoch: n.entry.epoch);
+  }
+
+  /// Bounded history of the selected state/key across recorded conversations.
+  List<JournalWrite> get stateHistory => switch (_node?.entry) {
+    JournalWrite(:final change, :final epoch) => _journal.history(
+      change.state,
+      key: change.key,
+      epoch: epoch,
+    ),
+    _ => const [],
+  };
+
+  /// Opens the causal conversation of one recorded state change.
+  void chooseMessage(JournalEntry entry) {
+    final conversation = _all
+        .where((c) => c.id == entry.conversation && c.epoch == entry.epoch)
+        .firstOrNull;
+    if (conversation == null) return;
+    select(conversation);
+    JournalNode? find(List<JournalNode> nodes) {
+      for (final n in nodes) {
+        if (n.id == entry.id && n.entry.epoch == entry.epoch) return n;
+        final nested = find(n.children);
+        if (nested != null) return nested;
+      }
+      return null;
+    }
+
+    _node = find(tree);
+    notifyListeners();
   }
 
   // --- Playback ---------------------------------------------------------
@@ -240,12 +306,24 @@ final class Viewer extends ChangeNotifier {
 
 /// How a call ended, in one word: `done`, `refused`, `failed`, `timedOut`,
 /// `cancelled`, `lost`; null while it runs.
-String? outcomeOf(JournalNode n) => switch (n.end?.call.result) {
-  null => null,
-  CallDone() => n.end!.call.late ? 'late' : 'done',
-  CallRefused() => 'refused',
-  CallFailed() => 'failed',
-  CallTimedOut() => 'timedOut',
-  CallCancelled() => 'cancelled',
-  CallLost() => 'lost',
-};
+String? outcomeOf(JournalNode n) {
+  if (n.kind == 'stream') {
+    return switch (n.diagnostic?.data['termination']) {
+      'completed' => 'done',
+      'cancelled' => 'cancelled',
+      'failed' => 'failed',
+      'rejected' => 'refused',
+      _ => null,
+    };
+  }
+  if (n.kind == 'diagnostic') return n.diagnostic?.event;
+  return switch (n.end?.call.result) {
+    null => null,
+    CallDone() => n.end!.call.late ? 'late' : 'done',
+    CallRefused() => 'refused',
+    CallFailed() => 'failed',
+    CallTimedOut() => 'timedOut',
+    CallCancelled() => 'cancelled',
+    CallLost() => 'lost',
+  };
+}

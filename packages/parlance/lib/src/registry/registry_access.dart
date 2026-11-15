@@ -115,6 +115,27 @@ extension on Registry {
     _announce(AccessChanged(word));
   }
 
+  Map<String, Object?> _accessEvidence(String word, Principal by) {
+    final d = _declared(word);
+    final policy = d == null ? null : _policy(d);
+    String? selector;
+    for (Principal? p = by; p != null; p = p.parent) {
+      if (policy?.rules.containsKey(p.selector) ?? false) {
+        selector = p.selector;
+        break;
+      }
+    }
+    selector ??= policy?.rules.containsKey('*') == true ? '*' : null;
+    return {
+      'revision': accessRevision(word),
+      'access': _accessFor(word, by).name,
+      'selector': selector,
+      'source': _wordAccess.containsKey(canonical(word))
+          ? 'host'
+          : 'declaration',
+    };
+  }
+
   void _warnAccess(
     String word,
     Principal by,
@@ -124,6 +145,16 @@ extension on Registry {
   }) {
     if (operation == AccessOperation.read && isSubscriptionRead) return;
     if (_accessFor(word, by) != Access.warn) return;
+    _notice(
+      word,
+      'access.warn',
+      cause: cause ?? Cause(by),
+      data: {
+        'operation': operation.name,
+        'call': id,
+        ..._accessEvidence(word, by),
+      },
+    );
     final warning = AccessWarning(
       word: word,
       by: by,

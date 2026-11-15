@@ -30,6 +30,8 @@ abstract final class Look {
   static IconData iconOf(JournalNode n) => switch (n.kind) {
     'fact' => Icons.bolt,
     'write' => Icons.edit_outlined,
+    'stream' => Icons.swap_vert,
+    'diagnostic' => Icons.info_outline,
     _ => Icons.call_made,
   };
 }
@@ -58,3 +60,16 @@ String spanOf(Duration d) {
   if (d.inHours < 1) return '${d.inMinutes} min ${d.inSeconds % 60} s';
   return '${d.inHours} h ${d.inMinutes % 60} min';
 }
+
+/// A bounded history label; collections open in details without serializing every
+/// retained value while building the collapsed history list.
+String previewOf(Object? value) => switch (value) {
+  String() => value.length <= 96 ? value : '${value.substring(0, 96)}…',
+  List<Object?>() =>
+    '[${value.length} ${value.length == 1 ? 'item' : 'items'}]',
+  Map<Object?, Object?>() =>
+    '{${value.length} ${value.length == 1 ? 'field' : 'fields'}}',
+  null => 'null',
+  num() || bool() => '$value',
+  _ => '<value>',
+};

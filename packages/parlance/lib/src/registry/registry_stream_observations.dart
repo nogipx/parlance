@@ -88,6 +88,7 @@ final class StreamSnapshot {
       output = StreamTraffic._(observation.output),
       termination = observation.termination,
       failure = observation.failure,
+      failureMessage = observation.failureMessage,
       traceparent = observation.span.traceparent;
 
   /// One opening, never reused for a retry.
@@ -122,6 +123,9 @@ final class StreamSnapshot {
 
   /// Stable terminal failure, if any; no payload or exception capture.
   final StreamFailureCode? failure;
+
+  /// Bounded, payload-free detail of the terminal failure.
+  final String? failureMessage;
 
   /// W3C trace context when tracing is enabled.
   final String? traceparent;
@@ -159,6 +163,7 @@ final class _StreamObservation {
   LogSpanHandle span = noSpan;
   StreamTermination? termination;
   StreamFailureCode? failure;
+  String? failureMessage;
   bool admitted = false;
 
   StreamSnapshot snapshot() => StreamSnapshot._(this, registry.clock.now());
@@ -201,6 +206,12 @@ final class _StreamObservation {
         : error == null
         ? null
         : StreamFailureCode.failed;
+    final detail = error is StreamFailure ? error.message : error?.toString();
+    failureMessage = detail == null
+        ? null
+        : detail.length > 1024
+        ? detail.substring(0, 1024)
+        : detail;
     termination = !admitted
         ? StreamTermination.rejected
         : output.cancelled || failure == StreamFailureCode.cancelled

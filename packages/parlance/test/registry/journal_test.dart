@@ -45,12 +45,13 @@ void main() {
     await pumpEventQueue();
 
     String line(JournalEntry e) => switch (e) {
+      JournalDiagnostic(:final event) => 'diagnostic $event',
       JournalStart(:final call) => 'start ${call.command}',
       JournalEnd(:final call) => 'end ${call.command}',
       JournalFact(:final fact) => 'fact ${fact.fact}',
       JournalWrite(:final change) => 'write ${change.state}',
     };
-    expect(journal.map(line), [
+    expect(journal.where((e) => e is! JournalDiagnostic).map(line), [
       'start intercom.say',
       'fact intercom.line',
       'write clip.last',
@@ -61,7 +62,7 @@ void main() {
       'end clip.save',
     ]);
     expect({for (final e in journal) e.conversation}, {'start'});
-    expect([for (final e in journal) e.n], [1, 2, 3, 4, 5, 6, 7]);
+    expect([for (final e in journal) e.n], List.generate(journal.length, (i) => i + 1));
     expect({for (final e in journal) e.epoch}, {r.epoch});
     expect(journal.every((e) => e.trace == null), isTrue, reason: 'no log');
     await r.dispose();
@@ -75,7 +76,10 @@ void main() {
     f.locked.set(true);
     await f.r.call('door.lock', {'on': true}, by: visitor, id: 'v');
     await pumpEventQueue();
-    final end = journal.single as JournalEnd;
+    final end = journal.whereType<JournalEnd>().single;
+    expect(journal.whereType<JournalStart>(), isEmpty);
+    expect(journal.whereType<JournalWrite>(), isEmpty);
+    expect(journal.whereType<JournalDiagnostic>().map((e) => e.event), containsAll(['attempt', 'refused']));
     expect((end.call.result as CallRefused).code, Refusal.notPermitted);
     expect(end.conversation, 'v');
     await f.r.dispose();
@@ -87,7 +91,7 @@ void main() {
     f.r.journal.listen(journal.add);
     await f.r.call('door.lock', {'on': true}, by: user, id: 'm');
     await pumpEventQueue();
-    expect(journal.map((e) => e.kind), ['start', 'write', 'end']);
+    expect(journal.where((e) => e is! JournalDiagnostic).map((e) => e.kind), ['start', 'write', 'end']);
     for (final e in journal) {
       final json = e.toJson();
       expect(json, containsPair('conversation', 'm'));
@@ -120,7 +124,7 @@ void main() {
     await f.r.call('door.lock', {'on': true}, by: visitor, id: 'v');
     await pumpEventQueue();
     final span = spans.single;
-    final ofCall = journal.where((e) => e.conversation == 'm').toList();
+    final ofCall = journal.where((e) => e.conversation == 'm' && e is! JournalDiagnostic).toList();
     expect(ofCall.map((e) => e.kind), ['start', 'write', 'end']);
     for (final e in ofCall) {
       expect(e.trace, '00-${span.traceId}-${span.spanId}-01');

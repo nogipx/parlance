@@ -271,14 +271,19 @@ final class ParlanceClient {
       FactMessage.fromJson(f),
   ];
 
+  /// Inspects a call's runtime state and recorded decisions.
+  Future<Map<String, Object?>> inspectCall(String id) async =>
+      (await _caller.why(WireWhyRequest(call: id), context: _ctx(null))).json;
+
   /// Why [state] (of [key]) is as it is (Registry.explain).
   Future<Explanation> explain(
     String state, {
     String? key,
+    int historyCount = 0,
     RpcContext? context,
   }) async => Explanation.fromJson(
     (await _caller.why(
-      WireWhyRequest(state, key: key),
+      WireWhyRequest(state: state, key: key, historyCount: historyCount),
       context: _ctx(context),
     )).json,
   );

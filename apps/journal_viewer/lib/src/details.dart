@@ -30,6 +30,7 @@ class Details extends StatelessWidget {
       JournalStart(:final call) => {'params': call.params},
       JournalEnd(:final call) => {'params': call.params},
       JournalFact(:final fact) => {'payload': fact.payload},
+      JournalDiagnostic(:final event, :final data) => {'event': event, ...data},
       JournalWrite(:final change) => {
         'key': ?change.key,
         'value': change.value,
@@ -59,13 +60,24 @@ class Details extends StatelessWidget {
         _Field('at', dayClockOf(e.at) + clockOf(e.at).substring(8)),
         _Field('id', e.id),
         if (cause.parent case final p?) _Field('follows', p),
+        if (cause.unresolvedParent case final p?)
+          _Field('unresolved parent', p),
         _Field('conversation', e.conversation),
         _Field('started with', '${e.origin}'),
         if (e.trace case final t?) _Field('trace', t),
         _Field('journal', '${e.epoch} #${e.n}'),
+        if (!e.payloads && e is! JournalDiagnostic)
+          _Field('values', 'not recorded'),
+        if (n.missingParent)
+          _Field('history', 'parent is outside this recording'),
+        if (n.ambiguous) _Field('history', 'ambiguous message identity'),
         if (end != null) ...[
           const SizedBox(height: 10),
           _Field('ended', outcomeOf(n) ?? ''),
+          if (end.replyResult != null) ...[
+            _Field('caller received', '${end.replyResult}'),
+            _Field('caller answered at', '${end.repliedAt}'),
+          ],
           _Field('took', spanOf(end.finished.difference(end.started))),
           if (end.result case CallRefused(why: final reason, :final guard)) ...[
             _Field('why', reason),
@@ -77,7 +89,8 @@ class Details extends StatelessWidget {
             _Block('answer', _json.convert(value)),
         ],
         const SizedBox(height: 10),
-        _Block('values', _json.convert(values)),
+        if (e.payloads || e is JournalDiagnostic)
+          _Block('values', _json.convert(values)),
         if (path.length > 1) ...[
           const SizedBox(height: 10),
           Text('How it came about', style: theme.textTheme.labelLarge),
@@ -92,6 +105,35 @@ class Details extends StatelessWidget {
             ),
         ],
         const SizedBox(height: 10),
+        if (n.decisions.isNotEmpty)
+          ExpansionTile(
+            title: const Text('Admission and retries'),
+            children: [
+              for (final decision in n.decisions)
+                ListTile(
+                  dense: true,
+                  title: Text(decision.event),
+                  subtitle: Text(_json.convert(decision.data)),
+                ),
+            ],
+          ),
+        if (viewer.stateHistory.isNotEmpty)
+          ExpansionTile(
+            title: const Text('History of this state'),
+            children: [
+              for (final write in viewer.stateHistory)
+                ListTile(
+                  dense: true,
+                  title: Text(
+                    write.payloads
+                        ? '${previewOf(write.change.previous)} → ${previewOf(write.change.value)}'
+                        : 'values not recorded',
+                  ),
+                  subtitle: Text('${clockOf(write.at)}  ${write.cause.by}'),
+                  onTap: () => viewer.chooseMessage(write),
+                ),
+            ],
+          ),
         ExpansionTile(
           tilePadding: EdgeInsets.zero,
           title: Text('As written', style: theme.textTheme.labelLarge),

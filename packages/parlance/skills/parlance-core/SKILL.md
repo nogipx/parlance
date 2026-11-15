@@ -54,6 +54,17 @@ Stages, first refusal wins (SPEC §9): dedup by id (`idConflict` if the id was g
 
 **Logs and telemetry** (SPEC §9.2): `Host(log: controller.scope('parlance'))` logs a span per call (a nested call a child span, in one trace; across a connection too), refusals, ticks, the catalog and errors. Spans are kept whatever the level; log lines are by level, their messages constant and what varies in `data`. Without a log nothing is made. In a handler log with `call.span.event(...)` (an event that costs something to build behind `span.isEnabled(level)`; without a log the span is `noop`'s), never a logger found through a zone.
 
+## Explaining interactions
+
+For `why`, causal paths, journal capture, retries which did not execute, or memory
+retention in diagnostics, read [references/diagnostics.md](references/diagnostics.md).
+Reuse `Cause`, journal messages and existing stream observations. A causal trail
+contains calls, facts, changes and streams; it is not a list of finished calls.
+Preserve caller replies separately from late handler completion, scope historical
+IDs by epoch, and report incomplete evidence. Keep new history bounded by count
+and bytes, avoid a second payload cache, and verify cleanup with forced GC.
+Ordinary owners and generated clients require no diagnostic annotations.
+
 ## Remote and agents
 
 - A session's principal is fixed by the host when it accepts the connection: `host.serve(who, endpoint, vocabularies: [WordSet.open(id)], ...)` (a guest's words may come at run time); call ids are per principal; one endpoint serves one session. It ends by itself when the connection does (`ended`), the participant going with it; one `main` ends is told to the guest, which does not join again; its access by default is the guest's across too (SPEC §14, §22).

@@ -50,7 +50,10 @@ class Waterfall extends StatelessWidget {
     final now = viewer.playhead;
     DateTime endOf(JournalNode n) {
       if (n.end case final e?) return e.call.finished;
-      if (n.kind == 'call') return now ?? talk.last;
+      if (n.kind == 'stream' && n.diagnostic?.event != 'stream.opened') {
+        return n.diagnostic!.at;
+      }
+      if (n.kind == 'call' || n.kind == 'stream') return now ?? talk.last;
       return n.entry.at;
     }
 
@@ -85,11 +88,15 @@ class Waterfall extends StatelessWidget {
                     node: n,
                     depth: l.depth,
                     left: x(start),
-                    width: n.kind == 'call'
+                    width: n.kind == 'call' || n.kind == 'stream'
                         ? math.max(2, x(endOf(n)) - x(start))
                         : null,
-                    took: n.kind == 'call' ? endOf(n).difference(start) : null,
-                    running: n.kind == 'call' && n.end == null,
+                    took: n.kind == 'call' || n.kind == 'stream'
+                        ? endOf(n).difference(start)
+                        : null,
+                    running:
+                        (n.kind == 'call' || n.kind == 'stream') &&
+                        outcomeOf(n) == null,
                     chosen: viewer.node?.id == n.id,
                     onTap: () => viewer.choose(n),
                   );
