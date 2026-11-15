@@ -16,5 +16,5 @@ dependencies:
 
 dev_dependencies:
   clock: ^1.1.0
-  rpc_dart: ^7.0.0
+  rpc_dart: ^7.2.0
   test: ^1.25.0

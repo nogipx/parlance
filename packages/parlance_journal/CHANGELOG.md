@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require rpc_dart 7.2.0.
+
 - Record and filter canonical target/word addresses and instance-scoped message IDs from the new participant API; retain the existing journal record format.
 
 ## 0.1.1

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require rpc_dart 7.2.0.
+
 - Reflect live host access policy in command discovery, state reads and calls; preserve warn metadata while the host records actual accesses.
 
 - Add target discovery and full target/word addresses in tool metadata and calls. Encode command tool names without punctuation or target collisions.

@@ -27,7 +27,7 @@ dev_dependencies:
   # MAINTAINING.md.
   melos: ^7.8.2
 
-# rpc_dart is co-developed in ../rpc_dart and published (7.1.0); the packages
+# rpc_dart is co-developed in ../rpc_dart and published (7.2.0); the packages
 # resolve the published versions, which is also what users get. To develop
 # against the local checkout again, temporarily add:
 #   dependency_overrides:

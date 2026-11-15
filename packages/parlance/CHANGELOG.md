@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require rpc_dart 7.2.0.
+
 - Breaking: standardize addressing terminology on target across clients, WordAddress, discovery (WordTarget/PublishedWord), runtime helpers, MCP metadata and the targets wire feature. Regenerate word packages; no aliases for former names remain.
 
 - Add Host.setAccess/clearAccess with immutable per-publication overrides, pre-publication configuration and restoration of declared ACLs.

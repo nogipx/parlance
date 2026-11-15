@@ -9,7 +9,7 @@ environment:
 dependencies:
   host_words: any
   parlance: any
-  rpc_dart: any
+  rpc_dart: ^7.2.0
   # Only to run the guests in this process, for the demo and its test: a
   # real host loads their WASM and hands each its endpoint.
   board_guest: any

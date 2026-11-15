@@ -10,4 +10,4 @@ dependencies:
   host_words: any
   notes_words: any
   parlance: any
-  rpc_dart: any
+  rpc_dart: ^7.2.0

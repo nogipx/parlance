@@ -13,7 +13,7 @@ environment:
 
 dependencies:
   parlance: ^0.2.0
-  rpc_dart: ^7.0.0
+  rpc_dart: ^7.2.0
   # The transport to a host; parlance's libraries do not need it.
   rpc_dart_socket: ^0.2.0
 
