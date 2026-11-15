@@ -32,6 +32,31 @@ address. `module` and `module/work` are separate targets; the existing `module`
 ACL selector still covers both. Remote participants require the `providers`
 protocol feature. The old unscoped client API is intentionally removed.
 
+## Runtime access
+
+Annotations declare the initial policy. The host can override one exact word
+without recreating its owner or losing its state:
+
+```dart
+final address = WordAddress(houseProvider, HouseCommand.setLight.name);
+host.setAccess(
+  address: address,
+  access: WordAccess(callers: Callers.only(['resident'])),
+);
+host.clearAccess(address: address); // restore the declared policy
+```
+
+A non-null override replaces the whole selector map; null inherits the declaration.
+Overrides can precede publication and survive reconnect of the same provider.
+Revocation updates statuses and discovery, clears inaccessible mirror values and
+stops active data streams. State/fact listeners keep their desired subscription;
+regrant refreshes states and resumes facts without replay.
+
+Access.warn permits an interaction and reports an unexpected dependency to the
+developer through logs and host.registry.accessWarnings. It does not request user
+confirmation. Inspection is silent; stream elements do not warn individually.
+See [the runnable example](example/access.dart).
+
 ## The words
 
 A vocabulary is made of **words**: a name and a type. There are seven kinds, like parts of speech:

@@ -1,3 +1,4 @@
+import '../registry/access.dart';
 import '../registry/address.dart';
 import 'dart:async';
 
@@ -115,6 +116,22 @@ final class RemoteSession extends ParlanceContractPeer
         if (_askedStates != null || _askedFacts != null) _carry(_subscription);
       }
     });
+    _accessChanged = registry.accessChanges.listen((word) {
+      for (final feed in _feeds.toList()) {
+        feed.policyChanged(word);
+      }
+      _carry(_subscription, told: true, refresh: true);
+      if ((_askedStates?.contains(word) ??
+              registry.stateDescriptor(word) != null) ||
+          (_askedFacts?.contains(word) ??
+              registry.factDescriptor(word) != null)) {
+        registry.checkRead(
+          principal,
+          word,
+          operation: AccessOperation.subscribe,
+        );
+      }
+    });
     // The connection lost, its transport ends (rpc_dart closes it then):
     // the session ends with it, nothing closing it by hand.
     _gone = endpoint.transport.incomingMessages.listen(
@@ -126,6 +143,8 @@ final class RemoteSession extends ParlanceContractPeer
   }
 
   StreamSubscription<Object?>? _gone;
+  StreamSubscription<String>? _accessChanged;
+  Set<String> _readableStates = {};
 
   void _opened() {
     if (log.isEnabled(RpcLogLevel.info)) log.info('session opened');
@@ -136,6 +155,7 @@ final class RemoteSession extends ParlanceContractPeer
   void _unregistered() {
     _closed = true;
     unawaited(_renames?.cancel());
+    unawaited(_accessChanged?.cancel());
     unawaited(_gone?.cancel());
   }
 
@@ -408,7 +428,9 @@ final class RemoteSession extends ParlanceContractPeer
     if (registry.stateDescriptor(request.state) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no state ${request.state}');
     }
-    if (!_reads(request.state)) _deny(_unreadable(request.state));
+    if (!registry.checkRead(principal, request.state)) {
+      _deny(_unreadable(request.state));
+    }
     registry.usedBy(request.state, principal);
     return WireJson(registry.explain(request.state, key: request.key).toJson());
   }
@@ -466,6 +488,17 @@ final class RemoteSession extends ParlanceContractPeer
   Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context}) {
     _open();
     _peerSpeaks = {...?request.features};
+    if (_askedStates == null && _askedFacts == null) {
+      for (final d in registry.catalog) {
+        if (d is StateDescriptor || d is FactDescriptor) {
+          registry.checkRead(
+            principal,
+            d.name,
+            operation: AccessOperation.subscribe,
+          );
+        }
+      }
+    }
     final feed = _Feed(this, request);
     _feeds.add(feed);
     return feed.out.stream;
@@ -508,6 +541,9 @@ final class RemoteSession extends ParlanceContractPeer
     if (limits.subscription case final max? when asked > max) {
       _exhausted('a subscription asks for at most $max names, not $asked');
     }
+    for (final word in {...?request.states, ...?request.facts}) {
+      registry.checkRead(principal, word, operation: AccessOperation.subscribe);
+    }
     _askedStates = request.states?.toSet();
     _askedFacts = request.facts?.toSet();
     final n = ++_subscription;
@@ -534,7 +570,7 @@ final class RemoteSession extends ParlanceContractPeer
   /// catalog has them now, and sends the values of the states they carry
   /// now and did not. [told]: for a subscription, which says its number
   /// even when nothing changed; else only a change is sent.
-  void _carry(int subscription, {bool told = false}) {
+  void _carry(int subscription, {bool told = false, bool refresh = false}) {
     // A word it may not read is left out, not the whole subscription: one
     // such word among what its listeners ask for would otherwise hold back
     // every word added after it. Its status tells the participant why.
@@ -551,15 +587,16 @@ final class RemoteSession extends ParlanceContractPeer
     if (!told && same) return;
     // The states the feeds carry now and did not: their values, so a copy
     // has them from here on, as the ticks after keep them.
-    final added = before == null
+    final visible = (now ?? _stateNames().toSet()).where(_reads).toSet();
+    final added = refresh
+        ? visible.difference(_readableStates)
+        : before == null
         ? const <String>[]
         : [
-            for (final name in now ?? _stateNames())
-              if (!before.contains(name) &&
-                  registry.stateDescriptor(name) != null &&
-                  _reads(name))
-                name,
+            for (final name in visible)
+              if (!before.contains(name)) name,
           ];
+    _readableStates = visible;
     final item = WireFeedItem('values', {
       'subscription': subscription,
       'states': {
@@ -569,7 +606,7 @@ final class RemoteSession extends ParlanceContractPeer
               {'key': ?v.key, 'value': v.value},
           ],
       },
-      'keep': ?now?.toList(),
+      'keep': ?(refresh ? visible.toList() : now?.toList()),
     });
     for (final f in _feeds) {
       if (f.listened) f.send(item);
@@ -676,7 +713,9 @@ final class RemoteSession extends ParlanceContractPeer
     if (registry.factDescriptor(request.fact) == null) {
       throw RpcStatusException(RpcStatus.notFound, 'no fact ${request.fact}');
     }
-    if (!_reads(request.fact)) _deny(_unreadable(request.fact));
+    if (!registry.checkRead(principal, request.fact)) {
+      _deny(_unreadable(request.fact));
+    }
     _read.add(request.fact);
     registry.usedBy(request.fact, principal);
     return WireJson({
@@ -1218,6 +1257,7 @@ final class RemoteSession extends ParlanceContractPeer
     }
     unawaited(_catalogUse?.cancel());
     unawaited(_renames?.cancel());
+    unawaited(_accessChanged?.cancel());
     unawaited(_gone?.cancel());
     for (final h in [
       ..._commands.values,

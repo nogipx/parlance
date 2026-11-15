@@ -42,6 +42,10 @@ final class RegistryMirror {
   Map<String, String> _words = const {};
   Set<String> _closed = const {};
   Map<String, String> _unavailable = const {};
+  Map<String, int> _accessRevisions = const {};
+
+  /// The latest host policy revision for the canonical address.
+  int accessRevision(String word) => _accessRevisions[canonical(word)] ?? 0;
 
   String? get epoch => _epoch;
   int get seq => _seq;
@@ -83,7 +87,10 @@ final class RegistryMirror {
   /// (descriptors or aliases).
   Stream<void> get catalogChanges => _catalogChanges.stream;
 
-  Object? read(String state, {String? key}) => _states[canonical(state)]?[key];
+  Object? read(String state, {String? key}) =>
+      _closed.contains(canonical(state))
+      ? null
+      : _states[canonical(state)]?[key];
 
   /// The name [name] stands for, as the catalog's `aliases` say.
   String canonical(String name) => switch (_catalog['aliases']) {
@@ -114,8 +121,11 @@ final class RegistryMirror {
     }
   }
 
-  Map<String?, Object?> readAll(String state) =>
-      Map.unmodifiable(_states[canonical(state)] ?? const {});
+  Map<String?, Object?> readAll(String state) => Map.unmodifiable(
+    _closed.contains(canonical(state))
+        ? const {}
+        : _states[canonical(state)] ?? const {},
+  );
 
   /// The states the copy keeps, and the facts its ticks carry; null for
   /// all.
@@ -218,6 +228,7 @@ final class RegistryMirror {
     final Map<String, String> words;
     final Set<String> closed;
     final Map<String, String> unavailable;
+    final Map<String, int> revisions;
     try {
       final all = [
         for (final d in json['descriptors'] as List? ?? const [])
@@ -235,9 +246,16 @@ final class RegistryMirror {
       );
 
       if (json['aliases'] case final a?) Map<String, String>.from(a as Map);
+      revisions = Map<String, int>.from(
+        json['accessRevisions'] as Map? ?? const {},
+      );
+      if (revisions.values.any((v) => v < 0)) {
+        throw const FormatException('negative access revision');
+      }
     } on Object catch (e) {
       throw FormatException('a catalog this side cannot read: $e');
     }
+    _accessRevisions = revisions;
     _catalog = json;
     _descriptorJson = descriptors;
     _descriptors.clear();
@@ -246,7 +264,9 @@ final class RegistryMirror {
     _unavailable = unavailable;
     // The values of a state that left the catalog go with it, though no
     // tick removed them.
-    _states.removeWhere((name, _) => _words[name] != 'state');
+    _states.removeWhere(
+      (name, _) => _words[name] != 'state' || _closed.contains(name),
+    );
     _catalogChanges.add(null);
     _statusChanges.add(null);
   }
@@ -319,7 +339,8 @@ final class RegistryMirror {
         _states
           ..clear()
           ..addAll({
-            for (final e in snapshot.states.entries) e.key: {...e.value},
+            for (final e in snapshot.states.entries)
+              if (!_closed.contains(e.key)) e.key: {...e.value},
           });
         _synced = true;
         if (snapshot.factsLost) onFactsLost?.call();
@@ -331,6 +352,7 @@ final class RegistryMirror {
           return;
         }
         for (final c in tick.changes) {
+          if (_closed.contains(c.state)) continue;
           if (c.removed) {
             _states[c.state]?.remove(c.key);
           } else {
@@ -351,7 +373,7 @@ final class RegistryMirror {
         _subscription = subscription;
         if (keep != null) _states.removeWhere((k, _) => !keep.contains(k));
         for (final e in states.entries) {
-          _states[e.key] = {...e.value};
+          if (!_closed.contains(e.key)) _states[e.key] = {...e.value};
         }
     }
     _changes.add(null);

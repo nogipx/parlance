@@ -51,3 +51,8 @@ stream can acknowledge completion without returning application data.
 
 The API intentionally has no mode flags or explicit session identifiers.
 `server` means the word's owner, regardless of which process hosts it.
+
+
+Run fvm dart run example/access.dart for runtime host access overrides: a guest
+invokes an annotated warn command, the host restricts it, then restores the policy
+without recreating the owner. Structured warnings identify the exact caller and word.

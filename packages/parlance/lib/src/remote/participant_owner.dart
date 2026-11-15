@@ -48,6 +48,9 @@ final class _OfOwner implements IRawParticipant {
       _root.explain(state, key: key);
 
   @override
+  int accessRevision(String word) => _root.accessRevision(word);
+
+  @override
   Stream<void> get catalogChanges => _root.catalogChanges;
 
   @override

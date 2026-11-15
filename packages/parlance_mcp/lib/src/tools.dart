@@ -16,6 +16,8 @@ How to work:
   Choose a provider explicitly; discovery does not select one for you.
 - Every word name in describe is a full provider/word address. Use that exact
   address in call, read, recent_facts and why; an unscoped name is not routed.
+- access: warn still permits the interaction and records an unexpected-dependency
+  diagnostic for the developer; it does not require user confirmation.
 - describe first: the commands you may call (their params, whether each
   can run now), the states and the facts.
 - read tells the states now; recent_facts what happened lately; why tells

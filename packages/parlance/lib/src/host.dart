@@ -110,6 +110,15 @@ final class Host {
     return _registry.alias(old, to);
   }
 
+  /// Overrides access for an exact publication, including before it appears.
+  /// Null fields inherit its declaration; selector maps replace it as a whole.
+  void setAccess({required WordAddress address, required WordAccess access}) =>
+      _registry.setWordAccess(address, access);
+
+  /// Restores the declaration for this address. The word and values stay live.
+  void clearAccess({required WordAddress address}) =>
+      _registry.setWordAccess(address, null);
+
   /// Ends every participant and session, the last made first, and the
   /// registry. The parts across are not told: their connections go with
   /// the host, and they join the next one.

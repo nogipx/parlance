@@ -19,6 +19,8 @@ const parlanceProtocol = 1;
 const parlanceFeatures = {
   // Exact provider/word addresses, with no unscoped-client fallback.
   'providers',
+  // Host-owned effective access and live revocation through catalogs.
+  'accessPolicy',
   // What a part was built against, by fingerprint (SPEC §6.9, §25.4):
   // the ops `built` and `unbuilt`.
   'built',

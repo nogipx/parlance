@@ -21,6 +21,34 @@ Future<void> main() async {
 
   try {
     final fixtures = <String, ({String source, Set<String> missing})>{
+      'host_access': (
+        source: '''
+import 'package:parlance/app.dart';
+import 'package:parlance/tools.dart';
+void consumer(Host host) {
+  final address = WordAddress(const Principal('module', 'work'), 'notes.add');
+  host.setAccess(address: address, access: const WordAccess(callers: Callers.anyone));
+  host.clearAccess(address: address);
+  host.registry.accessWarnings.listen((AccessWarning event) {
+    event.word;
+    event.operation;
+  });
+}
+''',
+        missing: {},
+      ),
+      'participant_cannot_administer_access': (
+        source: '''
+import 'package:parlance/app.dart';
+import 'package:parlance/tools.dart';
+void consumer(IParticipant participant, Host host) {
+  participant.setAccess();
+  participant.clearAccess();
+  host.registry.setWordAccess();
+}
+''',
+        missing: {'setAccess', 'clearAccess', 'setWordAccess'},
+      ),
       'schema': (
         source: '''
 import 'package:parlance/schema.dart';

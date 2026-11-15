@@ -37,6 +37,8 @@ What it may do as `who`, whoever does it for it: the generated client and owner 
 
 **Access by default** (`WordAccess(readers:, callers:)`): who may read its states and facts and call its commands when a word does not say. A word's own `readers` or `callers` replace it whole, nothing merges. Without a default and a word's own, a state or a fact is everyone's to read, and a command is refused at once (`ArgumentError`): who may call it is never left to chance. It is applied as the participant defines, so it goes over a connection as part of the descriptor. A word kept from someone is `notPermitted` to them (§6.5), not missing, so a team sees whom to ask; there are no rights per field: what is private to fewer goes in a word of its own.
 
+**Host overrides.** Host.setAccess(address:, access:) replaces selected access fields of one canonical WordAddress; clearAccess restores the declaration. Null fields inherit; a non-null map replaces the whole field. Overrides may precede publication and survive reconnect. Effective policy is used by every check, descriptor and status. See [access policy](access.md).
+
 | Right | Null means |
 |---|---|
 | `define(call)`: a `DefineCall` (`by`, `word`, `role` a `WordRole`, `readers`, `callers`), of `app.dart`, so a host judges a word without the registry's descriptors | every word in its vocabularies |

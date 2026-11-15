@@ -48,7 +48,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Command** (§6.2): something that can be asked: params, an optional answer (`returns`), exactly one handler.
 - **Handler** (§6.2): the code that runs a command: an owner's method of the command's params; by name, raw, it gets the call (`CommandCall`).
 - **Callers** (§6.2): selectors with `allow`, `warn` or `deny`; who matches none is denied.
-- **`warn`** (§6.2): allowed, but an editor tells the author who can now call it (any guest, say).
+- **`warn`** (§6.2): allowed; a real interaction emits a developer diagnostic identifying an unexpected dependency.
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
 - **WhyNot** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyNot(command)` asks without calling, so a button can be grey with the reason.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.

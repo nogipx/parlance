@@ -1,4 +1,6 @@
 import 'address.dart';
+import 'access.dart';
+import 'dart:developer' as developer;
 import 'dart:async';
 import 'dart:collection';
 
@@ -29,6 +31,7 @@ import 'streams.dart';
 export 'cancellation.dart' show CancellationToken;
 
 part 'registry_calls.dart';
+part 'registry_access.dart';
 part 'registry_words.dart';
 part 'registry_raw.dart';
 part 'registry_streams.dart';
@@ -110,6 +113,7 @@ final class Registry {
        _traced = log != null && !identical(log, LogScope.noop),
        _callLog = (log ?? LogScope.noop).child('calls'),
        _tickLog = (log ?? LogScope.noop).child('ticks'),
+       _accessLog = (log ?? LogScope.noop).child('access'),
        _catalogLog = (log ?? LogScope.noop).child('catalog'),
        _onError = _logged(log, onError ?? Zone.current.handleUncaughtError),
        epoch = newId() {
@@ -129,7 +133,35 @@ final class Registry {
   /// when the registry was made, unless given.
   final Clock clock;
 
+  final Map<String, WordAccess> _wordAccess = {};
+  final Map<String, int> _accessRevisions = {};
+
+  /// Monotonic policy revision for this canonical word, including cleared rules.
+  int accessRevision(String word) => _accessRevisions[canonical(word)] ?? 0;
+  final StreamController<String> _accessChanges = StreamController.broadcast(
+    sync: true,
+  );
+  final StreamController<AccessWarning> _accessWarnings =
+      StreamController.broadcast();
+  final Map<String, StreamLease> _streamLeases = {};
+
+  /// Effective access changed for this canonical address; emitted synchronously.
+  Stream<String> get accessChanges => _accessChanges.stream;
+
+  /// Actual allowed interactions carrying a warning policy.
+  Stream<AccessWarning> get accessWarnings => Stream.multi((out) {
+    final sub = boundedStream<AccessWarning>(
+      () => _accessWarnings.stream,
+      deferStart: false,
+      weigh: (event) => jsonWeight(event.toJson()),
+    ).listen(out.addSync, onError: out.addErrorSync, onDone: out.closeSync);
+    out.onPause = sub.pause;
+    out.onResume = sub.resume;
+    out.onCancel = sub.cancel;
+  }, isBroadcast: true);
+
   final ErrorSink _onError;
+  final LogScope _accessLog;
 
   /// Where the registry logs (SPEC §9.2): a span for every call its
   /// handler serves, whatever the level, and refusals, ticks, the
@@ -231,6 +263,10 @@ final class Registry {
           _catalogLog.info('removed', data: {'word': descriptor.name});
         }
         _builtAgainst.wordChanged(descriptor.name);
+      case AccessChanged(:final word):
+        if (_catalogLog.isEnabled(RpcLogLevel.info)) {
+          _catalogLog.info('access changed', data: {'word': word});
+        }
       case AliasChanged(:final alias):
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('alias changed', data: {'alias': alias});
@@ -262,37 +298,37 @@ final class Registry {
 
   /// Every descriptor there is now.
   List<Descriptor> get catalog => [
-    for (final s in _states.values) s.descriptor,
-    for (final c in _commands.values) c.descriptor,
-    for (final f in _facts.values) f.descriptor,
-    for (final s in _streams.values) s.descriptor,
+    for (final s in _states.values) _effective(s.descriptor),
+    for (final c in _commands.values) _effective(c.descriptor),
+    for (final f in _facts.values) _effective(f.descriptor),
+    for (final s in _streams.values) _effective(s.descriptor),
   ];
 
   /// The descriptor of the state [name]; null for none.
   StateDescriptor? stateDescriptor(String name) =>
-      _states[canonical(name)]?.descriptor;
+      _effectiveOrNull(_states[canonical(name)]?.descriptor);
 
   /// The descriptor of the command [name]; null for none.
   CommandDescriptor? commandDescriptor(String name) =>
       switch (_commands[canonical(name)]?.descriptor) {
-        final CommandDescriptor d => d,
+        final CommandDescriptor d => _effective(d),
         _ => null,
       };
 
   /// The descriptor of the query [name]; null for none.
   QueryDescriptor? queryDescriptor(String name) =>
       switch (_commands[canonical(name)]?.descriptor) {
-        final QueryDescriptor d => d,
+        final QueryDescriptor d => _effective(d),
         _ => null,
       };
 
   /// A command's or a query's descriptor: what is called by [name].
   CallableDescriptor? callableDescriptor(String name) =>
-      _commands[canonical(name)]?.descriptor;
+      _effectiveOrNull(_commands[canonical(name)]?.descriptor);
 
   /// The descriptor of the fact [name]; null for none.
   FactDescriptor? factDescriptor(String name) =>
-      _facts[canonical(name)]?.descriptor;
+      _effectiveOrNull(_facts[canonical(name)]?.descriptor);
 
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
   /// answers its first result, and the descriptors.
@@ -301,16 +337,18 @@ final class Registry {
     'seq': seq,
     'dedupWindowMs': limits.dedupWindow.inMilliseconds,
     'descriptors': [for (final d in catalog) d.toJson()],
+    if (_accessRevisions.isNotEmpty)
+      'accessRevisions': Map.of(_accessRevisions),
     if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
   };
 
   List<String> _unreadable(Principal by) => [
     for (final s in _states.values)
-      if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
+      if (!mayRead(by, s.descriptor.name)) s.descriptor.name,
     for (final f in _facts.values)
-      if (!(f.descriptor.readers?.allows(by) ?? true)) f.descriptor.name,
+      if (!mayRead(by, f.descriptor.name)) f.descriptor.name,
     for (final s in _streams.values)
-      if (!(s.descriptor.readers?.allows(by) ?? true)) s.descriptor.name,
+      if (!mayRead(by, s.descriptor.name)) s.descriptor.name,
   ];
 
   void _checkFree(String name) {
@@ -1000,11 +1038,18 @@ final class Registry {
     } on TypeMismatch catch (e) {
       return finish(CallRefused(Refusal.invalidParams, '$e'));
     }
-    if (!d.callers.allows(cause.by)) {
+    if (_accessFor(command, cause.by) == Access.deny) {
       return finish(
         CallRefused(Refusal.notPermitted, '${cause.by} may not call $command'),
       );
     }
+    _warnAccess(
+      command,
+      cause.by,
+      entry.query ? AccessOperation.query : AccessOperation.call,
+      id: id,
+      cause: cause,
+    );
     if (entry.whyNot?.call() case final why?) {
       return finish(CallRefused(Refusal.unavailable, why));
     }
@@ -1061,6 +1106,11 @@ final class Registry {
     // unable to run.
     if (_commands[command] != entry) {
       return finish(CallRefused(Refusal.unknownCommand, '$command is gone'));
+    }
+    if (_accessFor(command, cause.by) == Access.deny) {
+      return finish(
+        CallRefused(Refusal.notPermitted, '${cause.by} may not call $command'),
+      );
     }
     if (asked) {
       if (entry.whyNot?.call() case final why?) {
@@ -1173,6 +1223,8 @@ final class Registry {
   Future<void> dispose() async {
     if (_disposing) return;
     _disposing = true;
+    _wordAccess.clear();
+    _accessRevisions.clear();
     for (final f in _beforeDispose.reversed) {
       try {
         f();
@@ -1188,6 +1240,8 @@ final class Registry {
       _closeStreamEvents(),
       _ticks.close(),
       _availability.close(),
+      _accessChanges.close(),
+      _accessWarnings.close(),
       _hub.dispose(),
       _catalog.close(),
       _builtAgainst.dispose(),

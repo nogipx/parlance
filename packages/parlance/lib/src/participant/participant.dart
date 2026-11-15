@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:clock/clock.dart' show Clock;
 
 import '../registry/address.dart';
+import '../registry/access.dart';
+export '../registry/access.dart' show WordAccess;
 import '../registry/json.dart' show jsonEquals;
 import '../registry/cause.dart';
 import '../registry/compat.dart' show WordBreak, wordBreaks;
@@ -150,23 +152,6 @@ DefineCall defineCallOf(Principal who, Descriptor d) => switch (d) {
   ),
 };
 
-/// Who may read and call a participant's words when a word does not say
-/// (SPEC §22.2): its states' and facts' `readers`, its commands' `callers`.
-/// A word's own replaces it whole; nothing merges.
-final class WordAccess {
-  /// Const constructor; null: as each word says.
-  const WordAccess({this.readers, this.callers});
-
-  /// Readers of its states and facts; null: everyone.
-  final Callers? readers;
-
-  /// Callers of its commands; null: each command says.
-  final Callers? callers;
-
-  /// Reads nothing, calls nothing: only what a word itself says stands.
-  static const none = WordAccess();
-}
-
 /// What the library does with a participant's [WordAccess] as it defines
 /// its words: not the app's.
 extension WordAccessOf on WordAccess {
@@ -269,6 +254,9 @@ abstract interface class IRawParticipant
   /// Told when the catalog it sees changes: a word came or went, or an
   /// alias changed.
   Stream<void> get catalogChanges;
+
+  /// Policy revision used to reject stale queued state snapshots.
+  int accessRevision(String word);
 
   /// Its vocabularies' names, the first word of the names it may define:
   /// `orders` for `orders.cancel`.
@@ -585,13 +573,24 @@ final class _KeyedOf<T> implements IKeyedOf<T> {
       _w.later(() => _w._resolve().watchAs(_word.name, _word.shape, key: key));
 
   @override
-  Stream<Map<String, T>> get changes => _w.later(
-    () => Stream.multi((c) {
-      c.add(all);
-      final sub = _w._resolve().changes({_word.name}).listen((_) => c.add(all));
+  Stream<Map<String, T>> get changes => _w.later(() {
+    final p = _w._resolve();
+    return Stream<(int, Map<String, T>)>.multi((c) {
+      void tell() =>
+          c.add((p.accessRevision(_word.name), readingSubscription(() => all)));
+      tell();
+      final sub = p
+          .changes({_word.name})
+          .listen((_) => tell(), onError: c.addError, onDone: c.close);
+      c.onPause = sub.pause;
+      c.onResume = sub.resume;
       c.onCancel = sub.cancel;
-    }),
-  );
+    }).map(
+      (event) => event.$1 == p.accessRevision(_word.name)
+          ? event.$2
+          : readingSubscription(() => all),
+    );
+  });
 
   @override
   String toString() => '${_word.name} = $all';

@@ -55,12 +55,46 @@ final class _Feed {
   void _listen() {
     listened = true;
     _describe();
-    _catalog = _registry.catalogChanges.listen((_) => _describe());
+    _catalog = _registry.catalogChanges.listen((c) {
+      if (c is! AccessChanged) _describe();
+    });
     _follow();
   }
 
+  WireFeedItem _filtered(WireFeedItem item) {
+    final json = {...item.json};
+    // Access may have changed while a paused feed held this item.
+    switch (item.kind) {
+      case 'catalog':
+        return WireFeedItem('catalog', _s._description());
+      case 'snapshot' || 'values':
+        final states = json['states'] as Map? ?? const {};
+        json['states'] = {
+          for (final e in states.entries)
+            if (_s._carries(e.key as String)) e.key as String: e.value,
+        };
+        if (json.containsKey('keep')) {
+          json['keep'] = (_s._stateFilter ?? _s._stateNames().toSet())
+              .where(_s._reads)
+              .toList();
+        }
+      case 'tick':
+        json['changes'] = [
+          for (final c in json['changes'] as List? ?? const [])
+            if (_s._carries((c as Map)['state'] as String)) c,
+        ];
+        json['facts'] = [
+          for (final f in json['facts'] as List? ?? const [])
+            if ((_s._factFilter?.contains((f as Map)['fact']) ?? true) &&
+                _s._reads((f as Map)['fact'] as String))
+              f,
+        ];
+    }
+    return WireFeedItem(item.kind, json);
+  }
+
   void _hand((WireFeedItem, int?) i) {
-    out.add(i.$1);
+    out.add(_filtered(i.$1));
     if (i.$2 case final seq?) {
       _sent = seq;
       _sentEpoch = _registry.epoch;
@@ -139,6 +173,16 @@ final class _Feed {
       _last = _sent;
       _follow();
     }
+  }
+
+  /// A policy change sends the current catalog before pruning mirror values.
+  void policyChanged(String word) {
+    // Permanently remove revoked payloads, even if access returns before resume.
+    for (var i = 0; i < _held.length; i++) {
+      final old = _held[i];
+      _held[i] = (_filtered(old.$1), old.$2);
+    }
+    if (listened) _describe();
   }
 
   void _describe() {

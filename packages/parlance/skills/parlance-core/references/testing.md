@@ -27,3 +27,8 @@ await host.dispose();
 - **One way to test.** A part is tested with its real client over a `TestHost`, an owner attached to one: there are no fake clients and no owner read back unattached (what an owner says unattached no one hears).
 
 Observations (`written`, `said`, `callsOf`) also require `provider:`. Identical words at another provider never count as this instance's output.
+
+
+TestHost.setAccess and clearAccess expose the same host-only policy operations for
+tests. Observe registry.accessWarnings to assert actual warn admissions independently
+of logs, and test both local and remote callers, revocation, regrant and queued data.

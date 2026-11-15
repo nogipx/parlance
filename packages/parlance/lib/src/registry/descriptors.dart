@@ -9,7 +9,7 @@ enum Access {
   /// Allowed, nothing said.
   allow,
 
-  /// Allowed; editors warn the author who else can now do it.
+  /// Allowed; actual interactions emit a diagnostic for the developer.
   warn,
 
   /// Not allowed.

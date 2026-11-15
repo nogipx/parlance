@@ -1,4 +1,5 @@
 import '../registry/address.dart';
+import '../registry/access.dart';
 // Internal to the library: what these files show is not a promise
 // Documented surface lives in schema.dart and app.dart.
 // ignore_for_file: public_member_api_docs
@@ -151,64 +152,160 @@ Map<String, List<WordBreak>> wordMismatches(
 
 /// A view of a registry in this process, calling as [by].
 final class LocalView implements IRegistryView {
-  LocalView(this.registry, {required this.by});
+  LocalView(this.registry, {required this.by, this.cause});
 
   final Registry registry;
 
   /// On whose behalf it calls; it reads only what [by] may.
   final Principal by;
 
+  /// Optional verified attribution for reads made through a participant.
+  final Cause? Function()? cause;
+
   @override
   Object? read(String state, {String? key}) =>
-      registry.mayRead(by, state) ? registry.read(state, key: key) : null;
+      registry.checkRead(by, state, cause: cause?.call())
+      ? registry.read(state, key: key)
+      : null;
 
   @override
   T? readAs<T>(String state, Shape<T> shape, {String? key}) =>
-      registry.mayRead(by, state)
+      registry.checkRead(by, state, cause: cause?.call())
       ? registry.readAs(state, shape, key: key)
       : null;
 
   @override
   Map<String?, Object?> readAll(String state) =>
-      registry.mayRead(by, state) ? registry.readAll(state) : const {};
+      registry.checkRead(by, state, cause: cause?.call())
+      ? registry.readAll(state)
+      : const {};
 
   @override
   Map<String?, T> readAllAs<T>(String state, Shape<T> shape) =>
-      registry.mayRead(by, state) ? registry.readAllAs(state, shape) : const {};
+      registry.checkRead(by, state, cause: cause?.call())
+      ? registry.readAllAs(state, shape)
+      : const {};
 
   /// A read by name, as a part outside the build makes it: counted as
   /// [by]'s use of the word (SPEC §6.8).
   @override
   Future<Map<String?, Object?>> fetch(String state, {bool keep = true}) async {
-    if (!registry.mayRead(by, state)) return const {};
+    if (!registry.checkRead(by, state, cause: cause?.call())) return const {};
     registry.usedBy(state, by);
     return registry.readAll(state);
   }
 
   /// An old name of a word (SPEC §6.4) is told the word's changes.
   @override
-  Stream<void> changes(Set<String> states) => registry.ticks
-      .where((t) {
-        if (t.changes.isEmpty) return false;
-        final names = {for (final s in states) registry.canonical(s)};
-        return t.changes.any((c) => names.contains(c.state));
-      })
-      .map((_) {});
+  Stream<void> changes(Set<String> states) => Stream.multi((out) {
+    var closed = false;
+    void tell() {
+      if (!closed) out.add(null);
+    }
+
+    void end() {
+      if (!closed) {
+        closed = true;
+        out.close();
+      }
+    }
+
+    for (final state in states) {
+      registry.checkRead(
+        by,
+        state,
+        operation: AccessOperation.subscribe,
+        cause: cause?.call(),
+      );
+    }
+    bool wanted(String word) =>
+        states.any((s) => registry.canonical(s) == word);
+    final ticks = registry.ticks.listen(
+      (t) {
+        if (t.changes.any(
+          (c) => wanted(c.state) && registry.mayRead(by, c.state),
+        )) {
+          tell();
+        }
+      },
+      onError: out.addError,
+      onDone: end,
+    );
+    final access = registry.accessChanges.listen((word) {
+      if (wanted(word)) tell();
+    });
+    final catalog = registry.catalogChanges.listen((event) {
+      final word = switch (event) {
+        DescriptorAdded(:final descriptor) => descriptor.name,
+        DescriptorRemoved(:final descriptor) => descriptor.name,
+        AliasChanged(:final alias) => alias,
+        AccessChanged() => null,
+      };
+      if (word != null && wanted(registry.canonical(word))) tell();
+    });
+    out.onPause = () {
+      ticks.pause();
+      access.pause();
+      catalog.pause();
+    };
+    out.onResume = () {
+      ticks.resume();
+      access.resume();
+      catalog.resume();
+    };
+    out.onCancel = () async {
+      closed = true;
+      await ticks.cancel();
+      await access.cancel();
+      await catalog.cancel();
+    };
+  });
+
+  Stream<T> _hearing<T>(String fact, Stream<T> events, int Function(T) seq) {
+    var allowed = registry.mayRead(by, fact);
+    var after = allowed ? -1 : registry.seq;
+    return Stream<T>.multi((out) {
+      allowed = registry.mayRead(by, fact);
+      after = allowed ? -1 : registry.seq;
+      registry.checkRead(
+        by,
+        fact,
+        operation: AccessOperation.subscribe,
+        cause: cause?.call(),
+      );
+      final policy = registry.accessChanges.listen((word) {
+        if (registry.canonical(fact) != word) return;
+        final now = registry.mayRead(by, fact);
+        if (!now || !allowed) after = registry.seq;
+        allowed = now;
+      });
+      final sub = events.listen(
+        out.add,
+        onError: out.addError,
+        onDone: out.close,
+      );
+      out.onPause = sub.pause;
+      out.onResume = sub.resume;
+      out.onCancel = () async {
+        await sub.cancel();
+        await policy.cancel();
+      };
+    }).where((event) => registry.mayRead(by, fact) && seq(event) > after);
+  }
 
   @override
-  Stream<FactMessage> facts(String fact) => registry.mayRead(by, fact)
-      ? registry.facts(fact: fact)
-      : const Stream.empty();
+  Stream<FactMessage> facts(String fact) =>
+      _hearing(fact, registry.facts(fact: fact), (f) => f.seq);
 
   @override
   Stream<(T, FactMessage)> factsAs<T>(String fact, Shape<T> shape) =>
-      registry.mayRead(by, fact)
-      ? registry.factsAs(fact, shape)
-      : const Stream.empty();
+      _hearing(fact, registry.factsAs(fact, shape), (f) => f.$2.seq);
 
   @override
   Future<List<FactMessage>> recent(String fact, int count) async =>
-      registry.mayRead(by, fact) ? registry.recent(fact, count) : const [];
+      registry.checkRead(by, fact, cause: cause?.call())
+      ? registry.recent(fact, count)
+      : const [];
 
   @override
   Future<CallResult<Object?>> call(

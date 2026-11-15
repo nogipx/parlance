@@ -86,3 +86,13 @@ the existing connection. Data and terminal failure frames are independent of
 the state/fact feed. Cancellation propagates through a remote owner; connection
 loss is terminal without resume. Sessions announce their effective stream
 limits to the participant. See [streams.md](streams.md).
+
+
+### Live access changes
+
+The accessPolicy feature advertises host policy updates. The host publishes the
+effective catalog before pruning and refreshing subscription values. Mirrors remove
+revoked values, desired state/fact subscriptions survive denial, states refresh on
+regrant and facts resume without replay. Held feed payloads are rechecked and revoked
+items removed even if access returns before delivery. Data streams end with
+notPermitted. Only Host changes policy; guests have no ACL mutation operation.

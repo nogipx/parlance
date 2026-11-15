@@ -103,6 +103,7 @@ extension RegistryStreams on Registry {
   }) {
     _checkFree(d.name);
     _checkKnown(d);
+    _checkAccess(d);
     _streams[d.name] = _StreamEntry(
       d,
       handler,
@@ -199,6 +200,12 @@ extension RegistryStreams on Registry {
             'the stream owner was withdrawn during admission',
           );
         }
+        if (!mayRead(by, name)) {
+          throw StreamFailure(
+            StreamFailureCode.notPermitted,
+            '$by may not use $name',
+          );
+        }
         final reader = by.owner.isEmpty ? by : Principal(by.kind, by.id);
         final active = _streamReaders.putIfAbsent(reader, () => {});
         if (bounds.subscriptions case final max? when active.length >= max) {
@@ -214,6 +221,14 @@ extension RegistryStreams on Registry {
         registered = true;
         cancelled = cancel?.onCancel(() => lease.token.cancel());
         if (lease.token.isCancelled) throw lease.failure;
+        _streamLeases[id] = lease;
+        _warnAccess(
+          name,
+          by,
+          AccessOperation.openStream,
+          id: id,
+          cause: observation!.cause,
+        );
         usedBy(name, by);
         use = _uses.listening(name, by);
         _converse(id, name, observation!.cause);
@@ -305,6 +320,7 @@ extension RegistryStreams on Registry {
       onClosed: (items, bytes, error) {
         cancelled?.dispose();
         if (registered) {
+          _streamLeases.remove(id);
           final reader = by.owner.isEmpty ? by : Principal(by.kind, by.id);
           final active = _streamReaders[reader];
           active?.remove(lease);

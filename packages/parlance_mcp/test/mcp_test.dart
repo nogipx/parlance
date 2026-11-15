@@ -131,6 +131,73 @@ void main() {
     expect(await now(), isNull);
   });
 
+  test('MCP reads the effective host policy and live overrides', () async {
+    final f = Fixture();
+    addTearDown(f.host.dispose);
+    final c = Client(f.host.participant(agent));
+    addTearDown(c.close);
+    final command = WordAddress(owner, 'house.show');
+    final state = WordAddress(owner, 'house.focus');
+    f.focus.set('main');
+    f.host.setAccess(
+      address: command,
+      access: const WordAccess(callers: Callers({})),
+    );
+    var described = await c.json('describe') as Map;
+    expect(
+      (described['commands'] as List).where(
+        (x) => (x as Map)['name'] == '$command',
+      ),
+      isEmpty,
+    );
+    expect(
+      (await c.call('call', {
+        'command': '$command',
+        'params': {'room': 'main'},
+      })).error,
+      isTrue,
+    );
+    f.host.setAccess(
+      address: state,
+      access: const WordAccess(readers: Callers({})),
+    );
+    final hidden = await c.call('read', {'state': '$state'});
+    expect(hidden.error, isTrue);
+    expect(hidden.text, isNot(contains('main')));
+    final providers = await c.json('providers', {'word': 'house.show'}) as List;
+    expect(
+      ((((providers.single as Map)['words'] as List).single as Map)['status']),
+      'notPermitted',
+    );
+    f.host.setAccess(
+      address: command,
+      access: const WordAccess(callers: Callers({'*': Access.warn})),
+    );
+    described = await c.json('describe') as Map;
+    expect(
+      ((described['commands'] as List).singleWhere(
+            (x) => (x as Map)['name'] == '$command',
+          )
+          as Map)['access'],
+      'warn',
+    );
+    final warnings = <AccessWarning>[];
+    final observer = f.r.accessWarnings.listen(warnings.add);
+    addTearDown(observer.cancel);
+    expect(
+      (await c.call('call', {
+        'command': '$command',
+        'params': {'room': 'main'},
+      })).error,
+      isFalse,
+    );
+    await pumpEventQueue();
+    expect(warnings.single.by, agent);
+    f.host.clearAccess(address: command);
+    f.host.clearAccess(address: state);
+    expect('${await c.json('read', {'state': '$state'})}', contains('main'));
+  });
+
   test(
     'MCP discovers equal words and routes only the selected provider',
     () async {

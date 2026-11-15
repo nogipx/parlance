@@ -9,6 +9,7 @@ import 'serving.dart';
 import '../registry/compat.dart';
 import '../registry/descriptors.dart';
 import '../registry/ids.dart';
+import '../registry/json.dart' show jsonEquals;
 import '../registry/messages.dart';
 import '../registry/registry.dart';
 import '../registry/shapes.dart';
@@ -190,7 +191,7 @@ final class LocalParticipant implements IRawParticipant {
     this.access, {
     LocalParticipant? parent,
   }) : _whole = parent,
-       _view = LocalView(_r, by: who);
+       _view = LocalView(_r, by: who, cause: () => inReplyAs(who));
 
   /// The participant this one speaks for an owner of ([ofOwner]); null
   /// for the whole.
@@ -339,23 +340,55 @@ final class LocalParticipant implements IRawParticipant {
 
   @override
   Future<Explanation> explain(String state, {String? key}) async {
-    if (!_r.mayRead(who, state)) throw NotPermitted('$who may not read $state');
+    if (!_r.checkRead(who, state, cause: inReplyAs(who))) {
+      throw NotPermitted('$who may not read $state');
+    }
     _r.usedBy(state, who);
     return _r.explain(state, key: key);
   }
+
+  @override
+  int accessRevision(String word) => _r.accessRevision(word);
 
   @override
   Stream<void> get catalogChanges => _r.catalogChanges.map((_) {});
 
   @override
   Stream<Object?> watch(String state, {String? key}) =>
-      _r.mayRead(who, state) ? _r.watch(state, key: key) : Stream.value(null);
+      _watchState<Object?>(state, () => _r.read(state, key: key), jsonEquals);
+
+  Stream<T?> _watchState<T>(
+    String state,
+    T? Function() read,
+    bool Function(T?, T?) equal,
+  ) {
+    T? current() => _r.mayRead(who, state) ? read() : null;
+    return Stream<(int, T?)>.multi((out) {
+          void tell() => out.add((_r.accessRevision(state), current()));
+          final sub = _view
+              .changes({state})
+              .listen((_) => tell(), onError: out.addError, onDone: out.close);
+          tell();
+          out.onPause = sub.pause;
+          out.onResume = sub.resume;
+          out.onCancel = sub.cancel;
+        })
+        .map(
+          (event) =>
+              event.$1 == _r.accessRevision(state) && _r.mayRead(who, state)
+              ? event.$2
+              : current(),
+        )
+        .distinct(equal);
+  }
 
   @override
   Stream<T?> watchAs<T>(String state, Shape<T> shape, {String? key}) =>
-      _r.mayRead(who, state)
-      ? _r.watchAs(state, shape, key: key)
-      : Stream.value(null);
+      _watchState<T>(
+        state,
+        () => _r.readAs(state, shape, key: key),
+        (a, b) => a == null || b == null ? a == b : shape.equals(a, b),
+      );
 
   @override
   Stream<void> changes(Set<String> states) => _view.changes(states);

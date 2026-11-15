@@ -100,7 +100,7 @@ CommandDescriptor {
 
 - Exactly one handler per command; defining a command registers its handler.
 - **A command asks; its owner writes.** A state is written by its owner only (§6.1), never by the registry on someone's behalf. A command says nothing of which states its handler writes: that is the owner's to decide and to change, and what it did is told after, by the causes of the writes (§5, `explain`).
-- `callers` are **selectors**: `*` (anyone), or a principal's (§4): a kind (`user`), a principal (`module/visit`), an owner (`module/orders@sync`). A selector names itself and its owners, a kind all of it. For a principal the nearest said wins: its own, then its whole, then its kind, then `*` (for `module/visit@visit`: `module/visit@visit`, `module/visit`, `module`, `*`); a principal matched by none is denied. A nearer rule overrides a wider one either way (`module/orders: allow`, `module/orders@sync: deny`). A selector that is not one (`module:visit`, `guest/bob/2`) is refused where it is said (`ArgumentError`), rather than matching nobody. `warn` allows the call; it exists for editors, which tell the author that, for example, any guest can now do this.
+- `callers` are **selectors**: `*` (anyone), or a principal's (§4): a kind (`user`), a principal (`module/visit`), an owner (`module/orders@sync`). A selector names itself and its owners, a kind all of it. For a principal the nearest said wins: its own, then its whole, then its kind, then `*` (for `module/visit@visit`: `module/visit@visit`, `module/visit`, `module`, `*`); a principal matched by none is denied. A nearer rule overrides a wider one either way (`module/orders: allow`, `module/orders@sync: deny`). A selector that is not one (`module:visit`, `guest/bob/2`) is refused where it is said (`ArgumentError`), rather than matching nobody. `warn` allows the interaction and emits a developer diagnostic when it occurs, identifying the caller and publication. It marks an unexpected dependency; catalog/status inspection is silent. See [host access policy](access.md).
 - `deadline` bounds the handler; the default is 30 s, and none (zero or less) is refused.
 - The owner may give an **availability** check: synchronous, reads committed state, returns nothing or a reason. `whyNot(command)` asks it without calling, so a client can show a button greyed with the reason.
 - A word that only answers is not a command but a query (§6.6).
@@ -108,7 +108,7 @@ CommandDescriptor {
 ### 6.3 Facts
 
 ```
-FactDescriptor { name, type, open: bool, readers: { selector: allow | deny }?, meta }
+FactDescriptor { name, type, readers: { selector: allow | deny }?, meta }
 ```
 
 - `readers` say who may hear it over remote and to agents, as a state's (§6.1).
@@ -278,7 +278,10 @@ feed(since?: (epoch, seq)) → Snapshot? then Tick, Tick, …
 
 ## 17. Versions
 
-`describe` over remote carries the protocol version (now 2: calls answer their seq, `recent` was added); the registry's own `describe` does not. What a host exports in the registry's terms carries a format version; the importer refuses a newer major version and migrates older ones.
+Remote describe carries protocol major 1 and named features. The accessPolicy
+feature advertises live host overrides and revocation; control stays on Host,
+with no guest mutation operation. Word versions and schema compatibility remain
+independent of access policy.
 
 ## 18. Typed words
 

@@ -68,7 +68,7 @@ extension RawRegistry on Registry {
   WordStatus statusOf(String name, {required Principal by}) {
     final n = canonical(name);
     if (_commands[n] case final c?) {
-      if (!c.descriptor.callers.allows(by)) return const WordNotPermitted();
+      if (_accessFor(n, by) == Access.deny) return const WordNotPermitted();
       if (c.whyNot?.call() case final why?) return WordUnavailable(why);
       return const WordReady();
     }
@@ -120,11 +120,23 @@ extension RawRegistry on Registry {
   /// remote and MCP (its `readers`); true for a word there is
   /// not.
   bool mayRead(Principal by, String name) =>
-      (_states[canonical(name)]?.descriptor.readers ??
-              _facts[canonical(name)]?.descriptor.readers ??
-              _streams[canonical(name)]?.descriptor.readers)
-          ?.allows(by) ??
-      true;
+      _accessFor(name, by) != Access.deny;
+
+  /// An actual read or listener admission; unlike status, records warn rules.
+  bool checkRead(
+    Principal by,
+    String name, {
+    AccessOperation operation = AccessOperation.read,
+    Cause? cause,
+  }) {
+    if (!mayRead(by, name)) return false;
+    _warnAccess(name, by, operation, cause: cause);
+    return true;
+  }
+
+  /// Host-only mutation, reached through Host rather than participant APIs.
+  void setWordAccess(WordAddress address, WordAccess? access) =>
+      _setAccess(address, access);
 
   /// The catalog as [by] sees it: [describe], with what [by] may call
   /// (`access`: command to allow, warn or deny), the commands that cannot
@@ -135,7 +147,7 @@ extension RawRegistry on Registry {
     if (_unreadable(by) case final u when u.isNotEmpty) 'unreadable': u,
     'access': {
       for (final c in _commands.values)
-        c.descriptor.name: c.descriptor.callers.accessOf(by).name,
+        c.descriptor.name: _accessFor(c.descriptor.name, by).name,
     },
     'unavailable': unavailable,
   };
@@ -174,6 +186,7 @@ extension RawRegistry on Registry {
   }) {
     _checkFree(d.name);
     _checkKnown(d);
+    _checkAccess(d);
     final kept = shape != null && shape.keptAsIs ? shape : null;
     final keep = kept ?? JsonValue(d.type);
     final local = LocalKeyedState<String?, Object?>(
@@ -197,6 +210,7 @@ extension RawRegistry on Registry {
   }) {
     _checkFree(d.name);
     _checkKnown(d);
+    _checkAccess(d);
     final local = LocalCommand<CommandCall, Object?>();
     _commands[d.name] = _CommandEntry(
       d,
@@ -221,6 +235,7 @@ extension RawRegistry on Registry {
   }) {
     _checkFree(d.name);
     _checkKnown(d);
+    _checkAccess(d);
     final local = LocalCommand<CommandCall, Object?>();
     _commands[d.name] = _CommandEntry(
       d,
@@ -246,6 +261,7 @@ extension RawRegistry on Registry {
   }) {
     _checkFree(d.name);
     _checkKnown(d);
+    _checkAccess(d);
     final kept = shape != null && shape.keptAsIs ? shape : null;
     final keep = kept ?? JsonValue(d.type);
     final local = LocalFact<Object?>(hub: _hub);
@@ -282,10 +298,7 @@ extension RawRegistry on Registry {
   /// null when there is none.
   Descriptor? descriptorOf(String name) {
     final n = canonical(name);
-    return _states[n]?.descriptor ??
-        _commands[n]?.descriptor ??
-        _facts[n]?.descriptor ??
-        _streams[n]?.descriptor;
+    return _effectiveOrNull(_declared(n));
   }
 
   /// The value of [state] (of [key]); inside a batch, the batch's own
@@ -561,6 +574,12 @@ extension RawRegistry on Registry {
           ),
         );
       }
+      if (_accessFor(command, by) == Access.deny) {
+        return Future.value(
+          CallRefused(Refusal.notPermitted, '$by may not call $command'),
+        );
+      }
+      _warnAccess(asked, by, AccessOperation.call, id: callId, cause: cause);
       // A retry waits for how the first call ended, late too, as long as
       // a call waits; it stops waiting when it cancels, and the first call
       // goes on.

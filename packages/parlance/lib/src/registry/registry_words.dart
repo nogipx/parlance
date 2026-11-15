@@ -18,6 +18,12 @@ final class DescriptorRemoved extends CatalogChange {
   final Descriptor descriptor;
 }
 
+/// The host changed an exact word's effective access policy.
+final class AccessChanged extends CatalogChange {
+  const AccessChanged(this.word);
+  final String word;
+}
+
 /// A word's old name came or went (SPEC §6.4).
 final class AliasChanged extends CatalogChange {
   const AliasChanged(this.alias);

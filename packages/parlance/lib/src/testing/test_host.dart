@@ -47,6 +47,14 @@ final class TestHost {
   /// Its registry, for what the test reads back.
   Registry get registry => _host.registry;
 
+  /// Applies the host's override to one publication without recreating it.
+  void setAccess({required WordAddress address, required WordAccess access}) =>
+      _host.setAccess(address: address, access: access);
+
+  /// Restores the publication's declared access policy.
+  void clearAccess({required WordAddress address}) =>
+      _host.clearAccess(address: address);
+
   /// Every tick committed, in order, once [settle] has let them come.
   final List<Tick> ticks = [];
 

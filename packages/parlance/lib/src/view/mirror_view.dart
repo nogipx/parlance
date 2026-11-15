@@ -159,25 +159,43 @@ final class MirrorView implements IRegistryView {
 
   @override
   Stream<FactMessage> facts(String fact) {
-    late StreamController<FactMessage> out;
+    late StreamController<(int, FactMessage)> out;
     StreamSubscription<Tick>? sub;
-    out = StreamController<FactMessage>(
+    StreamSubscription<void>? policy;
+    var allowed = mirror.statusOf(fact) is! WordNotPermitted;
+    var after = allowed ? -1 : mirror.seq;
+    out = StreamController<(int, FactMessage)>(
       onListen: () {
+        allowed = mirror.statusOf(fact) is! WordNotPermitted;
+        after = allowed ? -1 : mirror.seq;
         _want(_facts, {fact}, 1);
+        policy = mirror.statusChanges.listen((_) {
+          final now = mirror.statusOf(fact) is! WordNotPermitted;
+          if (!now || !allowed) after = mirror.seq;
+          allowed = now;
+        });
         sub = mirror.ticks.listen((t) {
           // An old name of a fact hears the fact (SPEC §6.4).
           final name = mirror.canonical(fact);
           for (final f in t.facts) {
-            if (f.fact == name) out.add(f);
+            if (f.fact == name) out.add((mirror.accessRevision(fact), f));
           }
         });
       },
       onCancel: () async {
         _want(_facts, {fact}, -1);
         await sub?.cancel();
+        await policy?.cancel();
       },
     );
-    return out.stream;
+    return out.stream
+        .where(
+          (event) =>
+              event.$1 == mirror.accessRevision(fact) &&
+              mirror.statusOf(fact) is! WordNotPermitted &&
+              event.$2.seq > after,
+        )
+        .map((event) => event.$2);
   }
 
   @override

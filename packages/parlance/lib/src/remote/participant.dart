@@ -739,7 +739,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   @override
   Object? read(String state, {String? key}) =>
-      _own.containsKey(state) ? _own[state]![key] : _view.read(state, key: key);
+      _view.status(state) is WordNotPermitted
+      ? null
+      : _own.containsKey(state)
+      ? _own[state]![key]
+      : _view.read(state, key: key);
 
   /// Across a connection a value is JSON: decoded, once a value.
   @override
@@ -747,7 +751,10 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       decodeKnown(shape, read(state, key: key), (e) => _unknown(state, e));
 
   @override
-  Map<String?, Object?> readAll(String state) => _own.containsKey(state)
+  Map<String?, Object?> readAll(String state) =>
+      _view.status(state) is WordNotPermitted
+      ? const {}
+      : _own.containsKey(state)
       ? Map.unmodifiable(_own[state]!)
       : _view.readAll(state);
 
@@ -811,6 +818,9 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   }
 
   @override
+  int accessRevision(String word) => _mirror.accessRevision(word);
+
+  @override
   Stream<void> get catalogChanges => _mirror.catalogChanges;
 
   /// The catalog as its feed last told it ([describe] asks the host anew):
@@ -819,23 +829,16 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   @override
   Stream<Object?> watch(String state, {String? key}) {
-    late StreamController<Object?> out;
+    late StreamController<(int, Object?)> out;
     StreamSubscription<void>? sub;
-    Object? last;
-    var told = false;
-    // Another's value is told once the mirror has it: not null first for
-    // not having it yet.
     var ready = _own.containsKey(state);
     void tell() {
-      if (!ready || out.isClosed) return;
-      final now = read(state, key: key);
-      if (told && jsonEquals(now, last)) return;
-      told = true;
-      last = now;
-      out.add(now);
+      if (ready && !out.isClosed) {
+        out.add((accessRevision(state), read(state, key: key)));
+      }
     }
 
-    out = StreamController<Object?>(
+    out = StreamController<(int, Object?)>(
       onListen: () {
         sub = _view.changes({state}).listen((_) => tell());
         if (ready) {
@@ -851,7 +854,15 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       },
       onCancel: () => sub?.cancel(),
     );
-    return out.stream;
+    return out.stream
+        .map(
+          (event) =>
+              event.$1 == accessRevision(state) &&
+                  _view.status(state) is! WordNotPermitted
+              ? event.$2
+              : read(state, key: key),
+        )
+        .distinct(jsonEquals);
   }
 
   @override

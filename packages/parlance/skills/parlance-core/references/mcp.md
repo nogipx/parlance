@@ -43,3 +43,9 @@ Curated `call`, `read`, `recent_facts` and `why` consume that full name verbatim
 There is no implicit provider selection. Optional command tool names use an
 injective base64url encoding of the full address, prefixed by `p_`; addresses
 that exceed MCP's name length stay accessible through the curated `call` tool.
+
+
+Host access overrides affect describe, providers, read and call immediately. Warn
+is an allowed interaction with a developer diagnostic at the host; describe retains
+access: warn as metadata. Inspection itself produces no warning. Command tool lists
+follow the existing toolsChanged notification contract when a host caches them.
