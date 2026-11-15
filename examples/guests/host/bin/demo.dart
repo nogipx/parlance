@@ -23,7 +23,7 @@ Future<void> main() async {
     host: host,
     id: 'board',
     start: (e) =>
-        startBoard(e, appProvider: Who.app, notesProvider: Who.widlet('notes')),
+        startBoard(e, appTarget: Who.app, notesTarget: Who.widlet('notes')),
   );
   print('guests: notes as ${notes.who}, board as ${board.who}');
 
@@ -45,7 +45,7 @@ Future<void> main() async {
   await board.settle();
   print(
     'notes unloaded: notes.add is '
-    '${INotesClient(participant: board, provider: Who.widlet('notes')).status(NotesCommand.add)}',
+    '${INotesClient(participant: board, target: Who.widlet('notes')).status(NotesCommand.add)}',
   );
 
   await b.close();

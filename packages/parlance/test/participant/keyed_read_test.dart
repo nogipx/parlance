@@ -40,7 +40,7 @@ void main() {
           : host.participant(reader);
       final keyed = GeneratedWords(
         participant: p,
-        provider: shop,
+        target: shop,
       ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
       final seen = <Map<String, Stock>>[];
       final sub = keyed.changes.listen(seen.add);
@@ -70,7 +70,7 @@ void main() {
           : host.participant(reader);
       final keyed = GeneratedWords(
         participant: p,
-        provider: shop,
+        target: shop,
       ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
       final sub = keyed.changes.listen((_) {});
       await p.settle();
@@ -96,7 +96,7 @@ void main() {
     when.set(kept, key: 'a');
     final keyed = GeneratedWords(
       participant: host.participant(reader),
-      provider: shop,
+      target: shop,
     ).keyedOf(const StateWordOf<DateTime>('shop.when', at, key: 'item'));
     expect(keyed.of('a'), same(kept));
     expect(keyed.all['a'], same(kept));
@@ -111,7 +111,7 @@ void main() {
     stockOf.set({'n': 1}, key: 'b');
     final keyed = GeneratedWords(
       participant: host.participant(reader),
-      provider: shop,
+      target: shop,
     ).keyedOf(StateWordOf<Stock>('shop.stock', stock, key: 'item'));
     final seen = <int>[];
     final sub = keyed.changesOf('a').listen((s) => seen.add(s!.n));

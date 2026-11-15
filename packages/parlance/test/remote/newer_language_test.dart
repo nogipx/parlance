@@ -77,7 +77,7 @@ final class _Peer extends ParlanceContractPeer {
         'seq': 1,
         'descriptors': const <Object?>[],
         'protocol': protocol,
-        'features': const <String>['providers'],
+        'features': const <String>['targets'],
         'principal': {'kind': 'agent'},
       });
 
@@ -142,7 +142,7 @@ void main() {
         });
       final view = MirrorView(mirror);
       expect(
-        wordStatus(view, when, provider: const Principal('deck')),
+        wordStatus(view, when, target: const Principal('deck')),
         isA<WordMismatch>().having(
           (m) => m.breaks.single,
           'break',
@@ -150,7 +150,7 @@ void main() {
         ),
       );
       expect(
-        wordMismatches(view, const [when], provider: const Principal('deck')),
+        wordMismatches(view, const [when], target: const Principal('deck')),
         hasLength(1),
       );
     });
@@ -277,7 +277,7 @@ void main() {
     GeneratedWords.own(deck.raw).state(S<String>('deck.w2', abc)).define();
     host.participant(const Principal('widlet', 'b')).raw.builtAgainst(const [
       S('deck.old', EnumShape(Mode.values)),
-    ], provider: const Principal('deck'));
+    ], target: const Principal('deck'));
     final toW1 = host.registry.alias('deck/deck.old', 'deck/deck.w1');
     await pumpEventQueue();
     toW1.dispose();

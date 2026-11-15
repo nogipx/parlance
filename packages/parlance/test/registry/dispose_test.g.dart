@@ -55,13 +55,13 @@ abstract interface class ILampClient {
   /// what `main` gives a part that uses them.
   factory ILampClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$LampClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ILampClient.of({required IOwner owner, required Principal provider}) =
+  factory ILampClient.of({required IOwner owner, required Principal target}) =
       _$LampClient._of;
 
   /// lamp.on: its value now, and its changes.
@@ -85,13 +85,13 @@ abstract interface class ILampClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$LampClient implements ILampClient {
-  _$LampClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$LampClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(lampWords.words, from: lampWords.from);
   }
 
-  _$LampClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$LampClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(lampWords.words, from: lampWords.from);
   }
 

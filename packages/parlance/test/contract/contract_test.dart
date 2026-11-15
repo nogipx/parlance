@@ -76,11 +76,11 @@ void main() {
       'id answers its first result', () async {
     final first = await GeneratedWords(
       participant: user,
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     ).command(_Command.set).call((to: 7), id: 'c1');
     final again = await GeneratedWords(
       participant: user,
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     ).command(_Command.set).call((to: 7), id: 'c1');
     expect((first as CallDone<int>).value, 7);
     expect((again as CallDone<int>).value, 7);
@@ -91,13 +91,13 @@ void main() {
     final guest = r.participant(const Principal('guest', 'bob'));
     final r1 = await GeneratedWords(
       participant: guest,
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     ).command(_Command.set).call((to: 1));
     expect(r1, isA<CallRefused>());
     expect(r1.why, isNotEmpty);
     final r2 = await GeneratedWords(
       participant: user,
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     ).command(_Command.set).call((to: 500));
     expect(r2, isA<CallRefused>(), reason: 'out of its range');
     expect(deck.served, 0);
@@ -127,7 +127,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: user,
-        provider: const Principal('deck'),
+        target: const Principal('deck'),
       ).stateOf(_State.level).value,
       1,
     );
@@ -136,7 +136,7 @@ void main() {
   test('contract: what a handler writes follows from its call', () async {
     await GeneratedWords(
       participant: user,
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     ).command(_Command.set).call((to: 9), id: 'c9');
     expect(
       r.registry.explain('deck/deck.level').change!.cause.parent,
@@ -155,7 +155,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: user,
-          provider: const Principal('lamp'),
+          target: const Principal('lamp'),
         ).status(const _Lamp()),
         isA<WordReady>(),
       );
@@ -163,7 +163,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: user,
-          provider: const Principal('lamp'),
+          target: const Principal('lamp'),
         ).status(const _Lamp()),
         isA<WordMissing>(),
       );

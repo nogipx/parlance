@@ -154,16 +154,13 @@ void main() {
             said(
               GeneratedWords(
                 participant: b.raw,
-                provider: deck,
+                target: deck,
               ).status(Built.volume),
             ),
             ['type.max: was 100, is 150'],
           );
           expect(
-            GeneratedWords(
-              participant: b.raw,
-              provider: deck,
-            ).status(Built.mode),
+            GeneratedWords(participant: b.raw, target: deck).status(Built.mode),
             const WordReady(),
           );
           expect(
@@ -183,7 +180,7 @@ void main() {
           said(
             GeneratedWords(
               participant: b.raw,
-              provider: deck,
+              target: deck,
             ).status(Built.volume),
           ),
           ['type.type: was int, is num'],
@@ -202,7 +199,7 @@ void main() {
           said(
             GeneratedWords(
               participant: b.raw,
-              provider: deck,
+              target: deck,
             ).status(BuiltCommand.set),
           ),
           ['params.fields.volume.type.type: was int, is text'],
@@ -216,7 +213,7 @@ void main() {
         expect(
           GeneratedWords(
             participant: b.raw,
-            provider: deck,
+            target: deck,
           ).status(BuiltCommand.set),
           const WordReady(),
         );
@@ -227,7 +224,7 @@ void main() {
         final b = await asGuest();
         await b.settle();
         expect(
-          GeneratedWords(participant: b.raw, provider: deck)
+          GeneratedWords(participant: b.raw, target: deck)
               .mismatches([...Built.values, ...BuiltCommand.values])
               .map((w, breaks) => MapEntry(w, [for (final x in breaks) '$x'])),
           {
@@ -243,7 +240,7 @@ void main() {
           final seen = <WordStatus>[];
           final sub = GeneratedWords(
             participant: b.raw,
-            provider: deck,
+            target: deck,
           ).statusChanges(Built.volume).listen(seen.add);
           await pumpEventQueue();
           defineNow();

@@ -67,7 +67,7 @@ void main() {
       host.participant(const Principal('producer'), owners: [owner]);
       final client = IDataClient(
         participant: host.participant(const Principal('reader')),
-        provider: const Principal('producer'),
+        target: const Principal('producer'),
       );
       final started = Completer<void>();
       final source = StreamController<int>(onListen: started.complete);
@@ -124,7 +124,7 @@ void main() {
       await producer.settle();
       final reader = IDataClient(
         participant: host.participant(const Principal('reader')),
-        provider: const Principal('producer'),
+        target: const Principal('producer'),
       );
       expect(reader.status(DataServerStream.numbers), isA<WordUnavailable>());
       await transports.last.close();

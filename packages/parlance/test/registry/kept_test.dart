@@ -87,11 +87,11 @@ void main() {
     final song = (title: 'one', volume: 40);
     final heard = GeneratedWords(
       participant: listener,
-      provider: deck,
+      target: deck,
     ).factOf(DeckFact.started).facts.first;
     final done = await GeneratedWords(
       participant: listener,
-      provider: deck,
+      target: deck,
     ).command(DeckCommand.play).call(song);
     expect(identical(sent.single, song), isTrue, reason: 'no JSON between');
     expect(identical((done as CallDone<Song>).value, song), isTrue);
@@ -99,7 +99,7 @@ void main() {
       identical(
         GeneratedWords(
           participant: listener,
-          provider: deck,
+          target: deck,
         ).stateOf(DeckState.playing).value,
         song,
       ),
@@ -131,7 +131,7 @@ void main() {
     final rec = r.calls.listen(calls.add);
     await GeneratedWords(
       participant: listener,
-      provider: deck,
+      target: deck,
     ).command(DeckCommand.play).call((title: 'three', volume: 1));
     await Future<void>.delayed(Duration.zero);
     final changes = [for (final t in ticks) ...t.changes];
@@ -150,7 +150,7 @@ void main() {
   test('a typed value is refused as its JSON would be', () async {
     final refused = await GeneratedWords(
       participant: listener,
-      provider: deck,
+      target: deck,
     ).command(DeckCommand.play).call((title: 'loud', volume: 101));
     expect(refused.why, 'volume: above 100');
     expect(sent, isEmpty);

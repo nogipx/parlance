@@ -135,7 +135,7 @@ abstract interface class IDocumentsClient {
   /// what `main` gives a part that uses them.
   factory IDocumentsClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$DocumentsClient;
 
   /// The words through the participant [owner] is attached to,
@@ -143,7 +143,7 @@ abstract interface class IDocumentsClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory IDocumentsClient.of({
     required IOwner owner,
-    required Principal provider,
+    required Principal target,
   }) = _$DocumentsClient._of;
 
   /// documents.read: opens on listen; cancellation ends this operation.
@@ -183,13 +183,13 @@ abstract interface class IDocumentsClient {
 final class _$DocumentsClient implements IDocumentsClient {
   _$DocumentsClient({
     required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+    required Principal target,
+  }) : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(documentsWords.words, from: documentsWords.from);
   }
 
-  _$DocumentsClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$DocumentsClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(documentsWords.words, from: documentsWords.from);
   }
 

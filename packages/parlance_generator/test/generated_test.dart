@@ -104,7 +104,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: asAnn.raw,
-        provider: me,
+        target: me,
       ).stateOf(PlayerState.playing).value!.artist!.name,
       'Ann',
     );
@@ -118,7 +118,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: asAnn.raw,
-        provider: me,
+        target: me,
       ).keyedOf(PlayerState.speakerLevel).of('left'),
       0.5,
     );
@@ -144,12 +144,12 @@ void main() {
     expect(played.single.on, 'left');
     final skipped = await GeneratedWords(
       participant: asAnn.raw,
-      provider: me,
+      target: me,
     ).command(PlayerCommand.skip).call((count: 3));
     expect((skipped as CallDone<int>).value, 6);
     final loud = await GeneratedWords(
       participant: asAnn.raw,
-      provider: me,
+      target: me,
     ).command(PlayerCommand.setVolume).call((volume: 101));
     expect((loud as CallRefused).code, Refusal.invalidParams);
     expect(PlayerCommand.stop.params, same(RecordShape.none));
@@ -164,12 +164,12 @@ void main() {
         );
     final found = await GeneratedWords(
       participant: asAnn.raw,
-      provider: me,
+      target: me,
     ).query(PlayerQuery.search).ask((text: 'B', limit: null));
     expect((found as CallDone<List<Track>>).value.single.title, 'B');
     final long = await GeneratedWords(
       participant: asAnn.raw,
-      provider: me,
+      target: me,
     ).query(PlayerQuery.search).ask((text: 'x' * 41, limit: null));
     expect((long as CallRefused).code, Refusal.invalidParams);
 
@@ -229,16 +229,16 @@ void main() {
     int? shown(IPlayerClient player) => player.volume.value;
 
     attach(Deck());
-    expect(shown(IPlayerClient(participant: asAnn, provider: me)), 50);
+    expect(shown(IPlayerClient(participant: asAnn, target: me)), 50);
     expect(
-      IPlayerClient(participant: asAnn, provider: me).mismatches,
+      IPlayerClient(participant: asAnn, target: me).mismatches,
       isEmpty,
       reason: 'the words met are the words it was built against',
     );
   });
 
   test('a client made tells the registry what it was built against', () {
-    IPlayerClient(participant: asAnn, provider: me);
+    IPlayerClient(participant: asAnn, target: me);
     expect(r.mismatches, isEmpty, reason: 'nothing there yet');
     p.raw.defineState(StateDescriptor('player.volume', type: const TextType()));
     expect(r.mismatches.map((m) => (m.by, m.word)), [
@@ -307,7 +307,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: asAnn.raw,
-          provider: me,
+          target: me,
         ).stateOf(PlayerState.volume).value,
         50,
       );
@@ -320,13 +320,13 @@ void main() {
     test('serves the calls through its handlers, as its part', () async {
       final done = await GeneratedWords(
         participant: asAnn.raw,
-        provider: me,
+        target: me,
       ).command(PlayerCommand.setVolume).call((volume: 95));
       expect(done.ok, isTrue, reason: '$done');
       expect(
         GeneratedWords(
           participant: asAnn.raw,
-          provider: me,
+          target: me,
         ).stateOf(PlayerState.volume).value,
         95,
       );
@@ -340,7 +340,7 @@ void main() {
       );
       final found = await GeneratedWords(
         participant: asBob.raw,
-        provider: me,
+        target: me,
       ).query(PlayerQuery.search).ask((text: 'B', limit: null));
       expect((found as CallDone<List<Track>>).value.single.title, 'B');
     });
@@ -349,7 +349,7 @@ void main() {
         'await too', () async {
       await GeneratedWords(
         participant: asAnn.raw,
-        provider: me,
+        target: me,
       ).command(PlayerCommand.setVolume).call((volume: 95), id: 'v1');
       expect(
         r.lastChange('player/player.volume')!.cause.parent,
@@ -364,7 +364,7 @@ void main() {
       );
       await GeneratedWords(
         participant: asAnn.raw,
-        provider: me,
+        target: me,
       ).command(PlayerCommand.play).call((
         track: const Track(title: 'A'),
         repeat: Repeat.off,
@@ -385,7 +385,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: asAnn.raw,
-          provider: me,
+          target: me,
         ).stateOf(PlayerState.volume).value,
         7,
       );
@@ -400,7 +400,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: asAnn.raw,
-          provider: me,
+          target: me,
         ).keyedOf(PlayerState.speakerLevel).all,
         {'left': 0.5},
       );
@@ -409,20 +409,20 @@ void main() {
     test('says what the class says of who may call, and when', () async {
       final asGuest = await GeneratedWords(
         participant: asBob.raw,
-        provider: me,
+        target: me,
       ).command(PlayerCommand.stop).call(());
       expect((asGuest as CallRefused).code, Refusal.notPermitted);
       expect(
         (await GeneratedWords(
           participant: asAnn.raw,
-          provider: me,
+          target: me,
         ).command(PlayerCommand.stop).call(())).ok,
         isTrue,
       );
       expect(deck.stopped, 1);
       deck.library.clear();
       p.raw.ofOwner('player').raw.whyNotChanged('player/player.play');
-      final play = await GeneratedWords(participant: asAnn.raw, provider: me)
+      final play = await GeneratedWords(participant: asAnn.raw, target: me)
           .command(PlayerCommand.play)
           .call((track: const Track(title: 'A'), repeat: Repeat.off, on: null));
       expect(play.why, contains('nothing to play'));
@@ -441,7 +441,7 @@ void main() {
     late IPlayerClient asAnn;
     setUp(() {
       attach(deck = Deck());
-      asAnn = IPlayerClient(participant: host.participant(ann), provider: me);
+      asAnn = IPlayerClient(participant: host.participant(ann), target: me);
     });
 
     test('watches a keyed state whole: every key, as any comes, changes '
@@ -502,7 +502,7 @@ void main() {
     test('a call not done throws, with why', () async {
       final asGuest = IPlayerClient(
         participant: host.participant(const Principal('guest', 'bob')),
-        provider: me,
+        target: me,
       );
       expect(asGuest.status(PlayerCommand.stop), const WordNotPermitted());
       await expectLater(

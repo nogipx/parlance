@@ -71,13 +71,13 @@ abstract interface class IDialClient {
   /// what `main` gives a part that uses them.
   factory IDialClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$DialClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDialClient.of({required IOwner owner, required Principal provider}) =
+  factory IDialClient.of({required IOwner owner, required Principal target}) =
       _$DialClient._of;
 
   /// Calls dial.set; a call not done throws [CallNotDone]. [cancel] cancels this call:
@@ -102,13 +102,13 @@ abstract interface class IDialClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DialClient implements IDialClient {
-  _$DialClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$DialClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(dialWords.words, from: dialWords.from);
   }
 
-  _$DialClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$DialClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(dialWords.words, from: dialWords.from);
   }
 
@@ -180,16 +180,14 @@ abstract interface class IRulesClient {
   /// what `main` gives a part that uses them.
   factory IRulesClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$RulesClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IRulesClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$RulesClient._of;
+  factory IRulesClient.of({required IOwner owner, required Principal target}) =
+      _$RulesClient._of;
 
   /// Whether [word] is there for the participant now, as this code was built
   /// against it: `WordMismatch`, saying where, when not (SPEC §6.5).
@@ -209,15 +207,13 @@ abstract interface class IRulesClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$RulesClient implements IRulesClient {
-  _$RulesClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$RulesClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(rulesWords.words, from: rulesWords.from);
   }
 
-  _$RulesClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$RulesClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(rulesWords.words, from: rulesWords.from);
   }
 
@@ -310,13 +306,13 @@ abstract interface class IBellClient {
   /// what `main` gives a part that uses them.
   factory IBellClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$BellClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBellClient.of({required IOwner owner, required Principal provider}) =
+  factory IBellClient.of({required IOwner owner, required Principal target}) =
       _$BellClient._of;
 
   /// bell.rang: what it says from now on, and its messages.
@@ -340,13 +336,13 @@ abstract interface class IBellClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BellClient implements IBellClient {
-  _$BellClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$BellClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(bellWords.words, from: bellWords.from);
   }
 
-  _$BellClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$BellClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(bellWords.words, from: bellWords.from);
   }
 
@@ -461,16 +457,14 @@ abstract interface class ILampsClient {
   /// what `main` gives a part that uses them.
   factory ILampsClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$LampsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ILampsClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$LampsClient._of;
+  factory ILampsClient.of({required IOwner owner, required Principal target}) =
+      _$LampsClient._of;
 
   /// lamps.lit, by bulb: each value, and its changes.
   IKeyedOf<bool> get lit;
@@ -497,15 +491,13 @@ abstract interface class ILampsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$LampsClient implements ILampsClient {
-  _$LampsClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$LampsClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(lampsWords.words, from: lampsWords.from);
   }
 
-  _$LampsClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$LampsClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(lampsWords.words, from: lampsWords.from);
   }
 

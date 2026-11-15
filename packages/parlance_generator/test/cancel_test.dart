@@ -69,7 +69,7 @@ void main() {
       'serving it is told, and what it then does stands', () async {
     final player = IPlayerClient(
       participant: host.participant(const Principal('listener')),
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     );
     final stop = CancellationToken();
     final play = player.play(
@@ -95,7 +95,7 @@ void main() {
     await host.settle();
     expect(
       host
-          .written(PlayerState.playing, provider: const Principal('deck'))
+          .written(PlayerState.playing, target: const Principal('deck'))
           .last
           ?.title,
       'A',
@@ -106,7 +106,7 @@ void main() {
       'go on', () async {
     final player = IPlayerClient(
       participant: host.participant(const Principal('listener')),
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     );
     final first = CancellationToken();
     final a = player.play(
@@ -129,7 +129,7 @@ void main() {
   test('expired is there while a handler serves a call', () async {
     final player = IPlayerClient(
       participant: host.participant(const Principal('listener')),
-      provider: const Principal('deck'),
+      target: const Principal('deck'),
     );
     await player.setVolume(volume: 10);
     expect(deck.expiredOutside, isNotNull);

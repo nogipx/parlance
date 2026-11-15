@@ -21,6 +21,43 @@ Future<void> main() async {
 
   try {
     final fixtures = <String, ({String source, Set<String> missing})>{
+      'target_api': (
+        source: '''
+import 'package:parlance/schema.dart';
+void consumer(IParticipant participant, IOwner owner) {
+  const target = Principal('module', 'work');
+  final address = WordAddress(target, 'notes.add');
+  final Principal selected = address.target;
+  GeneratedWords(participant: participant, target: selected);
+  GeneratedWords.of(owner: owner, target: selected);
+  final Future<List<WordTarget>> found = participant.targets();
+  final Stream<List<WordTarget>> changes = participant.targetChanges();
+  final PublishedWord? publication = null;
+}
+''',
+        missing: {},
+      ),
+      'removed_addressing_names': (
+        source: '''
+import 'package:parlance/schema.dart';
+void consumer(IParticipant participant, WordAddress address) {
+  participant.providers();
+  participant.providerChanges();
+  address.provider;
+  WordProvider? first;
+  ProvidedWord? word;
+  ProviderDiscovery? discovery;
+}
+''',
+        missing: {
+          'providers',
+          'providerChanges',
+          'provider',
+          'WordProvider',
+          'ProvidedWord',
+          'ProviderDiscovery',
+        },
+      ),
       'host_access': (
         source: '''
 import 'package:parlance/app.dart';
@@ -105,10 +142,10 @@ import 'package:parlance/tools.dart';
 void consumer(Host host) {
   host.registry.defineStream;
   host.registry.openStream;
-  host.registry.endProvidedStreams;
+  host.registry.endTargetStreams;
 }
 ''',
-        missing: {'defineStream', 'openStream', 'endProvidedStreams'},
+        missing: {'defineStream', 'openStream', 'endTargetStreams'},
       ),
       'observations': (
         source: '''

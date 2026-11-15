@@ -172,7 +172,7 @@ Future<void> main() async {
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
       participant: r.participant(host, vocabularies: [WordSet.open('bench')]),
-      provider: host,
+      target: host,
     );
     final s = words.state(BenchState.item).define();
     final reader = words.stateOf(BenchState.item);
@@ -198,7 +198,7 @@ Future<void> main() async {
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
       participant: r.participant(host, vocabularies: [WordSet.open('bench')]),
-      provider: host,
+      target: host,
     );
     final s = words.state(BenchState.items).define();
     final reader = words.stateOf(BenchState.items);
@@ -230,7 +230,7 @@ Future<void> main() async {
         .serve((params) => params.done, callers: Callers.only(['user']));
     final cmd = GeneratedWords(
       participant: r.participant(user),
-      provider: host,
+      target: host,
     ).command(BenchCommand.toggle);
     row(
       'call',

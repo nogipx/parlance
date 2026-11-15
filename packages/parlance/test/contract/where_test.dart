@@ -162,7 +162,7 @@ void main() {
             owner = host.participant(deckOwner, owners: [deck]);
           }
           you = userAcross ? await host.join(user) : host.participant(user);
-          client = IDeckClient(participant: you, provider: deckOwner);
+          client = IDeckClient(participant: you, target: deckOwner);
           await settle();
         });
         tearDown(() async {
@@ -320,7 +320,7 @@ void main() {
           test('a retry with the same id runs once', () async {
             final turn = GeneratedWords(
               participant: you,
-              provider: deckOwner,
+              target: deckOwner,
             ).command(DeckCommand.turn);
             final a = await turn.call((to: 3), id: 'same');
             final b = await turn.call((to: 3), id: 'same');

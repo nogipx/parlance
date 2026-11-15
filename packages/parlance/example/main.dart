@@ -54,8 +54,8 @@ Future<void> main() async {
   // registry to act as anyone. Each uses the house through its client.
   final annSide = host.participant(Who.ann);
   final bobSide = host.participant(Who.bob);
-  final ann = IHouseClient(participant: annSide, provider: Who.home);
-  final bob = IHouseClient(participant: bobSide, provider: Who.home);
+  final ann = IHouseClient(participant: annSide, target: Who.home);
+  final bob = IHouseClient(participant: bobSide, target: Who.home);
 
   // --- 1. Typed calls, and who may make them --------------------------------
 
@@ -92,7 +92,7 @@ Future<void> main() async {
     '${bob.status(HouseCommand.setHeat)}, '
     '${HouseCommand.setLight.name} '
     '${bob.status(HouseCommand.setLight)}, '
-    '${VisitState.guests.name} ${IVisitClient(participant: bobSide, provider: Who.visit).status(VisitState.guests)}',
+    '${VisitState.guests.name} ${IVisitClient(participant: bobSide, target: Who.visit).status(VisitState.guests)}',
   );
 
   // --- 2. A guard of the house -----------------------------------------------
@@ -102,10 +102,8 @@ Future<void> main() async {
   final agentSide = host.participant(Who.agent('night'));
   await show(
     'an agent unlocks at night',
-    () => IHouseClient(
-      participant: agentSide,
-      provider: Who.home,
-    ).lock(on: false),
+    () =>
+        IHouseClient(participant: agentSide, target: Who.home).lock(on: false),
   );
   await show('ann unlocks at night', () => ann.lock(on: false));
   await ann.lock(on: true);
@@ -150,11 +148,11 @@ Future<void> main() async {
   // are there only meanwhile, and leave nothing behind.
   final visitSide = host.participant(
     Who.visit,
-    owners: [GuestBook(houseProvider: Who.home)],
+    owners: [GuestBook(houseTarget: Who.home)],
     access: const WordAccess(callers: Who.household),
   );
   await annSide.settle();
-  final visit = IVisitClient(participant: annSide, provider: Who.visit);
+  final visit = IVisitClient(participant: annSide, target: Who.visit);
   print('  during the visit: visit.guests ${visit.status(VisitState.guests)}');
   house.ring(Who.bob, 'bob');
   await annSide.settle();
@@ -179,7 +177,7 @@ Future<void> main() async {
   // states, methods for commands, no word or record in sight.
   final IHouseClient home = IHouseClient(
     participant: phone.part,
-    provider: Who.home,
+    target: Who.home,
   );
   final heats = home.heat.changes.listen((_) {});
   final modes = home.mode.changes.listen((_) {});

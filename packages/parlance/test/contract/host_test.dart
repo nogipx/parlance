@@ -64,7 +64,7 @@ void main() {
         await user.settle();
         final r = await GeneratedWords(
           participant: user,
-          provider: const Principal('guest', 'echo'),
+          target: const Principal('guest', 'echo'),
         ).command(_Command.ping).call(());
         expect((r as CallDone<String>).value, 'pong to user');
 
@@ -76,7 +76,7 @@ void main() {
         expect(
           GeneratedWords(
             participant: user,
-            provider: const Principal('guest', 'echo'),
+            target: const Principal('guest', 'echo'),
           ).status(_Command.ping),
           isA<WordMissing>(),
         );

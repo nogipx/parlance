@@ -157,7 +157,7 @@ Future<void> main() async {
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
       participant: r.participant(host, vocabularies: [WordSet.open('rt')]),
-      provider: host,
+      target: host,
     );
     final w = words.state(RtState.task).define();
     final s = words.stateOf(RtState.task);
@@ -195,7 +195,7 @@ Future<void> main() async {
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
       participant: r.participant(host, vocabularies: [WordSet.open('rt')]),
-      provider: host,
+      target: host,
     );
     final w = words.state(RtState.check).define();
     final checks = makeTask(500, 1).sections.expand((s) => s.checks).toList();
@@ -253,7 +253,7 @@ Future<void> main() async {
     final r = Registry(onError: (e, _) => throw e);
     final words = GeneratedWords(
       participant: r.participant(host, vocabularies: [WordSet.open('rt')]),
-      provider: host,
+      target: host,
     );
     final w = words.state(RtState.cursor).define();
     final s = words.keyedOf(RtState.cursor);

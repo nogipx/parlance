@@ -38,12 +38,12 @@ final class _Thermostat extends ThermostatOwnerBase {
   _Thermostat() {
     final heater = IHeaterClient.of(
       owner: this,
-      provider: const Principal('heater'),
+      target: const Principal('heater'),
     );
     listen(
       on: IWeatherClient.of(
         owner: this,
-        provider: const Principal('weather'),
+        target: const Principal('weather'),
       ).outside.changes,
       onData: (t) async {
         final on = (t ?? 20) < 15;
@@ -67,11 +67,11 @@ void main() {
     final outside = host.standInState(
       WeatherState.outside,
       10,
-      provider: const Principal('weather'),
+      target: const Principal('weather'),
     );
     final heater = host.standInCommand(
       HeaterCommand.setPower,
-      provider: const Principal('heater'),
+      target: const Principal('heater'),
     );
     host.participant(me, owners: [_Thermostat()]);
     await host.settle();
@@ -79,14 +79,14 @@ void main() {
     await host.settle();
 
     expect(heater.params, [(on: true), (on: false)]);
-    expect(host.written(ThermostatState.heating, provider: me), [true, false]);
-    expect(host.said(ThermostatFact.adjusted, provider: me), [
+    expect(host.written(ThermostatState.heating, target: me), [true, false]);
+    expect(host.said(ThermostatFact.adjusted, target: me), [
       (on: true),
       (on: false),
     ]);
     expect(
       host
-          .callsOf(HeaterCommand.setPower, provider: const Principal('heater'))
+          .callsOf(HeaterCommand.setPower, target: const Principal('heater'))
           .map((c) => c.cause.by),
       [me.ofOwner('thermostat'), me.ofOwner('thermostat')],
     );
@@ -97,17 +97,17 @@ void main() {
     host.standInState(
       WeatherState.outside,
       10,
-      provider: const Principal('weather'),
+      target: const Principal('weather'),
     );
     final heater = host.standInCommand(
       HeaterCommand.setPower,
-      provider: const Principal('heater'),
+      target: const Principal('heater'),
     );
     final p = await host.join(me, vocabularies: [WordSet.open('thermostat')]);
     p.attach([_Thermostat()]);
     await host.settle();
     expect(heater.params, [(on: true)]);
-    expect(host.written(ThermostatState.heating, provider: me), [true]);
+    expect(host.written(ThermostatState.heating, target: me), [true]);
     expect(
       host.registry.usesOf('heater/heater.set_power').single.by,
       me.ofOwner('thermostat'),
@@ -119,12 +119,12 @@ void main() {
     final outside = host.standInState(
       WeatherState.outside,
       10,
-      provider: const Principal('weather'),
+      target: const Principal('weather'),
     );
     outside.set(12);
     await host.settle();
     expect(
-      host.written(WeatherState.outside, provider: const Principal('weather')),
+      host.written(WeatherState.outside, target: const Principal('weather')),
       [10, 12],
     );
   });
@@ -133,12 +133,12 @@ void main() {
     host.standInCommand(
       HeaterCommand.setPower,
       answer: (p) => throw StateError('broken'),
-      provider: const Principal('heater'),
+      target: const Principal('heater'),
     );
     await expectLater(
       IHeaterClient(
         participant: host.participant(me),
-        provider: const Principal('heater'),
+        target: const Principal('heater'),
       ).setPower(on: true),
       throwsA(
         isA<CallNotDone>().having((e) => e.result, 'result', isA<CallFailed>()),
@@ -152,11 +152,11 @@ void main() {
     final outside = host.standInState(
       WeatherState.outside,
       10,
-      provider: const Principal('weather'),
+      target: const Principal('weather'),
     );
     final lamps = host.standInKeyed(LampState.on, {
       'hall': true,
-    }, provider: const Principal('lamp'));
+    }, target: const Principal('lamp'));
     await host.settle();
     expect(reader.raw.read('weather/weather.outside'), 10);
     expect(reader.raw.read('lamp/lamp.on', key: 'hall'), isTrue);
@@ -166,7 +166,7 @@ void main() {
       ..remove('hall');
     await host.settle();
     expect(
-      host.written(WeatherState.outside, provider: const Principal('weather')),
+      host.written(WeatherState.outside, target: const Principal('weather')),
       [10, 12],
     );
     expect(reader.raw.readAll('lamp/lamp.on'), {'kitchen': false});
@@ -174,7 +174,7 @@ void main() {
       () => host.standInKeyed(
         WeatherState.outside,
         {},
-        provider: const Principal('weather'),
+        target: const Principal('weather'),
       ),
       throwsArgumentError,
     );

@@ -126,7 +126,7 @@ void main() {
       final ann = host.participant(const Principal('user', 'ann'));
       final words = GeneratedWords(
         participant: ann,
-        provider: const Principal('lamps'),
+        target: const Principal('lamps'),
       );
       expect(words.keyedOf(LampsState.lit).keys, {'a', 'b'});
       expect(
@@ -152,7 +152,7 @@ void main() {
     final ann = r.participant(const Principal('user', 'ann'));
     GeneratedWords(
       participant: ann,
-      provider: const Principal('bell'),
+      target: const Principal('bell'),
     ).factOf(BellFact.rang).facts.listen((f) => heard.add(f.payload.who));
     expect(bell.ring('e1', 'bob'), isTrue);
     expect(bell.ring('e1', 'bob'), isFalse);
@@ -172,20 +172,20 @@ void main() {
     expect(
       await GeneratedWords(
         participant: ann,
-        provider: const Principal('dial'),
+        target: const Principal('dial'),
       ).command(DialCommand.set).call((to: 3)),
       isA<CallDone<void>>(),
     );
     final far = await GeneratedWords(
       participant: ann,
-      provider: const Principal('dial'),
+      target: const Principal('dial'),
     ).command(DialCommand.set).call((to: 30));
     expect(far, isA<CallRefused>());
     expect(far.why, contains('too far for user/ann'));
     expect(
       await GeneratedWords(
         participant: admin,
-        provider: const Principal('dial'),
+        target: const Principal('dial'),
       ).command(DialCommand.set).call((to: 30)),
       isA<CallDone<void>>(),
     );
@@ -211,14 +211,14 @@ void main() {
       final ann = host.participant(const Principal('user', 'ann'));
       final refused = await GeneratedWords(
         participant: agent,
-        provider: const Principal('dial'),
+        target: const Principal('dial'),
       ).command(DialCommand.set).call((to: 3));
       expect(refused, isA<CallRefused>(), reason: 'across: $across');
       expect(refused.why, contains('no agent calls dial/dial.set'));
       expect(
         await GeneratedWords(
           participant: ann,
-          provider: const Principal('dial'),
+          target: const Principal('dial'),
         ).command(DialCommand.set).call((to: 3)),
         isA<CallDone<void>>(),
       );
@@ -234,7 +234,7 @@ void main() {
     final seen = <WordStatus>[];
     final sub = GeneratedWords(
       participant: ann,
-      provider: const Principal('dial'),
+      target: const Principal('dial'),
     ).statusChanges(DialCommand.set).listen(seen.add);
     await ann.settle();
 
@@ -243,7 +243,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: ann,
-        provider: const Principal('dial'),
+        target: const Principal('dial'),
       ).status(DialCommand.set),
       isA<WordUnavailable>(),
     );
@@ -252,7 +252,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: ann,
-        provider: const Principal('dial'),
+        target: const Principal('dial'),
       ).status(DialCommand.set),
       isA<WordReady>(),
     );
@@ -270,7 +270,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: p,
-        provider: const Principal('dial'),
+        target: const Principal('dial'),
       ).stateOf(const StateWordOf<int>('dial.x1', PlainShape(IntType()))).value,
       7,
     );

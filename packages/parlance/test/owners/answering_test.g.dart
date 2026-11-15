@@ -81,13 +81,13 @@ abstract interface class IRoomClient {
   /// what `main` gives a part that uses them.
   factory IRoomClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$RoomClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IRoomClient.of({required IOwner owner, required Principal provider}) =
+  factory IRoomClient.of({required IOwner owner, required Principal target}) =
       _$RoomClient._of;
 
   /// room.heat: its value now, and its changes.
@@ -118,13 +118,13 @@ abstract interface class IRoomClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$RoomClient implements IRoomClient {
-  _$RoomClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$RoomClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(roomWords.words, from: roomWords.from);
   }
 
-  _$RoomClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$RoomClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(roomWords.words, from: roomWords.from);
   }
 

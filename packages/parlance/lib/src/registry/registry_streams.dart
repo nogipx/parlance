@@ -84,7 +84,7 @@ final class _StreamEntry {
 extension RegistryStreams on Registry {
   /// Ends subscriptions before removing remote words, preserving the reason
   /// that their owner disappeared (connection loss versus withdrawal).
-  void endProvidedStreams(Iterable<String> names, StreamFailure failure) {
+  void endTargetStreams(Iterable<String> names, StreamFailure failure) {
     for (final name in names) {
       for (final lease in [...?_streams[name]?.open]) {
         lease.end(failure);

@@ -83,7 +83,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: p,
-        provider: const Principal('lamp'),
+        target: const Principal('lamp'),
       ).stateOf(LampState.level).value,
       3,
     );
@@ -103,7 +103,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: p,
-        provider: const Principal('lamp'),
+        target: const Principal('lamp'),
       ).stateOf(LampState.level).value,
       6,
     );

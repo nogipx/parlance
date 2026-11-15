@@ -55,16 +55,14 @@ abstract interface class IDoorsClient {
   /// what `main` gives a part that uses them.
   factory IDoorsClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$DoorsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDoorsClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$DoorsClient._of;
+  factory IDoorsClient.of({required IOwner owner, required Principal target}) =
+      _$DoorsClient._of;
 
   /// door.room, by door: each value, and its changes.
   IKeyedOf<Room> get room;
@@ -87,15 +85,13 @@ abstract interface class IDoorsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DoorsClient implements IDoorsClient {
-  _$DoorsClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$DoorsClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
-  _$DoorsClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$DoorsClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(doorsWords.words, from: doorsWords.from);
   }
 
@@ -206,16 +202,14 @@ abstract interface class ILightsClient {
   /// what `main` gives a part that uses them.
   factory ILightsClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$LightsClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ILightsClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$LightsClient._of;
+  factory ILightsClient.of({required IOwner owner, required Principal target}) =
+      _$LightsClient._of;
 
   /// Calls light.on; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
@@ -239,15 +233,13 @@ abstract interface class ILightsClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$LightsClient implements ILightsClient {
-  _$LightsClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$LightsClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 
-  _$LightsClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$LightsClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(lightsWords.words, from: lightsWords.from);
   }
 

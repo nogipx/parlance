@@ -100,17 +100,17 @@ abstract interface class IRegistryView {
   /// package and its version (`notes_words 1.2.0`), for a mismatch to say
   /// which. Diagnostics only: nothing waits on it, nothing is refused by
   /// it.
-  void builtAgainst(Iterable<IWord> words, {String? from, Principal? provider});
+  void builtAgainst(Iterable<IWord> words, {String? from, Principal? target});
 }
 
 /// Whether [word] is there for [view] now, as the code holding [word] was
 /// built against it (SPEC §6.5): its status by name, and a word there
 /// whose kind or types break a promise of [word] (§23.3) is
 /// [WordMismatch], saying where.
-WordStatus wordStatus(IRegistryView view, IWord word, {Principal? provider}) {
-  final name = provider == null
+WordStatus wordStatus(IRegistryView view, IWord word, {Principal? target}) {
+  final name = target == null
       ? word.name
-      : WordAddress(provider, word.name).toString();
+      : WordAddress(target, word.name).toString();
   final now = view.status(name);
   if (now is WordMissing || now is WordNotPermitted) return now;
   final live = view.descriptor(name);
@@ -123,14 +123,12 @@ WordStatus wordStatus(IRegistryView view, IWord word, {Principal? provider}) {
 Stream<WordStatus> wordStatusChanges(
   IRegistryView view,
   IWord word, {
-  Principal? provider,
+  Principal? target,
 }) => view
     .statusChanges(
-      provider == null
-          ? word.name
-          : WordAddress(provider, word.name).toString(),
+      target == null ? word.name : WordAddress(target, word.name).toString(),
     )
-    .map((_) => wordStatus(view, word, provider: provider))
+    .map((_) => wordStatus(view, word, target: target))
     .distinct();
 
 /// Each of [words] there for [view] but not as the code was built against,
@@ -140,13 +138,11 @@ Stream<WordStatus> wordStatusChanges(
 Map<String, List<WordBreak>> wordMismatches(
   IRegistryView view,
   Iterable<IWord> words, {
-  Principal? provider,
+  Principal? target,
 }) => {
   for (final w in words)
-    if (wordStatus(view, w, provider: provider) case WordMismatch(
-      :final breaks,
-    ))
-      (provider == null ? w.name : WordAddress(provider, w.name).toString()):
+    if (wordStatus(view, w, target: target) case WordMismatch(:final breaks))
+      (target == null ? w.name : WordAddress(target, w.name).toString()):
           breaks,
 };
 
@@ -335,15 +331,12 @@ final class LocalView implements IRegistryView {
 
   /// Held while the registry lives: a view has no end of its own.
   @override
-  void builtAgainst(
-    Iterable<IWord> words, {
-    String? from,
-    Principal? provider,
-  }) => registry.builtAgainst(by, {
-    for (final w in words)
-      (provider == null ? w.name : WordAddress(provider, w.name).toString()):
-          schemaOfWord(w),
-  }, from: from);
+  void builtAgainst(Iterable<IWord> words, {String? from, Principal? target}) =>
+      registry.builtAgainst(by, {
+        for (final w in words)
+          (target == null ? w.name : WordAddress(target, w.name).toString()):
+              schemaOfWord(w),
+      }, from: from);
 
   /// Views of one registry for one principal are the same view.
   @override

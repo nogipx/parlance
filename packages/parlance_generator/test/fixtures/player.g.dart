@@ -352,16 +352,14 @@ abstract interface class IPlayerClient {
   /// what `main` gives a part that uses them.
   factory IPlayerClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$PlayerClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IPlayerClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$PlayerClient._of;
+  factory IPlayerClient.of({required IOwner owner, required Principal target}) =
+      _$PlayerClient._of;
 
   /// player.volume: its value now, and its changes.
   IStateOf<int> get volume;
@@ -428,15 +426,13 @@ abstract interface class IPlayerClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$PlayerClient implements IPlayerClient {
-  _$PlayerClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$PlayerClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 
-  _$PlayerClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$PlayerClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(playerWords.words, from: playerWords.from);
   }
 

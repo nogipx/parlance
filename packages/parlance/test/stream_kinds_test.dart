@@ -84,7 +84,7 @@ class _Owner extends TransferOwnerBase {
   @override
   Future<int> forbidden() => ITransferClient.of(
     owner: this,
-    provider: const Principal('producer'),
+    target: const Principal('producer'),
   ).sum(Stream.value(1));
 }
 
@@ -141,7 +141,7 @@ class _Fixture {
         : host.participant(const Principal('reader'));
     client = ITransferClient(
       participant: consumer,
-      provider: const Principal('producer'),
+      target: const Principal('producer'),
     );
     await consumer.settle();
   }
@@ -504,7 +504,7 @@ void main() {
     await expectLater(
       ITransferClient(
         participant: p,
-        provider: const Principal('producer'),
+        target: const Principal('producer'),
       ).sum(input.stream),
       throwsA(failure(StreamFailureCode.unsupported)),
     );

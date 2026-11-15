@@ -59,7 +59,7 @@ class _Fixture {
         : host.participant(const Principal('editor'));
     client = IDocumentsClient(
       participant: reader,
-      provider: const Principal('store'),
+      target: const Principal('store'),
     );
   }
 
@@ -303,7 +303,7 @@ void main() {
             ),
             (_) => IDocumentsClient(
               participant: f.owner,
-              provider: const Principal('store'),
+              target: const Principal('store'),
             ).save(Stream.value('line'), name: 'notes'),
           );
           await f.owner.settle();

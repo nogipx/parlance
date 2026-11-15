@@ -12,9 +12,9 @@ can be done), queries (questions that change nothing) and facts (what
 happened). A state is written by its owner only; a command asks the owner.
 
 How to work:
-- providers finds the instances that actually publish a vocabulary or word.
-  Choose a provider explicitly; discovery does not select one for you.
-- Every word name in describe is a full provider/word address. Use that exact
+- targets finds the instances that actually publish a vocabulary or word.
+  Choose a target explicitly; discovery does not select one for you.
+- Every word name in describe is a full target/word address. Use that exact
   address in call, read, recent_facts and why; an unscoped name is not routed.
 - access: warn still permits the interaction and records an unexpected-dependency
   diagnostic for the developer; it does not require user confirmation.
@@ -67,9 +67,9 @@ Future<List<McpTool>> parlanceTools(
 
   final curated = [
     McpTool(
-      name: 'providers',
+      name: 'targets',
       description:
-          'Actual providers of a vocabulary or word, with exact addresses and access status. Select a provider explicitly before calling.',
+          'Actual targets of a vocabulary or word, with exact addresses and access status. Select a target explicitly before calling.',
       properties: {
         'vocabulary': {'type': 'string'},
         'word': {'type': 'string'},
@@ -77,10 +77,10 @@ Future<List<McpTool>> parlanceTools(
       run: (a) async {
         final vocabulary = a['vocabulary'] as String?;
         final word = a['word'] as String?;
-        final providers = await agent.providers();
+        final targets = await agent.targets();
         return McpResult.json([
-          for (final provider in providers)
-            if (provider.words
+          for (final target in targets)
+            if (target.words
                     .where(
                       (w) =>
                           (vocabulary == null ||
@@ -89,7 +89,7 @@ Future<List<McpTool>> parlanceTools(
                     )
                     .toList()
                 case final words when words.isNotEmpty)
-              WordProvider(provider.principal, words).toJson(),
+              WordTarget(target.principal, words).toJson(),
         ]);
       },
     ),
@@ -114,9 +114,9 @@ Future<List<McpTool>> parlanceTools(
               if (keep(c))
                 {
                   'name': c['name'],
-                  'provider': WordAddress.parse(
+                  'target': WordAddress.parse(
                     c['name'] as String,
-                  ).provider.selector,
+                  ).target.selector,
                   'word': WordAddress.parse(c['name'] as String).word,
                   'label': ?(c['meta'] as Map?)?['label'],
                   'params': cat.schema(c['params']),
@@ -131,9 +131,9 @@ Future<List<McpTool>> parlanceTools(
               if (keep(s))
                 {
                   'name': s['name'],
-                  'provider': WordAddress.parse(
+                  'target': WordAddress.parse(
                     s['name'] as String,
-                  ).provider.selector,
+                  ).target.selector,
                   'word': WordAddress.parse(s['name'] as String).word,
                   'label': ?(s['meta'] as Map?)?['label'],
                   'type': cat.schema(s['type']),
@@ -145,9 +145,9 @@ Future<List<McpTool>> parlanceTools(
               if (keep(f))
                 {
                   'name': f['name'],
-                  'provider': WordAddress.parse(
+                  'target': WordAddress.parse(
                     f['name'] as String,
-                  ).provider.selector,
+                  ).target.selector,
                   'word': WordAddress.parse(f['name'] as String).word,
                   'type': cat.schema(f['type']),
                 },

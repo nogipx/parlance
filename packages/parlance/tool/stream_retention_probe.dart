@@ -215,7 +215,7 @@ Future<IRemoteParticipant> _join(
   _resources.add((
     name: 'session $name ${_resources.length}',
     value: session,
-    empty: ['_data', '_providedData', '_servingData'],
+    empty: ['_data', '_servedData', '_servingData'],
   ));
   server.start();
   final peer = RpcPeerEndpoint(transport: b)..start();
@@ -267,7 +267,7 @@ Future<void> _publicPath(
   owner.readingSource = source;
   final stream = IDataClient(
     participant: consumer,
-    provider: const Principal('producer'),
+    target: const Principal('producer'),
   ).readings(from: input, cancel: token);
   final done = Completer<void>();
   final sub = stream.listen(
@@ -349,7 +349,7 @@ Future<void> _publicPath(
       empty: ['_streamReaders', '_activeStreams', '_pendingStreamEvents'],
     ),
     for (final guest in guests)
-      (name: '$label guest', value: guest, empty: ['_data', '_providedData']),
+      (name: '$label guest', value: guest, empty: ['_data', '_servedData']),
   ]);
   _checks.addAll([
     (name: '$label request', weak: WeakReference(input), collected: true),
@@ -370,7 +370,7 @@ Future<void> _repeatedSubscription(
   final input = _Input();
   final stream = IDataClient(
     participant: consumer,
-    provider: const Principal('producer'),
+    target: const Principal('producer'),
   ).readings(from: input, cancel: token);
   final done = Completer<void>();
   final sub = stream.listen(
@@ -468,7 +468,7 @@ Future<void> _inputPath(
       : host.participant(const Principal('consumer'));
   final client = IDocumentsClient(
     participant: consumer,
-    provider: const Principal('producer'),
+    target: const Principal('producer'),
   );
   final payload = _Payload();
   final source = StreamController<int>();
@@ -558,7 +558,7 @@ Future<void> _inputPath(
       empty: ['_streamReaders', '_activeStreams', '_pendingStreamEvents'],
     ),
     for (final guest in guests)
-      (name: '$label guest', value: guest, empty: ['_data', '_providedData']),
+      (name: '$label guest', value: guest, empty: ['_data', '_servedData']),
   ]);
 }
 

@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 
 void main() {
   test(
-    'a link hears one provider and invokes the explicitly selected receiver',
+    'a link hears one target and invokes the explicitly selected receiver',
     () async {
       final host = Host();
       addTearDown(host.dispose);

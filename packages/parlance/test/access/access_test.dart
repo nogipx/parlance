@@ -8,7 +8,7 @@ import 'package:parlance/src/remote/contract.dart'
     show WireFeedRequest, WireFeedItem;
 import 'package:test/test.dart';
 
-import '../addressing/provider_test.dart' as f;
+import '../addressing/target_test.dart' as f;
 
 const denied = Callers({});
 const warning = Callers({'*': Access.warn});
@@ -52,7 +52,7 @@ void main() {
           reader = readerRemote
               ? await host.join(f.ann)
               : host.participant(f.ann);
-          client = f.ICounterClient(participant: reader, provider: f.work);
+          client = f.ICounterClient(participant: reader, target: f.work);
           await host.settle();
         });
         tearDown(() async {
@@ -76,7 +76,7 @@ void main() {
               refused,
             );
             expect(
-              (await reader.providers(
+              (await reader.targets(
                 word: f.CounterCommand.add,
               )).single.words.single.status,
               const WordNotPermitted(),
@@ -301,7 +301,7 @@ void main() {
             );
             await host.settle();
             client.status(f.CounterCommand.add);
-            await reader.providers(vocabulary: f.counterWords);
+            await reader.targets(vocabulary: f.counterWords);
             await reader.raw.describe();
             await host.settle();
             expect(seen, isEmpty);
@@ -329,7 +329,7 @@ void main() {
   }
 
   test(
-    'pre-publication overrides are immutable, isolate providers, survive republishing and respect aliases',
+    'pre-publication overrides are immutable, isolate targets, survive republishing and respect aliases',
     () async {
       final host = Host();
       addTearDown(host.dispose);
@@ -350,8 +350,8 @@ void main() {
         access: const WordAccess(callers: Callers.anyone),
       );
       final user = host.participant(f.ann);
-      final a = f.ICounterClient(participant: user, provider: f.work);
-      final b = f.ICounterClient(participant: user, provider: f.personal);
+      final a = f.ICounterClient(participant: user, target: f.work);
+      final b = f.ICounterClient(participant: user, target: f.personal);
       expect(a.value.value, isNull);
       expect(b.value.value, 8);
       host.alias('module/work/counter.old', at('value').toString());
@@ -402,7 +402,7 @@ void main() {
           )
           .set(4);
       final user = host.participant(f.ann);
-      final client = f.ICounterClient(participant: user, provider: f.work);
+      final client = f.ICounterClient(participant: user, target: f.work);
       expect(client.value.value, isNull);
       host.setAccess(
         address: at('value'),
@@ -493,7 +493,7 @@ void main() {
           final reader = remote
               ? await host.join(f.ann)
               : host.participant(f.ann);
-          final c = f.ICounterClient(participant: reader, provider: f.work);
+          final c = f.ICounterClient(participant: reader, target: f.work);
           final sampleErrors = <Object>[];
           final samples = c.samples().listen((_) {}, onError: sampleErrors.add);
           final incoming = StreamController<int>();
@@ -563,7 +563,7 @@ void main() {
       });
       final p = await Host.join(connection);
       addTearDown(p.dispose);
-      final c = f.ICounterClient(participant: p, provider: f.work);
+      final c = f.ICounterClient(participant: p, target: f.work);
       await p.settle();
       expect(c.value.value, 2);
       final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
@@ -676,7 +676,7 @@ void main() {
         access: const WordAccess(callers: warning),
       );
       final caller = host.participant(f.ann);
-      final client = f.IBridgeClient(participant: caller, provider: bridge);
+      final client = f.IBridgeClient(participant: caller, target: bridge);
       final warnings = <AccessWarning>[];
       final sub = host.registry.accessWarnings.listen(warnings.add);
       addTearDown(sub.cancel);

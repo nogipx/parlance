@@ -832,7 +832,7 @@ final class _Emitter {
       )
       ..writeln('  /// what `main` gives a part that uses them.')
       ..writeln(
-        '  factory I${_c}Client({required IParticipant participant, required Principal provider}) = _\$${_c}Client;',
+        '  factory I${_c}Client({required IParticipant participant, required Principal target}) = _\$${_c}Client;',
       )
       ..writeln()
       ..writeln(
@@ -843,7 +843,7 @@ final class _Emitter {
       )
       ..writeln('  /// streams heard (`hear`, `listen`) once it is attached.')
       ..writeln(
-        '  factory I${_c}Client.of({required IOwner owner, required Principal provider}) = _\$${_c}Client._of;',
+        '  factory I${_c}Client.of({required IOwner owner, required Principal target}) = _\$${_c}Client._of;',
       )
       ..writeln();
     for (final (i, m) in all.indexed) {
@@ -864,13 +864,13 @@ final class _Emitter {
     for (final (name, param, words) in [
       (
         '_\$${_c}Client',
-        '{required IParticipant participant, required Principal provider}',
-        'GeneratedWords(participant: participant, provider: provider)',
+        '{required IParticipant participant, required Principal target}',
+        'GeneratedWords(participant: participant, target: target)',
       ),
       (
         '_\$${_c}Client._of',
-        '{required IOwner owner, required Principal provider}',
-        'GeneratedWords.of(owner: owner, provider: provider)',
+        '{required IOwner owner, required Principal target}',
+        'GeneratedWords.of(owner: owner, target: target)',
       ),
     ]) {
       out

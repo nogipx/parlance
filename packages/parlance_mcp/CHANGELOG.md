@@ -4,7 +4,7 @@
 
 - Reflect live host access policy in command discovery, state reads and calls; preserve warn metadata while the host records actual accesses.
 
-- Add provider discovery and full provider/word addresses in tool metadata and calls. Encode command tool names without punctuation or provider collisions.
+- Add target discovery and full target/word addresses in tool metadata and calls. Encode command tool names without punctuation or target collisions.
 
 - Breaking: remove the entity directory from `describe` and dynamic choices
   from JSON Schema generation. Domain catalogs use ordinary states or queries;

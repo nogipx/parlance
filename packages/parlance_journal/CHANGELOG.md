@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Record and filter canonical provider/word addresses and instance-scoped message IDs from the new participant API; retain the existing journal record format.
+- Record and filter canonical target/word addresses and instance-scoped message IDs from the new participant API; retain the existing journal record format.
 
 ## 0.1.1
 

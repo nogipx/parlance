@@ -138,7 +138,7 @@ class _Fixture {
     await consumer.settle();
     client = IDataClient(
       participant: consumer,
-      provider: const Principal('producer'),
+      target: const Principal('producer'),
     );
   }
 
@@ -464,7 +464,7 @@ void main() {
       );
       final client = IDataClient(
         participant: p,
-        provider: const Principal('producer'),
+        target: const Principal('producer'),
       );
       final errors = <ParticipantError>[];
       final sub = p.errors.listen(errors.add);
@@ -497,7 +497,7 @@ void main() {
           expect(
             await IDataClient(
               participant: f.producer,
-              provider: const Principal('producer'),
+              target: const Principal('producer'),
             ).numbers(start: 1).toList(),
             [1, 2, 3],
           );
@@ -613,7 +613,7 @@ void main() {
   test('the streams feature can be required before joining', () async {
     final f = _Fixture();
     addTearDown(f.close);
-    final p = await f.guest('old', features: const {'providers'});
+    final p = await f.guest('old', features: const {'targets'});
     await expectLater(
       Host.joinEndpoint(
         (p as RemoteParticipant).endpoint,

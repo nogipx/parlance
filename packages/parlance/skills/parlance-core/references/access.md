@@ -7,7 +7,7 @@ default, existing implicit access. Selector maps replace as a whole. Null inheri
 an empty Callers denies everyone. Commands, queries and input streams use callers;
 states, facts and server streams use readers. Only the host mutates policies.
 Overrides may precede publication, survive re-publication/reconnect of the same
-provider, and end with their host or explicit clearing. Aliases use the target.
+target, and end with their host or explicit clearing. Aliases use the target.
 
 Declarations and owner handles remain unchanged. Effective descriptors, statuses,
 discovery, MCP and RPC catalogs all reflect host policy. ACL changes are catalog

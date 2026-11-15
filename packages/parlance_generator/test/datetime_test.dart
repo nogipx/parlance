@@ -16,7 +16,7 @@ void main() {
     final me = host.participant(const Principal('user', 'ann'));
     final clock = IClockClient(
       participant: me,
-      provider: const Principal('clock'),
+      target: const Principal('clock'),
     );
     final at = DateTime.utc(2026, 10, 30, 7);
     await clock.setAlarm(at: at);

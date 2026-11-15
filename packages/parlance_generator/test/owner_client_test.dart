@@ -24,7 +24,7 @@ final class Fan extends FansOwnerBase {
 
   late final IPlayerClient player = IPlayerClient.of(
     owner: this,
-    provider: const Principal('player'),
+    target: const Principal('player'),
   );
 
   /// What it heard, and the volume it read then.

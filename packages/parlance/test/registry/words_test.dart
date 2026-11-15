@@ -125,12 +125,9 @@ void main() {
     f = Fixture();
     house = GeneratedWords(
       participant: f.r.participant(owner, vocabularies: [WordSet.open('test')]),
-      provider: owner,
+      target: owner,
     );
-    asUser = GeneratedWords(
-      participant: f.r.participant(user),
-      provider: owner,
-    );
+    asUser = GeneratedWords(participant: f.r.participant(user), target: owner);
     house.state(TestState.level).define();
     tune = house.state(TestState.tune).define();
     tuned = house.fact(TestFact.tuned).define();
@@ -176,7 +173,7 @@ void main() {
     expect(
       await GeneratedWords(
         participant: f.r.participant(visitor),
-        provider: owner,
+        target: owner,
       ).command(TestCommand.reset).call(()),
       isA<CallRefused>(),
     );

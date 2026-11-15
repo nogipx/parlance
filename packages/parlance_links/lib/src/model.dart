@@ -23,7 +23,7 @@ String _str(Object? v, String what) =>
 /// Text, or nothing.
 String? _maybeStr(Object? v, String what) => v == null ? null : _str(v, what);
 
-/// An exact provider/word address; link data never selects a provider implicitly.
+/// An exact target/word address; link data never selects a target implicitly.
 String _name(Object? v, String what) {
   final s = _str(v, what);
   try {

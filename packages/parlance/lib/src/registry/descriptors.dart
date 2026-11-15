@@ -451,17 +451,17 @@ final class BidiStreamDescriptor extends DataStreamDescriptor {
 /// Binds publication to its exact principal, rejecting foreign addresses.
 extension DescriptorAddress on Descriptor {
   /// A runtime descriptor, with an address instead of its portable name.
-  Descriptor providedBy(Principal principal) {
-    final provider = principal.whole;
+  Descriptor atTarget(Principal principal) {
+    final target = principal.whole;
     if (name.contains('/')) {
-      if (WordAddress.parse(name).provider != provider) {
+      if (WordAddress.parse(name).target != target) {
         throw ArgumentError('$principal cannot provide $name');
       }
       return this;
     }
     return Descriptor.fromJson({
       ...toJson(),
-      'name': WordAddress(provider, name).toString(),
+      'name': WordAddress(target, name).toString(),
     });
   }
 }

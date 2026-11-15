@@ -131,10 +131,10 @@ final class TestHost {
   /// The participant standing in for the owner of [name]: the owner of
   /// its vocabulary (`water` of `water.level`), another module's than the
   /// one under test.
-  LocalParticipant _standInFor(Principal provider, String name) {
+  LocalParticipant _standInFor(Principal target, String name) {
     final vocabulary = name.split('.').first;
-    return _standIns[(provider, vocabulary)] ??= registry.participant(
-      provider,
+    return _standIns[(target, vocabulary)] ??= registry.participant(
+      target,
       vocabularies: [WordSet.open(vocabulary)],
     );
   }
@@ -145,7 +145,7 @@ final class TestHost {
   Single<T> standInState<T>(
     IStateWord<T> word,
     T value, {
-    required Principal provider,
+    required Principal target,
   }) {
     if (word.key != null) {
       throw ArgumentError('${word.name} is keyed: standInKeyed it');
@@ -153,7 +153,7 @@ final class TestHost {
     final s = Single<T>()..set(value);
     Single.attach(
       s,
-      GeneratedWords.own(_standInFor(provider, word.name)).state(word).define(),
+      GeneratedWords.own(_standInFor(target, word.name)).state(word).define(),
     );
     Single.write(s);
     return s;
@@ -165,7 +165,7 @@ final class TestHost {
   Keyed<T> standInKeyed<T>(
     IStateWord<T> word,
     Map<String, T> values, {
-    required Principal provider,
+    required Principal target,
   }) {
     if (word.key == null) {
       throw ArgumentError('${word.name} has no key: standInState it');
@@ -176,7 +176,7 @@ final class TestHost {
     }
     Keyed.attach(
       k,
-      GeneratedWords.own(_standInFor(provider, word.name)).state(word).define(),
+      GeneratedWords.own(_standInFor(target, word.name)).state(word).define(),
     );
     Keyed.writeAll(k);
     return k;
@@ -188,7 +188,7 @@ final class TestHost {
   /// otherwise). Anyone may call it, unless [callers] say otherwise.
   CommandStandIn<P, R> standInCommand<P, R>(
     ICommandWord<P, R> word, {
-    required Principal provider,
+    required Principal target,
     FutureOr<R> Function(P params)? answer,
     Callers callers = Callers.anyone,
   }) {
@@ -198,7 +198,7 @@ final class TestHost {
       );
     }
     final stub = CommandStandIn<P, R>._();
-    GeneratedWords.own(_standInFor(provider, word.name)).command(word).serve((
+    GeneratedWords.own(_standInFor(target, word.name)).command(word).serve((
       params,
     ) {
       stub.params.add(params);
@@ -211,42 +211,39 @@ final class TestHost {
   /// A stand-in speaker of another module's fact [word].
   IFactSayerOf<T> standInFact<T>(
     IFactWord<T> word, {
-    required Principal provider,
-  }) =>
-      GeneratedWords.own(_standInFor(provider, word.name)).fact(word).define();
+    required Principal target,
+  }) => GeneratedWords.own(_standInFor(target, word.name)).fact(word).define();
 
   /// The values [word] (of [key]) was given, in order, as committed: null
   /// for a removal. Read after [settle].
   List<T?> written<T>(
     IStateWord<T> word, {
-    required Principal provider,
+    required Principal target,
     String? key,
   }) => [
     for (final t in ticks)
       for (final c in t.changes)
         if (c.state ==
-                registry.canonical(
-                  WordAddress(provider, word.name).toString(),
-                ) &&
+                registry.canonical(WordAddress(target, word.name).toString()) &&
             c.key == key)
           c.removed ? null : word.shape.fromJson(c.value),
   ];
 
   /// The payloads of [word] said, in order. Read after [settle].
-  List<T> said<T>(IFactWord<T> word, {required Principal provider}) => [
+  List<T> said<T>(IFactWord<T> word, {required Principal target}) => [
     for (final t in ticks)
       for (final f in t.facts)
         if (f.fact ==
-            registry.canonical(WordAddress(provider, word.name).toString()))
+            registry.canonical(WordAddress(target, word.name).toString()))
           word.shape.fromJson(f.payload),
   ];
 
   /// The finished calls of [word], a command or a query, in order. Read
   /// after [settle].
-  List<CallRecord> callsOf(IWord word, {required Principal provider}) => [
+  List<CallRecord> callsOf(IWord word, {required Principal target}) => [
     for (final c in calls)
       if (c.command ==
-          registry.canonical(WordAddress(provider, word.name).toString()))
+          registry.canonical(WordAddress(target, word.name).toString()))
         c,
   ];
 

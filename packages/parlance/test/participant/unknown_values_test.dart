@@ -309,7 +309,7 @@ void main() {
       final told = <Mismatch>[];
       host.registry.mismatchChanges.listen(told.add);
       final b = host.participant(guest)
-        ..raw.builtAgainst([builtMode], provider: const Principal('deck'));
+        ..raw.builtAgainst([builtMode], target: const Principal('deck'));
       final mode = GeneratedWords.own(owner()).state(nowMode).define();
       await pumpEventQueue();
       expect(host.registry.mismatches.single.breaks, [possible]);
@@ -328,7 +328,7 @@ void main() {
           ListType(RecordType({'mode': Field(mode)}));
       host.participant(guest).raw.builtAgainst([
         S('deck.queue', PlainShape(queue(const EnumType(['a', 'b'])))),
-      ], provider: const Principal('deck'));
+      ], target: const Principal('deck'));
       final q = GeneratedWords.own(
         owner(),
       ).state(S<Object?>('deck.queue', PlainShape(queue(abc))));
@@ -354,7 +354,7 @@ void main() {
     test('a needed field left out, once a value lacks it', () async {
       host.participant(guest).raw.builtAgainst([
         builtTurn,
-      ], provider: const Principal('deck'));
+      ], target: const Principal('deck'));
       final turn = GeneratedWords.own(owner()).state(nowTurn).define();
       await pumpEventQueue();
       final only = host.registry.mismatches.single.breaks.single;
@@ -371,7 +371,7 @@ void main() {
     test('by a fact said', () async {
       host.participant(guest).raw.builtAgainst([
         builtSaid,
-      ], provider: const Principal('deck'));
+      ], target: const Principal('deck'));
       final say = GeneratedWords.own(owner()).fact(nowSaid).define();
       await pumpEventQueue();
       say.say('a');
@@ -384,15 +384,15 @@ void main() {
 
     test('by an answer, to the one who asked only', () async {
       final b = host.participant(guest)
-        ..raw.builtAgainst([builtPick], provider: const Principal('deck'));
+        ..raw.builtAgainst([builtPick], target: const Principal('deck'));
       const other = Principal('widlet', 'c');
       final c = host.participant(other)
-        ..raw.builtAgainst([builtPick], provider: const Principal('deck'));
+        ..raw.builtAgainst([builtPick], target: const Principal('deck'));
       GeneratedWords.own(owner()).query(nowPick).serve((_) => 'c');
       await pumpEventQueue();
       final answer = await GeneratedWords(
         participant: b.raw,
-        provider: deck,
+        target: deck,
       ).query(builtPick).ask(());
       expect(answer, isA<CallFailed>(), reason: 'its code cannot read it');
       final byWho = {

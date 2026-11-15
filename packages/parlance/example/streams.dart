@@ -14,7 +14,7 @@ Future<void> main() async {
   final participant = await Host.joinEndpoint(endpoint);
   final documents = IDocumentsClient(
     participant: participant,
-    provider: const Principal('store'),
+    target: const Principal('store'),
   );
   try {
     final saved = await documents.save(

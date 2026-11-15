@@ -43,7 +43,7 @@ final class _Host extends ParlanceContractPeer {
       WireDescription({
         ..._catalog,
         'protocol': parlanceProtocol,
-        'features': const <String>['providers'],
+        'features': const <String>['targets'],
         'principal': {'kind': 'agent'},
       });
 
@@ -103,7 +103,7 @@ final class _ShortApplyHost extends _Host {
       WireDescription({
         ..._catalog,
         'protocol': parlanceProtocol,
-        'features': const <String>['providers'],
+        'features': const <String>['targets'],
         'principal': {'kind': 'agent'},
         'vocabularies': ['deck'],
       });

@@ -55,13 +55,13 @@ abstract interface class IAClient {
   /// what `main` gives a part that uses them.
   factory IAClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$AClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IAClient.of({required IOwner owner, required Principal provider}) =
+  factory IAClient.of({required IOwner owner, required Principal target}) =
       _$AClient._of;
 
   /// a.level: its value now, and its changes.
@@ -85,13 +85,13 @@ abstract interface class IAClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$AClient implements IAClient {
-  _$AClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$AClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(aWords.words, from: aWords.from);
   }
 
-  _$AClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$AClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(aWords.words, from: aWords.from);
   }
 
@@ -170,13 +170,13 @@ abstract interface class IBClient {
   /// what `main` gives a part that uses them.
   factory IBClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$BClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBClient.of({required IOwner owner, required Principal provider}) =
+  factory IBClient.of({required IOwner owner, required Principal target}) =
       _$BClient._of;
 
   /// b.level: its value now, and its changes.
@@ -200,13 +200,13 @@ abstract interface class IBClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BClient implements IBClient {
-  _$BClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$BClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(bWords.words, from: bWords.from);
   }
 
-  _$BClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$BClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(bWords.words, from: bWords.from);
   }
 
@@ -285,13 +285,13 @@ abstract interface class ICClient {
   /// what `main` gives a part that uses them.
   factory ICClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$CClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ICClient.of({required IOwner owner, required Principal provider}) =
+  factory ICClient.of({required IOwner owner, required Principal target}) =
       _$CClient._of;
 
   /// c.level: its value now, and its changes.
@@ -315,13 +315,13 @@ abstract interface class ICClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$CClient implements ICClient {
-  _$CClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$CClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(cWords.words, from: cWords.from);
   }
 
-  _$CClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$CClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(cWords.words, from: cWords.from);
   }
 

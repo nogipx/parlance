@@ -169,16 +169,14 @@ abstract interface class IBoardClient {
   /// what `main` gives a part that uses them.
   factory IBoardClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$BoardClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBoardClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$BoardClient._of;
+  factory IBoardClient.of({required IOwner owner, required Principal target}) =
+      _$BoardClient._of;
 
   /// note, by note: each value, and its changes.
   IKeyedOf<Note> get notes;
@@ -231,15 +229,13 @@ abstract interface class IBoardClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BoardClient implements IBoardClient {
-  _$BoardClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$BoardClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 
-  _$BoardClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$BoardClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(boardWords.words, from: boardWords.from);
   }
 

@@ -236,7 +236,7 @@ final class RemoteSession extends ParlanceContractPeer
   final Map<String, IHandle> _commands = {};
   final Map<String, IHandle> _streams = {};
   final Set<StreamLease> _data = {};
-  final Set<StreamLease> _providedData = {};
+  final Set<StreamLease> _servedData = {};
   final Map<String, StreamCall> _servingData = {};
 
   StreamLimits get _dataLimits =>
@@ -355,7 +355,7 @@ final class RemoteSession extends ParlanceContractPeer
         'the host does not support this stream type',
       );
     }
-    final active = _data.length - _providedData.length;
+    final active = _data.length - _servedData.length;
     if (_dataLimits.subscriptions case final max? when active >= max) {
       throw const StreamFailure(
         StreamFailureCode.resourceExhausted,
@@ -922,7 +922,7 @@ final class RemoteSession extends ParlanceContractPeer
     } on ArgumentError catch (e) {
       throw RpcStatusException(RpcStatus.invalidArgument, '${e.message}');
     }
-    if (address.provider != p.who.whole) {
+    if (address.target != p.who.whole) {
       _deny('${p.who} cannot provide ${d.name}');
     }
     final words =
@@ -1124,7 +1124,7 @@ final class RemoteSession extends ParlanceContractPeer
       );
     }
     if (_dataLimits.subscriptions case final max?
-        when _providedData.length >= max) {
+        when _servedData.length >= max) {
       throw const StreamFailure(
         StreamFailureCode.resourceExhausted,
         'too many subscriptions served by this session',
@@ -1133,7 +1133,7 @@ final class RemoteSession extends ParlanceContractPeer
     _servingData[c.id] = c;
     final lease = StreamLease();
     _data.add(lease);
-    _providedData.add(lease);
+    _servedData.add(lease);
     final rpcCancel = RpcCancellationToken();
     final cancelled = c.expired.onCancel(() {
       lease.token.cancel();
@@ -1170,7 +1170,7 @@ final class RemoteSession extends ParlanceContractPeer
         _servingData.remove(c.id);
         rpcCancel.cancel();
         _data.remove(lease);
-        _providedData.remove(lease);
+        _servedData.remove(lease);
       },
     );
   }
@@ -1233,7 +1233,7 @@ final class RemoteSession extends ParlanceContractPeer
   void _end(String why, {required bool tell}) {
     if (_closed) return;
     _closed = true;
-    registry.endProvidedStreams(
+    registry.endTargetStreams(
       _streams.keys,
       StreamFailure(
         tell ? StreamFailureCode.unavailable : StreamFailureCode.connectionLost,

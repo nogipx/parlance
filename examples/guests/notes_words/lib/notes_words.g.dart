@@ -146,16 +146,14 @@ abstract interface class INotesClient {
   /// what `main` gives a part that uses them.
   factory INotesClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$NotesClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory INotesClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$NotesClient._of;
+  factory INotesClient.of({required IOwner owner, required Principal target}) =
+      _$NotesClient._of;
 
   /// notes.all: its value now, and its changes.
   IStateOf<List<Note>> get all;
@@ -188,15 +186,13 @@ abstract interface class INotesClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$NotesClient implements INotesClient {
-  _$NotesClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$NotesClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 
-  _$NotesClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$NotesClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(notesWords.words, from: notesWords.from);
   }
 

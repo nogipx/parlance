@@ -10,10 +10,10 @@ import 'words.dart';
 /// knows the house only by its words. Its own words come from its base,
 /// made from [Visit]; what it sets in answer to the ring follows from it.
 final class GuestBook extends VisitOwnerBase {
-  GuestBook({required Principal houseProvider}) {
+  GuestBook({required Principal houseTarget}) {
     guests.set(const []);
     hear(
-      fact: IHouseClient.of(owner: this, provider: houseProvider).rang,
+      fact: IHouseClient.of(owner: this, target: houseTarget).rang,
       onData: (rang) => guests.set([...?guests.value, rang.who]),
     );
   }

@@ -55,13 +55,13 @@ abstract interface class ITestClient {
   /// what `main` gives a part that uses them.
   factory ITestClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$TestClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory ITestClient.of({required IOwner owner, required Principal provider}) =
+  factory ITestClient.of({required IOwner owner, required Principal target}) =
       _$TestClient._of;
 
   /// test.level, by dial: each value, and its changes.
@@ -85,13 +85,13 @@ abstract interface class ITestClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$TestClient implements ITestClient {
-  _$TestClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$TestClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(testWords.words, from: testWords.from);
   }
 
-  _$TestClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$TestClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(testWords.words, from: testWords.from);
   }
 
@@ -170,13 +170,13 @@ abstract interface class IFlagClient {
   /// what `main` gives a part that uses them.
   factory IFlagClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$FlagClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IFlagClient.of({required IOwner owner, required Principal provider}) =
+  factory IFlagClient.of({required IOwner owner, required Principal target}) =
       _$FlagClient._of;
 
   /// flag.on: its value now, and its changes.
@@ -200,13 +200,13 @@ abstract interface class IFlagClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$FlagClient implements IFlagClient {
-  _$FlagClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$FlagClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(flagWords.words, from: flagWords.from);
   }
 
-  _$FlagClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$FlagClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(flagWords.words, from: flagWords.from);
   }
 
@@ -269,7 +269,7 @@ abstract interface class IKnobWordsClient {
   /// what `main` gives a part that uses them.
   factory IKnobWordsClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$KnobWordsClient;
 
   /// The words through the participant [owner] is attached to,
@@ -277,7 +277,7 @@ abstract interface class IKnobWordsClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory IKnobWordsClient.of({
     required IOwner owner,
-    required Principal provider,
+    required Principal target,
   }) = _$KnobWordsClient._of;
 
   /// Whether [word] is there for the participant now, as this code was built
@@ -300,13 +300,13 @@ abstract interface class IKnobWordsClient {
 final class _$KnobWordsClient implements IKnobWordsClient {
   _$KnobWordsClient({
     required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+    required Principal target,
+  }) : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(knobWordsWords.words, from: knobWordsWords.from);
   }
 
-  _$KnobWordsClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$KnobWordsClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(knobWordsWords.words, from: knobWordsWords.from);
   }
 

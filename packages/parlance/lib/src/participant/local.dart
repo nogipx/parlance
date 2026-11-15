@@ -256,7 +256,7 @@ final class LocalParticipant implements IRawParticipant {
   bool owns(String name) {
     if (name.contains('/')) {
       final address = WordAddress.parse(name);
-      if (address.provider != who.whole) return false;
+      if (address.target != who.whole) return false;
       name = address.word;
     }
     return vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
@@ -462,15 +462,12 @@ final class LocalParticipant implements IRawParticipant {
 
   /// Each word told once as it was built against it, held until it goes.
   @override
-  void builtAgainst(
-    Iterable<IWord> words, {
-    String? from,
-    Principal? provider,
-  }) => _builtAgainst({
-    for (final w in words)
-      (provider == null ? w.name : WordAddress(provider, w.name).toString()):
-          schemaOfWord(w),
-  }, from);
+  void builtAgainst(Iterable<IWord> words, {String? from, Principal? target}) =>
+      _builtAgainst({
+        for (final w in words)
+          (target == null ? w.name : WordAddress(target, w.name).toString()):
+              schemaOfWord(w),
+      }, from);
 
   /// What it told the registry it was built against, by word: the
   /// schema's fingerprint and the package it came from.
@@ -550,7 +547,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?>? item,
     Shape<Object?>? input,
   }) {
-    d = d.providedBy(who) as DataStreamDescriptor;
+    d = d.atTarget(who) as DataStreamDescriptor;
     _mayDefine(d);
     final h = _r.defineStream(
       access.dataStream(d),
@@ -573,7 +570,7 @@ final class LocalParticipant implements IRawParticipant {
 
   @override
   IStateHandle defineState(StateDescriptor d, {Shape<Object?>? shape}) {
-    d = d.providedBy(who) as StateDescriptor;
+    d = d.atTarget(who) as StateDescriptor;
     _mayDefine(d);
     return _keep(
       _OwnState(this, _r.defineState(access.state(d), by: who, shape: shape)),
@@ -588,7 +585,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
-    d = d.providedBy(who) as CommandDescriptor;
+    d = d.atTarget(who) as CommandDescriptor;
     _mayDefine(d);
     final h = _r.defineCommand(
       d,
@@ -614,7 +611,7 @@ final class LocalParticipant implements IRawParticipant {
     Shape<Object?>? params,
     Shape<Object?>? returns,
   }) {
-    d = d.providedBy(who) as QueryDescriptor;
+    d = d.atTarget(who) as QueryDescriptor;
     _mayDefine(d);
     final h = _r.defineQuery(
       d,
@@ -634,7 +631,7 @@ final class LocalParticipant implements IRawParticipant {
 
   @override
   IFactHandle defineFact(FactDescriptor d, {Shape<Object?>? shape}) {
-    d = d.providedBy(who) as FactDescriptor;
+    d = d.atTarget(who) as FactDescriptor;
     _mayDefine(d);
     return _keep(
       _OwnFact(this, _r.defineFact(access.fact(d), by: who, shape: shape)),

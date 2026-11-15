@@ -164,9 +164,9 @@ void main() {
     final hidden = await c.call('read', {'state': '$state'});
     expect(hidden.error, isTrue);
     expect(hidden.text, isNot(contains('main')));
-    final providers = await c.json('providers', {'word': 'house.show'}) as List;
+    final targets = await c.json('targets', {'word': 'house.show'}) as List;
     expect(
-      ((((providers.single as Map)['words'] as List).single as Map)['status']),
+      ((((targets.single as Map)['words'] as List).single as Map)['status']),
       'notPermitted',
     );
     f.host.setAccess(
@@ -199,7 +199,7 @@ void main() {
   });
 
   test(
-    'MCP discovers equal words and routes only the selected provider',
+    'MCP discovers equal words and routes only the selected target',
     () async {
       final f = Fixture();
       addTearDown(f.host.dispose);
@@ -220,10 +220,9 @@ void main() {
       }
       final c = Client(f.host.participant(agent).raw, commandTools: true);
       addTearDown(c.close);
-      final providers =
-          await c.json('providers', {'vocabulary': 'notes'}) as List;
+      final targets = await c.json('targets', {'vocabulary': 'notes'}) as List;
       expect(
-        [for (final p in providers) (p as Map)['principal']],
+        [for (final p in targets) (p as Map)['principal']],
         [
           {'kind': 'module', 'id': 'personal'},
           {'kind': 'module', 'id': 'work'},
@@ -395,7 +394,7 @@ void main() {
     test('the curated tools, and no command tools unless asked', () async {
       final names = await c.tools();
       expect(names, [
-        'providers',
+        'targets',
         'describe',
         'read',
         'call',

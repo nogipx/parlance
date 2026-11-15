@@ -200,7 +200,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     int keepAway,
     Set<String> requires,
   ) async {
-    requires = {...requires, 'providers'};
+    requires = {...requires, 'targets'};
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
     final speaks = checkProtocol(
@@ -501,7 +501,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   final Map<String, _Command> _commands = {};
   final Map<String, _DataSource> _streams = {};
   final Map<StreamLease, Principal> _data = {};
-  final Set<StreamLease> _providedData = {};
+  final Set<StreamLease> _servedData = {};
   StreamLimits _dataLimits = const StreamLimits();
 
   /// Its guards and its owners', by the id the host knows them by.
@@ -523,7 +523,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   bool _owns(String name) {
     if (name.contains('/')) {
       final address = WordAddress.parse(name);
-      if (address.provider != who.whole) return false;
+      if (address.target != who.whole) return false;
       name = address.word;
     }
     return vocabularyNames.any((ns) => name == ns || name.startsWith('$ns.'));
@@ -1021,15 +1021,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   /// new session. The states among them its copy keeps from now on: its
   /// code reads them as in the host's process, listened to or not.
   @override
-  void builtAgainst(
-    Iterable<IWord> words, {
-    String? from,
-    Principal? provider,
-  }) {
-    if (provider != null) {
+  void builtAgainst(Iterable<IWord> words, {String? from, Principal? target}) {
+    if (target != null) {
       GeneratedWords(
         participant: this,
-        provider: provider,
+        target: target,
       ).builtAgainst(words, from: from);
       return;
     }
@@ -1141,7 +1137,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _defineState(d, null);
 
   IStateHandle _defineState(StateDescriptor raw, Principal? as) {
-    raw = raw.providedBy(who) as StateDescriptor;
+    raw = raw.atTarget(who) as StateDescriptor;
     _mayDefine(raw);
     final d = access.state(raw);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
@@ -1175,7 +1171,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     WhyNot? whyNot,
     Principal? as,
   ) {
-    d = d.providedBy(who) as CallableDescriptor;
+    d = d.atTarget(who) as CallableDescriptor;
     _mayDefine(d);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});
     final c = _Command(d, serving(handler), whyNot, as);
@@ -1192,7 +1188,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _defineFact(d, null);
 
   IFactHandle _defineFact(FactDescriptor raw, Principal? as) {
-    raw = raw.providedBy(who) as FactDescriptor;
+    raw = raw.atTarget(who) as FactDescriptor;
     _mayDefine(raw);
     final d = access.fact(raw);
     _ask({'op': 'define', 'descriptor': d.toJson(), ..._asOf(as)});

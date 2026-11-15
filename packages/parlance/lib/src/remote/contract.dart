@@ -17,8 +17,8 @@ const parlanceProtocol = 1;
 /// not there. A name keeps its meaning for good: a change is a new name
 /// beside it, and a name goes when nothing needs it.
 const parlanceFeatures = {
-  // Exact provider/word addresses, with no unscoped-client fallback.
-  'providers',
+  // Exact target/word addresses, with no unscoped-client fallback.
+  'targets',
   // Host-owned effective access and live revocation through catalogs.
   'accessPolicy',
   // What a part was built against, by fingerprint (SPEC §6.9, §25.4):

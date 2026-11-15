@@ -82,11 +82,11 @@ void main() {
         final heard = <Order>[];
         final sub = GeneratedWords(
           participant: c,
-          provider: orders,
+          target: orders,
         ).factOf(OrderFact.placed).facts.listen((f) => heard.add(f.payload));
         final done = await GeneratedWords(
           participant: c,
-          provider: orders,
+          target: orders,
         ).command(OrderCommand.place).call((id: 'o1', status: 'new'));
         await settle();
         expect(done, isA<CallDone<String>>());
@@ -94,7 +94,7 @@ void main() {
         expect(
           GeneratedWords(
             participant: c,
-            provider: orders,
+            target: orders,
           ).stateOf(OrderState.last).value,
           (id: 'o1', status: 'new'),
         );
@@ -160,7 +160,7 @@ void main() {
       final stranger = r.participant(someone);
       final refused = await GeneratedWords(
         participant: stranger,
-        provider: orders,
+        target: orders,
       ).command(OrderCommand.place).call((id: 'o2', status: 'new'));
       expect(refused, isA<CallRefused>());
       expect((refused as CallRefused).code, Refusal.notPermitted);
@@ -227,7 +227,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: c,
-          provider: orders,
+          target: orders,
         ).stateOf(OrderState.last).value,
         isNull,
       );
@@ -235,7 +235,7 @@ void main() {
       expect(
         GeneratedWords(
           participant: p,
-          provider: orders,
+          target: orders,
         ).stateOf(OrderState.last).value,
         (id: 'o', status: 'new'),
       );
@@ -281,7 +281,7 @@ void main() {
       expect(
         (await GeneratedWords(
           participant: c,
-          provider: orders,
+          target: orders,
         ).command(OrderCommand.place).call((id: 'o', status: 'n'))).ok,
         isTrue,
       );
@@ -365,7 +365,7 @@ void main() {
         final sub = r.calls.listen(records.add);
         final done = await GeneratedWords(
           participant: ui,
-          provider: orders,
+          target: orders,
         ).command(OrderCommand.place).call((id: 'o9', status: 'new'));
         await settle();
         expect(done.ok, isTrue, reason: 'module/cart names its parts too');
@@ -469,7 +469,7 @@ void main() {
     final seen = <Order?>[];
     final sub = GeneratedWords(
       participant: r.participant(cart),
-      provider: orders,
+      target: orders,
     ).stateOf(OrderState.last).changes.listen(seen.add);
     await settle();
     last.set((id: 'o1', status: 'paid'));

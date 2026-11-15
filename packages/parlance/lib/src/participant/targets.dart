@@ -1,9 +1,9 @@
 part of 'participant.dart';
 
 /// One published word, with its exact address and the caller's current status.
-final class ProvidedWord {
+final class PublishedWord {
   /// A catalog entry; [descriptor] retains its portable vocabulary name.
-  const ProvidedWord(this.address, this.descriptor, this.status);
+  const PublishedWord(this.address, this.descriptor, this.status);
 
   /// Its exact publication address.
   final WordAddress address;
@@ -18,7 +18,7 @@ final class ProvidedWord {
   Map<String, Object?> toJson() => {
     ...descriptor.toJson(),
     'address': address.toString(),
-    'provider': address.provider.toJson(),
+    'target': address.target.toJson(),
     'status': switch (status) {
       WordReady() => 'ready',
       WordMissing() => 'missing',
@@ -33,16 +33,16 @@ final class ProvidedWord {
 }
 
 /// An instance that actually publishes words matching a discovery request.
-final class WordProvider {
-  /// A provider and its matching, currently published words.
-  WordProvider(this.principal, Iterable<ProvidedWord> words)
+final class WordTarget {
+  /// A target and its matching, currently published words.
+  WordTarget(this.principal, Iterable<PublishedWord> words)
     : words = List.unmodifiable(words);
 
   /// The exact whole principal; an ACL selector is never used for routing.
   final Principal principal;
 
   /// Actual words, each with its own access and compatibility status.
-  final List<ProvidedWord> words;
+  final List<PublishedWord> words;
 
   /// A catalog representation for tools.
   Map<String, Object?> toJson() => {
@@ -52,31 +52,28 @@ final class WordProvider {
 }
 
 /// Discovers publications without selecting or reserving a dependency.
-extension ProviderDiscovery on IParticipant {
-  /// Providers of [vocabulary] or [word], or all providers when unfiltered.
+extension TargetDiscovery on IParticipant {
+  /// Targets of [vocabulary] or [word], or all targets when unfiltered.
   /// Granted but unpublished vocabularies are not included. A supplied typed
   /// contract also checks compatibility; denied words stay visibly denied.
-  Future<List<WordProvider>> providers({
-    WordSet? vocabulary,
-    IWord? word,
-  }) async {
+  Future<List<WordTarget>> targets({WordSet? vocabulary, IWord? word}) async {
     if (!raw.synced) return const [];
     final catalog = await raw.describe();
     final entries = <String, Descriptor>{
       for (final json in catalog['descriptors'] as List? ?? const [])
         if (Descriptor.fromJson(json) case final d) d.name: d,
     };
-    // An alias is a publication of the same provider, with its own address.
+    // An alias is a publication of the same target, with its own address.
     for (final alias in (catalog['aliases'] as Map? ?? const {}).entries) {
-      final target = entries[alias.value];
-      if (target != null) {
+      final publication = entries[alias.value];
+      if (publication != null) {
         entries[alias.key as String] = Descriptor.fromJson({
-          ...target.toJson(),
+          ...publication.toJson(),
           'name': alias.key,
         });
       }
     }
-    final byProvider = <Principal, List<ProvidedWord>>{};
+    final byTarget = <Principal, List<PublishedWord>>{};
     final unavailable = catalog['unavailable'] as Map? ?? const {};
     for (final entry in entries.values) {
       final address = WordAddress.parse(entry.name);
@@ -111,28 +108,25 @@ extension ProviderDiscovery on IParticipant {
         final breaks = wordBreaks(expected, portable);
         if (breaks.isNotEmpty) status = WordMismatch(breaks);
       }
-      (byProvider[address.provider] ??= []).add(
-        ProvidedWord(address, portable, status),
+      (byTarget[address.target] ??= []).add(
+        PublishedWord(address, portable, status),
       );
     }
     final result = [
-      for (final e in byProvider.entries) WordProvider(e.key, e.value),
+      for (final e in byTarget.entries) WordTarget(e.key, e.value),
     ];
     result.sort((a, b) => a.principal.selector.compareTo(b.principal.selector));
     return List.unmodifiable(result);
   }
 
-  /// The current providers, then changes in publication, access, schema or
+  /// The current targets, then changes in publication, access, schema or
   /// availability. Cancelling releases all catalog and status listeners.
-  Stream<List<WordProvider>> providerChanges({
-    WordSet? vocabulary,
-    IWord? word,
-  }) {
-    late StreamController<List<WordProvider>> out;
+  Stream<List<WordTarget>> targetChanges({WordSet? vocabulary, IWord? word}) {
+    late StreamController<List<WordTarget>> out;
     StreamSubscription<void>? catalog, connection;
     var wasSynced = raw.synced;
     final statuses = <String, StreamSubscription<WordStatus>>{};
-    List<WordProvider>? last;
+    List<WordTarget>? last;
     bool dirty = false, running = false, stopped = false;
     void refresh() {
       dirty = true;
@@ -142,7 +136,7 @@ extension ProviderDiscovery on IParticipant {
         try {
           while (dirty && !stopped) {
             dirty = false;
-            final next = await providers(vocabulary: vocabulary, word: word);
+            final next = await targets(vocabulary: vocabulary, word: word);
             if (stopped) return;
             final names = {
               for (final p in next)

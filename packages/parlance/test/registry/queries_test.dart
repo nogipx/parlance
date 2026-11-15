@@ -98,7 +98,7 @@ void main() {
     });
     final answer = await GeneratedWords(
       participant: r.participant(asker),
-      provider: owner,
+      target: owner,
     ).query(OrdersQuery.page).ask((from: 3));
     expect((answer as CallDone<List<String>>).value, ['o3']);
 
@@ -121,10 +121,7 @@ void main() {
     late IFactSayerOf<String> said;
     void join() {
       orders = r.participant(owner, vocabularies: [WordSet.open('orders')]);
-      asking = GeneratedWords(
-        participant: r.participant(asker),
-        provider: owner,
-      );
+      asking = GeneratedWords(participant: r.participant(asker), target: owner);
     }
 
     setUp(() {

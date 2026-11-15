@@ -4,32 +4,32 @@
 
 A screen, a heating module, a plugin, a phone on the network, an AI agent. Keeping such parts apart is nothing new: interfaces, dependency injection, an event bus. But each of those draws the line its own way, pair by pair, and leaves the rest to every team: who owns a value, who may change it, why it changed, how a part outside the process joins in.
 
-parlance draws the line once, as a language. Each part uses a common vocabulary and an explicit provider principal, and ownership, rights and causes come with the language rather than with each pair. *Parlance* is the way of speaking used in a particular place; here, the place is your app.
+parlance draws the line once, as a language. Each part uses a common vocabulary and an explicit target principal, and ownership, rights and causes come with the language rather than with each pair. *Parlance* is the way of speaking used in a particular place; here, the place is your app.
 
-## Providers
+## Targets
 
-A word is addressed by its exact provider and portable name:
+A word is addressed by its exact target and portable name:
 `module/work/notes.add` and `module/personal/notes.add` are independent operations.
 Both instances use the same vocabulary and implementation. One principal may own
 several vocabularies; one `(principal, vocabulary)` has one active owner.
 
 ```dart
-final client = IHouseClient(participant: viewer, provider: houseProvider);
+final client = IHouseClient(participant: viewer, target: houseTarget);
 // Inside an owner, resolve its calling participant after attachment:
-final dependency = IHouseClient.of(owner: this, provider: houseProvider);
+final dependency = IHouseClient.of(owner: this, target: houseTarget);
 ```
 
-`participant` is who calls; `provider` is the chosen receiver. Clients can be
-bound before the provider appears. A missing provider is reported as missing;
-there is no automatic fallback or broadcast. `participant.providers(vocabulary:
-houseWords)` discovers actual publications, and `providerChanges` observes them.
+`participant` is who calls; `target` is the chosen receiver. Clients can be
+bound before the target appears. A missing target is reported as missing;
+there is no automatic fallback or broadcast. `participant.targets(vocabulary:
+houseWords)` discovers actual publications, and `targetChanges` observes them.
 Discovery reports permissions, availability and contract compatibility for each
 published word; the application selects its dependency explicitly.
 
-Raw tools use `WordAddress(provider, 'house.light').toString()`. Catalog entries,
+Raw tools use `WordAddress(target, 'house.light').toString()`. Catalog entries,
 subscriptions, events, streams, diagnostics and the journal use that same full
 address. `module` and `module/work` are separate targets; the existing `module`
-ACL selector still covers both. Remote participants require the `providers`
+ACL selector still covers both. Remote participants require the `targets`
 protocol feature. The old unscoped client API is intentionally removed.
 
 ## Runtime access
@@ -38,7 +38,7 @@ Annotations declare the initial policy. The host can override one exact word
 without recreating its owner or losing its state:
 
 ```dart
-final address = WordAddress(houseProvider, HouseCommand.setLight.name);
+final address = WordAddress(houseTarget, HouseCommand.setLight.name);
 host.setAccess(
   address: address,
   access: WordAccess(callers: Callers.only(['resident'])),
@@ -47,7 +47,7 @@ host.clearAccess(address: address); // restore the declared policy
 ```
 
 A non-null override replaces the whole selector map; null inherits the declaration.
-Overrides can precede publication and survive reconnect of the same provider.
+Overrides can precede publication and survive reconnect of the same target.
 Revocation updates statuses and discovery, clears inaccessible mirror values and
 stops active data streams. State/fact listeners keep their desired subscription;
 regrant refreshes states and resumes facts without replay.

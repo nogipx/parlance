@@ -14,10 +14,10 @@ extension RawRegistry on Registry {
   IHandle alias(String old, String to) {
     checkWordName(old, 'old');
     if ((old.contains('/') || to.contains('/')) &&
-        WordAddress.parse(old).provider != WordAddress.parse(to).provider) {
-      throw ArgumentError('aliases stay within one provider');
+        WordAddress.parse(old).target != WordAddress.parse(to).target) {
+      throw ArgumentError('aliases stay within one target');
     }
-    final target = canonical(to);
+    final canonicalWord = canonical(to);
     if (_states.containsKey(old) ||
         _commands.containsKey(old) ||
         _facts.containsKey(old) ||
@@ -27,11 +27,11 @@ extension RawRegistry on Registry {
     if (_aliases.containsKey(old)) {
       throw StateError('$old is an old name of ${_aliases[old]} already');
     }
-    if (target == old) throw StateError('$old cannot stand for itself');
-    _aliases[old] = target;
+    if (canonicalWord == old) throw StateError('$old cannot stand for itself');
+    _aliases[old] = canonicalWord;
     // Old names of [old] now stand for its new one.
     for (final e in _aliases.entries.toList()) {
-      if (e.value == old) _aliases[e.key] = target;
+      if (e.value == old) _aliases[e.key] = canonicalWord;
     }
     _announce(AliasChanged(old));
     return Disposer(() {

@@ -58,20 +58,20 @@ void main() {
     await p.flush();
     expect(r.read('plugin/kittens/kittens.lamp'), false);
 
-    final providers = <List<WordProvider>>[];
+    final targets = <List<WordTarget>>[];
     final observing = p
-        .providerChanges(vocabulary: WordSet.open('kittens'))
-        .listen(providers.add);
+        .targetChanges(vocabulary: WordSet.open('kittens'))
+        .listen(targets.add);
     await settle();
-    expect(providers.last, hasLength(2));
+    expect(targets.last, hasLength(2));
 
     // The link goes; the host does not see it, and ends no session.
     final offline = connection.state.firstWhere((s) => s is! RpcClientOnline);
     await hosts.last.close();
     await offline;
     await settle();
-    expect(await p.providers(vocabulary: WordSet.open('kittens')), isEmpty);
-    expect(providers.last, isEmpty);
+    expect(await p.targets(vocabulary: WordSet.open('kittens')), isEmpty);
+    expect(targets.last, isEmpty);
     lamp.set(true);
     reconnect.complete();
 
@@ -94,7 +94,7 @@ void main() {
     expect(r.read('plugin/kittens/kittens.lamp'), true);
 
     await settle();
-    expect(providers.last, hasLength(2));
+    expect(targets.last, hasLength(2));
     await observing.cancel();
     await p.dispose();
     untouched.set(true);

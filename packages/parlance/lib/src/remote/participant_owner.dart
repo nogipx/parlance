@@ -120,15 +120,11 @@ final class _OfOwner implements IRawParticipant {
   Descriptor? descriptor(String word) => _root.descriptor(word);
 
   @override
-  void builtAgainst(
-    Iterable<IWord> words, {
-    String? from,
-    Principal? provider,
-  }) {
-    if (provider != null) {
+  void builtAgainst(Iterable<IWord> words, {String? from, Principal? target}) {
+    if (target != null) {
       GeneratedWords(
         participant: this,
-        provider: provider,
+        target: target,
       ).builtAgainst(words, from: from);
       return;
     }

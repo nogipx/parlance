@@ -2,12 +2,14 @@
 
 ## Unreleased
 
+- Breaking: standardize addressing terminology on target across clients, WordAddress, discovery (WordTarget/PublishedWord), runtime helpers, MCP metadata and the targets wire feature. Regenerate word packages; no aliases for former names remain.
+
 - Add Host.setAccess/clearAccess with immutable per-publication overrides, pre-publication configuration and restoration of declared ACLs.
 - Propagate live ACL changes through statuses, discovery, aliases, mirrors and subscriptions; revoke active streams and protect retry identity and queued payloads.
 - Make Access.warn emit structured developer diagnostics for real interactions through accessWarnings and logs. Advertise accessPolicy on the wire.
 
-- Breaking: scope vocabularies, runtime word addresses and clients to an exact provider principal. Client factories require named `participant` (or `owner`) and `provider`.
-- Add `WordAddress`, `Principal.whole`, provider discovery and observable publication/access/schema status. Require the `providers` wire feature.
+- Breaking: scope vocabularies, runtime word addresses and clients to an exact target principal. Client factories require named `participant` (or `owner`) and `target`.
+- Add `WordAddress`, `Principal.whole`, target discovery and observable publication/access/schema status. Require the `targets` wire feature.
 - Isolate caller-supplied call IDs by caller instance and fact IDs by full publication address; preserve exact receiver addresses through RPC, subscriptions, streams, aliases, diagnostics and journal causes.
 
 - Breaking: remove dynamic choices, `Choice`, `Choices`, `ChoiceType`,

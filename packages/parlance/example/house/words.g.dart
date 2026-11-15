@@ -288,16 +288,14 @@ abstract interface class IHouseClient {
   /// what `main` gives a part that uses them.
   factory IHouseClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$HouseClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IHouseClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$HouseClient._of;
+  factory IHouseClient.of({required IOwner owner, required Principal target}) =
+      _$HouseClient._of;
 
   /// house.light, by room: each value, and its changes.
   IKeyedOf<bool> get light;
@@ -371,15 +369,13 @@ abstract interface class IHouseClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$HouseClient implements IHouseClient {
-  _$HouseClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$HouseClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
-  _$HouseClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$HouseClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(houseWords.words, from: houseWords.from);
   }
 
@@ -662,16 +658,14 @@ abstract interface class IVisitClient {
   /// what `main` gives a part that uses them.
   factory IVisitClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$VisitClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IVisitClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$VisitClient._of;
+  factory IVisitClient.of({required IOwner owner, required Principal target}) =
+      _$VisitClient._of;
 
   /// visit.guests: its value now, and its changes.
   IStateOf<List<String>> get guests;
@@ -698,15 +692,13 @@ abstract interface class IVisitClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$VisitClient implements IVisitClient {
-  _$VisitClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$VisitClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 
-  _$VisitClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$VisitClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(visitWords.words, from: visitWords.from);
   }
 

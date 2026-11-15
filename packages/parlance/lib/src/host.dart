@@ -104,8 +104,8 @@ final class Host {
   /// Says [old] is a name of the word [to] (SPEC §6.4): what asks by the
   /// old name gets the word, until the handle is disposed.
   IHandle alias(String old, String to) {
-    if (WordAddress.parse(old).provider != WordAddress.parse(to).provider) {
-      throw ArgumentError('aliases stay within one provider');
+    if (WordAddress.parse(old).target != WordAddress.parse(to).target) {
+      throw ArgumentError('aliases stay within one target');
     }
     return _registry.alias(old, to);
   }

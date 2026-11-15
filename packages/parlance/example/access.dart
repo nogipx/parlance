@@ -13,17 +13,17 @@ Future<void> main() async {
   final warnings = host.registry.accessWarnings.listen((event) {
     print('warning: ${event.by} ${event.operation.name} ${event.word}');
   });
-  const provider = Principal('module', 'work');
+  const target = Principal('module', 'work');
   host.participant(
-    provider,
+    target,
     owners: [Home(devices)],
     access: const WordAccess(callers: Who.household),
   );
   final bob = host.participant(Who.bob);
-  final house = IHouseClient(participant: bob, provider: provider);
+  final house = IHouseClient(participant: bob, target: target);
   // The annotation permits guests with a developer warning.
   await house.setLight(room: 'kitchen', on: true);
-  final address = WordAddress(provider, HouseCommand.setLight.name);
+  final address = WordAddress(target, HouseCommand.setLight.name);
   host.setAccess(
     address: address,
     access: WordAccess(callers: Callers.only(['resident'])),

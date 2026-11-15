@@ -6,7 +6,7 @@ remote (`tools.dart`). An app's screen takes a client (§23.5), not this.
 
 ## IRegistryView
 
-Runtime names in this interface are exact `provider/word` addresses. Portable words passed to `builtAgainst`, `wordStatus`, `wordStatusChanges` or `wordMismatches` need the explicit `provider:` argument; generated clients bind it for the caller.
+Runtime names in this interface are exact `target/word` addresses. Portable words passed to `builtAgainst`, `wordStatus`, `wordStatusChanges` or `wordMismatches` need the explicit `target:` argument; generated clients bind it for the caller.
 
 - `read(state, {key})`, `readAll(state)`: the values now, at once (a
   screen builds from them synchronously); null or empty for what the view
@@ -26,7 +26,7 @@ Runtime names in this interface are exact `provider/word` addresses. Portable wo
 - `descriptor(word)`: the word as the view sees it defined now; a typed
   status (`wordStatus(view, word)`) holds it to the word the code was
   built against, `WordMismatch` when it breaks a promise (§6.5).
-- `builtAgainst(words, {from, provider})`: tells the registry the view's code was
+- `builtAgainst(words, {from, target})`: tells the registry the view's code was
   built against [words], from the words package [from], for the host to
   see where one is defined otherwise (`Registry.mismatches`, §6.9); a
   client tells it as it is made. Across a connection by fingerprint

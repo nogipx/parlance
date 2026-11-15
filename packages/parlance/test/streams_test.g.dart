@@ -130,13 +130,13 @@ abstract interface class IDataClient {
   /// what `main` gives a part that uses them.
   factory IDataClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$DataClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDataClient.of({required IOwner owner, required Principal provider}) =
+  factory IDataClient.of({required IOwner owner, required Principal target}) =
       _$DataClient._of;
 
   /// data.numbers: opens on listen; cancellation ends this operation.
@@ -179,13 +179,13 @@ abstract interface class IDataClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DataClient implements IDataClient {
-  _$DataClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$DataClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(dataWords.words, from: dataWords.from);
   }
 
-  _$DataClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$DataClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(dataWords.words, from: dataWords.from);
   }
 

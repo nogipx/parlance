@@ -189,7 +189,7 @@ abstract interface class ITransferClient {
   /// what `main` gives a part that uses them.
   factory ITransferClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$TransferClient;
 
   /// The words through the participant [owner] is attached to,
@@ -197,7 +197,7 @@ abstract interface class ITransferClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory ITransferClient.of({
     required IOwner owner,
-    required Principal provider,
+    required Principal target,
   }) = _$TransferClient._of;
 
   /// Asks transfer.forbidden; a call not done throws [CallNotDone]. [cancel] cancels this call:
@@ -247,13 +247,13 @@ abstract interface class ITransferClient {
 final class _$TransferClient implements ITransferClient {
   _$TransferClient({
     required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+    required Principal target,
+  }) : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(transferWords.words, from: transferWords.from);
   }
 
-  _$TransferClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$TransferClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(transferWords.words, from: transferWords.from);
   }
 

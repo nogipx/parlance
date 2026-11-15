@@ -72,13 +72,13 @@ abstract interface class IDoorClient {
   /// what `main` gives a part that uses them.
   factory IDoorClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$DoorClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDoorClient.of({required IOwner owner, required Principal provider}) =
+  factory IDoorClient.of({required IOwner owner, required Principal target}) =
       _$DoorClient._of;
 
   /// door.rang: what it says from now on, and its messages.
@@ -102,13 +102,13 @@ abstract interface class IDoorClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DoorClient implements IDoorClient {
-  _$DoorClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$DoorClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(doorWords.words, from: doorWords.from);
   }
 
-  _$DoorClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$DoorClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(doorWords.words, from: doorWords.from);
   }
 
@@ -195,13 +195,13 @@ abstract interface class IBookClient {
   /// what `main` gives a part that uses them.
   factory IBookClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$BookClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBookClient.of({required IOwner owner, required Principal provider}) =
+  factory IBookClient.of({required IOwner owner, required Principal target}) =
       _$BookClient._of;
 
   /// book.last: its value now, and its changes.
@@ -225,13 +225,13 @@ abstract interface class IBookClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BookClient implements IBookClient {
-  _$BookClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$BookClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(bookWords.words, from: bookWords.from);
   }
 
-  _$BookClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$BookClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(bookWords.words, from: bookWords.from);
   }
 

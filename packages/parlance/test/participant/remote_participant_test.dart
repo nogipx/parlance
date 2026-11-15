@@ -124,7 +124,7 @@ void main() {
     final crewSide = r.participant(crew);
     final done = await GeneratedWords(
       participant: crewSide,
-      provider: kittens,
+      target: kittens,
     ).command(KittensCommand.turn).call((on: true));
     expect(done.ok, isTrue, reason: '$done');
     expect(r.read('plugin/kittens/kittens.lamp'), true);
@@ -136,7 +136,7 @@ void main() {
     expect(
       GeneratedWords(
         participant: p,
-        provider: kittens,
+        target: kittens,
       ).stateOf(KittensState.lamp).value,
       true,
       reason: 'its own, as it wrote it',
@@ -169,7 +169,7 @@ void main() {
     await p.flush();
     await GeneratedWords(
       participant: r.participant(crew),
-      provider: kittens,
+      target: kittens,
     ).command(KittensCommand.turn).call((on: true));
     expect(seen.calls, containsAll(['outgoing describe', 'incoming serve']));
   });
@@ -345,7 +345,7 @@ void main() {
           whyNot: () =>
               GeneratedWords(
                     participant: p,
-                    provider: kittens,
+                    target: kittens,
                   ).stateOf(KittensState.lamp).value ==
                   true
               ? 'already on'
@@ -415,7 +415,7 @@ void main() {
     final seen = <String?>[];
     final sub = GeneratedWords(
       participant: p,
-      provider: crew,
+      target: crew,
     ).stateOf(_Focus.room).changes.listen(seen.add);
     await settle();
     focus.set('break');
@@ -657,7 +657,7 @@ void main() {
     final seen = <String?>[];
     final focus = GeneratedWords(
       participant: p,
-      provider: crew,
+      target: crew,
     ).stateOf(_Focus.room).changes.listen(seen.add);
     await settle();
     expect(seen, ['main']);
@@ -671,7 +671,7 @@ void main() {
     final p = await join();
     final sub = GeneratedWords(
       participant: p,
-      provider: crew,
+      target: crew,
     ).stateOf(_Focus.room).changes.listen((_) {});
     await settle();
     expect(r.usesOf('user/local/house.focus'), isEmpty);
@@ -688,7 +688,7 @@ void main() {
     final p = await join();
     final sub = GeneratedWords(
       participant: p,
-      provider: crew,
+      target: crew,
     ).stateOf(_Focus.room).changes.listen((_) {});
     await settle();
     final use = r.usesOf('user/local/house.focus').single;

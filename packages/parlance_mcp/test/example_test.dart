@@ -16,10 +16,10 @@ void main() {
       ),
     );
     expect(lines, [
-      'its tools: providers, describe, read, call, recent_facts, why, ${commandToolName('notes/notes.add')}',
+      'its tools: targets, describe, read, call, recent_facts, why, ${commandToolName('notes/notes.add')}',
       '${commandToolName('notes/notes.add')}: {text: {type: string, maxLength: 500}}',
       'the agent adds a note: Done.',
-      "a guest's tools: providers, describe, read, call, recent_facts, why",
+      "a guest's tools: targets, describe, read, call, recent_facts, why",
     ]);
   });
 }

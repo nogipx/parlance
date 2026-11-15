@@ -37,8 +37,8 @@ void main() {
     id: 'board',
     start: (e) => startBoard(
       e,
-      appProvider: Who.app,
-      notesProvider: Who.widlet('notes'),
+      appTarget: Who.app,
+      notesTarget: Who.widlet('notes'),
       onError: (x) {
         if (x.code == ParticipantErrorCode.mismatch) {
           mismatches['${x.op['word']}'] = x.why;
@@ -82,11 +82,8 @@ void main() {
         start: startNotes,
       );
       final user = host.host.participant(Who.user);
-      final a = INotesClient(participant: user, provider: Who.widlet('work'));
-      final b = INotesClient(
-        participant: user,
-        provider: Who.widlet('personal'),
-      );
+      final a = INotesClient(participant: user, target: Who.widlet('work'));
+      final b = INotesClient(participant: user, target: Who.widlet('personal'));
       await a.add(text: 'work item');
       await b.add(text: 'personal item');
       await user.settle();
@@ -190,7 +187,7 @@ void main() {
       expect(
         INotesClient(
           participant: p,
-          provider: Who.widlet('notes'),
+          target: Who.widlet('notes'),
         ).mismatches.keys,
         {
           WordAddress(Who.widlet('notes'), 'notes.add').toString(),
@@ -214,7 +211,7 @@ void main() {
     expect(
       INotesClient(
         participant: p,
-        provider: Who.widlet('notes'),
+        target: Who.widlet('notes'),
       ).status(NotesCommand.add),
       const WordMissing(),
     );
@@ -228,7 +225,7 @@ void main() {
     expect(
       INotesClient(
         participant: p,
-        provider: Who.widlet('notes'),
+        target: Who.widlet('notes'),
       ).status(NotesCommand.add),
       const WordReady(),
     );
@@ -237,7 +234,7 @@ void main() {
     expect(
       INotesClient(
         participant: p,
-        provider: Who.widlet('notes'),
+        target: Who.widlet('notes'),
       ).status(NotesCommand.add),
       const WordMissing(),
     );

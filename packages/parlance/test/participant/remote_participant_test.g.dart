@@ -127,7 +127,7 @@ abstract interface class IKittensClient {
   /// what `main` gives a part that uses them.
   factory IKittensClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$KittensClient;
 
   /// The words through the participant [owner] is attached to,
@@ -135,7 +135,7 @@ abstract interface class IKittensClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory IKittensClient.of({
     required IOwner owner,
-    required Principal provider,
+    required Principal target,
   }) = _$KittensClient._of;
 
   /// kittens.lamp: its value now, and its changes.
@@ -168,13 +168,13 @@ abstract interface class IKittensClient {
 final class _$KittensClient implements IKittensClient {
   _$KittensClient({
     required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+    required Principal target,
+  }) : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(kittensWords.words, from: kittensWords.from);
   }
 
-  _$KittensClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$KittensClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(kittensWords.words, from: kittensWords.from);
   }
 

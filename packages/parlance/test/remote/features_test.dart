@@ -69,13 +69,13 @@ void main() {
   });
 
   test(
-    'provider addressing is required even when no optional features are requested',
+    'target addressing is required even when no optional features are requested',
     () async {
       await expectLater(
         join(features: const {}),
         throwsA(
           isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
-            'providers',
+            'targets',
           }),
         ),
       );
@@ -85,7 +85,7 @@ void main() {
   test('a host without a feature a guest requires is refused, saying '
       'which', () async {
     await expectLater(
-      join(features: const {'providers'}, requires: {'built'}),
+      join(features: const {'targets'}, requires: {'built'}),
       throwsA(
         isA<ProtocolMismatch>()
             .having((e) => e.missing, 'missing', {'built'})
@@ -97,9 +97,9 @@ void main() {
   test('a guest uses what the host does not speak not at all, and works '
       'on', () async {
     final errors = <ParticipantError>[];
-    final p = await join(features: const {'providers'});
+    final p = await join(features: const {'targets'});
     p.errors.listen(errors.add);
-    p.builtAgainst(Built.values, provider: const Principal('deck'));
+    p.builtAgainst(Built.values, target: const Principal('deck'));
     await p.flush();
     expect(r.mismatches, isEmpty, reason: 'nothing told an older host');
     // Nothing it sent was refused; what does not meet the code it learns
@@ -112,7 +112,7 @@ void main() {
 
   test('a host that speaks it is told', () async {
     final p = await join();
-    p.builtAgainst(Built.values, provider: const Principal('deck'));
+    p.builtAgainst(Built.values, target: const Principal('deck'));
     await p.flush();
     expect(r.mismatches.single.word, 'deck/deck.volume');
     await p.dispose();
@@ -120,7 +120,7 @@ void main() {
 
   test('a feature a guest does not know is passed over', () async {
     final p = await join(features: {...parlanceFeatures, 'grease-zz'});
-    p.builtAgainst(Built.values, provider: const Principal('deck'));
+    p.builtAgainst(Built.values, target: const Principal('deck'));
     await p.flush();
     expect(r.mismatches, hasLength(1));
     await p.dispose();

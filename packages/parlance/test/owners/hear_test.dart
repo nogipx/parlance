@@ -26,7 +26,7 @@ final class _Door extends DoorOwnerBase {}
 final class _Book extends BookOwnerBase {
   _Book() {
     hear(
-      fact: IDoorClient.of(owner: this, provider: const Principal('door')).rang,
+      fact: IDoorClient.of(owner: this, target: const Principal('door')).rang,
       onData: (r) => last.set(r.who),
     );
   }

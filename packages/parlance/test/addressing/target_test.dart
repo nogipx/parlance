@@ -9,7 +9,7 @@ import 'package:parlance/src/remote/contract.dart'
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 
-part 'provider_test.g.dart';
+part 'target_test.g.dart';
 
 const work = Principal('module', 'work');
 const personal = Principal('module', 'personal');
@@ -100,8 +100,8 @@ abstract class Bridge {
 }
 
 final class Forwarding extends BridgeOwnerBase {
-  Forwarding(Principal provider) {
-    counter = ICounterClient.of(owner: this, provider: provider);
+  Forwarding(Principal target) {
+    counter = ICounterClient.of(owner: this, target: target);
   }
   late final ICounterClient counter;
   @override
@@ -147,9 +147,9 @@ void main() {
             await publish(work, Counting(2));
             await publish(personal, Counting(10));
             await publish(bare, Counting(30));
-            final a = ICounterClient(participant: user, provider: work);
-            final b = ICounterClient(participant: user, provider: personal);
-            final c = ICounterClient(participant: user, provider: bare);
+            final a = ICounterClient(participant: user, target: work);
+            final b = ICounterClient(participant: user, target: personal);
+            final c = ICounterClient(participant: user, target: bare);
             final heardA = <int>[], heardB = <int>[];
             final sa = a.changed.payloads.listen((e) => heardA.add(e.value));
             final sb = b.changed.payloads.listen((e) => heardB.add(e.value));
@@ -209,7 +209,7 @@ void main() {
               isA<CallDone<Object?>>().having((r) => r.value, 'value', 2),
             );
             expect(
-              await ICounterClient(participant: user, provider: work).current(),
+              await ICounterClient(participant: user, target: work).current(),
               3,
             );
           },
@@ -221,8 +221,8 @@ void main() {
             final left = Counting(1), right = Counting(8);
             await publish(work, left);
             await publish(personal, right);
-            final a = ICounterClient(participant: user, provider: work);
-            final b = ICounterClient(participant: user, provider: personal);
+            final a = ICounterClient(participant: user, target: work);
+            final b = ICounterClient(participant: user, target: personal);
             final fa = <Fact<CounterChanged>>[], fb = <Fact<CounterChanged>>[];
             final sa = a.changed.facts.listen(fa.add);
             final sb = b.changed.facts.listen(fb.add);
@@ -240,13 +240,13 @@ void main() {
         );
 
         test(
-          'bound clients and discovery follow exact provider lifetimes',
+          'bound clients and discovery follow exact target lifetimes',
           () async {
-            final a = ICounterClient(participant: user, provider: work);
+            final a = ICounterClient(participant: user, target: work);
             expect(a.status(CounterCommand.add), const WordMissing());
             final seen = <List<Principal>>[];
             final sub = user
-                .providerChanges(word: CounterCommand.add)
+                .targetChanges(word: CounterCommand.add)
                 .listen((v) => seen.add(v.map((p) => p.principal).toList()));
             await host.settle();
             final p = await publish(work, Counting(1));
@@ -254,7 +254,7 @@ void main() {
             await host.settle();
             expect(a.status(CounterCommand.add), const WordReady());
             expect(
-              (await user.providers(
+              (await user.targets(
                 vocabulary: counterWords,
               )).map((p) => p.principal),
               [personal, work],
@@ -267,7 +267,7 @@ void main() {
             expect(
               await ICounterClient(
                 participant: user,
-                provider: personal,
+                target: personal,
               ).current(),
               8,
             );
@@ -298,8 +298,8 @@ void main() {
                 access: WordAccess(callers: Callers.anyone),
               );
             }
-            final counter = ICounterClient(participant: user, provider: work);
-            final client = IBridgeClient(participant: user, provider: proxy);
+            final counter = ICounterClient(participant: user, target: work);
+            final client = IBridgeClient(participant: user, target: proxy);
             expect(await client.forward(amount: 3), 4);
             await host.settle();
             expect(counter.caller.value, 'module/proxy@bridge');
@@ -319,9 +319,9 @@ void main() {
           await publish(work, Counting(1, nonnegative: true));
           await publish(personal, Counting(8));
           await publish(bare, Counting(30), callers: Callers.only(['admin']));
-          final a = ICounterClient(participant: user, provider: work);
-          final b = ICounterClient(participant: user, provider: personal);
-          final c = ICounterClient(participant: user, provider: bare);
+          final a = ICounterClient(participant: user, target: work);
+          final b = ICounterClient(participant: user, target: personal);
+          final c = ICounterClient(participant: user, target: bare);
           expect(await b.add(amount: -1), 7);
           await expectLater(
             a.add(amount: -1),
@@ -338,13 +338,9 @@ void main() {
             ),
           );
           expect(c.status(CounterCommand.add), const WordNotPermitted());
-          final providers = await user.providers(word: CounterCommand.add);
+          final targets = await user.targets(word: CounterCommand.add);
           expect(
-            providers
-                .singleWhere((p) => p.principal == bare)
-                .words
-                .single
-                .status,
+            targets.singleWhere((p) => p.principal == bare).words.single.status,
             const WordNotPermitted(),
           );
           expect(await a.current(), 1);
@@ -378,11 +374,11 @@ void main() {
       );
       final user = host.participant(ann);
       expect(
-        await ICounterClient(participant: user, provider: work).current(),
+        await ICounterClient(participant: user, target: work).current(),
         1,
       );
       expect(
-        await ICounterClient(participant: user, provider: personal).current(),
+        await ICounterClient(participant: user, target: personal).current(),
         8,
       );
     },
@@ -395,11 +391,9 @@ void main() {
       addTearDown(host.dispose);
       final owner = host.participant(work, vocabularies: [counterWords]).raw;
       final user = host.participant(ann);
-      expect(await user.providers(vocabulary: counterWords), isEmpty);
-      final seen = <List<WordProvider>>[];
-      final sub = user
-          .providerChanges(word: CounterCommand.add)
-          .listen(seen.add);
+      expect(await user.targets(vocabulary: counterWords), isEmpty);
+      final seen = <List<WordTarget>>[];
+      final sub = user.targetChanges(word: CounterCommand.add).listen(seen.add);
       await host.settle();
       String? unavailable;
       final definition = owner.defineCommand(
@@ -435,7 +429,7 @@ void main() {
   );
 
   test(
-    'unscoped calls never select a provider and a peer cannot publish another principal',
+    'unscoped calls never select a target and a peer cannot publish another principal',
     () async {
       final host = TestHost();
       addTearDown(host.dispose);
@@ -480,7 +474,7 @@ void main() {
         isNull,
       );
       expect(
-        await ICounterClient(participant: caller, provider: work).current(),
+        await ICounterClient(participant: caller, target: work).current(),
         1,
       );
     },
@@ -509,8 +503,8 @@ void main() {
           final user = consumerAcross
               ? await host.join(ann)
               : host.participant(ann);
-          final ca = ICounterClient(participant: user, provider: work);
-          final cb = ICounterClient(participant: user, provider: personal);
+          final ca = ICounterClient(participant: user, target: work);
+          final cb = ICounterClient(participant: user, target: personal);
           host.registry.alias(
             'module/work/counter.old',
             'module/work/counter.value',
@@ -522,16 +516,13 @@ void main() {
           await host.settle();
           const old = StateWordOf<int>('counter.old', PlainShape(IntType()));
           expect(
-            GeneratedWords(
-              participant: user,
-              provider: work,
-            ).stateOf(old).value,
+            GeneratedWords(participant: user, target: work).stateOf(old).value,
             1,
           );
           expect(
             GeneratedWords(
               participant: user,
-              provider: personal,
+              target: personal,
             ).stateOf(old).value,
             8,
           );
@@ -554,17 +545,13 @@ void main() {
           expect(host.registry.mismatches.map((m) => m.word).toSet(), {
             'module/work/counter.value',
           });
-          final providers = await user.providers(word: CounterState.value);
+          final targets = await user.targets(word: CounterState.value);
           expect(
-            providers
-                .singleWhere((p) => p.principal == work)
-                .words
-                .single
-                .status,
+            targets.singleWhere((p) => p.principal == work).words.single.status,
             isA<WordMismatch>(),
           );
           expect(
-            providers
+            targets
                 .singleWhere((p) => p.principal == personal)
                 .words
                 .single
@@ -601,11 +588,11 @@ void main() {
         isA<CallRefused>().having((r) => r.code, 'code', Refusal.idConflict),
       );
       expect(
-        await ICounterClient(participant: user, provider: work).current(),
+        await ICounterClient(participant: user, target: work).current(),
         2,
       );
       expect(
-        await ICounterClient(participant: user, provider: personal).current(),
+        await ICounterClient(participant: user, target: personal).current(),
         8,
       );
     },

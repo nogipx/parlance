@@ -212,13 +212,13 @@ abstract interface class IDeckClient {
   /// what `main` gives a part that uses them.
   factory IDeckClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$DeckClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IDeckClient.of({required IOwner owner, required Principal provider}) =
+  factory IDeckClient.of({required IOwner owner, required Principal target}) =
       _$DeckClient._of;
 
   /// deck.volume: its value now, and its changes.
@@ -280,13 +280,13 @@ abstract interface class IDeckClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$DeckClient implements IDeckClient {
-  _$DeckClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$DeckClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(deckWords.words, from: deckWords.from);
   }
 
-  _$DeckClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$DeckClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(deckWords.words, from: deckWords.from);
   }
 

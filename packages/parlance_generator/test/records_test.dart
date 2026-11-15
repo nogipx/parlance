@@ -139,7 +139,7 @@ void main() {
     expect(
       IBoardClient(
         participant: host.participant(ann.ofOwner('reader')),
-        provider: me,
+        target: me,
       ).notes.of('n1')!.author,
       'Ann',
     );

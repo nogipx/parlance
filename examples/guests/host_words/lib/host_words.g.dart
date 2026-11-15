@@ -81,13 +81,13 @@ abstract interface class IAppClient {
   /// what `main` gives a part that uses them.
   factory IAppClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$AppClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IAppClient.of({required IOwner owner, required Principal provider}) =
+  factory IAppClient.of({required IOwner owner, required Principal target}) =
       _$AppClient._of;
 
   /// app.dark: its value now, and its changes.
@@ -115,13 +115,13 @@ abstract interface class IAppClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$AppClient implements IAppClient {
-  _$AppClient({required IParticipant participant, required Principal provider})
-    : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$AppClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 
-  _$AppClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$AppClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(appWords.words, from: appWords.from);
   }
 

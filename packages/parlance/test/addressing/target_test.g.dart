@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'provider_test.dart';
+part of 'target_test.dart';
 
 // **************************************************************************
 // VocabularyGenerator
@@ -218,7 +218,7 @@ abstract interface class ICounterClient {
   /// what `main` gives a part that uses them.
   factory ICounterClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$CounterClient;
 
   /// The words through the participant [owner] is attached to,
@@ -226,7 +226,7 @@ abstract interface class ICounterClient {
   /// streams heard (`hear`, `listen`) once it is attached.
   factory ICounterClient.of({
     required IOwner owner,
-    required Principal provider,
+    required Principal target,
   }) = _$CounterClient._of;
 
   /// counter.value: its value now, and its changes.
@@ -278,13 +278,13 @@ abstract interface class ICounterClient {
 final class _$CounterClient implements ICounterClient {
   _$CounterClient({
     required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+    required Principal target,
+  }) : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(counterWords.words, from: counterWords.from);
   }
 
-  _$CounterClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$CounterClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(counterWords.words, from: counterWords.from);
   }
 
@@ -441,16 +441,14 @@ abstract interface class IBridgeClient {
   /// what `main` gives a part that uses them.
   factory IBridgeClient({
     required IParticipant participant,
-    required Principal provider,
+    required Principal target,
   }) = _$BridgeClient;
 
   /// The words through the participant [owner] is attached to,
   /// for an owner that uses them: made in its constructor, its
   /// streams heard (`hear`, `listen`) once it is attached.
-  factory IBridgeClient.of({
-    required IOwner owner,
-    required Principal provider,
-  }) = _$BridgeClient._of;
+  factory IBridgeClient.of({required IOwner owner, required Principal target}) =
+      _$BridgeClient._of;
 
   /// Calls bridge.forward; a call not done throws [CallNotDone]. [cancel] cancels this call:
   /// once cancelled, it throws [CallNotDone] of `CallCancelled`.
@@ -474,15 +472,13 @@ abstract interface class IBridgeClient {
 /// built against them, for it to say where one is defined
 /// otherwise (SPEC §6.9).
 final class _$BridgeClient implements IBridgeClient {
-  _$BridgeClient({
-    required IParticipant participant,
-    required Principal provider,
-  }) : _$words = GeneratedWords(participant: participant, provider: provider) {
+  _$BridgeClient({required IParticipant participant, required Principal target})
+    : _$words = GeneratedWords(participant: participant, target: target) {
     _$words.builtAgainst(bridgeWords.words, from: bridgeWords.from);
   }
 
-  _$BridgeClient._of({required IOwner owner, required Principal provider})
-    : _$words = GeneratedWords.of(owner: owner, provider: provider) {
+  _$BridgeClient._of({required IOwner owner, required Principal target})
+    : _$words = GeneratedWords.of(owner: owner, target: target) {
     _$words.builtAgainst(bridgeWords.words, from: bridgeWords.from);
   }
 

@@ -128,7 +128,7 @@ void main() {
     r = Registry();
     orders = GeneratedWords(
       participant: r.participant(owner, vocabularies: [WordSet.open('orders')]),
-      provider: owner,
+      target: owner,
     );
   });
   tearDown(() => r.dispose());

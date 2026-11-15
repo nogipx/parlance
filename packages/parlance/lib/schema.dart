@@ -13,7 +13,7 @@
 library;
 
 export 'src/participant/participant.dart'
-    show ProvidedWord, WordProvider, ProviderDiscovery;
+    show PublishedWord, WordTarget, TargetDiscovery;
 export 'src/registry/address.dart' show WordAddress;
 export 'src/core/core.dart' show IHandle;
 export 'src/participant/owner.dart'

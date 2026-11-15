@@ -28,7 +28,7 @@ extension on RemoteParticipant {
   }
 
   void _mayOpenData({
-    bool providing = false,
+    bool serving = false,
     String kind = 'serverStream',
     bool reserved = false,
   }) {
@@ -59,9 +59,9 @@ extension on RemoteParticipant {
       );
     }
     if (reserved) return;
-    final active = providing
-        ? _providedData.length
-        : _data.length - _providedData.length;
+    final active = serving
+        ? _servedData.length
+        : _data.length - _servedData.length;
     if (_dataLimits.subscriptions case final max? when active >= max) {
       throw const StreamFailure(
         StreamFailureCode.resourceExhausted,
@@ -76,7 +76,7 @@ extension on RemoteParticipant {
     WhyNot? whyNot,
     Principal? as,
   ) {
-    raw = raw.providedBy(who) as DataStreamDescriptor;
+    raw = raw.atTarget(who) as DataStreamDescriptor;
     _mayDefine(raw);
     if (!_supportsData(raw.kind)) {
       throw const StreamFailure(
@@ -227,13 +227,13 @@ extension on RemoteParticipant {
     limits: _dataLimits,
     context: context,
     admit: (lease) {
-      _mayOpenData(providing: true, kind: kind);
+      _mayOpenData(serving: true, kind: kind);
       _data[lease] = who;
-      _providedData.add(lease);
+      _servedData.add(lease);
     },
     release: (lease) {
       _data.remove(lease);
-      _providedData.remove(lease);
+      _servedData.remove(lease);
     },
   );
 
@@ -248,7 +248,7 @@ extension on RemoteParticipant {
     _DataSource? source;
     return boundedStream<Object?>(
       () {
-        _mayOpenData(providing: true, kind: kind, reserved: lifetime != null);
+        _mayOpenData(serving: true, kind: kind, reserved: lifetime != null);
         if (request['name'] is! String ||
             request['id'] is! String ||
             request['params'] is! Map ||
@@ -286,7 +286,7 @@ extension on RemoteParticipant {
         source = found;
         expiry = lifetime?.token.onCancel(() => lease.end(lifetime.failure));
         _data[lifetime ?? lease] = found.as ?? who;
-        _providedData.add(lifetime ?? lease);
+        _servedData.add(lifetime ?? lease);
         found.open.add(lease);
         final call = StreamCall(
           request['id']! as String,
@@ -327,7 +327,7 @@ extension on RemoteParticipant {
         expiry?.dispose();
         if (lifetime == null) {
           _data.remove(lease);
-          _providedData.remove(lease);
+          _servedData.remove(lease);
         }
         lease.token.cancel();
       },
