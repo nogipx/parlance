@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:parlance/tools.dart';
 import 'package:rpc_dart/logger.dart';
 import 'package:test/test.dart';
@@ -7,6 +9,76 @@ import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 
 /// The journal (SPEC §9.3): what happened at the level of use, in order.
 void main() {
+  for (final refusal in [false, true]) {
+    test(
+      'paused journal rejects an oversized error, refusal=$refusal',
+      () async {
+        final r = Registry(limits: HostLimits.light);
+        addTearDown(r.dispose);
+        final errors = <Object>[];
+        final entries = <JournalEntry>[];
+        final done = Completer<void>();
+        final sub = r.journal.listen(
+          entries.add,
+          onError: (Object e) => errors.add(e),
+          onDone: done.complete,
+        );
+        addTearDown(sub.cancel);
+        final large = 'x' * (5 << 20);
+        r.defineCommand(
+          CommandDescriptor('house.run', callers: Callers.anyone),
+          (_) => failCall(large),
+          whyNot: refusal ? () => large : null,
+        );
+        sub.pause();
+        final result = await r.call('house.run', {}, by: user);
+        expect(result, refusal ? isA<CallRefused>() : isA<CallFailed>());
+        sub.resume();
+        await done.future.timeout(const Duration(seconds: 1));
+        expect(
+          errors.single,
+          isA<StreamFailure>().having(
+            (e) => e.code,
+            'code',
+            StreamFailureCode.resourceExhausted,
+          ),
+        );
+        expect(entries.whereType<JournalEnd>(), isEmpty);
+      },
+    );
+  }
+
+  test(
+    'journal weights include both results even without success payloads',
+    () {
+      final large = 'x' * (5 << 20);
+      for (final result in [
+        CallFailed(large),
+        CallFailed('short', StackTrace.fromString(large)),
+        CallRefused(Refusal.denied, large),
+        CallRefused(Refusal.denied, 'short', guard: large),
+        CallLost('id', large),
+      ]) {
+        final entry = JournalEnd(
+          CallRecord(
+            id: 'call',
+            command: 'house.run',
+            params: {},
+            cause: const Cause(user),
+            result: const CallDone(null),
+            replyResult: result,
+            started: DateTime.utc(2026),
+            finished: DateTime.utc(2026),
+          ),
+          epoch: 'epoch',
+          n: 1,
+          payloads: false,
+        );
+        expect(entry.retainedBytes, greaterThan(5 << 20));
+      }
+    },
+  );
+
   test('a conversation in order: the call, what its handler said and '
       'wrote, the call that answered the fact, their ends', () async {
     final r = Registry();
@@ -62,7 +134,9 @@ void main() {
       'end clip.save',
     ]);
     expect({for (final e in journal) e.conversation}, {'start'});
-    expect([for (final e in journal) e.n], List.generate(journal.length, (i) => i + 1));
+    expect([
+      for (final e in journal) e.n,
+    ], List.generate(journal.length, (i) => i + 1));
     expect({for (final e in journal) e.epoch}, {r.epoch});
     expect(journal.every((e) => e.trace == null), isTrue, reason: 'no log');
     await r.dispose();
@@ -79,7 +153,10 @@ void main() {
     final end = journal.whereType<JournalEnd>().single;
     expect(journal.whereType<JournalStart>(), isEmpty);
     expect(journal.whereType<JournalWrite>(), isEmpty);
-    expect(journal.whereType<JournalDiagnostic>().map((e) => e.event), containsAll(['attempt', 'refused']));
+    expect(
+      journal.whereType<JournalDiagnostic>().map((e) => e.event),
+      containsAll(['attempt', 'refused']),
+    );
     expect((end.call.result as CallRefused).code, Refusal.notPermitted);
     expect(end.conversation, 'v');
     await f.r.dispose();
@@ -91,7 +168,11 @@ void main() {
     f.r.journal.listen(journal.add);
     await f.r.call('door.lock', {'on': true}, by: user, id: 'm');
     await pumpEventQueue();
-    expect(journal.where((e) => e is! JournalDiagnostic).map((e) => e.kind), ['start', 'write', 'end']);
+    expect(journal.where((e) => e is! JournalDiagnostic).map((e) => e.kind), [
+      'start',
+      'write',
+      'end',
+    ]);
     for (final e in journal) {
       final json = e.toJson();
       expect(json, containsPair('conversation', 'm'));
@@ -124,7 +205,9 @@ void main() {
     await f.r.call('door.lock', {'on': true}, by: visitor, id: 'v');
     await pumpEventQueue();
     final span = spans.single;
-    final ofCall = journal.where((e) => e.conversation == 'm' && e is! JournalDiagnostic).toList();
+    final ofCall = journal
+        .where((e) => e.conversation == 'm' && e is! JournalDiagnostic)
+        .toList();
     expect(ofCall.map((e) => e.kind), ['start', 'write', 'end']);
     for (final e in ofCall) {
       expect(e.trace, '00-${span.traceId}-${span.spanId}-01');

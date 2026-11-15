@@ -14,7 +14,7 @@ Two peer services over one connection (`RpcPeerEndpoint` on both sides), generat
 | `feed(epoch?, since?, features?)` | server stream | the catalog as `describe` gives it, first and on every catalog change; then the feed of §12, as the session's subscription carries it; and after a tick that changes which commands cannot run, the whole set of them (`unavailable`) |
 | `subscribe(states?, facts?)` | unary | what the session's feeds carry: these states and facts, or all of them (null); answers the subscription's number |
 | `call(id, command, params, test, parent?)` | unary | a call on behalf of the session's principal |
-| `why(state, key?)` | unary | `Registry.explain` as an `Explanation` |
+| `why(state?, key?, call?, historyCount?, features?)` | unary | `Registry.explain` as an `Explanation`, or call inspection with `causalDiagnostics` |
 | `recent(fact, count)` | unary | the last facts of a name the registry keeps |
 | `define(descriptor)` | unary | a state, a command or a fact of the session's own, as far as the host lets it |
 | `undefine(name)` | unary | withdraws a word the session defined |
@@ -60,6 +60,17 @@ Two peer services over one connection (`RpcPeerEndpoint` on both sides), generat
 - **A word's `readers` (§6.1, §6.3) bound what a session sees of it.** A state it may not read is left out of its snapshots, ticks (the next tick sent still starts right after the last one sent), `values` items; a fact it may not hear, out of its ticks; `subscribe` naming either, `why` of the state and `recent` of the fact answer `permissionDenied`, and such a fact is no `parent` of what it does.
 - **Word status over remote** (§6.5). The feed's catalog says what the session's principal may call and read and which commands cannot run; an `unavailable` item follows a tick that changes the latter, whether or not the tick itself is sent. The mirror answers `statusOf(name)` from them and tells `statusChanges` when either moves; while cut off it answers what it had last. Protocol 5: a client skips a feed item of a kind it does not know. Protocol 6: `apply`, `judge`, and `describe` with the principal and namespaces. Protocol 7: an op of `apply` and a `call` may carry `as`, a part of the session's principal (§22.3); the host acts as that part, and refuses anything else; a part's guard is known as `<part>#<id>`. Protocol 8: a query is a descriptor of its own (`is: query`, `askers`, §6.6), defined and asked like a command over the same methods. Protocol 10: a principal is a path (`module/visit`, §4), in selectors and `describe`; ids joined to it are `<principal>#<id>`. Protocol 11: no layers, declarations or test marks (their methods, ops and fields are gone); `describe` tells `defaults`; the call a remote owner serves carries its span as `traceparent` (§9.2). Protocol 12: `describe` tells `vocabularies`, the names of the session's (was `namespaces`). Protocol 13: a principal is `kind[/id][@owner]` (§4), as JSON `{kind, id?, owner?}`; an id is one level; `as` names an owner of the session's principal. Protocol 14: a cause's `correlation` is `conversation`, and it may carry `origin` (`{word, by}`, §4). Protocol 15: `apply` takes `built` and `unbuilt` (§6.9, §25.4). These numbers were the protocol before its major was frozen: from then it is major 1, and what came in 15 is the feature `built`.
 - **The mirror** keeps a participant's copy of the states from the feed and, given a new client after a lost connection, resumes after the seq it has; a gap sends it back to a snapshot. `synced` is whether it follows the registry now: false when its feed is lost, true again with a snapshot, or at once when the feed resumes in the same epoch (nothing may have happened since). `subscribe(states, facts)` keeps only those (waiting until its feed has their values) and subscribes a new connection again before its feed; then its seq moves only with the ticks it carries, so `reach` does not wait for a write it does not keep. It keeps no facts: `recent` asks the registry, so the answer is the same here and there.
+
+### Causal diagnostics feature
+
+`causalDiagnostics` adds call inspection and opt-in state history to `why`.
+The host advertises it in `describe`; a client uses these additions only when
+the host lists it. For mixed `JournalEntry` trails, the client also lists
+`causalDiagnostics` in the `why` request's `features`. Without agreement on both
+sides, `trail` keeps its original bare `CallRecord` format and stops with
+`trailCut: true` at the first unsupported ancestor. New clients also decode
+original call-only responses; those entries have no epoch or journal sequence
+(`epoch: ''`, `n: 0`). The protocol major remains 1.
 
 ### 14.1 What arrives, and how often
 

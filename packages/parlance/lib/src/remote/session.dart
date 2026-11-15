@@ -475,16 +475,31 @@ final class RemoteSession extends ParlanceContractPeer
       _deny(_unreadable(state));
     }
     registry.usedBy(state, principal);
-    return WireJson(
-      registry
-          .explain(
-            state,
-            key: request.key,
-            by: principal,
-            historyCount: request.historyCount,
-          )
-          .toJson(),
+    final explanation = registry.explain(
+      state,
+      key: request.key,
+      by: principal,
+      historyCount: request.historyCount,
     );
+    if (features.contains('causalDiagnostics') &&
+        (request.features?.contains('causalDiagnostics') ?? false)) {
+      return WireJson(explanation.toJson());
+    }
+    // Original clients decode every trail item as a CallRecord. Stop at
+    // the first other kind so they see a contiguous, verifiable call path.
+    final trail = explanation.trail.takeWhile((e) => e is JournalEnd);
+    final legacy = [
+      for (final e in trail)
+        (e as JournalEnd).call.toJson(payloads: e.payloads),
+    ];
+    return WireJson({
+      ...explanation.toJson(),
+      'trail': legacy,
+      if (legacy.length < explanation.trail.length) ...{
+        'trailCut': true,
+        'gap': 'peer does not speak causalDiagnostics',
+      },
+    });
   }
 
   /// What the session's feeds carry ([onSubscribe]): these states and

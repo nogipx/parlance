@@ -478,6 +478,80 @@ void main() {
 
   for (final across in [false, true]) {
     test(
+      'inspection redacts a late result after access revocation across=$across',
+      () async {
+        final host = TestHost();
+        addTearDown(host.dispose);
+        final owner = host.participant(
+          const Principal('house'),
+          vocabularies: [const WordSet.open('house')],
+        );
+        final caller = across
+            ? await host.join(const Principal('user'))
+            : host.participant(const Principal('user'));
+        final release = Completer<void>();
+        owner.raw.defineCommand(
+          CommandDescriptor(
+            'house.slow',
+            params: const RecordType({'secret': Field(TextType())}),
+            returns: const TextType(),
+            callers: Callers.anyone,
+            deadline: const Duration(milliseconds: 10),
+          ),
+          (_) async {
+            await release.future;
+            return 'late secret';
+          },
+        );
+        expect(
+          await caller.raw.call('house/house.slow', {
+            'secret': 'input secret',
+          }, id: 'late-secret'),
+          isA<CallTimedOut>(),
+        );
+        host.setAccess(
+          address: WordAddress(owner.who, 'house.slow'),
+          access: const WordAccess(callers: Callers({'user': Access.deny})),
+        );
+        final ended = host.registry.calls.firstWhere(
+          (c) => c.id == 'user#late-secret' && c.late,
+        );
+        release.complete();
+        await ended;
+        expect(
+          await caller.raw.call('house/house.slow', {
+            'secret': 'input secret',
+          }, id: 'late-secret'),
+          isA<CallRefused>().having(
+            (r) => r.code,
+            'code',
+            Refusal.notPermitted,
+          ),
+        );
+        for (final id in ['late-secret', 'user#late-secret']) {
+          final inspection = await caller.raw.inspectCall(id);
+          final message = inspection['message'] as Map;
+          expect(message['payloads'], isFalse);
+          expect(message, isNot(contains('params')));
+          expect(message['result'], {'done': true});
+          expect(message['replyResult'], {'timedOut': true});
+          expect(inspection.toString(), isNot(contains('late secret')));
+        }
+        final trusted = host.registry.inspectCall('user#late-secret');
+        expect((trusted['message'] as Map)['result'], {
+          'done': true,
+          'value': 'late secret',
+        });
+        host.clearAccess(address: WordAddress(owner.who, 'house.slow'));
+        final restored = await caller.raw.inspectCall('late-secret');
+        expect((restored['message'] as Map)['result'], {
+          'done': true,
+          'value': 'late secret',
+        });
+      },
+    );
+
+    test(
       'call inspection and requested state history work across=$across',
       () async {
         final host = TestHost();

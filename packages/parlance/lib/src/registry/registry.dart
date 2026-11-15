@@ -205,31 +205,32 @@ final class Registry {
 
   void _emitStreamEvent(StreamEvent event) {
     if (_streamEvents.isClosed) return;
-    final s = event.stream;
-    _notice(
-      s.word,
-      'stream.${event.kind.name}',
-      id: s.id,
-      cause: s.cause,
-      data: {
-        'kind': s.kind,
-        'termination': s.termination?.name,
-        'failure': s.failure?.name,
-        'why': s.failureMessage,
-        'inputItems': s.input.items,
-        'outputItems': s.output.items,
-        'inputBytes': s.input.bytes,
-        'outputBytes': s.output.bytes,
-        'pendingItems': s.input.pendingItems + s.output.pendingItems,
-        'peakItems': s.input.peakItems + s.output.peakItems,
-      },
-    );
     _pendingStreamEvents.add(event);
     if (_emittingStreamEvent) return;
     _emittingStreamEvent = true;
     try {
       while (_pendingStreamEvents.isNotEmpty && !_streamEvents.isClosed) {
-        _streamEvents.add(_pendingStreamEvents.removeFirst());
+        final next = _pendingStreamEvents.removeFirst();
+        final s = next.stream;
+        _notice(
+          s.word,
+          'stream.${next.kind.name}',
+          id: s.id,
+          cause: s.cause,
+          data: {
+            'kind': s.kind,
+            'termination': s.termination?.name,
+            'failure': s.failure?.name,
+            'why': s.failureMessage,
+            'inputItems': s.input.items,
+            'outputItems': s.output.items,
+            'inputBytes': s.input.bytes,
+            'outputBytes': s.output.bytes,
+            'pendingItems': s.input.pendingItems + s.output.pendingItems,
+            'peakItems': s.input.peakItems + s.output.peakItems,
+          },
+        );
+        _streamEvents.add(next);
       }
     } finally {
       _emittingStreamEvent = false;

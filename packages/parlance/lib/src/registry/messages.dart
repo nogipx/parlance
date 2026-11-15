@@ -1261,7 +1261,11 @@ final class Explanation {
       change: m['change'] == null ? null : StateChange.fromJson(m['change']),
       trail: [
         for (final c in m['trail'] as List? ?? const [])
-          JournalEntry.fromJson(c),
+          // The original `why` response carried bare CallRecords, without
+          // journal ordering metadata. They remain readable from older hosts.
+          (c as Map).containsKey('kind')
+              ? JournalEntry.fromJson(c)
+              : JournalEnd(CallRecord.fromJson(c), epoch: '', n: 0),
       ],
       forgotten: m['forgotten'] == true,
       trailCut: m['trailCut'] == true,
@@ -1414,29 +1418,36 @@ int journalEntryWeight(JournalEntry entry) {
   int kept(Kept p) => p.shape?.weigh(p.value) ?? jsonWeight(p.value);
   int value(Shape<Object?>? shape, Object? v) =>
       v == null ? 8 : shape?.weigh(v) ?? jsonWeight(v);
+  int result(CallResult<Object?> r) => switch (r) {
+    _KeptDone(:final _kept) => entry.payloads ? kept(_kept) : 16,
+    CallDone(:final value) => entry.payloads ? jsonWeight(value) : 16,
+    CallFailed(:final error, :final stackTrace) =>
+      jsonWeight('$error') + jsonWeight(stackTrace?.toString()),
+    CallRefused(:final why, :final guard) =>
+      jsonWeight(why) + jsonWeight(guard),
+    CallLost(:final id, :final how) => jsonWeight(id) + jsonWeight(how),
+    CallTimedOut() || CallCancelled() => 16,
+  };
   final base =
       256 +
       2 *
           (entry.id.length +
               entry.word.length +
               entry.cause.toJson().toString().length);
-  if (!entry.payloads) {
-    return base + (entry is JournalDiagnostic ? jsonWeight(entry.data) : 0);
-  }
   return base +
       switch (entry) {
-        JournalStart(:final call) => kept(call._params),
+        JournalStart(:final call) => entry.payloads ? kept(call._params) : 0,
         JournalEnd(:final call) =>
-          kept(call._params) +
-              switch (call.result) {
-                _KeptDone(:final _kept) => kept(_kept),
-                CallDone(:final value) => jsonWeight(value),
-                _ => 16,
-              },
-        JournalFact(:final fact) => value(fact._shape, fact._payload),
+          (entry.payloads ? kept(call._params) : 0) +
+              result(call.result) +
+              (call.replyResult == null ? 0 : result(call.replyResult!)),
+        JournalFact(:final fact) =>
+          entry.payloads ? value(fact._shape, fact._payload) : 0,
         JournalWrite(:final change) =>
-          value(change._shape, change._value) +
-              value(change._shape, change._previous),
+          entry.payloads
+              ? value(change._shape, change._value) +
+                    value(change._shape, change._previous)
+              : 0,
         JournalDiagnostic(:final data) => jsonWeight(data),
       };
 }

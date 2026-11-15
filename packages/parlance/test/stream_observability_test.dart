@@ -86,6 +86,36 @@ Future<void> until(bool Function() ready) async {
 }
 
 void main() {
+  test('journal withdrawal during opening preserves lifecycle order', () async {
+    final f = _Fixture();
+    await f.start(false, false);
+    addTearDown(f.close);
+    var invoked = false;
+    f.store.processing = (_) {
+      invoked = true;
+      return const Stream.empty();
+    };
+    final journalEvents = <String>[];
+    final observer = f.host.registry.journal.listen((entry) {
+      if (entry case JournalDiagnostic(:final event)) {
+        if (event.startsWith('stream.')) journalEvents.add(event);
+        if (event == 'stream.opened') f.owner.dispose();
+      }
+    });
+    addTearDown(observer.cancel);
+    await expectLater(
+      f.client.preview(const Stream.empty()).toList(),
+      throwsA(isA<StreamFailure>()),
+    );
+    expect(invoked, isFalse);
+    expect(f.host.registry.activeStreams, isEmpty);
+    expect(f.events.map((e) => e.kind), [
+      StreamEventKind.opened,
+      StreamEventKind.closed,
+    ]);
+    expect(journalEvents, ['stream.opened', 'stream.closed']);
+  });
+
   test('disposal from an opened event releases the operation once', () async {
     final f = _Fixture();
     await f.start(false, false);

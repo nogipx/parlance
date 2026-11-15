@@ -34,6 +34,9 @@ const parlanceFeatures = {
   // Independent parameterized data subscriptions in both directions.
   'streams',
   'inputStreams',
+  // `why` accepts call inspection and state history, and can return mixed
+  // journal entries in its trail when the request also lists this feature.
+  'causalDiagnostics',
 };
 
 /// A field of the wrong type in a frame a peer built is the PEER's fault:
@@ -281,23 +284,27 @@ final class WireWhyRequest implements IRpcSerializable {
     this.key,
     this.call,
     this.historyCount = 0,
+    this.features,
   });
   factory WireWhyRequest.fromJson(Map<String, dynamic> m) => WireWhyRequest(
     state: _strOrNull(m, 'state'),
     key: _strOrNull(m, 'key'),
     call: _strOrNull(m, 'call'),
     historyCount: (m['historyCount'] as int? ?? 0).clamp(0, 100),
+    features: _strListOrNull(m, 'features')?.toSet(),
   );
   final String? state;
   final String? key;
   final String? call;
   final int historyCount;
+  final Set<String>? features;
   @override
   Map<String, dynamic> toJson() => {
     'state': ?state,
     'key': ?key,
     'call': ?call,
     if (historyCount != 0) 'historyCount': historyCount,
+    if (features case final f?) 'features': [...f],
   };
 }
 

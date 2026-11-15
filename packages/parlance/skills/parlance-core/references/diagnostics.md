@@ -46,8 +46,11 @@ History is opt-in, bounded to 100 changes, and may be incomplete.
 It accepts its own caller-supplied ID or the canonical operation ID and returns
 the same bounded, redacted causal trail and explicit gaps as a state explanation. The host's
 `registry.pending`, `running`, `diagnostics`, `message(id)` and `inspectCall(id)`
-are trusted tooling views. Participant explanations redact inaccessible ancestor
-payloads. An unresolved RPC parent is preserved as `Cause.unresolvedParent`, never
+are trusted tooling views. Participant explanations and call inspection redact
+payloads against the current access policy, including the inspected message and
+late results. RPC negotiates mixed trails through `causalDiagnostics`; older
+peers retain call-only trails with explicit gaps at unsupported ancestors.
+An unresolved RPC parent is preserved as `Cause.unresolvedParent`, never
 as a verified `parent` or a peer-supplied origin.
 
 `CallRecord.replyResult` and `repliedAt` preserve the earlier timeout/cancellation

@@ -110,9 +110,9 @@ extension RegistryDiagnostics on Registry {
 
   /// Inspects a call made or served by this participant, within retained history.
   Map<String, Object?> inspectCall(String id, {Principal? by}) {
-    JournalEntry? entry = message(id);
+    JournalEntry? entry = message(id, by: by);
     if (entry == null && by != null) {
-      entry = message('${by.whole.selector}#$id');
+      entry = message('${by.whole.selector}#$id', by: by);
     }
     final scoped = by == null ? id : '${by.whole.selector}#$id';
     final operation =

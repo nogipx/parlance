@@ -103,6 +103,7 @@ final class ParlanceClient {
   }) : _caller = ParlanceContractPeerCaller(endpoint);
 
   final ParlanceContractPeerCaller _caller;
+  Set<String>? _hostFeatures;
 
   /// The deadline of a request the registry answers at once (describe,
   /// why, recent facts), without a context of its own.
@@ -113,8 +114,21 @@ final class ParlanceClient {
   RpcContext _ctx(RpcContext? c) =>
       c ?? RpcContext.empty().withTimeout(timeout);
 
-  Future<Map<String, Object?>> describe({RpcContext? context}) async =>
-      (await _caller.describe(const RpcNull(), context: _ctx(context))).json;
+  Future<Map<String, Object?>> describe({RpcContext? context}) async {
+    final json = (await _caller.describe(
+      const RpcNull(),
+      context: _ctx(context),
+    )).json;
+    _hostFeatures = (json['features'] as List? ?? const [])
+        .whereType<String>()
+        .toSet();
+    return json;
+  }
+
+  Future<bool> _hasCausalDiagnostics(RpcContext? context) async {
+    if (_hostFeatures == null) await describe(context: context);
+    return _hostFeatures!.contains('causalDiagnostics');
+  }
 
   /// An independent data subscription, without a lifetime timeout.
   Future<WireJson> uploadData(Stream<WireJson> requests, RpcContext context) =>
@@ -272,8 +286,15 @@ final class ParlanceClient {
   ];
 
   /// Inspects a call's runtime state and recorded decisions.
-  Future<Map<String, Object?>> inspectCall(String id) async =>
-      (await _caller.why(WireWhyRequest(call: id), context: _ctx(null))).json;
+  Future<Map<String, Object?>> inspectCall(String id) async {
+    if (!await _hasCausalDiagnostics(null)) {
+      throw UnsupportedError('host does not speak causalDiagnostics');
+    }
+    return (await _caller.why(
+      WireWhyRequest(call: id, features: const {'causalDiagnostics'}),
+      context: _ctx(null),
+    )).json;
+  }
 
   /// Why [state] (of [key]) is as it is (Registry.explain).
   Future<Explanation> explain(
@@ -281,12 +302,20 @@ final class ParlanceClient {
     String? key,
     int historyCount = 0,
     RpcContext? context,
-  }) async => Explanation.fromJson(
-    (await _caller.why(
-      WireWhyRequest(state: state, key: key, historyCount: historyCount),
-      context: _ctx(context),
-    )).json,
-  );
+  }) async {
+    final diagnostics = await _hasCausalDiagnostics(context);
+    return Explanation.fromJson(
+      (await _caller.why(
+        WireWhyRequest(
+          state: state,
+          key: key,
+          historyCount: diagnostics ? historyCount : 0,
+          features: diagnostics ? const {'causalDiagnostics'} : null,
+        ),
+        context: _ctx(context),
+      )).json,
+    );
+  }
 
   /// Defines [d] as the session's own, as far as the host lets it. A
   /// command's calls come to the session's [RemoteOwner].
