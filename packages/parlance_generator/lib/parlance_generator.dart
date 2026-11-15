@@ -11,7 +11,7 @@
 /// ```yaml
 /// dev_dependencies:
 ///   build_runner: any
-///   parlance_generator: ^0.3.0
+///   parlance_generator: ^0.4.0
 /// ```
 ///
 /// and run `dart run build_runner build` — there is nothing to import here.

@@ -268,11 +268,6 @@ void main() {
       expect(asVisitor.status('house.show'), const WordReady(), reason: 'warn');
     });
 
-    test('an old name has the status of its word', () {
-      f.r.alias('door.silent', 'door.locked');
-      expect(LocalView(f.r, by: user).status('door.silent'), const WordReady());
-    });
-
     group('over remote', () {
       late Link link;
       late RegistryMirror mirror;

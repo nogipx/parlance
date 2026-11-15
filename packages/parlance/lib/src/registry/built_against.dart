@@ -20,14 +20,10 @@ import 'messages.dart';
 final class BuiltAgainst {
   BuiltAgainst({
     required Descriptor? Function(String word) descriptorOf,
-    required Map<String, String> aliases,
     required LogScope catalogLog,
-    required LogScope callLog,
     required bool traced,
   }) : _descriptorOf = descriptorOf,
-       _aliases = aliases,
        _catalogLog = catalogLog,
-       _callLog = callLog,
        _traced = traced;
 
   /// How many words one principal is told built against at most: past
@@ -40,10 +36,7 @@ final class BuiltAgainst {
 
   final Descriptor? Function(String word) _descriptorOf;
 
-  /// The registry's old names of words, each to the word's name now.
-  final Map<String, String> _aliases;
   final LogScope _catalogLog;
-  final LogScope _callLog;
   final bool _traced;
 
   /// The schemas told it, by fingerprint: a part tells a fingerprint
@@ -71,10 +64,6 @@ final class BuiltAgainst {
   /// The mismatches that a value may meet, by the word's name now: those
   /// with a break in what the code reads that a value may never meet.
   final Map<String, Set<(Principal, String)>> _open = {};
-
-  /// The name each mismatch of [_open] is kept under: an old name may
-  /// stand for another word by now.
-  final Map<(Principal, String), String> _openAt = {};
 
   /// Every word a principal's code was built against that is defined
   /// otherwise now, saying where it breaks.
@@ -140,24 +129,10 @@ final class BuiltAgainst {
     if (_known.length > knownSchemas) _known.remove(_known.keys.first);
   }
 
-  /// Word [name] came, went or was defined again: whoever was built
-  /// against it, or an old name of it, judged again.
+  /// Recheck code built against an exact word when its descriptor changes.
   void wordChanged(String name) {
-    final names = [
-      name,
-      for (final MapEntry(:key, :value) in _aliases.entries)
-        if (value == name) key,
-    ];
-    for (final n in names) {
-      aliasChanged(n);
-    }
-  }
-
-  /// Old name [alias] came, went or names another word: whoever was built
-  /// against it judged again.
-  void aliasChanged(String alias) {
-    for (final by in [...?_builtBy[alias]]) {
-      _judge(by, alias);
+    for (final by in [...?_builtBy[name]]) {
+      _judge(by, name);
     }
   }
 
@@ -196,14 +171,14 @@ final class BuiltAgainst {
 
   /// Whether [key]'s mismatch is one a value may meet, kept in [_open].
   void _openFor((Principal, String) key, List<WordBreak> breaks) {
-    if (_openAt.remove(key) case final was?) {
-      final keys = _open[was]!..remove(key);
-      if (keys.isEmpty) _open.remove(was);
+    final name = key.$2;
+    final keys = _open[name];
+    if (keys != null) {
+      keys.remove(key);
+      if (keys.isEmpty) _open.remove(name);
     }
     if (!breaks.any(_mayMeet)) return;
-    final name = _aliases[key.$2] ?? key.$2;
     (_open[name] ??= {}).add(key);
-    _openAt[key] = name;
   }
 
   /// A break in what code reads that a value may never meet: an enum
@@ -263,50 +238,6 @@ final class BuiltAgainst {
       }
     }
     if (found) _judge(key.$1, key.$2);
-  }
-
-  /// [params] of a call of [command] (as [takes] it) by [by], with what
-  /// [by] was built against giving and the command no longer takes left
-  /// out (SPEC §25.5), as Avro's reader skips a field it does not know:
-  /// code built before a param went goes on calling. Only for one whose
-  /// words are told otherwise (a [Mismatch] of [command]), and only params
-  /// of the call itself; what it gave is not heard, and the mismatch still
-  /// says so.
-  Kept adapted(
-    String command,
-    CallableDescriptor takes,
-    Kept params,
-    Principal by,
-  ) {
-    final mine = _built[by];
-    if (mine == null) return params;
-    final name = mine.containsKey(command)
-        ? command
-        : _aliases.entries
-              .where((a) => a.value == command && mine.containsKey(a.key))
-              .firstOrNull
-              ?.key;
-    if (name == null || !_mismatched.containsKey((by, name))) return params;
-    final built = mine[name]!.schema;
-    final gave = ((built as Map?)?['params'] as Map?)?['fields'] as Map?;
-    final json = params.json;
-    if (gave == null || json is! Map) return params;
-    final fields = takes.params.fields;
-    final gone = [
-      for (final k in json.keys)
-        if (!fields.containsKey(k) && gave.containsKey(k)) k,
-    ];
-    if (gone.isEmpty) return params;
-    if (_callLog.isEnabled(RpcLogLevel.info)) {
-      _callLog.info(
-        'params left out',
-        data: {'command': command, 'by': by.selector, 'params': gone},
-      );
-    }
-    return Kept.json({
-      for (final MapEntry(:key, :value) in json.entries)
-        if (!gone.contains(key)) key: value,
-    });
   }
 
   /// Logs a mismatch found as a warning in `catalog`; with no log, while

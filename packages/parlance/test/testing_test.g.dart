@@ -138,7 +138,7 @@ abstract final class WeatherVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'WeatherVocabulary.definition',
   );
 }
@@ -285,7 +285,7 @@ abstract final class HeaterVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'HeaterVocabulary.definition',
   );
 }
@@ -477,7 +477,7 @@ abstract final class ThermostatVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'ThermostatVocabulary.definition',
   );
 }
@@ -621,7 +621,7 @@ abstract final class LampVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'LampVocabulary.definition',
   );
 }

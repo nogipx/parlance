@@ -693,8 +693,7 @@ final class LocalParticipant implements IRawParticipant {
   @override
   void whyNotChanged(String command) {
     _live();
-    if (!_commands.contains(_r.canonical(command)) &&
-        !_streams.contains(_r.canonical(command))) {
+    if (!_commands.contains(command) && !_streams.contains(command)) {
       throw NotPermitted('$command is not $who\'s command');
     }
     _r.whyNotChanged(command);

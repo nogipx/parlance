@@ -56,20 +56,12 @@ final class MirrorView implements IRegistryView {
   /// Whether a telling failed: what it told is told again, all of it.
   bool _lost = false;
 
-  /// Whether each client's host speaks what a view tells it was built
-  /// against (SPEC §14), asked once a client.
-  static final Expando<Future<bool>> _speaksBuilt = Expando();
-
-  /// Tells [ops], to a host that speaks it, then the schemas the host does
+  /// Tells [ops], then the schemas the host does
   /// not know by fingerprint. Diagnostics: what the host refuses is not the
   /// view's to tell.
   Future<void> _tell(ParlanceClient c, List<Map<String, Object?>> ops) async {
-    final asked = _speaksBuilt[c] ??= c.describe().then(
-      (d) => (d['features'] as List? ?? const []).contains('built'),
-    );
     try {
       _lost = false;
-      if (!await asked) return;
       final answers = await c.apply(ops);
       final more = [
         for (var i = 0; i < ops.length && i < answers.length; i++)
@@ -78,7 +70,6 @@ final class MirrorView implements IRegistryView {
       if (more.isNotEmpty) await c.apply(more);
     } on Object {
       // Asked again next time, rather than never on this client.
-      if (identical(_speaksBuilt[c], asked)) _speaksBuilt[c] = null;
       _lost = true;
     }
   }
@@ -171,8 +162,7 @@ final class MirrorView implements IRegistryView {
           allowed = now;
         });
         sub = mirror.ticks.listen((t) {
-          // An old name of a fact hears the fact (SPEC §6.4).
-          final name = mirror.canonical(fact);
+          final name = fact;
           for (final f in t.facts) {
             if (f.fact == name) out.add((mirror.accessRevision(fact), f));
           }

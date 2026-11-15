@@ -3,7 +3,7 @@ part of 'registry.dart';
 /// The declaration stays with its handles; the host's policy is stored separately.
 extension on Registry {
   Descriptor? _declared(String word) {
-    final n = canonical(word);
+    final n = word;
     return _states[n]?.descriptor ??
         _commands[n]?.descriptor ??
         _facts[n]?.descriptor ??
@@ -64,7 +64,7 @@ extension on Registry {
   void _setAccess(WordAddress address, WordAccess? access) {
     refuseInQuery('change access to $address');
     if (_disposing) throw StateError('the host ended');
-    final word = canonical(address.toString());
+    final word = address.toString();
     Callers? copy(Callers? p) {
       if (p == null) return null;
       p.check();
@@ -101,7 +101,7 @@ extension on Registry {
     _accessRevisions[word] = accessRevision(word) + 1;
     // Revocation closes streams synchronously before any more values are admitted.
     for (final observation in _activeStreams.values.toList()) {
-      if (canonical(observation.word) == word &&
+      if (observation.word == word &&
           _accessFor(word, observation.cause.by) == Access.deny) {
         _streamLeases[observation.id]?.end(
           StreamFailure(
@@ -130,9 +130,7 @@ extension on Registry {
       'revision': accessRevision(word),
       'access': _accessFor(word, by).name,
       'selector': selector,
-      'source': _wordAccess.containsKey(canonical(word))
-          ? 'host'
-          : 'declaration',
+      'source': _wordAccess.containsKey(word) ? 'host' : 'declaration',
     };
   }
 

@@ -8,9 +8,9 @@ import 'cause.dart';
 import 'messages.dart';
 
 /// Who used each word, by the name used (SPEC §6.8): calls and asks, reads
-/// and listeners from outside the build. Only a name there is a word of
-/// (or an old name of one) is counted, so a peer's made-up names keep
-/// nothing; for one word at most [perWord] principals are told apart, the
+/// and listeners from outside the build. Only defined word names count,
+/// so a peer's made-up names keep nothing. At most [perWord] principals
+/// are told apart for one word, the
 /// rest counted under their kind alone.
 final class WordUses {
   WordUses({
@@ -60,9 +60,8 @@ final class WordUses {
     for (final name in _uses.keys) name: of(name),
   };
 
-  /// What was counted of [name], a name that is no longer a word nor an
-  /// old name of one: there is nothing left to remove that a count would
-  /// warn of. Who listens to it now stays, so a word defined again under
+  /// Drops past uses of [name] after its word is removed.
+  /// Who listens to it now stays, so a word defined again under
   /// it (a plugin reloaded) goes on counting them.
   void forget(String name) {
     final users = _uses[name];

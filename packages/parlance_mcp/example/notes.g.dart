@@ -181,7 +181,7 @@ abstract final class NotesVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance_mcp 0.2.0',
+    from: 'parlance_mcp 0.3.0',
     dartName: 'NotesVocabulary.definition',
   );
 }

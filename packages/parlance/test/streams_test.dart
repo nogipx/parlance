@@ -102,7 +102,7 @@ class _Fixture {
   }) async {
     final (a, b) = RpcChannelTransport.pair();
     final server = RpcPeerEndpoint(transport: a);
-    // The tools extension permits simulating an older host's features.
+    // Tests can advertise an incomplete contract to verify join refusal.
     final raw =
         host
                 .participant(
@@ -452,38 +452,6 @@ void main() {
     }
   }
 
-  test(
-    'an older host is never sent stream definitions or built schemas',
-    () async {
-      final f = _Fixture();
-      addTearDown(f.close);
-      final p = await f.guest(
-        'old',
-        owns: true,
-        features: {...parlanceFeatures}..remove('streams'),
-      );
-      final client = IDataClient(
-        participant: p,
-        target: const Principal('producer'),
-      );
-      final errors = <ParticipantError>[];
-      final sub = p.errors.listen(errors.add);
-      await p.settle();
-      expect(f.host.registry.mismatches, isEmpty);
-      await expectLater(
-        client.numbers(start: 0),
-        emitsError(failure(StreamFailureCode.unsupported)),
-      );
-      await expectLater(
-        p.attach([f.owner]),
-        throwsA(failure(StreamFailureCode.unsupported)),
-      );
-      expect(f.host.registry.catalog, isEmpty);
-      expect(errors, isEmpty);
-      await sub.cancel();
-    },
-  );
-
   for (final remote in [false, true]) {
     group('limits with ${remote ? 'remote' : 'local'} consumer', () {
       test(
@@ -610,16 +578,19 @@ void main() {
     });
   }
 
-  test('the streams feature can be required before joining', () async {
+  test('a host missing streams is rejected before joining', () async {
     final f = _Fixture();
     addTearDown(f.close);
-    final p = await f.guest('old', features: const {'targets'});
     await expectLater(
-      Host.joinEndpoint(
-        (p as RemoteParticipant).endpoint,
-        requires: {'streams'},
+      f.guest(
+        'incompatible',
+        features: {...parlanceFeatures}..remove('streams'),
       ),
-      throwsA(isA<ProtocolMismatch>()),
+      throwsA(
+        isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
+          'streams',
+        }),
+      ),
     );
   });
 

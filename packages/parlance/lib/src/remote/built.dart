@@ -25,8 +25,6 @@ final class BuiltTold {
     Map<String, Object?> schemas, {
     String? from,
     Principal? as,
-    bool streams = true,
-    bool inputStreams = true,
   }) {
     final had = _told.putIfAbsent(as, () => {});
     bool same(String word, Object? schema) => switch (had[word]) {
@@ -42,11 +40,7 @@ final class BuiltTold {
     for (final MapEntry(key: word, value: schema) in told.entries) {
       had[word] = (schema: schema, from: from);
     }
-    final supported = {
-      for (final e in told.entries)
-        if (_supported(e.value, streams, inputStreams)) e.key: e.value,
-    };
-    return supported.isEmpty ? [] : [_byPrint(supported, from, as)];
+    return [_byPrint(told, from, as)];
   }
 
   Map<String, Object?> _byPrint(
@@ -88,18 +82,13 @@ final class BuiltTold {
   }
 
   /// All it told, for a new session: by owner and package.
-  List<Map<String, Object?>> standing({
-    bool streams = true,
-    bool inputStreams = true,
-  }) => [
+  List<Map<String, Object?>> standing() => [
     for (final MapEntry(key: owner, value: words) in _told.entries)
       for (final from in {for (final w in words.values) w.from})
         _byPrint(
           {
             for (final MapEntry(key: word, value: w) in words.entries)
-              if (w.from == from &&
-                  (_supported(w.schema, streams, inputStreams)))
-                word: w.schema,
+              if (w.from == from) word: w.schema,
           },
           from,
           owner,
@@ -115,10 +104,3 @@ final class BuiltTold {
     return ops;
   }
 }
-
-bool _supported(Object? schema, bool streams, bool inputStreams) =>
-    switch ((schema as Map)['is']) {
-      'serverStream' => streams,
-      'clientStream' || 'bidiStream' => streams && inputStreams,
-      _ => true,
-    };

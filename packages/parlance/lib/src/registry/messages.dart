@@ -1261,11 +1261,7 @@ final class Explanation {
       change: m['change'] == null ? null : StateChange.fromJson(m['change']),
       trail: [
         for (final c in m['trail'] as List? ?? const [])
-          // The original `why` response carried bare CallRecords, without
-          // journal ordering metadata. They remain readable from older hosts.
-          (c as Map).containsKey('kind')
-              ? JournalEntry.fromJson(c)
-              : JournalEnd(CallRecord.fromJson(c), epoch: '', n: 0),
+          JournalEntry.fromJson(c),
       ],
       forgotten: m['forgotten'] == true,
       trailCut: m['trailCut'] == true,

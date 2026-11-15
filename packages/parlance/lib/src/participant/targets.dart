@@ -96,16 +96,6 @@ extension TargetDiscovery on IParticipant {
       for (final json in catalog['descriptors'] as List? ?? const [])
         if (Descriptor.fromJson(json) case final d) d.name: d,
     };
-    // An alias is a publication of the same target, with its own address.
-    for (final alias in (catalog['aliases'] as Map? ?? const {}).entries) {
-      final publication = entries[alias.value];
-      if (publication != null) {
-        entries[alias.key as String] = Descriptor.fromJson({
-          ...publication.toJson(),
-          'name': alias.key,
-        });
-      }
-    }
     final byTarget = <Principal, Map<String, List<PublishedWord>>>{};
     final unavailable = catalog['unavailable'] as Map? ?? const {};
     for (final entry in entries.values) {

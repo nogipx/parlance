@@ -14,9 +14,8 @@ final class HostUnreachable implements Exception {
 }
 
 /// What of the protocol the host speaks, as its `describe` told it (SPEC
-/// §14): its features. Both ends must share the major, and the host must
-/// speak each feature in [requires]; what else it speaks this end uses
-/// when it knows it, and a feature it does not know it passes over.
+/// §14): its features. The major and every current feature must match;
+/// [requires] adds application requirements. Unknown extensions are ignored.
 /// Throws [ProtocolMismatch] otherwise.
 Set<String> checkProtocol(
   Object? version, {
@@ -27,7 +26,7 @@ Set<String> checkProtocol(
     throw ProtocolMismatch(host: version, here: parlanceProtocol);
   }
   final speaks = {for (final f in features as List? ?? const []) '$f'};
-  final missing = requires.difference(speaks);
+  final missing = {...parlanceFeatures, ...requires}.difference(speaks);
   if (missing.isNotEmpty) {
     throw ProtocolMismatch(
       host: version,
@@ -48,8 +47,7 @@ final class ProtocolMismatch implements Exception {
     this.missing = const {},
   });
 
-  /// The host's major, as its `describe` told it (null: one too old to
-  /// tell).
+  /// The host's major, as its `describe` told it (null: malformed description).
   final Object? host;
   final int here;
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Require parlance 0.4.0; link references resolve exact word addresses without aliases.
+
 ## 0.2.0
 
 - Require parlance 0.3.0.

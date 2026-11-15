@@ -5,10 +5,7 @@ import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
 import 'package:parlance/src/participant/local.dart' show Participants;
 
-/// The protocol grows by features, not by its major (SPEC §14): a host
-/// tells what it speaks, a participant uses only that, and refuses to join
-/// only a host that lacks what it requires. Guests over the air are often
-/// built against a newer parlance than their host.
+/// Current peers share one required wire baseline (SPEC §14).
 enum Built<T> implements IStateWord<T> {
   volume<int>('deck.volume', PlainShape(IntType(max: 100)));
 
@@ -68,46 +65,29 @@ void main() {
     expect({...d['features']! as List}, parlanceFeatures);
   });
 
-  test(
-    'target addressing is required even when no optional features are requested',
-    () async {
+  for (final feature in parlanceFeatures) {
+    test('joining refuses a host missing $feature', () async {
       await expectLater(
-        join(features: const {}),
+        join(features: {...parlanceFeatures}..remove(feature)),
         throwsA(
           isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
-            'targets',
+            feature,
           }),
         ),
       );
-    },
-  );
+      expect(r.mismatches, isEmpty);
+    });
+  }
 
-  test('a host without a feature a guest requires is refused, saying '
-      'which', () async {
+  test('additional application requirements are enforced', () async {
     await expectLater(
-      join(features: const {'targets'}, requires: {'built'}),
+      join(requires: {'extension'}),
       throwsA(
-        isA<ProtocolMismatch>()
-            .having((e) => e.missing, 'missing', {'built'})
-            .having((e) => '$e', 'says', contains('does not speak built')),
+        isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
+          'extension',
+        }),
       ),
     );
-  });
-
-  test('a guest uses what the host does not speak not at all, and works '
-      'on', () async {
-    final errors = <ParticipantError>[];
-    final p = await join(features: const {'targets'});
-    p.errors.listen(errors.add);
-    p.builtAgainst(Built.values, target: const Principal('deck'));
-    await p.flush();
-    expect(r.mismatches, isEmpty, reason: 'nothing told an older host');
-    // Nothing it sent was refused; what does not meet the code it learns
-    // itself, from the catalog, whatever the host speaks.
-    expect(errors.map((e) => e.code), [ParticipantErrorCode.mismatch]);
-    expect(errors.single.op, {'op': 'built', 'word': 'deck/deck.volume'});
-    expect(p.status('deck/deck.volume'), const WordReady());
-    await p.dispose();
   });
 
   test('a host that speaks it is told', () async {

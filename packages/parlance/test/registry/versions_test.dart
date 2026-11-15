@@ -30,7 +30,6 @@ void main() {
       'orders.v2.cancel',
     ]) {
       expect(() => state(bad), throwsArgumentError, reason: bad);
-      expect(() => r.alias(bad, 'x.y'), throwsArgumentError, reason: bad);
     }
     for (final ok in ['orders.v2', 'orders.order.v10', 'orders.vip.cancel']) {
       expect(state(ok).name, ok);

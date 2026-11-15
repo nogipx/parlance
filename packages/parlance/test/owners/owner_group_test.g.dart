@@ -128,7 +128,7 @@ abstract final class AVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'AVocabulary.definition',
   );
 }
@@ -255,7 +255,7 @@ abstract final class BVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'BVocabulary.definition',
   );
 }
@@ -382,7 +382,7 @@ abstract final class CVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'CVocabulary.definition',
   );
 }

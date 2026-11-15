@@ -453,6 +453,15 @@ void main() {
       expect(result['instructions'], contains('describe first'));
     });
 
+    test('initialize advertises only the current MCP contract', () async {
+      for (final version in ['2024-11-05', '2025-03-26', 'unknown']) {
+        final reply = await c.request('initialize', {
+          'protocolVersion': version,
+        });
+        expect((reply['result'] as Map)['protocolVersion'], '2025-06-18');
+      }
+    });
+
     test('the curated tools, and no command tools unless asked', () async {
       final names = await c.tools();
       expect(names, [

@@ -147,9 +147,6 @@ Future<List<McpTool>> parlanceTools(
                   'type': cat.schema(f['type']),
                 },
           ],
-          // Old names of words: they still work; use the new one.
-          if (cat.aliases case final Map<Object?, Object?> a when a.isNotEmpty)
-            'renamed': a,
         });
       },
     ),
@@ -310,14 +307,12 @@ final class _Catalog {
       access = (d['access'] as Map?)?.cast<String, Object?>() ?? const {},
       unavailable =
           (d['unavailable'] as Map?)?.cast<String, Object?>() ?? const {},
-      aliases = d['aliases'] as Map<Object?, Object?>?,
       unreadable = {...?(d['unreadable'] as List?)?.cast<String>()},
       dedupWindowMs = d['dedupWindowMs'];
 
   final List<Map<String, Object?>> descriptors;
   final Map<String, Object?> access;
   final Map<String, Object?> unavailable;
-  final Map<Object?, Object?>? aliases;
   final Set<String> unreadable;
   final Object? dedupWindowMs;
 

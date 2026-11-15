@@ -94,7 +94,7 @@ final class StreamSnapshot {
   /// One opening, never reused for a retry.
   final String id;
 
-  /// The word as requested, preserving alias usage.
+  /// The exact word address requested.
   final String word;
 
   /// Its atomic interaction kind.

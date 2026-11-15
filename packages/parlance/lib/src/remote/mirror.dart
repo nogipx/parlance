@@ -45,7 +45,7 @@ final class RegistryMirror {
   Map<String, int> _accessRevisions = const {};
 
   /// The latest host policy revision for the canonical address.
-  int accessRevision(String word) => _accessRevisions[canonical(word)] ?? 0;
+  int accessRevision(String word) => _accessRevisions[word] ?? 0;
 
   String? get epoch => _epoch;
   int get seq => _seq;
@@ -56,7 +56,7 @@ final class RegistryMirror {
   /// Whether the session's principal can use the word [name] now (SPEC
   /// §6.5), as the catalog and the availability the feed brought last say.
   WordStatus statusOf(String name) {
-    final n = canonical(name);
+    final n = name;
     final kind = _words[n];
     if (kind == null) return const WordMissing();
     if (_closed.contains(n)) return const WordNotPermitted();
@@ -83,20 +83,11 @@ final class RegistryMirror {
   /// Something changed: a snapshot, a tick, the catalog, the connection.
   Stream<void> get changes => _changes.stream;
 
-  /// The catalog came: first after following, and on every change of it
-  /// (descriptors or aliases).
+  /// The catalog came: first after following, and on every descriptor/access change.
   Stream<void> get catalogChanges => _catalogChanges.stream;
 
   Object? read(String state, {String? key}) =>
-      _closed.contains(canonical(state))
-      ? null
-      : _states[canonical(state)]?[key];
-
-  /// The name [name] stands for, as the catalog's `aliases` say.
-  String canonical(String name) => switch (_catalog['aliases']) {
-    final Map<Object?, Object?> a when a[name] is String => a[name]! as String,
-    _ => name,
-  };
+      _closed.contains(state) ? null : _states[state]?[key];
 
   /// Completes when the copy has the seq [seq] of [epoch] (what a call
   /// answered at it wrote), however long its feed takes: the host tells a
@@ -122,9 +113,7 @@ final class RegistryMirror {
   }
 
   Map<String?, Object?> readAll(String state) => Map.unmodifiable(
-    _closed.contains(canonical(state))
-        ? const {}
-        : _states[canonical(state)] ?? const {},
+    _closed.contains(state) ? const {} : _states[state] ?? const {},
   );
 
   /// The states the copy keeps, and the facts its ticks carry; null for
@@ -209,7 +198,7 @@ final class RegistryMirror {
   /// none, or a word of a kind a newer parlance has and this one does not
   /// (SPEC §14).
   Descriptor? descriptorOf(String name) {
-    final n = canonical(name);
+    final n = name;
     if (_descriptors[n] case final d?) return d;
     final json = _descriptorJson[n];
     if (json == null) return null;
@@ -245,7 +234,6 @@ final class RegistryMirror {
         json['unavailable'] as Map? ?? const {},
       );
 
-      if (json['aliases'] case final a?) Map<String, String>.from(a as Map);
       revisions = Map<String, int>.from(
         json['accessRevisions'] as Map? ?? const {},
       );

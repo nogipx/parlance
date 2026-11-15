@@ -148,7 +148,6 @@ extension RegistryDiagnostics on Registry {
 
   /// Recent changes of one exact state/key, across conversations, oldest first.
   List<StateChange> history(String state, {String? key, int count = 100}) {
-    state = canonical(state);
     final result = <StateChange>[];
     final max = count.clamp(0, limits.retainTicks);
     if (max == 0) return result;

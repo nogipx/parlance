@@ -17,10 +17,6 @@ final class _DataSource implements _CheckedWord {
 }
 
 extension on RemoteParticipant {
-  bool _supportsData(String kind) =>
-      _speaks.contains('streams') &&
-      (kind == 'serverStream' || _speaks.contains('inputStreams'));
-
   void _endData(StreamFailure failure) {
     for (final lease in [..._data.keys]) {
       lease.end(failure);
@@ -52,12 +48,6 @@ extension on RemoteParticipant {
         'unknown streaming interaction type',
       );
     }
-    if (!_supportsData(kind)) {
-      throw const StreamFailure(
-        StreamFailureCode.unsupported,
-        'the host does not speak streams',
-      );
-    }
     if (reserved) return;
     final active = serving
         ? _servedData.length
@@ -78,12 +68,6 @@ extension on RemoteParticipant {
   ) {
     raw = raw.atTarget(who) as DataStreamDescriptor;
     _mayDefine(raw);
-    if (!_supportsData(raw.kind)) {
-      throw const StreamFailure(
-        StreamFailureCode.unsupported,
-        'the host does not speak streams',
-      );
-    }
     final d = access.dataStream(raw);
     final source = _DataSource(d, handler, whyNot, as);
     _streams[d.name] = source;
@@ -103,9 +87,7 @@ extension on RemoteParticipant {
           ),
         );
       }
-      if (_supportsData(raw.kind)) {
-        _ask({'op': 'undefine', 'name': d.name});
-      }
+      _ask({'op': 'undefine', 'name': d.name});
     });
   }
 

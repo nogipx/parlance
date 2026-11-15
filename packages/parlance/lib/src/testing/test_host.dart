@@ -223,8 +223,7 @@ final class TestHost {
   }) => [
     for (final t in ticks)
       for (final c in t.changes)
-        if (c.state ==
-                registry.canonical(WordAddress(target, word.name).toString()) &&
+        if (c.state == WordAddress(target, word.name).toString() &&
             c.key == key)
           c.removed ? null : word.shape.fromJson(c.value),
   ];
@@ -233,8 +232,7 @@ final class TestHost {
   List<T> said<T>(IFactWord<T> word, {required Principal target}) => [
     for (final t in ticks)
       for (final f in t.facts)
-        if (f.fact ==
-            registry.canonical(WordAddress(target, word.name).toString()))
+        if (f.fact == WordAddress(target, word.name).toString())
           word.shape.fromJson(f.payload),
   ];
 
@@ -242,9 +240,7 @@ final class TestHost {
   /// after [settle].
   List<CallRecord> callsOf(IWord word, {required Principal target}) => [
     for (final c in calls)
-      if (c.command ==
-          registry.canonical(WordAddress(target, word.name).toString()))
-        c,
+      if (c.command == WordAddress(target, word.name).toString()) c,
   ];
 
   /// Lets what is under way come: participants across a connection

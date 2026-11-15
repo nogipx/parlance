@@ -23,14 +23,6 @@ void main() {
     },
   );
 
-  test('an old name is counted as it was named, apart from the word', () async {
-    f.r.alias('door.silence', 'door.lock');
-    await f.r.call('door.silence', {'on': true}, by: agent);
-    expect(f.r.usesOf('door.silence').single.by, agent);
-    expect(f.r.usesOf('door.lock'), isEmpty);
-    expect(f.r.usage.keys, ['door.silence']);
-  });
-
   test('a name there is no word of keeps nothing', () async {
     await f.r.call('no.such', {}, by: user);
     f.r.usedBy('nor.this', user);
@@ -93,12 +85,4 @@ void main() {
       listening.dispose();
     },
   );
-
-  test('what was counted of an old name goes when the old name does', () async {
-    final silence = f.r.alias('door.silence', 'door.lock');
-    await f.r.call('door.silence', {'on': true}, by: agent);
-    silence.dispose();
-    expect(f.r.usesOf('door.silence'), isEmpty);
-    expect(f.r.usage, isEmpty);
-  });
 }

@@ -177,7 +177,7 @@ abstract final class RoomVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'RoomVocabulary.definition',
   );
 }

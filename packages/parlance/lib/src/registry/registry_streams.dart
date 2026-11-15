@@ -169,7 +169,7 @@ extension RegistryStreams on Registry {
           input: inputStats,
           output: outputStats,
         );
-        final found = _streams[canonical(name)];
+        final found = _streams[name];
         if (found == null) throw StreamFailure(StreamFailureCode.missing, name);
         if (found.descriptor.kind != kind ||
             (found.input != null) != (input != null)) {
@@ -194,7 +194,7 @@ extension RegistryStreams on Registry {
           throw StreamFailure(StreamFailureCode.invalidArgument, '$e');
         }
         // Availability and serializers are user code: they may withdraw an owner.
-        if (_disposing || !identical(_streams[canonical(name)], found)) {
+        if (_disposing || !identical(_streams[name], found)) {
           throw const StreamFailure(
             StreamFailureCode.unavailable,
             'the stream owner was withdrawn during admission',

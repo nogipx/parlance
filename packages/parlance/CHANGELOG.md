@@ -1,11 +1,19 @@
 # Changelog
 
+## 0.4.0
+
+- Breaking: use wire protocol 2 with all current features required; remove old-host downgrades and per-feed feature negotiation.
+- Breaking: remove word aliases throughout Host, registry, mirrors, discovery and MCP. Calls no longer drop parameters removed from the current schema.
+
+- Breaking (diagnostics): use only mixed journal trails in `why`; preserve omitted-payload metadata and reject hosts without the current diagnostic contract.
+- Enforce current access when inspecting late results, bound journal queue error text, and preserve stream event order during reentrant listeners.
+- Refresh the packaged skill and references for explicit targets, protocol 2, current testing APIs and structured diagnostics.
+
 ## 0.3.0
 
 - Breaking (tools): `Explanation.trail` now contains mixed `JournalEntry` values. Add bounded causal lookup and call inspection across RPC, pending/admission diagnostics, explicit gaps and selected independent-write capture.
 - Preserve caller timeout/cancellation separately from late completion; redact inaccessible ancestor values and report ambiguous reused IDs.
 - Bound diagnostic metadata and journal queues; release retained history and paused backlogs on host disposal. Verify lifecycle cleanup with forced GC.
-- Enforce current access when inspecting late results, negotiate mixed `why` trails with `causalDiagnostics` while preserving legacy call-only responses, account for error text in journal queues, and preserve stream event order through reentrant journal listeners.
 
 - Breaking: discover targets by vocabulary or portable word name and group their publications in PublishedVocabulary entries. Keep contract checks in typed clients. Generated word packages now expose <Class>Vocabulary.name/words/definition instead of <class>Words; regenerate them.
 

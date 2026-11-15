@@ -24,12 +24,6 @@ final class AccessChanged extends CatalogChange {
   final String word;
 }
 
-/// A word's old name came or went (SPEC §6.4).
-final class AliasChanged extends CatalogChange {
-  const AliasChanged(this.alias);
-  final String alias;
-}
-
 /// The only write handle of a state: the registry's own, or a remote
 /// participant's (SPEC §22).
 abstract interface class IStateHandle implements IHandle {

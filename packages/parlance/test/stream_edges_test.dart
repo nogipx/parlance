@@ -146,7 +146,7 @@ void main() {
   );
 
   test(
-    'rejoining an older host does not send stream-only maintenance ops',
+    'rejoining a host missing current features refuses the session',
     () async {
       final host = Host();
       final servers = <RpcPeerEndpoint>[];
@@ -191,14 +191,23 @@ void main() {
       await producer.settle();
       await transports.last.close();
       final deadline = DateTime.now().add(const Duration(seconds: 5));
-      while ((servers.length < 2 || !producer.raw.synced) &&
+      while (!errors.any((e) => e.code == ParticipantErrorCode.protocol) &&
           DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 2));
       }
       expect(servers.length, greaterThanOrEqualTo(2));
-      await producer.settle();
-      await producer.dispose();
-      expect(errors, isEmpty);
+      expect(producer.raw.synced, isFalse);
+      expect(
+        errors,
+        contains(
+          isA<ParticipantError>().having(
+            (e) => e.code,
+            'code',
+            ParticipantErrorCode.protocol,
+          ),
+        ),
+      );
+      expect(host.registry.catalog, isEmpty);
     },
   );
 

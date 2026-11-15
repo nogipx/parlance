@@ -492,23 +492,19 @@ void main() {
     );
   });
 
-  test('older host rejects input streams without consuming input', () async {
+  test('a host missing input streams is rejected before joining', () async {
     final f = _Fixture();
     addTearDown(f.close);
-    final p = await f.guest(
-      'reader',
-      features: {...parlanceFeatures}..remove('inputStreams'),
-    );
-    var listened = false;
-    final input = StreamController<int>(onListen: () => listened = true);
     await expectLater(
-      ITransferClient(
-        participant: p,
-        target: const Principal('producer'),
-      ).sum(input.stream),
-      throwsA(failure(StreamFailureCode.unsupported)),
+      f.guest(
+        'incompatible',
+        features: {...parlanceFeatures}..remove('inputStreams'),
+      ),
+      throwsA(
+        isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
+          'inputStreams',
+        }),
+      ),
     );
-    expect(listened, isFalse);
-    unawaited(input.close());
   });
 }

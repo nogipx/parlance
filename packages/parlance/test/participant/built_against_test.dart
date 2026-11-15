@@ -240,33 +240,48 @@ void main() {
   });
 
   for (final across in [false, true]) {
-    test('${across ? 'across a connection' : 'in this process'}, a param '
-        'gone is left out of the calls of code built before it went, and '
-        'still told', () async {
-      final heard = <int>[];
-      GeneratedWords.own(owner())
-          .command(NowCommand.turn)
-          .serve((params) => heard.add(params.volume), callers: Callers.anyone);
-      final b = across ? await host.join(guest) : host.participant(guest);
-      if (b is RemoteParticipant) await b.settle();
-      final before = await GeneratedWords(
-        participant: b.raw,
-        target: deck,
-      ).command(BuiltCommand.turn).call((volume: 3, fade: true));
-      expect(before, isA<CallRefused>(), reason: 'not told, it is refused');
-      b.raw.builtAgainst(BuiltCommand.values, target: const Principal('deck'));
-      if (b is RemoteParticipant) await b.flush();
-      final r = await GeneratedWords(
-        participant: b.raw,
-        target: deck,
-      ).command(BuiltCommand.turn).call((volume: 5, fade: true));
-      expect(r, isA<CallDone<void>>(), reason: '$r');
-      expect(heard, [5]);
-      expect(
-        [for (final m in host.registry.mismatches) '${m.breaks}'],
-        ['[params.fields.fade: was optional, is nothing]'],
-      );
-    });
+    test(
+      '${across ? 'across a connection' : 'in this process'}, a param '
+      'gone is refused even when the caller reports its previous schema',
+      () async {
+        final heard = <int>[];
+        GeneratedWords.own(owner())
+            .command(NowCommand.turn)
+            .serve(
+              (params) => heard.add(params.volume),
+              callers: Callers.anyone,
+            );
+        final b = across ? await host.join(guest) : host.participant(guest);
+        if (b is RemoteParticipant) await b.settle();
+        final before = await GeneratedWords(
+          participant: b.raw,
+          target: deck,
+        ).command(BuiltCommand.turn).call((volume: 3, fade: true));
+        expect(before, isA<CallRefused>(), reason: 'not told, it is refused');
+        b.raw.builtAgainst(
+          BuiltCommand.values,
+          target: const Principal('deck'),
+        );
+        if (b is RemoteParticipant) await b.flush();
+        final r = await GeneratedWords(
+          participant: b.raw,
+          target: deck,
+        ).command(BuiltCommand.turn).call((volume: 5, fade: true));
+        expect(
+          r,
+          isA<CallRefused>().having(
+            (r) => r.code,
+            'code',
+            Refusal.invalidParams,
+          ),
+        );
+        expect(heard, isEmpty);
+        expect(
+          [for (final m in host.registry.mismatches) '${m.breaks}'],
+          ['[params.fields.fade: was optional, is nothing]'],
+        );
+      },
+    );
   }
 
   test('a word gone is no mismatch: it is missing', () async {
@@ -279,18 +294,6 @@ void main() {
     await pumpEventQueue();
     expect(host.registry.mismatches, isEmpty);
     expect(told.last, const Mismatch(guest, 'deck/deck.volume', []));
-  });
-
-  test('a word under an old name is held to what the old name was built '
-      'against', () async {
-    host.participant(guest).raw.builtAgainst([
-      _Old.volume,
-    ], target: const Principal('deck'));
-    GeneratedWords.own(owner()).state(Now.volume).define();
-    host.registry.alias('deck/deck.loudness', 'deck/deck.volume');
-    expect(host.registry.mismatches, [
-      const Mismatch(guest, 'deck/deck.loudness', higher),
-    ]);
   });
 
   test('across a connection, a new session is told again', () async {
@@ -335,17 +338,4 @@ void main() {
       await h.close();
     }
   });
-}
-
-/// The volume as code built against its old name knows it.
-enum _Old<T> implements IStateWord<T> {
-  volume<int>('deck.loudness', PlainShape(IntType(min: 0, max: 100)));
-
-  const _Old(this.name, this.shape);
-  @override
-  final String name;
-  @override
-  final Shape<T> shape;
-  @override
-  String? get key => null;
 }

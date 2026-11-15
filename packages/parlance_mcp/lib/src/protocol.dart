@@ -154,7 +154,8 @@ final class McpSession {
   /// Where tool calls are noted.
   final void Function(String line)? log;
 
-  static const versions = ['2025-06-18', '2025-03-26', '2024-11-05'];
+  /// The single MCP protocol version this server implements.
+  static const protocolVersion = '2025-06-18';
 
   late final StreamSubscription<String> _sub;
   final Completer<void> _done = Completer();
@@ -217,9 +218,8 @@ final class McpSession {
     final params = (m['params'] as Map?)?.cast<String, Object?>() ?? const {};
     switch (method) {
       case 'initialize':
-        final asked = params['protocolVersion'];
         return _result(id, {
-          'protocolVersion': versions.contains(asked) ? asked : versions.first,
+          'protocolVersion': protocolVersion,
           'capabilities': {
             'tools': {'listChanged': true},
           },

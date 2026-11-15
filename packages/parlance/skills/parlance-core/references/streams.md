@@ -111,12 +111,10 @@ Protocol feature `streams` adds independent server streams in both directions
 over the existing peer connection, outside the state/fact feed. Cancellation
 propagates through every hop. Losing either connection is terminal, including
 when an owner is in another remote participant. Existing streams never rejoin.
-New subscriptions may be opened after reconnection. Older peers do not receive
-stream descriptors, definitions or built-against entries. Stream use without
-feature support fails explicitly. The protocol major remains 1.
-On rejoining, stream availability is published again even if `whyNot` did not
-change. A host without `streams` receives no stream availability or withdrawal
-operations; the participant keeps its definitions for a later supporting host.
+New subscriptions may be opened after reconnection. Protocol 2 requires
+`streams` and `inputStreams` on both ends; an incomplete host is refused on
+join or rejoin. Stream availability is republished after reconnecting even
+when `whyNot` did not change.
 
 Host tools observe read-only `Registry.activeStreams` snapshots and lifecycle
 `streamEvents` (`opened`, `closed`, `rejected`). Snapshots contain identity,
@@ -149,7 +147,6 @@ RPC cancellation/deadlines and call-scope disposal terminate pending openings
 too, using `RpcCallScope` and native transport limits/flow control. Native
 permission and resource refusals preserve their semantic failure codes;
 deadline expiry is `cancelled`, while endpoint shutdown is `connectionLost`.
-An older peer sees no input-stream definitions or built schemas.
 Inputs and outputs use the same validation, cancellation and queue limits.
 Schema compatibility distinguishes all three atomic kinds.
 MCP stream consumption is a separate interface, not introduced here.

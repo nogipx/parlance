@@ -200,14 +200,9 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     int keepAway,
     Set<String> requires,
   ) async {
-    requires = {...requires, 'targets'};
     final client = ParlanceClient(endpoint);
     final d = await client.describe();
-    final speaks = checkProtocol(
-      d['protocol'],
-      features: d['features'],
-      requires: requires,
-    );
+    checkProtocol(d['protocol'], features: d['features'], requires: requires);
     final p = RemoteParticipant._(
       endpoint,
       client,
@@ -221,8 +216,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     );
     p
       ..requires = requires
-      .._dataLimits = streamLimitsFromJson(d['streamLimits'])
-      .._speaks = speaks;
+      .._dataLimits = streamLimitsFromJson(d['streamLimits']);
     if (p.log.isEnabled(RpcLogLevel.info)) {
       p.log.info('joined', data: {'as': p.who.selector});
     }
@@ -342,7 +336,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     try {
       final d = await _client.describe();
       try {
-        _speaks = checkProtocol(
+        checkProtocol(
           d['protocol'],
           features: d['features'],
           requires: requires,
@@ -445,10 +439,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       {'op': 'define', 'descriptor': f.d.toJson(), ..._asOf(f.as)},
     for (final c in _commands.values)
       {'op': 'define', 'descriptor': c.d.toJson(), ..._asOf(c.as)},
-    if (_speaks.contains('streams'))
-      for (final s in _streams.values)
-        if (_supportsData(s.d.kind))
-          {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
+    for (final s in _streams.values)
+      {'op': 'define', 'descriptor': s.d.toJson(), ..._asOf(s.as)},
     for (final MapEntry(key: state, value: values) in _own.entries)
       for (final MapEntry(:key, :value) in values.entries)
         {
@@ -459,11 +451,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
           ..._asOf(_states[state]?.as),
         },
     for (final g in _guards.values) {'op': 'guard', 'id': g.id, ..._asOf(g.as)},
-    if (_speaks.contains('built'))
-      ..._built.standing(
-        streams: _speaks.contains('streams'),
-        inputStreams: _speaks.contains('inputStreams'),
-      ),
+    ..._built.standing(),
   ];
 
   /// The peer endpoint it made on its connection.
@@ -544,9 +532,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
         _commands.containsKey(d.name) ||
         _streams.containsKey(d.name)) {
       throw StateError('${d.name} is defined');
-    }
-    if (_mirror.canonical(d.name) case final now when now != d.name) {
-      throw StateError('${d.name} is an old name of $now');
     }
   }
 
@@ -995,9 +980,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       // Cancelled once it went: the host is told by its id, as the
       // connection going would not tell it, and answers a retry with the
       // id how it ended.
-      if (_speaks.contains('cancel')) {
-        unawaited(_client.cancel(callId).then((_) {}, onError: (_) {}));
-      }
+      unawaited(_client.cancel(callId).then((_) {}, onError: (_) {}));
       return const CallCancelled();
     }
     if ((r.epoch, r.seq) case (final epoch?, final seq?)) {
@@ -1008,7 +991,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
 
   /// Whether [command] is a query, as the catalog says.
   bool _isQuery(String command) {
-    final name = _mirror.canonical(command);
+    final name = command;
     for (final d in _mirror.catalog['descriptors'] as List? ?? const []) {
       if (d case {'name': final n, 'is': 'query'} when n == name) return true;
     }
@@ -1080,16 +1063,11 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     }
   }
 
-  /// What it and its owners told the host they were built against: kept
-  /// also for a host that does not speak it, to tell a new session that
-  /// does.
+  /// Schemas reported by it and its owners, retained to tell a new session.
   final BuiltTold _built = BuiltTold();
 
   /// The features of the protocol it cannot do without (SPEC §14).
   late final Set<String> requires;
-
-  /// The features the host speaks, as it told them on joining.
-  Set<String> _speaks = const {};
 
   void _builtAgainst(
     Map<String, Object?> schemas,
@@ -1097,14 +1075,8 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     Principal? as,
   ) {
     if (_disposed) return;
-    final ops = _built.tell(
-      schemas,
-      from: from,
-      as: as,
-      streams: _speaks.contains('streams'),
-      inputStreams: _speaks.contains('inputStreams'),
-    );
-    if (_speaks.contains('built')) ops.forEach(_ask);
+    final ops = _built.tell(schemas, from: from, as: as);
+    ops.forEach(_ask);
   }
 
   // --- Its own words ------------------------------------------------------
@@ -1261,9 +1233,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
     for (final e in [..._streams.entries]) {
       if (!mine(e.value.as)) continue;
       _streams.remove(e.key);
-      if (_supportsData(e.value.d.kind)) {
-        _ask({'op': 'undefine', 'name': e.key});
-      }
+      _ask({'op': 'undefine', 'name': e.key});
       for (final lease in [...e.value.open]) {
         lease.end(
           const StreamFailure(
@@ -1306,7 +1276,6 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
   void _checkWhyNot() {
     if (_disposed) return;
     for (final c in <_CheckedWord>[..._commands.values, ..._streams.values]) {
-      if (c is _DataSource && !_supportsData(c.d.kind)) continue;
       final check = c.whyNot;
       if (check == null) continue;
       final why = check();
@@ -1462,8 +1431,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       ..._own.keys,
       ..._facts.keys,
       ..._commands.keys,
-      for (final source in _streams.values)
-        if (_supportsData(source.d.kind)) source.d.name,
+      ..._streams.keys,
     ]) {
       _ask({'op': 'undefine', 'name': name});
     }
@@ -1471,7 +1439,7 @@ final class RemoteParticipant implements IRawParticipant, IRemoteParticipant {
       _ask({'op': 'unguard', 'id': g.id, ..._asOf(g.as)});
     }
     final unbuilt = _built.forget();
-    if (_speaks.contains('built')) unbuilt.forEach(_ask);
+    unbuilt.forEach(_ask);
     _life = _Life.disposed;
     for (final w in _watching.values) {
       unawaited(w.cancel());

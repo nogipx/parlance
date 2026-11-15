@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Require parlance 0.4.0 after removal of legacy runtime APIs and protocol modes.
+
 ## 0.2.0
 
 - Read diagnostic decisions and stream lifecycle, distinguish omitted values, and scope historical IDs by epoch.

@@ -134,7 +134,7 @@ abstract final class TestVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'TestVocabulary.definition',
   );
 }
@@ -267,7 +267,7 @@ abstract final class FlagVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'FlagVocabulary.definition',
   );
 }
@@ -377,7 +377,7 @@ abstract final class KnobWordsVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'KnobWordsVocabulary.definition',
   );
 }

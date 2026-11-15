@@ -50,7 +50,7 @@ final class AccessWarning {
     this.cause,
   });
 
-  /// The full target/word address used by the caller (possibly an alias).
+  /// The full target/word address used by the caller.
   final String word;
 
   /// The exact caller, including its owner when applicable.

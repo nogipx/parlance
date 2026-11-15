@@ -125,9 +125,11 @@ final class ParlanceClient {
     return json;
   }
 
-  Future<bool> _hasCausalDiagnostics(RpcContext? context) async {
+  Future<void> _requireCausalDiagnostics(RpcContext? context) async {
     if (_hostFeatures == null) await describe(context: context);
-    return _hostFeatures!.contains('causalDiagnostics');
+    if (!_hostFeatures!.contains('causalDiagnostics')) {
+      throw UnsupportedError('host does not speak causalDiagnostics');
+    }
   }
 
   /// An independent data subscription, without a lifetime timeout.
@@ -147,11 +149,7 @@ final class ParlanceClient {
   Stream<RemoteFeed> feed({String? epoch, int? since, RpcContext? context}) =>
       _caller
           .feed(
-            WireFeedRequest(
-              epoch: epoch,
-              since: since,
-              features: parlanceFeatures,
-            ),
+            WireFeedRequest(epoch: epoch, since: since),
             context: context,
           )
           .map((i) {
@@ -287,11 +285,9 @@ final class ParlanceClient {
 
   /// Inspects a call's runtime state and recorded decisions.
   Future<Map<String, Object?>> inspectCall(String id) async {
-    if (!await _hasCausalDiagnostics(null)) {
-      throw UnsupportedError('host does not speak causalDiagnostics');
-    }
+    await _requireCausalDiagnostics(null);
     return (await _caller.why(
-      WireWhyRequest(call: id, features: const {'causalDiagnostics'}),
+      WireWhyRequest(call: id),
       context: _ctx(null),
     )).json;
   }
@@ -303,15 +299,10 @@ final class ParlanceClient {
     int historyCount = 0,
     RpcContext? context,
   }) async {
-    final diagnostics = await _hasCausalDiagnostics(context);
+    await _requireCausalDiagnostics(context);
     return Explanation.fromJson(
       (await _caller.why(
-        WireWhyRequest(
-          state: state,
-          key: key,
-          historyCount: diagnostics ? historyCount : 0,
-          features: diagnostics ? const {'causalDiagnostics'} : null,
-        ),
+        WireWhyRequest(state: state, key: key, historyCount: historyCount),
         context: _ctx(context),
       )).json,
     );

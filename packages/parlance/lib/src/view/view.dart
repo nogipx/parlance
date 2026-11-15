@@ -191,7 +191,6 @@ final class LocalView implements IRegistryView {
     return registry.readAll(state);
   }
 
-  /// An old name of a word (SPEC §6.4) is told the word's changes.
   @override
   Stream<void> changes(Set<String> states) => Stream.multi((out) {
     var closed = false;
@@ -214,8 +213,7 @@ final class LocalView implements IRegistryView {
         cause: cause?.call(),
       );
     }
-    bool wanted(String word) =>
-        states.any((s) => registry.canonical(s) == word);
+    bool wanted(String word) => states.any((s) => s == word);
     final ticks = registry.ticks.listen(
       (t) {
         if (t.changes.any(
@@ -234,10 +232,9 @@ final class LocalView implements IRegistryView {
       final word = switch (event) {
         DescriptorAdded(:final descriptor) => descriptor.name,
         DescriptorRemoved(:final descriptor) => descriptor.name,
-        AliasChanged(:final alias) => alias,
         AccessChanged() => null,
       };
-      if (word != null && wanted(registry.canonical(word))) tell();
+      if (word != null && wanted(word)) tell();
     });
     out.onPause = () {
       ticks.pause();
@@ -270,7 +267,7 @@ final class LocalView implements IRegistryView {
         cause: cause?.call(),
       );
       final policy = registry.accessChanges.listen((word) {
-        if (registry.canonical(fact) != word) return;
+        if (fact != word) return;
         final now = registry.mayRead(by, fact);
         if (!now || !allowed) after = registry.seq;
         allowed = now;

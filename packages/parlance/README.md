@@ -34,8 +34,9 @@ clients check their own contract, and the application selects its dependency.
 Raw tools use `WordAddress(target, 'house.light').toString()`. Catalog entries,
 subscriptions, events, streams, diagnostics and the journal use that same full
 address. `module` and `module/work` are separate targets; the existing `module`
-ACL selector still covers both. Remote participants require the `targets`
-protocol feature. The old unscoped client API is intentionally removed.
+ACL selector still covers both. Remote participants use wire protocol 2 and
+require every current protocol feature. Other majors and incomplete peers are
+refused on join and rejoin. The unscoped client API and word aliases are removed.
 
 ## Runtime access
 
@@ -144,7 +145,7 @@ Around the words:
 
 - **Who speaks.** Every write and call is made by a principal (`resident/ann`, `module/visit`, `guest/bob`), and every command says who may call it. A refusal says why: not permitted, unavailable now, denied by a guard.
 - **Why it is so.** Every change carries its cause: who acted and the call it answered. The same causes make the traces: with a log, every call is a span, the calls it led to its children, across the network too. `explain('house.light')` answers *"the house's devices wrote it, answering `house.set_light` that ann called"*.
-- **Words are a public API.** Plugins, agents and the calls a host stores name them, so a renamed word keeps its old name as an alias and nothing that named it breaks.
+- **Words are a public API.** Renaming a word breaks its callers. Use an explicit word version for a new contract; there are no old-name aliases.
 
 ## One way, small or large
 

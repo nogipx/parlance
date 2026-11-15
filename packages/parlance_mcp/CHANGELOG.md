@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Require parlance 0.4.0 and its current RPC contract.
+- Remove renamed-word aliases from tool catalogs; support only MCP protocol 2025-06-18.
+
 ## 0.2.0
 
 - Extend `why` with call inspection and bounded state history, mixed causal messages and explicit evidence gaps.

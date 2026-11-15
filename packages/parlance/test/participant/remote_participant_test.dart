@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:parlance/schema.dart';
 import 'package:parlance/tools.dart';
-import 'package:parlance/src/remote/contract.dart' show parlanceProtocol;
+import 'package:parlance/src/remote/contract.dart'
+    show parlanceProtocol, parlanceFeatures;
 import 'package:parlance/src/remote/participant.dart' show checkProtocol;
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
@@ -607,7 +608,10 @@ void main() {
   });
 
   test('a host of another protocol is refused, saying both versions', () {
-    expect(() => checkProtocol(parlanceProtocol), returnsNormally);
+    expect(
+      () => checkProtocol(parlanceProtocol, features: [...parlanceFeatures]),
+      returnsNormally,
+    );
     expect(
       () => checkProtocol(parlanceProtocol - 1),
       throwsA(
@@ -624,19 +628,30 @@ void main() {
     expect(() => checkProtocol(null), throwsA(isA<ProtocolMismatch>()));
   });
 
-  test('of one major, the features a host speaks are what it uses, and one '
-      'it requires must be among them', () {
-    expect(checkProtocol(parlanceProtocol, features: ['built', 'later']), {
-      'built',
-      'later',
-    });
-    expect(
-      () => checkProtocol(parlanceProtocol, requires: {'built'}),
-      throwsA(
-        isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {'built'}),
-      ),
-    );
-  });
+  test(
+    'the current protocol requires every feature and any extra requirements',
+    () {
+      expect(
+        checkProtocol(
+          parlanceProtocol,
+          features: [...parlanceFeatures, 'later'],
+        ),
+        {...parlanceFeatures, 'later'},
+      );
+      expect(
+        () => checkProtocol(
+          parlanceProtocol,
+          features: [...parlanceFeatures],
+          requires: {'extra'},
+        ),
+        throwsA(
+          isA<ProtocolMismatch>().having((e) => e.missing, 'missing', {
+            'extra',
+          }),
+        ),
+      );
+    },
+  );
 
   test('a word it may not read holds back none of the words it watches '
       'after', () async {

@@ -4,13 +4,12 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Values, names, types
 
-- **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). Everything a registry holds or sends is one, deep-frozen when it enters, compared deeply.
+- **Value** (§1): a JSON value (`null`, `bool`, `num`, `String`, `List`, `Map<String, Object?>`). JSON is the edge representation; typed owners may retain native Dart values through their shapes (§18).
 - **Name** (§1): a word's portable contract name, `<vocabulary>.<name>[.vN]` (`house.set_light`, `house.set_heat.v2`): its name in the vocabulary is one word, said in its annotation, `@CommandWord('set_light')`. Words named at run time follow the registry's wider rule: lower-case words split by `.`, joined within by `_` or `-`. The first word is the owner's vocabulary (§22.1); ownership is by handle, not by name.
 - **Address** (§1): exact whole target principal plus portable word, `WordAddress(target, word)`, rendered as `kind[/id]/vocabulary.word`. Runtime descriptors, operations and journal entries use it.
 - **Target**: an exact whole principal publishing words; `targets` and `targetChanges` discover actual publications and their per-word status without choosing a dependency.
 - **Key** (§1): the entity id a keyed state's value belongs to (`kitchen` in `house.light[kitchen]`).
 - **Type** (§2): checks a value and fills defaults; a value itself, so `describe` can send it. `bool`, `int`, `num`, `text`, `enum`, `duration`, `list`, `object`, `map`, `nullable`, `oneOf`, `any`; one of a newer parlance is an `UnknownType` (§14), which a participant passes over and a registry does not take.
-- **Custom type** (§2): a host's own checker under a name; the package never reads it.
 - **`meta`** (§3, §6): what else the host tells of an entity or a word (a label, a unit, the type of value an entity takes), for editors and agents.
 
 ## Core
@@ -23,7 +22,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Local command** (§21.4, `LocalCommand`): one handler (`serve`) answers `call`.
 - **WordMismatch** (§6.5): a typed word met that breaks a promise of the one the code was built against, by the `schemaBreaks` rule; its `breaks` say where. `wordStatus`, `wordMismatches`, a client's `mismatches`.
 - **Compatibility of words** (§25): one rule (`keepsPromises`) judged before release (`schemaBreaks` against what is out), by a part (`WordMismatch`) and by the host (`Mismatch`); a published word only grows, a break is a new word beside it.
-- **Built against** (§6.9): what a part's code holds of words, told to the registry (`view.builtAgainst(words, from:)`; a client tells it as it is made, `from` its words package and version). The registry says who meets which word otherwise: `Mismatch {by, word, breaks, from}`, `Registry.mismatches`, `mismatchChanges`, a warning in its log. Diagnostics, but params a command no longer takes are left out of such a part's calls (§25.5).
+- **Built against** (§6.9): what a part's code holds of words, told to the registry (`view.builtAgainst(words, from:)`; a client tells it as it is made, `from` its words package and version). The registry says who meets which word otherwise: `Mismatch {by, word, breaks, from}`, `Registry.mismatches`, `mismatchChanges`, a warning in its log. Diagnostics only; calls use strict current-schema validation (§25.5).
 - **Fallback** (§25.2): what code takes an enum value or a variant it does not know for, so one added later breaks none of it: `@Fallback()` on an enum value, `EnumShape(unknown:)`, `UnionShape(unknown:)`, `EnumType.unknown`, `UnionType.unknown`. With none it is an **UnknownValue**; as any value its code cannot read (a field it needs left out, a class's decoder failing), a typed read gives none (`decodeKnown`), a remote participant tells `unreadable` on `errors`, and the registry tells the break certain once a value meets it.
 - **WordBreak** (§25.1): one place a word met breaks what code was built against: `path`, `kind` (`BreakKind`: `word`, `type`, `bound`, `field`, `value`), `was`, `now`, `certain` (every use meets it, or only some values). `entryBreaks(built, live)` judges two schema entries as the data goes; `keepsPromises` is it empty.
 - **Fingerprint** (§25.4): the SHA-256 of a schema's canonical form (`canonicalSchema`: keys in order, descriptions out; `fingerprintOf`). A part across a connection tells words by it first; the registry keeps schemas by it (`knownSchema`).
@@ -39,12 +38,12 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 
 ## Words
 
-- **Word** (§6): a name in the registry with its type and rules: a state, a command or a fact. A host's words are its vocabulary, the API every client speaks. A state is written by its owner only; a command asks the owner.
-- **Descriptor** (§6): a word's description: `StateDescriptor`, `CommandDescriptor`, `FactDescriptor`.
+- **Word** (§6): a name in the registry with its type and rules: a state, command, query, fact, server stream, client stream or bidi stream. A host's words are its vocabulary, the API every client speaks. A state is written by its owner only; a command asks the owner.
+- **Descriptor** (§6): a word's description: `StateDescriptor`, `CommandDescriptor`, `QueryDescriptor`, `FactDescriptor`, and the three stream descriptors.
 - **State** (§6.1): something that is so now; read, watched, written by one writer.
 - **Keyed state** (§6.1): one value per key (`house.light[kitchen]`); an unkeyed state holds one value.
-- **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`RawStateWriter`, typed `StateWriterOf<T>`).
-- **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and to agents; none means everyone. Code in the registry's process reads everything. `mayRead`, and `unreadable` in `describeFor`.
+- **Writer**, **write handle** (§6.1): who defined a state holds its only write handle (`RawStateWriter`, typed `IStateWriterOf<T>`).
+- **Readers** (§6.1, §6.3): which principals may read a state or hear a fact over remote and to agents; none means everyone. Participants enforce these rules in the same process too; only trusted raw registry tools bypass them. `mayRead`, and `unreadable` in `describeFor`.
 - **Command** (§6.2): something that can be asked: params, an optional answer (`returns`), exactly one handler.
 - **Handler** (§6.2): the code that runs a command: an owner's method of the command's params; by name, raw, it gets the call (`CommandCall`).
 - **Callers** (§6.2): selectors with `allow`, `warn` or `deny`; who matches none is denied.
@@ -52,13 +51,12 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Deadline** (§6.2): how long a handler may take before the call is `timedOut`; 30 s by default.
 - **WhyNot** (§6.2): the owner's synchronous check that a command can run now, with a reason when it cannot. `whyNot(command)` asks without calling, so a button can be grey with the reason.
 - **Fact** (§6.3): something that happened, said once, with no value that stays.
-- **Emit handle** (§6.3): what says a fact (`RawFactSayer`, typed `FactSayerOf<T>`).
+- **Emit handle** (§6.3): what says a fact (`RawFactSayer`, typed `IFactSayerOf<T>`).
 - **Producer** (§6.3, §14): who says a fact: its owner, the one that defined it.
 - **Dedup window** (§6.3, §9): how long an id answers its first message: a fact seen again is dropped, a call seen again answers the first result.
 - **Catalog** (§6.4): the descriptors there are now; changes at runtime (`catalogChanges`).
 - **`describe`**, **`describeFor`** (§6.4, §14): the catalog as JSON; for a principal, with what it may call (`access`), what cannot run now (`unavailable`) and what it may not read (`unreadable`).
 - **Word status** (§6.5): whether a principal can use a word now: `WordMissing`, `WordNotPermitted`, `WordUnavailable(why)`, `WordReady`; `statusOf`, `statusChanges`, and the same on a view.
-- **Alias**, **old name** (§6.4): a renamed word's former name, standing for it everywhere (`alias(old, now)`, `canonical(name)`, `aliases` in `describe`); not a word itself.
 - **Withdraw** (§6.4): giving a word up by disposing its handle; waiting calls of a withdrawn command end `unknownCommand`.
 
 ## Time and order
@@ -89,7 +87,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **Journal** (§9.3): `registry.journal`, what happened at the level of use, in one order: calls begun and ended (refused too), facts said, writes in a conversation; each entry with `epoch`, `n`, `conversation` and, with spans, `trace`. The registry keeps none of it; a host writes it (`parlance_journal`).
 - **Guard** (§10): a synchronous check asked on every call that reaches its stage; returns a denial reason or nothing.  Who passes it is the guard's to say: there is no override (philosophy, §7).
 - **Log, span** (§9.2): `Registry(log:)`, a `LogScope` of rpc_dart's logger, `noop` unless given: then nothing is logged or made. Each call a span whatever the level (nested calls its children, one trace, across a connection too; a call answering a fact or an ended call links that span); refusals, ticks, the catalog and errors by level, constant messages with their fields in `data`. A handler logs in `call.span`.
-- **Explanation** (§9, §16): why a state is as it is: its last change, on whose behalf, and the calls that led to it (`registry.explain`, `why`). `forgotten` and `trailCut` say what is no longer kept.
+- **Explanation** (§9, §16): why a state is as it is: its last change and mixed `JournalEntry` causal trail, with payload visibility and explicit gaps (`registry.explain`, `why`). `forgotten` and `trailCut` say what is no longer kept.
 
 ## Typed words (§18)
 
@@ -99,7 +97,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`was`** (§18): a write is checked against the value kept before; what is the same of it passes unvisited; checks depend only on the value.
 - **Part**: a field of a `RecordShape`: its shape, optional or default, description.
 - **`RecordShape.none`**: the params of a command that takes none.
-- **Typed handles**: what `GeneratedWords` gives (`GeneratedState`, `GeneratedCommand`, `GeneratedQuery`, `GeneratedFact`) and what they give (`IStateWriterOf<T>`, `IFactSayerOf<T>`), a client's reads (`IStateOf`, `IKeyedOf`, `IFactOf`) and `Fact<T>`. Nothing else is typed.
+- **Typed handles**: what `GeneratedWords` gives (`GeneratedState`, `GeneratedCommand`, `GeneratedQuery`, `GeneratedFact`) and stream handles, and what they give (`IStateWriterOf<T>`, `IFactSayerOf<T>`), a client's reads (`IStateOf`, `IKeyedOf`, `IFactOf`) and `Fact<T>`. Nothing else is typed.
 - **The word fixes the types**: a call is made on what `command(word)` gives, never by a generic function taking a word and params together, which would compile another command's params.
 
 ## Owners (§19)
@@ -108,7 +106,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **`Keyed<T>`**: a keyed state as a generated owner base keeps it: `light.set('kitchen', true)`, `light.remove(key)`, `light.of(key)`, `light.all`.
 - **Owner**: who defines words and does their work: a class extending the base its vocabulary's generator made (`class Home extends HouseOwnerBase`), its handlers overridden, its states and facts objects of the base (`heat.set(21)`, `rang.say(who:)`); what it follows, hears and lets go of it says in its constructor through `OwnerTools`. Every owner has a vocabulary, one of no words for an owner of rules alone; its words go with it.
 - **Attaching owners**: `host.participant(who, owners: [owner])` (a guest: `part.attach([owner])`), each owning its vocabulary and speaking as the owner named by it; the participant holds them, `p.sync()` syncs them all in one batch (one tick), `p.dispose()` takes them with it.
-- **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `changes` syncs it on its own.
+- **Scope** (§19.2): a participant with its owners `main` makes for a while (a user's session, a feature) and disposes, all it held going with it; an owner's `follow` schedules sync when its model changes.
 - **TestHost** (§24): a registry for a test with stand-ins for the modules it leaves out (`standInState`, `standInKeyed`, `standInCommand`, `standInFact`) and what happened read back (`written`, `said`, `callsOf`).
 - **Word use** (§6.8): who used a word, by the name used: calls and asks, remote subscriptions, reads from outside the build (`usesOf`, `usage`, `WordUse`); bounded by `usersPerWord`.
 - **IWord**: a word of any kind by its name; every typed word is one.
@@ -119,7 +117,7 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 ## Remote (§14)
 
 - **Session**: one connection with one principal, fixed by the host when it accepts it: a participant the host made and serves on it (`host.serve(who, endpoint)`, a `RemoteSession`, one per connection). Its words go with it.
-- **`RemoteSession`**: the registry's side of a session: `hears`, `close`.
+- **`RemoteSession`**: the registry's side of a session: `who`, `ended`, `hears`, `dispose`.
 - **Remote participant** (`RemoteParticipant`): a part across a connection, the only way across; the registry calls its commands over the same connection.
 - **Parent** (§14): the call a session is serving, or a fact the registry keeps, that what it does follows from.
 - **Subscription**: the states and facts a session's feeds carry (`subscribe`); a tick with none of them is not sent, without leaving a gap. `values` items bring what a new subscription adds.
@@ -137,12 +135,12 @@ Every term the package uses, what it means, and where its contract is (§n, as i
 - **fetch** (§20): a read by name of a state a view may not keep; across a connection kept from then on, or let go again with `keep: false`.
 - **`ProtocolMismatch`**, **`HostUnreachable`**: a host of another major, or one lacking a feature the participant requires (`missing`), refused at join; a host that cannot be asked now.
 - **`SessionLimits`** (§14): what a session lets the part across hold of the host's (`serve(limits:)`): bytes of values, words, guards, calls in flight; on by default, `unbounded` for a trusted part; past one, that op is refused (`resourceExhausted`).
-- **Protocol feature** (§14): a name the host lists in `describe` for what it speaks beyond the major (`parlanceFeatures`: `built`; a client tells the host those it speaks in its `feed` request); a participant uses one only when listed, and `requires` the ones it cannot do without. A name never changes its meaning.
+- **Protocol feature** (§14): a name in `parlanceFeatures`, required by protocol 2. Hosts list the full current set in `describe`; `requires` can add application requirements. Missing current features refuse joining rather than disabling behavior.
 
 ## Agents (§16)
 
 - **Agent**: a participant the MCP tools work on, here or across a connection.
-- **`parlanceTools`**: the curated tools: `describe`, `read`, `call`, `recent_facts`, `why`; with `commandTools`, a tool per command too.
+- **`parlanceTools`**: the curated tools: `targets`, `describe`, `read`, `call`, `recent_facts`, `why`; with `commandTools`, a tool per command too.
 - **`McpTool.typed`**: a host's own tool, its JSON Schema derived from a `RecordShape`.
 - **`McpSocketServer`**: agents on a Unix socket (`parlance_mcp/io.dart`); `toolsChanged()` reaches every session.
 - **`parlance-mcp`**: an agent's participant across a connection as a stdio server; the package `parlance_mcp`.

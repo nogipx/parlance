@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Require parlance 0.4.0 and its current protocol/runtime contract.
+- Regenerate fixtures with current package provenance.
+- Align the fixture json_annotation floor with the serializer used by code generation.
+
 ## 0.3.0
 
 - Breaking: generate <Class>Vocabulary.name, .words and .definition; remove the former <class>Words constants and use the namespace from generated owners and clients.

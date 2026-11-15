@@ -31,9 +31,8 @@ and unscoped generated clients are replaced, without a compatibility fallback.
   target: ...)` resolves the caller after attachment. `GeneratedWords.own(p)`
   is the generator's publication path. Definitions cannot claim another target.
 - Reads, calls, subscriptions, snapshots, ticks, all three data stream kinds,
-  statuses, schema diagnostics, aliases, usage, journal entries and causes carry
-  the same full address. The wire uses its canonical string. Aliases stay inside
-  one target. A repeated call id within a whole caller principal with a different
+  statuses, schema diagnostics, usage, journal entries and causes carry
+  the same full address. The wire uses its canonical string. Renames do not create alternate addresses. A repeated call id within a whole caller principal with a different
   receiver is an id conflict. Fact ids are scoped to their full publication address.
 - `p.targets(vocabulary: HouseVocabulary.name)` and
   `p.targets(word: HouseCommand.setLight.name)` search by portable names and return
@@ -56,4 +55,4 @@ and unscoped generated clients are replaced, without a compatibility fallback.
 
 The integration tests must cover all local/remote owner and consumer pairings,
 coexisting bare and named principals, exact access and guards, data/call/fact/stream
-isolation, schema/alias isolation, identity and causes, teardown and reconnect.
+isolation, schema isolation, identity and causes, teardown and reconnect.

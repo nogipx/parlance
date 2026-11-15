@@ -23,4 +23,5 @@ A whole small host with an agent's vocabulary:
 [`example/`](https://github.com/nogipx/parlance/tree/main/packages/parlance_mcp/example)
 (`example/agent.dart` runs one, `example/notes.dart` is the words it speaks).
 
+- The server implements MCP protocol `2025-06-18`; it does not negotiate older contracts.
 - Not frozen before `package:parlance` 1.0: what it shows may still change.

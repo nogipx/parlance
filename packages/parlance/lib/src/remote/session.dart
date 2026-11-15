@@ -111,8 +111,8 @@ final class RemoteSession extends ParlanceContractPeer
       'session': this.session,
       'principal': principal.selector,
     });
-    _renames = registry.catalogChanges.listen((c) {
-      if (c is AliasChanged || c is DescriptorAdded || c is DescriptorRemoved) {
+    _catalogCarry = registry.catalogChanges.listen((c) {
+      if (c is DescriptorAdded || c is DescriptorRemoved) {
         if (_askedStates != null || _askedFacts != null) _carry(_subscription);
       }
     });
@@ -154,7 +154,7 @@ final class RemoteSession extends ParlanceContractPeer
   /// nothing of its participant's.
   void _unregistered() {
     _closed = true;
-    unawaited(_renames?.cancel());
+    unawaited(_catalogCarry?.cancel());
     unawaited(_accessChanged?.cancel());
     unawaited(_gone?.cancel());
   }
@@ -207,9 +207,7 @@ final class RemoteSession extends ParlanceContractPeer
   static Never _exhausted(String why) =>
       throw RpcStatusException(RpcStatus.resourceExhausted, why);
 
-  /// What of the protocol it tells the part across it speaks (SPEC §14):
-  /// every feature of this build unless given; fewer stand in, in a test,
-  /// for a host built against an older parlance.
+  /// Advertised current protocol features; tests may omit one to verify refusal.
   final Set<String> features;
 
   /// Who the session acts for; fixed when the host accepted the connection.
@@ -339,22 +337,7 @@ final class RemoteSession extends ParlanceContractPeer
   }
 
   Map<String, Object?> _description() {
-    final d = registry.describeFor(principal);
-    d['descriptors'] = [
-      for (final item in d['descriptors']! as List)
-        if (switch ((item as Map)['is']) {
-          'serverStream' =>
-            features.contains('streams') && _peerSpeaks.contains('streams'),
-          'clientStream' || 'bidiStream' =>
-            features.contains('streams') &&
-                _peerSpeaks.contains('streams') &&
-                features.contains('inputStreams') &&
-                _peerSpeaks.contains('inputStreams'),
-          _ => true,
-        })
-          item,
-    ];
-    return d;
+    return registry.describeFor(principal);
   }
 
   @override
@@ -454,6 +437,12 @@ final class RemoteSession extends ParlanceContractPeer
   @override
   Future<WireJson> onWhy(WireWhyRequest request, {RpcContext? context}) async {
     _open();
+    if (!features.contains('causalDiagnostics')) {
+      throw RpcStatusException(
+        RpcStatus.unimplemented,
+        'host does not speak causalDiagnostics',
+      );
+    }
     if (request.call != null && request.state == null) {
       try {
         return WireJson(registry.inspectCall(request.call!, by: principal));
@@ -481,25 +470,7 @@ final class RemoteSession extends ParlanceContractPeer
       by: principal,
       historyCount: request.historyCount,
     );
-    if (features.contains('causalDiagnostics') &&
-        (request.features?.contains('causalDiagnostics') ?? false)) {
-      return WireJson(explanation.toJson());
-    }
-    // Original clients decode every trail item as a CallRecord. Stop at
-    // the first other kind so they see a contiguous, verifiable call path.
-    final trail = explanation.trail.takeWhile((e) => e is JournalEnd);
-    final legacy = [
-      for (final e in trail)
-        (e as JournalEnd).call.toJson(payloads: e.payloads),
-    ];
-    return WireJson({
-      ...explanation.toJson(),
-      'trail': legacy,
-      if (legacy.length < explanation.trail.length) ...{
-        'trailCut': true,
-        'gap': 'peer does not speak causalDiagnostics',
-      },
-    });
+    return WireJson(explanation.toJson());
   }
 
   /// What the session's feeds carry ([onSubscribe]): these states and
@@ -548,13 +519,9 @@ final class RemoteSession extends ParlanceContractPeer
   bool _carries(String state) =>
       (_stateFilter?.contains(state) ?? true) && _reads(state);
 
-  /// What of the protocol the part across speaks, as its feed asked.
-  Set<String> _peerSpeaks = const {};
-
   @override
   Stream<WireFeedItem> onFeed(WireFeedRequest request, {RpcContext? context}) {
     _open();
-    _peerSpeaks = {...?request.features};
     if (_askedStates == null && _askedFacts == null) {
       for (final d in registry.catalog) {
         if (d is StateDescriptor || d is FactDescriptor) {
@@ -625,13 +592,10 @@ final class RemoteSession extends ParlanceContractPeer
     });
   }
 
-  /// What the session subscribed to, by the names it gave: what its feeds
-  /// carry follows what they stand for as the catalog changes, so an old
-  /// name of a word renamed while it follows it goes on reaching the word
-  /// (SPEC §6.4). Null: everything.
+  /// The exact word addresses subscribed to. Null: everything.
   Set<String>? _askedStates;
   Set<String>? _askedFacts;
-  StreamSubscription<CatalogChange>? _renames;
+  StreamSubscription<CatalogChange>? _catalogCarry;
 
   /// Sets what the feeds carry from the names subscribed to, as the
   /// catalog has them now, and sends the values of the states they carry
@@ -645,9 +609,8 @@ final class RemoteSession extends ParlanceContractPeer
     final facts = _askedFacts?.where(_reads).toSet();
     _listenTo({...?states, ...?facts});
     final before = _stateFilter;
-    // An old name of a word subscribes to the word (SPEC §6.4).
-    final now = states?.map(registry.canonical).toSet();
-    final heard = facts?.map(registry.canonical).toSet();
+    final now = states;
+    final heard = facts;
     final same = _sameSet(before, now) && _sameSet(_factFilter, heard);
     _stateFilter = now;
     _factFilter = heard;
@@ -704,10 +667,9 @@ final class RemoteSession extends ParlanceContractPeer
     }
   }
 
-  /// A word came, or an old name of one: the names it listens to that
-  /// were not words before count from now.
+  /// A word came: previously pending subscriptions count from now.
   void _catalogChanged(CatalogChange c) {
-    if (c is! DescriptorAdded && c is! AliasChanged) return;
+    if (c is! DescriptorAdded) return;
     for (final name in [..._listening.keys]) {
       _listening[name] ??= registry.listenedBy(name, principal);
     }
@@ -1190,13 +1152,6 @@ final class RemoteSession extends ParlanceContractPeer
   }
 
   Stream<Object?> _serveData(StreamCall c) {
-    if (!_peerSpeaks.contains('streams') ||
-        (c.kind != 'serverStream' && !_peerSpeaks.contains('inputStreams'))) {
-      throw const StreamFailure(
-        StreamFailureCode.unsupported,
-        'the owner does not speak streams',
-      );
-    }
     if (_dataLimits.subscriptions case final max?
         when _servedData.length >= max) {
       throw const StreamFailure(
@@ -1257,7 +1212,7 @@ final class RemoteSession extends ParlanceContractPeer
     // Expired here (its caller cancelled it, or its deadline passed): the
     // participant is told, so its handler can stop; its answer still comes.
     final expiry = c.expired.onCancel(() {
-      if (!_closed && _peerSpeaks.contains('cancel')) {
+      if (!_closed) {
         unawaited(_owner.expire(WireName(c.id)).then((_) {}, onError: (_) {}));
       }
     });
@@ -1332,7 +1287,7 @@ final class RemoteSession extends ParlanceContractPeer
       log.info('session ended', data: {'why': why});
     }
     unawaited(_catalogUse?.cancel());
-    unawaited(_renames?.cancel());
+    unawaited(_catalogCarry?.cancel());
     unawaited(_accessChanged?.cancel());
     unawaited(_gone?.cancel());
     for (final h in [

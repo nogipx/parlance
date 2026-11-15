@@ -329,7 +329,7 @@ void main() {
   }
 
   test(
-    'pre-publication overrides are immutable, isolate targets, survive republishing and respect aliases',
+    'pre-publication overrides are immutable, isolate targets, survive republishing',
     () async {
       final host = Host();
       addTearDown(host.dispose);
@@ -354,8 +354,6 @@ void main() {
       final b = f.ICounterClient(participant: user, target: f.personal);
       expect(a.value.value, isNull);
       expect(b.value.value, 8);
-      host.alias('module/work/counter.old', at('value').toString());
-      expect(user.raw.read('module/work/counter.old'), isNull);
       owner.dispose();
       owner = host.participant(
         f.work,
@@ -365,7 +363,6 @@ void main() {
       expect(a.value.value, isNull);
       host.clearAccess(address: at('value'));
       expect(a.value.value, 5);
-      expect(user.raw.read('module/work/counter.old'), 5);
       expect(
         () => host.setAccess(
           address: at('value'),

@@ -550,7 +550,7 @@ abstract final class PlayerVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance_generator 0.3.0',
+    from: 'parlance_generator 0.4.0',
     dartName: 'PlayerVocabulary.definition',
   );
 }

@@ -259,8 +259,7 @@ abstract interface class IRawParticipant
   /// Inspect a call made or served by this participant, within retained history.
   Future<Map<String, Object?>> inspectCall(String id);
 
-  /// Told when the catalog it sees changes: a word came or went, or an
-  /// alias changed.
+  /// Told when the catalog changes: a word came, went or changed access.
   Stream<void> get catalogChanges;
 
   /// Policy revision used to reject stale queued state snapshots.

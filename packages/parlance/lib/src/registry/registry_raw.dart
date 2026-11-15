@@ -7,40 +7,6 @@ part of 'registry.dart';
 /// exported, so a host's code reaches the registry through participants
 /// only, as the one each part is.
 extension RawRegistry on Registry {
-  /// Makes [old] another name of the word [to] (SPEC §6.4): a word
-  /// renamed goes on answering to its old name, in calls, reads and facts,
-  /// so what names it (a plugin, an agent, a stored call) keeps working.
-  /// `describe` lists it under `aliases`. Dispose the handle to drop it.
-  IHandle alias(String old, String to) {
-    checkWordName(old, 'old');
-    if ((old.contains('/') || to.contains('/')) &&
-        WordAddress.parse(old).target != WordAddress.parse(to).target) {
-      throw ArgumentError('aliases stay within one target');
-    }
-    final canonicalWord = canonical(to);
-    if (_states.containsKey(old) ||
-        _commands.containsKey(old) ||
-        _facts.containsKey(old) ||
-        _streams.containsKey(old)) {
-      throw StateError('$old is a word itself');
-    }
-    if (_aliases.containsKey(old)) {
-      throw StateError('$old is an old name of ${_aliases[old]} already');
-    }
-    if (canonicalWord == old) throw StateError('$old cannot stand for itself');
-    _aliases[old] = canonicalWord;
-    // Old names of [old] now stand for its new one.
-    for (final e in _aliases.entries.toList()) {
-      if (e.value == old) _aliases[e.key] = canonicalWord;
-    }
-    _announce(AliasChanged(old));
-    return Disposer(() {
-      if (_aliases.remove(old) == null) return;
-      _uses.forget(old);
-      _announce(AliasChanged(old));
-    });
-  }
-
   /// Runs [f] when the registry is disposed, before it closes: what holds
   /// it (its participants) goes first.
   void beforeDispose(void Function() f) => _beforeDispose.add(f);
@@ -48,26 +14,26 @@ extension RawRegistry on Registry {
   /// [command]'s whyNot may answer otherwise without a tick (SPEC §6.5).
   void whyNotChanged(String command) {
     _availabilityMoved++;
-    _notice(canonical(command), 'availability.changed');
-    if (!_availability.isClosed) _availability.add(canonical(command));
+    _notice(command, 'availability.changed');
+    if (!_availability.isClosed) _availability.add(command);
   }
 
   /// Why [command] cannot run now (it is not there, or its owner says it
   /// is unavailable), or null when it can. Guards are not asked: they judge
   /// a call, not a command.
   String? whyNot(String command) {
-    final stream = _streams[canonical(command)];
+    final stream = _streams[command];
     if (stream != null) return stream.whyNot?.call();
-    final c = _commands[canonical(command)];
+    final c = _commands[command];
     if (c == null) return 'no command $command';
     return c.whyNot?.call();
   }
 
   /// Whether [by] can use the word [name] now (SPEC §6.5): missing from
   /// the catalog, not permitted to it, a command unavailable now, or
-  /// ready. An old name stands for its word.
+  /// ready.
   WordStatus statusOf(String name, {required Principal by}) {
-    final n = canonical(name);
+    final n = name;
     if (_commands[n] case final c?) {
       if (_accessFor(n, by) == Access.deny) return const WordNotPermitted();
       if (c.whyNot?.call() case final why?) return WordUnavailable(why);
@@ -84,9 +50,7 @@ extension RawRegistry on Registry {
     return mayRead(by, n) ? const WordReady() : const WordNotPermitted();
   }
 
-  /// [statusOf] now, then whenever it changes: a word comes or goes, an
-  /// old name moves, or a tick changes what a command's whyNot
-  /// reads.
+  /// [statusOf] now, then when its descriptor, access or availability changes.
   Stream<WordStatus> statusChanges(String name, {required Principal by}) {
     late StreamController<WordStatus> out;
     StreamSubscription<CatalogChange>? catalog;
@@ -295,24 +259,24 @@ extension RawRegistry on Registry {
     }
   }
 
-  /// The word named [name] (or an old name of it) as it is defined now;
+  /// The exact word named [name] as it is defined now;
   /// null when there is none.
   Descriptor? descriptorOf(String name) {
-    final n = canonical(name);
+    final n = name;
     return _effectiveOrNull(_declared(n));
   }
 
   /// The value of [state] (of [key]); inside a batch, the batch's own
   /// writes count (SPEC §7). Null when there is none.
   Object? read(String state, {String? key}) {
-    final e = _states[canonical(state)];
+    final e = _states[state];
     return e?.jsonOf(key, e.local.read(key));
   }
 
   /// [read] as [shape] has it (SPEC §18): the value itself when the
   /// registry keeps it by [shape], else its JSON decoded.
   T? readAs<T>(String state, Shape<T> shape, {String? key}) {
-    final e = _states[canonical(state)];
+    final e = _states[state];
     if (e == null) return null;
     final v = e.local.read(key);
     if (v == null) return null;
@@ -325,7 +289,7 @@ extension RawRegistry on Registry {
   /// itself when the registry keeps it by [shape]; one that cannot be read
   /// is left out.
   Map<String?, T> readAllAs<T>(String state, Shape<T> shape) {
-    final e = _states[canonical(state)];
+    final e = _states[state];
     if (e == null) return const {};
     if (identical(e.shape, shape)) {
       return {
@@ -338,11 +302,11 @@ extension RawRegistry on Registry {
 
   /// Whether [state] (of [key]) has a committed value.
   bool has(String state, {String? key}) =>
-      _states[canonical(state)]?.local.has(key) ?? false;
+      _states[state]?.local.has(key) ?? false;
 
   /// Every committed value of [state], by key (null for an unkeyed one).
   Map<String?, Object?> readAll(String state) {
-    final e = _states[canonical(state)];
+    final e = _states[state];
     if (e == null) return const {};
     if (e.shape is JsonValue) return e.local.values;
     return {
@@ -389,7 +353,6 @@ extension RawRegistry on Registry {
       onListen: () {
         out.add(now());
         _tell[out] = of;
-        _readNow[out] = now;
         // Ticks committed before it read are on their way to the others'
         // listener still: what it read is newer than they are.
         (_watchers[at] ??= {})[out] = seq;
@@ -397,7 +360,6 @@ extension RawRegistry on Registry {
       },
       onCancel: () {
         _tell.remove(out);
-        _readNow.remove(out);
         final set = _watchers[at];
         if (set == null) return;
         set.remove(out);
@@ -425,17 +387,16 @@ extension RawRegistry on Registry {
   /// Facts as they are committed, of [fact] only when given.
   Stream<FactMessage> facts({String? fact}) {
     if (fact == null) return ticks.expand((t) => t.facts);
-    // What [fact] stands for at each tick: an old name hears the word it
-    // stands for now, renamed while it listens (SPEC §6.4).
+    // Filter each tick by the exact fact name.
     return ticks.expand((t) {
-      final name = canonical(fact);
+      final name = fact;
       return t.facts.where((f) => f.fact == name);
     });
   }
 
   /// The last [n] facts of [fact], oldest first.
   List<FactMessage> recent(String fact, [int? n]) {
-    final q = _recent[canonical(fact)];
+    final q = _recent[fact];
     if (q == null || (n != null && n <= 0)) return const [];
     final all = q.toList();
     return n == null || n >= all.length ? all : all.sublist(all.length - n);
@@ -541,7 +502,6 @@ extension RawRegistry on Registry {
     CancellationToken? cancel,
   }) {
     final asked = command;
-    command = canonical(command);
     if (_commands.containsKey(command)) _uses.called(asked, by);
     final callId = id ?? newId();
     cause = _inConversation(cause ?? Cause(by));

@@ -157,7 +157,7 @@ abstract final class DialVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'DialVocabulary.definition',
   );
 }
@@ -271,7 +271,7 @@ abstract final class RulesVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'RulesVocabulary.definition',
   );
 }
@@ -421,7 +421,7 @@ abstract final class BellVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'BellVocabulary.definition',
   );
 }
@@ -606,7 +606,7 @@ abstract final class LampsVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'LampsVocabulary.definition',
   );
 }

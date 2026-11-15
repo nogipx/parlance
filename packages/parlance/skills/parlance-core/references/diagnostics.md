@@ -48,8 +48,8 @@ the same bounded, redacted causal trail and explicit gaps as a state explanation
 `registry.pending`, `running`, `diagnostics`, `message(id)` and `inspectCall(id)`
 are trusted tooling views. Participant explanations and call inspection redact
 payloads against the current access policy, including the inspected message and
-late results. RPC negotiates mixed trails through `causalDiagnostics`; older
-peers retain call-only trails with explicit gaps at unsupported ancestors.
+late results. RPC requires `causalDiagnostics` and always uses mixed journal
+trails with explicit payload visibility; call-only responses are unsupported.
 An unresolved RPC parent is preserved as `Cause.unresolvedParent`, never
 as a verified `parent` or a peer-supplied origin.
 

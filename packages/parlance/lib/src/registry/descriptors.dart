@@ -339,7 +339,7 @@ sealed class DataStreamDescriptor extends Descriptor {
     final name = m['name'] as String;
     final params = ValueType.fromJson(m['params']) as RecordType;
     final type = ValueType.fromJson(m['type']);
-    final access = m['readers'] ?? m['callers'];
+    final access = m[m['is'] == 'serverStream' ? 'readers' : 'callers'];
     final readers = access == null ? null : Callers.fromJson(access);
     final meta = (m['meta'] as Map?)?.cast<String, Object?>() ?? const {};
     return switch (m['is']) {

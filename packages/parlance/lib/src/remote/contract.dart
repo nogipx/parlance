@@ -6,16 +6,10 @@ import 'package:rpc_dart/internal.dart' show RpcPeerFaultException;
 
 part 'contract.g.dart';
 
-/// The remote protocol's major (SPEC §14): what both ends must share to
-/// speak at all. It does not change: the protocol grows by
-/// [parlanceFeatures] instead.
-const parlanceProtocol = 1;
+/// The current wire contract (SPEC §14). Other majors are refused.
+const parlanceProtocol = 2;
 
-/// What this end speaks beyond the protocol's first form (SPEC §14), by
-/// name. A host tells its own in `describe`; a participant uses one only
-/// when the host told it, and refuses to join only when one it requires is
-/// not there. A name keeps its meaning for good: a change is a new name
-/// beside it, and a name goes when nothing needs it.
+/// Every feature of the current wire contract; all are mandatory.
 const parlanceFeatures = {
   // Exact target/word addresses, with no unscoped-client fallback.
   'targets',
@@ -34,8 +28,8 @@ const parlanceFeatures = {
   // Independent parameterized data subscriptions in both directions.
   'streams',
   'inputStreams',
-  // `why` accepts call inspection and state history, and can return mixed
-  // journal entries in its trail when the request also lists this feature.
+  // `why` uses mixed journal trails for state explanations and call
+  // inspection, preserving payload visibility and optional state history.
   'causalDiagnostics',
 };
 
@@ -125,30 +119,18 @@ final class WireDescription implements IRpcSerializable {
 
 /// Asks for the feed, resuming after [since] of [epoch] when given.
 final class WireFeedRequest implements IRpcSerializable {
-  const WireFeedRequest({this.epoch, this.since, this.features});
+  const WireFeedRequest({this.epoch, this.since});
 
   factory WireFeedRequest.fromJson(Map<String, dynamic> m) => WireFeedRequest(
     epoch: _strOrNull(m, 'epoch'),
     since: _intOrNull(m, 'since'),
-    features: switch (m['features']) {
-      final List<Object?> l => {for (final f in l) '$f'},
-      _ => null,
-    },
   );
 
   final String? epoch;
   final int? since;
 
-  /// The features the client speaks (SPEC §14), for the host to send it
-  /// what they make: a client of before them says none.
-  final Set<String>? features;
-
   @override
-  Map<String, dynamic> toJson() => {
-    'epoch': ?epoch,
-    'since': ?since,
-    if (features case final f?) 'features': [...f],
-  };
+  Map<String, dynamic> toJson() => {'epoch': ?epoch, 'since': ?since};
 }
 
 /// What a session's feeds carry: these states and facts, or all of them
@@ -284,27 +266,23 @@ final class WireWhyRequest implements IRpcSerializable {
     this.key,
     this.call,
     this.historyCount = 0,
-    this.features,
   });
   factory WireWhyRequest.fromJson(Map<String, dynamic> m) => WireWhyRequest(
     state: _strOrNull(m, 'state'),
     key: _strOrNull(m, 'key'),
     call: _strOrNull(m, 'call'),
     historyCount: (m['historyCount'] as int? ?? 0).clamp(0, 100),
-    features: _strListOrNull(m, 'features')?.toSet(),
   );
   final String? state;
   final String? key;
   final String? call;
   final int historyCount;
-  final Set<String>? features;
   @override
   Map<String, dynamic> toJson() => {
     'state': ?state,
     'key': ?key,
     'call': ?call,
     if (historyCount != 0) 'historyCount': historyCount,
-    if (features case final f?) 'features': [...f],
   };
 }
 

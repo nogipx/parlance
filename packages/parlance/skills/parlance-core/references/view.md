@@ -36,9 +36,7 @@ Runtime names in this interface are exact `target/word` addresses. Portable word
   a word the registry keeps by that shape is the Dart value itself, both
   ways; else JSON decoded, or encoded for the call. A view has no typed
   handles of its own: typed words are `GeneratedWords`' alone (a client's
-  `stateOf`, `keyedOf`, `factOf`), and they read through these. An old
-  name of a word (§6.4) is told the word's changes and hears its facts,
-  here and across a connection.
+  `stateOf`, `keyedOf`, `factOf`), and they read through these.
 
 ## LocalView(registry, by:)
 

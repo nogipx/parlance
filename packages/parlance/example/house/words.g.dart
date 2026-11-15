@@ -508,7 +508,7 @@ abstract final class HouseVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'HouseVocabulary.definition',
   );
 }
@@ -771,7 +771,7 @@ abstract final class VisitVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance 0.3.0',
+    from: 'parlance 0.4.0',
     dartName: 'VisitVocabulary.definition',
   );
 }

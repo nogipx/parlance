@@ -138,7 +138,7 @@ final class Registry {
   final Map<String, int> _accessRevisions = {};
 
   /// Monotonic policy revision for this canonical word, including cleared rules.
-  int accessRevision(String word) => _accessRevisions[canonical(word)] ?? 0;
+  int accessRevision(String word) => _accessRevisions[word] ?? 0;
   final StreamController<String> _accessChanges = StreamController.broadcast(
     sync: true,
   );
@@ -299,18 +299,11 @@ final class Registry {
         if (_catalogLog.isEnabled(RpcLogLevel.info)) {
           _catalogLog.info('access changed', data: {'word': word});
         }
-      case AliasChanged(:final alias):
-        _notice(alias, 'alias.changed', data: {'canonical': canonical(alias)});
-        if (_catalogLog.isEnabled(RpcLogLevel.info)) {
-          _catalogLog.info('alias changed', data: {'alias': alias});
-        }
-        _builtAgainst.aliasChanged(alias);
-        _aliasWatchers(alias);
     }
     if (!_catalog.isClosed) _catalog.add(c);
   }
 
-  /// Word additions, removals and alias changes, in order.
+  /// Word additions, removals and access changes, in order.
   Stream<CatalogChange> get catalogChanges => _catalog.stream;
 
   final StreamController<String> _availability = StreamController.broadcast();
@@ -339,29 +332,29 @@ final class Registry {
 
   /// The descriptor of the state [name]; null for none.
   StateDescriptor? stateDescriptor(String name) =>
-      _effectiveOrNull(_states[canonical(name)]?.descriptor);
+      _effectiveOrNull(_states[name]?.descriptor);
 
   /// The descriptor of the command [name]; null for none.
   CommandDescriptor? commandDescriptor(String name) =>
-      switch (_commands[canonical(name)]?.descriptor) {
+      switch (_commands[name]?.descriptor) {
         final CommandDescriptor d => _effective(d),
         _ => null,
       };
 
   /// The descriptor of the query [name]; null for none.
   QueryDescriptor? queryDescriptor(String name) =>
-      switch (_commands[canonical(name)]?.descriptor) {
+      switch (_commands[name]?.descriptor) {
         final QueryDescriptor d => _effective(d),
         _ => null,
       };
 
   /// A command's or a query's descriptor: what is called by [name].
   CallableDescriptor? callableDescriptor(String name) =>
-      _effectiveOrNull(_commands[canonical(name)]?.descriptor);
+      _effectiveOrNull(_commands[name]?.descriptor);
 
   /// The descriptor of the fact [name]; null for none.
   FactDescriptor? factDescriptor(String name) =>
-      _effectiveOrNull(_facts[canonical(name)]?.descriptor);
+      _effectiveOrNull(_facts[name]?.descriptor);
 
   /// The catalog as JSON (SPEC §14): its epoch and seq, how long a call id
   /// answers its first result, and the descriptors.
@@ -372,7 +365,6 @@ final class Registry {
     'descriptors': [for (final d in catalog) d.toJson()],
     if (_accessRevisions.isNotEmpty)
       'accessRevisions': Map.of(_accessRevisions),
-    if (_aliases.isNotEmpty) 'aliases': Map.of(_aliases),
   };
 
   List<String> _unreadable(Principal by) => [
@@ -390,9 +382,6 @@ final class Registry {
         _facts.containsKey(name) ||
         _streams.containsKey(name)) {
       throw StateError('$name is defined');
-    }
-    if (_aliases[name] case final now?) {
-      throw StateError('$name is an old name of $now');
     }
   }
 
@@ -416,14 +405,6 @@ final class Registry {
       }
     }
   }
-
-  final Map<String, String> _aliases = {};
-
-  /// The old names of words, each with the name it stands for now.
-  Map<String, String> get aliases => Map.unmodifiable(_aliases);
-
-  /// The name [name] stands for: the word it was renamed to, or itself.
-  String canonical(String name) => _aliases[name] ?? name;
 
   /// The local states of words that went inside a batch: their removals commit
   /// with it, then they go.
@@ -668,10 +649,8 @@ final class Registry {
   // --- Reading ---------------------------------------------------------------
 
   /// Who watches which state (of which key), each with the seq it read
-  /// at: a change reaches only its own watchers, however many watch other
-  /// states, and only those that read before it. By the name each gave:
-  /// an old name follows the word it stands for now (SPEC §6.4), as the
-  /// word is renamed while it watches.
+  /// at: a change reaches only its exact state/key watchers, and only
+  /// those that read before it.
   final Map<(String, String?), Map<StreamController<Object?>, int>> _watchers =
       {};
   StreamSubscription<Tick>? _watching;
@@ -679,11 +658,6 @@ final class Registry {
   /// What each watcher is told of a change it follows: its JSON, or the
   /// value as the watcher's shape has it.
   final Map<StreamController<Object?>, Object? Function(StateChange)> _tell =
-      Map.identity();
-
-  /// What each watcher reads now: told when the name it gave comes to
-  /// stand for another word.
-  final Map<StreamController<Object?>, Object? Function()> _readNow =
       Map.identity();
 
   /// The registry was disposed: every watch ends.
@@ -695,35 +669,15 @@ final class Registry {
     }
     _watchers.clear();
     _tell.clear();
-    _readNow.clear();
     _watching = null;
   }
 
   void _toWatchers(Tick t) {
-    // The old names of each word, for watchers that gave one.
-    final olds = <String, List<String>>{};
-    for (final MapEntry(key: old, value: word) in _aliases.entries) {
-      (olds[word] ??= []).add(old);
-    }
     for (final c in t.changes) {
-      for (final name in [c.state, ...?olds[c.state]]) {
-        final set = _watchers[(name, c.key)];
-        if (set == null) continue;
-        for (final e in [...set.entries]) {
-          if (c.seq > e.value) e.key.add(_tell[e.key]!(c));
-        }
-      }
-    }
-  }
-
-  /// [alias] stands for another word, or none: its watchers read what it
-  /// stands for now.
-  void _aliasWatchers(String alias) {
-    for (final MapEntry(key: (name, _), value: set) in _watchers.entries) {
-      if (name != alias) continue;
-      for (final out in [...set.keys]) {
-        set[out] = seq;
-        out.add(_readNow[out]!());
+      final set = _watchers[(c.state, c.key)];
+      if (set == null) continue;
+      for (final e in [...set.entries]) {
+        if (c.seq > e.value) e.key.add(_tell[e.key]!(c));
       }
     }
   }
@@ -851,7 +805,7 @@ final class Registry {
 
   late final WordUses _uses = WordUses(
     isWord: (name) {
-      final word = canonical(name);
+      final word = name;
       return _states[word] != null ||
           _commands[word] != null ||
           _facts[word] != null ||
@@ -861,11 +815,11 @@ final class Registry {
     clock: clock,
   );
 
-  /// Who used [name] (a word, or an old name of one), as it was named:
+  /// Who used the exact word [name]:
   /// calls and asks, reads and listeners from outside the build (SPEC
   /// §6.8). What the app's own modules read and watch in this process is
-  /// not counted: the compiler knows it. Kept while [name] is a word or an
-  /// old name of one; who listens now, beyond.
+  /// not counted: the compiler knows it. Past uses stay while the word is
+  /// defined; current listeners stay until they stop listening.
   List<WordUse> usesOf(String name) => _uses.of(name);
 
   /// Every name used, and by whom (SPEC §6.8).
@@ -883,9 +837,7 @@ final class Registry {
 
   late final BuiltAgainst _builtAgainst = BuiltAgainst(
     descriptorOf: (word) => descriptorOf(word),
-    aliases: _aliases,
     catalogLog: _catalogLog,
-    callLog: _callLog,
     traced: _traced,
   );
 
@@ -924,7 +876,7 @@ final class Registry {
 
   /// Captures selected independent writes until the returned handle is disposed.
   IHandle captureStateWrites(Iterable<String> words) =>
-      Disposer(_journal.capture(words.map(canonical).toSet()));
+      Disposer(_journal.capture(words.toSet()));
 
   final Map<String, CallStarted> _running = {};
   final Map<String, JournalDiagnostic> _pendingCalls = {};
@@ -984,7 +936,6 @@ final class Registry {
     Principal? by,
     int historyCount = 0,
   }) {
-    state = canonical(state);
     final change = lastChange(state, key: key);
     final path = _pathFrom(change?.cause, by: by);
     final gap =
@@ -1009,7 +960,6 @@ final class Registry {
   /// The last committed change of [state] (of [key]) still retained, or
   /// null: with its cause, it says why the state is as it is.
   StateChange? lastChange(String state, {String? key}) {
-    state = canonical(state);
     for (final t in _retained.toList().reversed) {
       for (final c in t.changes.reversed) {
         if (c.state == state && c.key == key) return c;
@@ -1109,10 +1059,7 @@ final class Registry {
       }
       final d = entry.descriptor;
       try {
-        params = _admitParams(
-          entry.params,
-          _builtAgainst.adapted(command, entry.descriptor, rawParams, cause.by),
-        );
+        params = _admitParams(entry.params, rawParams);
       } on TypeMismatch catch (e) {
         return finish(CallRefused(Refusal.invalidParams, '$e'));
       }

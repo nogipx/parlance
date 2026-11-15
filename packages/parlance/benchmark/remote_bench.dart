@@ -56,8 +56,7 @@ final class Host {
   late final IStateHandle program;
   final List<RpcPeerEndpoint> _ends = [];
 
-  /// A guest joined over a channel of its own; [features] stand in for an
-  /// older host.
+  /// A guest joined over its own channel with advertised [features].
   Future<RemoteParticipant> guest(
     String id, {
     required bool wire,

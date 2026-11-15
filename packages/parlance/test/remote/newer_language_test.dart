@@ -4,10 +4,8 @@ import 'package:parlance/tools.dart';
 import 'package:parlance/src/remote/contract.dart';
 import 'package:parlance/src/remote/mirror.dart';
 import 'package:parlance/src/view/mirror_view.dart';
-import 'package:parlance/testing.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:test/test.dart';
-import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:parlance/src/participant/local.dart' show Participants;
 
 /// What a newer parlance adds to the language (SPEC §14), met by an older
@@ -77,7 +75,7 @@ final class _Peer extends ParlanceContractPeer {
         'seq': 1,
         'descriptors': const <Object?>[],
         'protocol': protocol,
-        'features': const <String>['targets'],
+        'features': [...parlanceFeatures],
         'principal': {'kind': 'agent'},
       });
 
@@ -260,35 +258,5 @@ void main() {
     }
     expect(errors.single.code, ParticipantErrorCode.protocol);
     expect(errors.single.op, {'op': 'rejoin'});
-  });
-
-  test('a possible break is met only by the word its old name stands for '
-      'now', () async {
-    final host = TestHost();
-    addTearDown(host.dispose);
-    final abc = PlainShape(const EnumType(['a', 'b', 'c']));
-    final deck = host.participant(
-      const Principal('deck'),
-      vocabularies: [WordSet.open('deck')],
-    );
-    final w1 = GeneratedWords.own(
-      deck.raw,
-    ).state(S<String>('deck.w1', abc)).define();
-    GeneratedWords.own(deck.raw).state(S<String>('deck.w2', abc)).define();
-    host.participant(const Principal('widlet', 'b')).raw.builtAgainst(const [
-      S('deck.old', EnumShape(Mode.values)),
-    ], target: const Principal('deck'));
-    final toW1 = host.registry.alias('deck/deck.old', 'deck/deck.w1');
-    await pumpEventQueue();
-    toW1.dispose();
-    host.registry.alias('deck/deck.old', 'deck/deck.w2');
-    await pumpEventQueue();
-    w1.set('c');
-    await pumpEventQueue();
-    expect(
-      host.registry.mismatches.single.breaks.single.certain,
-      isFalse,
-      reason: 'w1 is not what deck/deck.old stands for any more',
-    );
   });
 }

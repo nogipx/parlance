@@ -134,7 +134,7 @@ abstract final class DoorsVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance_generator 0.3.0',
+    from: 'parlance_generator 0.4.0',
     dartName: 'DoorsVocabulary.definition',
   );
 }
@@ -301,7 +301,7 @@ abstract final class LightsVocabulary {
   static const WordSet definition = WordSet(
     name,
     words,
-    from: 'parlance_generator 0.3.0',
+    from: 'parlance_generator 0.4.0',
     dartName: 'LightsVocabulary.definition',
   );
 }

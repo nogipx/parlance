@@ -15,7 +15,7 @@ import 'remote/session.dart';
 /// What a host's `main` makes (SPEC §22): the registry of its process,
 /// seen only as what `main` does with it. It makes the participants of the
 /// app's parts in this process ([participant]) and serves those across a
-/// connection ([serve]), says the old names of words, and ends it all.
+/// connection ([serve]), and ends it all.
 ///
 /// Frozen (`app.dart`): what it shows is never taken away; only the
 /// library makes one, so it may grow. The registry itself, for the
@@ -99,15 +99,6 @@ final class Host {
       p.dispose();
       rethrow;
     }
-  }
-
-  /// Says [old] is a name of the word [to] (SPEC §6.4): what asks by the
-  /// old name gets the word, until the handle is disposed.
-  IHandle alias(String old, String to) {
-    if (WordAddress.parse(old).target != WordAddress.parse(to).target) {
-      throw ArgumentError('aliases stay within one target');
-    }
-    return _registry.alias(old, to);
   }
 
   /// Overrides access for an exact publication, including before it appears.

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:parlance/app.dart';
 import 'package:parlance/testing.dart';
 import 'package:parlance/tools.dart';
-import 'package:parlance/src/registry/registry.dart' show RawRegistry;
 import 'package:parlance/src/remote/contract.dart'
     show ParlanceContractPeerCaller, WireDefine;
 import 'package:rpc_dart/rpc_dart.dart';
@@ -375,10 +374,6 @@ void main() {
               StateDescriptor('counterfeit.value', type: const IntType()),
             );
             extra.defineFact(FactDescriptor('signal', type: const IntType()));
-            host.registry.alias(
-              'module/work/counter.old',
-              'module/work/counter.value',
-            );
             await host.settle();
 
             final all = await user.targets();
@@ -409,13 +404,6 @@ void main() {
                 isTrue,
               );
             }
-            expect(
-              counters.last.vocabularies.single.words.map(
-                (w) => w.address.word,
-              ),
-              contains('counter.old'),
-            );
-
             final named = await user.targets(word: CounterCommand.add.name);
             expect(named.map((t) => t.principal), [personal, work]);
             for (final target in named) {
@@ -622,7 +610,7 @@ void main() {
   for (final ownerAcross in [false, true]) {
     for (final consumerAcross in [false, true]) {
       test(
-        'schema and aliases: owner=$ownerAcross consumer=$consumerAcross',
+        'schema isolation: owner=$ownerAcross consumer=$consumerAcross',
         () async {
           final host = TestHost();
           addTearDown(host.dispose);
@@ -644,34 +632,7 @@ void main() {
               : host.participant(ann);
           final ca = ICounterClient(participant: user, target: work);
           final cb = ICounterClient(participant: user, target: personal);
-          host.registry.alias(
-            'module/work/counter.old',
-            'module/work/counter.value',
-          );
-          host.registry.alias(
-            'module/personal/counter.old',
-            'module/personal/counter.value',
-          );
           await host.settle();
-          const old = StateWordOf<int>('counter.old', PlainShape(IntType()));
-          expect(
-            GeneratedWords(participant: user, target: work).stateOf(old).value,
-            1,
-          );
-          expect(
-            GeneratedWords(
-              participant: user,
-              target: personal,
-            ).stateOf(old).value,
-            8,
-          );
-          expect(
-            () => host.registry.alias(
-              'module/work/counter.foreign',
-              'module/personal/counter.value',
-            ),
-            throwsArgumentError,
-          );
           first.dispose();
           a
               .defineState(

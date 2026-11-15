@@ -6,17 +6,18 @@ Part of the contract the code and its tests follow; sections keep their numbers 
 
 The package `parlance_mcp` serves the registry to agents over MCP (a consumer of the words, not a part of their language) (JSON-RPC 2.0, one message a line: stdio, or a socket carrying it so).
 
-**An agent is a participant** (§22): the tools work on its `IParticipant`, `parlanceTools(p)`, made by `main` in the host's process (`host.participant(agent)`) or joined across a connection (`Host.join`, where the host's session decides the principal). The tools are curated, not one per command:
+**An agent is a participant** (§22): the tools work on its `IParticipant`, `parlanceTools(p)`, made by `main` in the host's process (`host.participant(agent)`) or joined across a connection (`Host.join`, where the host's session decides the principal). The tools are curated, not one per command. MCP implements only protocol `2025-06-18`:
 
 | Tool | Does |
 |---|---|
+| `targets` | published target instances, grouped by vocabulary; optional vocabulary or portable word filter |
 | `describe` | the commands this principal may call (params as structural JSON Schema, whether it can run now), states and facts; domain entity lists are read or queried through ordinary words |
 | `read` | states now: one, by prefix, or all; a state the principal may not read (§6.1 `readers`) is told as such, and left out of the others (so is a fact it may not hear, from `recent_facts`) |
 | `call` | a command by name; an `id` makes a retry safe |
 | `recent_facts` | the last facts of a name, from 1 to 100 of them, whatever count the agent gives |
-| `why` | a state's value, last change (when, on whose behalf, the conversation it was part of), the calls that led to it: `Registry.explain`, told without the wire's ids |
+| `why` | a state explanation with mixed journal trails and explicit gaps, or inspection of a call made or served by this participant |
 
-With `commandTools`, each command the principal may call is a tool of its own as well, named with `_` for `.`; one whose tool name is taken (by a curated tool or another command) or longer than 64 has none, and is called by `call`. A host adds its own tools beside these.
+With `commandTools`, each command the principal may call is a tool of its own as well, named by an injective base64url encoding of its full address, prefixed by `p_`; one whose tool name is taken (by a curated tool or another command) or longer than 64 has none, and is called by `call`. A host adds its own tools beside these.
 
 They answer the same here and across a connection, and say so where they cannot:
 
