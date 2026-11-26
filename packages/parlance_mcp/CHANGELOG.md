@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+- Desktop tools can attach to a local collector or start one with `LocalCollector.open`. `CollectorLan` forwards WebSocket and TLS connections from devices on the local network.
+- Hosts can opt into sharing a bounded, metadata-only journal with `CollectorHost(shareJournal: true)`. Clients can follow entries by cursor and detect gaps.
+- `rpc_log_sources` now returns device names and the log cursor as structured content for live log viewers.
+
 ## 0.4.0
 
 - Breaking: the executable now starts a collector. Replace `--connect` with an outbound `CollectorHost` in each app and point the agent at the collector's Unix socket.

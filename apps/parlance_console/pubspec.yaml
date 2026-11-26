@@ -16,7 +16,7 @@ dependencies:
   http: ^1.2.0
   parlance: any
   parlance_journal: any
-  parlance_mcp: ^0.4.0
+  parlance_mcp: ^0.4.1
 
 dev_dependencies:
   flutter_test:
