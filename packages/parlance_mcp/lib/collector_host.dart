@@ -7,12 +7,12 @@ import 'package:parlance/app.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_log/rpc_dart_log.dart';
 import 'package:rpc_dart_websocket/rpc_dart_websocket.dart';
+import 'src/collector_protocol.dart';
 
 /// Keeps a diagnostic session connected until [close]. The host applies the
 /// access declarations for the diagnostic principal to each new session.
 final class CollectorHost {
-  /// Connects in the background and streams [logs]. By default the log
-  /// listener is on port 9500 of the host registry address.
+  /// Connects the host and streams [logs] to the same collector [address].
   /// Set [commandTools] to expose commands permitted for [principal] to the agent.
   CollectorHost({
     required Host host,
@@ -21,7 +21,6 @@ final class CollectorHost {
     required String app,
     required String device,
     required LogController logs,
-    Uri? logAddress,
     bool commandTools = false,
   }) : _logs = logs {
     if (!{'ws', 'wss'}.contains(address.scheme) ||
@@ -32,12 +31,8 @@ final class CollectorHost {
         'Expected a WebSocket URL and nonempty app and device labels',
       );
     }
-    final logUri = logAddress ?? address.replace(port: 9500);
-    if (!{'ws', 'wss'}.contains(logUri.scheme) || logUri.host.isEmpty) {
-      throw ArgumentError.value(logUri, 'logAddress');
-    }
     _output = LogCollectorOutput(
-      uri: logUri,
+      uri: address,
       device: DeviceInfo(name: device, app: app),
     );
     _logs.addOutput(_output);
@@ -70,6 +65,7 @@ final class CollectorHost {
       try {
         final transport = await RpcWebSocketCallerTransport.connect(
           uri,
+          protocols: const [collectorHostProtocol],
           cancellationToken: _cancel,
         );
         peer = RpcPeerEndpoint(transport: transport);

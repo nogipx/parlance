@@ -22,10 +22,10 @@ parlance-mcp --socket "$HOME/.parlance/mcp.sock"
 ```
 
 Configure the agent's stdio MCP command once as `nc -U /absolute/path/to/.parlance/mcp.sock`.
-The collector stays running when an agent exits. Its default listeners are
-`ws://127.0.0.1:9502` for hosts and `ws://127.0.0.1:9500` for
-existing `rpc_dart_log` clients. For a phone on a trusted network, set
-`--bind` to the computer's LAN address. Both ingress ports accept unauthenticated
+The collector stays running when an agent exits. Both Parlance hosts and
+existing `rpc_dart_log` clients use `ws://127.0.0.1:9500` by default.
+Use `--port` to change it. For a phone on a trusted network, set
+`--bind` to the computer's LAN address. The listener accepts unauthenticated
 devices. Use a trusted TLS endpoint for clients that require `wss`.
 
 Add `parlance_mcp` to your app with `dart pub add parlance_mcp`. Attach the
@@ -41,7 +41,7 @@ final diagnostics = CollectorHost(
   logs: logController,
   app: 'Notes',
   device: 'Phone / personal vault',
-  address: Uri.parse('ws://192.168.1.10:9502'),
+  address: Uri.parse('ws://192.168.1.10:9500'),
 );
 // On shutdown or when diagnostics are disabled:
 await diagnostics.close();
@@ -49,7 +49,8 @@ await diagnostics.close();
 
 The connector retries the outgoing connection and attaches a log output with
 the same device label shown by `hosts`. Use a dedicated principal with the
-host's intended access. Pass `logAddress` for a custom log port or proxy path.
+host's intended access. A reverse proxy must forward WebSocket upgrades and
+the `Sec-WebSocket-Protocol` header on the configured path.
 
 Call `hosts` to find a session prefix such as `h1`. The agent can use
 `h1_targets`, `h1_describe`, `h1_read`, `h1_why` and `h1_recent_facts`.

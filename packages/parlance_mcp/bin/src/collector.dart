@@ -5,21 +5,18 @@ import 'package:args/args.dart';
 import 'package:parlance/tools.dart';
 import 'package:parlance_mcp/io.dart';
 import 'package:parlance_mcp/parlance_mcp.dart';
+import 'package:parlance_mcp/src/collector_protocol.dart';
 import 'package:rpc_dart/rpc_dart.dart';
 import 'package:rpc_dart_log/rpc_dart_log_server.dart';
 import 'package:rpc_dart_websocket/io.dart';
 import 'package:rpc_dart_websocket/rpc_dart_websocket.dart';
 
 import 'log_tools.dart';
+import 'log_ingress.dart';
 
 /// One process owns the log buffer and connected hosts across agent sessions.
 final class Collector {
-  Collector({
-    required String socket,
-    required this.bind,
-    required this.hostPort,
-    required int logPort,
-  }) : logs = LogCollectorServer(host: bind, port: logPort) {
+  Collector({required String socket, required this.bind, required this.port}) {
     agents = McpSocketServer(
       path: socket,
       replaceExisting: false,
@@ -31,8 +28,8 @@ final class Collector {
   }
 
   final String bind;
-  final int hostPort;
-  final LogCollectorServer logs;
+  final int port;
+  final _logSessions = <int, LogCollectorSession>{};
   final _buffer = LogCollectorMcpBuffer();
   late final McpSocketServer agents;
   HttpServer? _hosts;
@@ -43,13 +40,11 @@ final class Collector {
   final _live = <String, _HostTools>{};
   int _next = 0;
 
-  int get boundHostPort => _hosts!.port;
+  int get boundPort => _hosts!.port;
 
   Future<void> start() async {
-    logs.onRecord.listen(_buffer.addRecord);
     try {
-      await logs.start();
-      _hosts = await HttpServer.bind(bind, hostPort);
+      _hosts = await HttpServer.bind(bind, port);
       await agents.start();
       _servingAgents = true;
       _hosts!.listen((request) {
@@ -71,17 +66,16 @@ final class Collector {
     final app = request.uri.queryParameters['app'];
     final device = request.uri.queryParameters['device'];
     final commands = request.uri.queryParameters['commandTools'] == 'true';
-    if (!WebSocketTransformer.isUpgradeRequest(request) ||
-        app == null ||
-        app.trim().isEmpty ||
-        device == null ||
-        device.trim().isEmpty) {
+    if (!WebSocketTransformer.isUpgradeRequest(request)) {
       request.response.statusCode = HttpStatus.badRequest;
       await request.response.close();
       return;
     }
     final socket = await WebSocketTransformer.upgrade(
       request,
+      protocolSelector: (offered) => offered.contains(collectorHostProtocol)
+          ? collectorHostProtocol
+          : null,
       compression: CompressionOptions.compressionOff,
     );
     if (_stopping) {
@@ -89,7 +83,48 @@ final class Collector {
       return;
     }
     _connections.add(socket);
-    final id = 'h${++_next}';
+    try {
+      final id = ++_next;
+      if (socket.protocol == collectorHostProtocol) {
+        if (app == null ||
+            app.trim().isEmpty ||
+            device == null ||
+            device.trim().isEmpty) {
+          await socket.close(
+            WebSocketStatus.policyViolation,
+            'Missing app or device',
+          );
+          return;
+        }
+        await _serveHost(socket, 'h$id', app, device, commands);
+      } else {
+        final peer = RpcResponderEndpoint(
+          transport: RpcWebSocketResponderTransport(
+            rpcWebSocketChannel(socket),
+          ),
+        );
+        try {
+          peer.registerServiceContract(LogIngress(id, _logSessions, _buffer));
+          peer.start();
+          await socket.done;
+        } finally {
+          _logSessions.remove(id);
+          await peer.close();
+        }
+      }
+    } finally {
+      _connections.remove(socket);
+      await socket.close();
+    }
+  }
+
+  Future<void> _serveHost(
+    WebSocket socket,
+    String id,
+    String app,
+    String device,
+    bool commands,
+  ) async {
     final peer = RpcPeerEndpoint(
       transport: RpcWebSocketResponderTransport(rpcWebSocketChannel(socket)),
     );
@@ -162,8 +197,6 @@ final class Collector {
       await changes?.cancel();
       await participant?.dispose();
       await peer.close();
-      _connections.remove(socket);
-      await socket.close();
     }
   }
 
@@ -182,7 +215,7 @@ final class Collector {
             },
         ]),
       ),
-      ...logTools(logs, _buffer),
+      ...logTools(_logSessions.values, _buffer),
       for (final host in _live.values) ...host.tools,
     ];
   }
@@ -195,7 +228,6 @@ final class Collector {
     }
     await Future.wait(_tasks.toList());
     if (_servingAgents) await agents.stop();
-    await logs.stop();
   }
 }
 
@@ -218,8 +250,11 @@ Future<void> runCollector(List<String> args) async {
       defaultsTo: '127.0.0.1',
       help: 'Host and log ingress address.',
     )
-    ..addOption('host-port', defaultsTo: '9502')
-    ..addOption('log-port', defaultsTo: '9500')
+    ..addOption(
+      'port',
+      defaultsTo: '9500',
+      help: 'WebSocket port for both hosts and logs.',
+    )
     ..addFlag('help', abbr: 'h', negatable: false);
   late final Collector collector;
   try {
@@ -243,8 +278,7 @@ Future<void> runCollector(List<String> args) async {
     collector = Collector(
       socket: path,
       bind: parsed.option('bind')!,
-      hostPort: port('host-port'),
-      logPort: port('log-port'),
+      port: port('port'),
     );
   } on FormatException catch (e) {
     stderr.writeln('${e.message}\n${parser.usage}');
@@ -261,8 +295,7 @@ Future<void> runCollector(List<String> args) async {
   try {
     await collector.start();
     stderr.writeln(
-      'parlance-mcp: hosts ws://${collector.bind}:${collector.boundHostPort}, '
-      'logs ws://${collector.bind}:${collector.logs.boundPort}, MCP ${collector.agents.path}',
+      'parlance-mcp: ${Uri(scheme: 'ws', host: collector.bind, port: collector.boundPort)}, MCP ${collector.agents.path}',
     );
     await stopped.future;
     await collector.stop();

@@ -20,9 +20,7 @@ void main() {
         'bin/parlance_mcp.dart',
         '--socket',
         path,
-        '--host-port',
-        '0',
-        '--log-port',
+        '--port',
         '0',
       ]);
       addTearDown(process.kill);

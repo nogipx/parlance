@@ -2,14 +2,14 @@ import 'package:parlance_mcp/parlance_mcp.dart';
 import 'package:rpc_dart_log/rpc_dart_log_server.dart';
 
 List<McpTool> logTools(
-  LogCollectorServer server,
+  Iterable<LogCollectorSession> sessions,
   LogCollectorMcpBuffer buffer,
 ) => [
   McpTool(
     name: 'rpc_log_sources',
     description:
         'Connected devices, scope statistics, recent errors, trace prefixes and buffer cursor.',
-    run: (_) async => McpResult(buffer.sources(server.sessions)),
+    run: (_) async => McpResult(buffer.sources(sessions.toList())),
   ),
   McpTool(
     name: 'rpc_log_get_logs',

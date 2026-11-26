@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:parlance_mcp/collector_host.dart';
 import 'package:rpc_dart/logger.dart';
+import 'package:rpc_dart_log/rpc_dart_log.dart';
 import 'package:test/test.dart';
 
 import '../bin/src/collector.dart';
@@ -73,16 +74,11 @@ void main() {
       final dir = Directory.systemTemp.createTempSync('pmcp');
       addTearDown(() => dir.deleteSync(recursive: true));
       final path = '${dir.path}/agent.sock';
-      Collector make(int hostPort, int logPort) => Collector(
-        socket: path,
-        bind: '127.0.0.1',
-        hostPort: hostPort,
-        logPort: logPort,
-      );
-      final first = make(0, 0);
+      Collector make(int port) =>
+          Collector(socket: path, bind: '127.0.0.1', port: port);
+      final first = make(0);
       await first.start();
-      final hostPort = first.boundHostPort;
-      final logPort = first.logs.boundPort!;
+      final port = first.boundPort;
       Collector? running = first;
       addTearDown(() => running?.stop());
       final f = Fixture();
@@ -95,8 +91,7 @@ void main() {
         logs: logs,
         app: 'notes',
         device: 'phone',
-        address: Uri.parse('ws://127.0.0.1:$hostPort'),
-        logAddress: Uri.parse('ws://127.0.0.1:$logPort'),
+        address: Uri.parse('ws://127.0.0.1:$port'),
       );
       addTearDown(adapter.close);
       Future<Map<String, dynamic>> waitForHost() async {
@@ -117,7 +112,7 @@ void main() {
       final before = await waitForHost();
       await first.stop();
       running = null;
-      final second = make(hostPort, logPort);
+      final second = make(port);
       await second.start();
       running = second;
       expect((await waitForHost())['device'], before['device']);
@@ -128,12 +123,7 @@ void main() {
     final dir = Directory.systemTemp.createTempSync('pmcp');
     addTearDown(() => dir.deleteSync(recursive: true));
     final path = '${dir.path}/agent.sock';
-    final collector = Collector(
-      socket: path,
-      bind: '127.0.0.1',
-      hostPort: 0,
-      logPort: 0,
-    );
+    final collector = Collector(socket: path, bind: '127.0.0.1', port: 0);
     await collector.start();
     addTearDown(collector.stop);
 
@@ -149,6 +139,26 @@ void main() {
 
     final client = await connectAgent();
     expect(await client.hosts(), isEmpty);
+    final address = Uri.parse(
+      'ws://127.0.0.1:${collector.boundPort}/diagnostics?project=notes',
+    );
+    final plainOutput = LogCollectorOutput(
+      uri: address,
+      device: const DeviceInfo(name: 'worker', app: 'jobs'),
+    );
+    final worker = LogController(outputs: [plainOutput]);
+    addTearDown(worker.dispose);
+    addTearDown(plainOutput.dispose);
+    final span = worker.scope('jobs').startSpan('background task');
+    span.end();
+    await _until(
+      () async => (await client.call('rpc_log_get_logs', {
+        'device': 'worker',
+        'traceId': span.traceId,
+        'type': 'span',
+      })).contains('background task'),
+    );
+    expect(await client.hosts(), isEmpty);
     CollectorHost attach(String device, {bool commands = false}) {
       final f = Fixture()..focus.set(device);
       addTearDown(f.host.dispose);
@@ -157,8 +167,7 @@ void main() {
       final connection = CollectorHost(
         host: f.host,
         principal: agent,
-        address: Uri.parse('ws://127.0.0.1:${collector.boundHostPort}'),
-        logAddress: Uri.parse('ws://127.0.0.1:${collector.logs.boundPort}'),
+        address: address,
         app: 'notes',
         device: device,
         commandTools: commands,

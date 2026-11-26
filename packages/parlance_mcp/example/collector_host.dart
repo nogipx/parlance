@@ -20,12 +20,6 @@ Future<void> main() async {
     address: Uri.parse(
       const String.fromEnvironment(
         'COLLECTOR_HOST',
-        defaultValue: 'ws://127.0.0.1:9502',
-      ),
-    ),
-    logAddress: Uri.parse(
-      const String.fromEnvironment(
-        'COLLECTOR_LOG',
         defaultValue: 'ws://127.0.0.1:9500',
       ),
     ),
