@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+- Upgrade the collector before updating hosts. New hosts share logs, inspection and optional journal pages over one WebSocket with one reconnect loop. The collector also accepts 0.4.x hosts and standalone `rpc_dart_log` clients.
+- Disconnecting detaches the log output immediately. During network outages the host retains recent logs and resends unacknowledged batches after reconnecting.
+
 ## 0.4.1
 
 - Desktop tools can attach to a local collector or start one with `LocalCollector.open`. `CollectorLan` forwards WebSocket and TLS connections from devices on the local network.

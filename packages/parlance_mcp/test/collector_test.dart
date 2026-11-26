@@ -6,7 +6,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:parlance_mcp/collector_host.dart';
-import 'package:rpc_dart/logger.dart';
+import 'package:parlance_mcp/src/host_logs.dart';
+import 'package:rpc_dart/rpc_dart.dart';
+import 'package:rpc_dart_websocket/rpc_dart_websocket.dart';
 import 'package:rpc_dart_log/rpc_dart_log.dart';
 import 'package:test/test.dart';
 
@@ -101,16 +103,31 @@ void main() {
       addTearDown(f.host.dispose);
       final logs = LogController(outputs: []);
       addTearDown(logs.dispose);
-      final adapter = CollectorHost(
-        host: f.host,
-        principal: agent,
-        logs: logs,
-        app: 'notes',
-        device: 'phone',
-        address: Uri.parse('ws://127.0.0.1:$port'),
+      var connections = 0;
+      final testZone = Zone.current;
+      final adapter = IOOverrides.runZoned(
+        () => CollectorHost(
+          host: f.host,
+          principal: agent,
+          logs: logs,
+          app: 'notes',
+          device: 'phone',
+          address: Uri.parse('ws://127.0.0.1:$port'),
+        ),
+        socketStartConnect: (host, port, {sourceAddress, sourcePort = 0}) {
+          connections++;
+          return testZone.run(
+            () => Socket.startConnect(
+              host,
+              port,
+              sourceAddress: sourceAddress,
+              sourcePort: sourcePort,
+            ),
+          );
+        },
       );
       addTearDown(adapter.close);
-      Future<Map<String, dynamic>> waitForHost() async {
+      Future<Map<String, dynamic>> waitForHost(String message) async {
         final agent = _Agent(
           await Socket.connect(
             InternetAddress(path, type: InternetAddressType.unix),
@@ -119,19 +136,102 @@ void main() {
         );
         try {
           await _until(() async => (await agent.hosts()).isNotEmpty);
+          await _until(
+            () async =>
+                (await agent.call('rpc_log_get_logs')).contains(message),
+          );
           return (await agent.hosts()).single;
         } finally {
           await agent.close();
         }
       }
 
-      final before = await waitForHost();
+      logs.scope('sync').warning('before restart');
+      final before = await waitForHost('before restart');
+      expect(connections, 1);
       await first.stop();
       running = null;
+      logs.scope('sync').warning('during outage');
       final second = make(port);
       await second.start();
       running = second;
-      expect((await waitForHost())['device'], before['device']);
+      expect((await waitForHost('during outage'))['device'], before['device']);
+      expect(connections, 2);
+    },
+  );
+
+  test(
+    'replayed batches across sockets add only previously unseen records; v1 hosts still register',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('pmcp');
+      addTearDown(() => dir.delete(recursive: true));
+      final path = '${dir.path}/agent.sock';
+      final collector = Collector(socket: path, bind: '127.0.0.1', port: 0);
+      await collector.start();
+      addTearDown(collector.stop);
+      final client = _Agent(
+        await Socket.connect(
+          InternetAddress(path, type: InternetAddressType.unix),
+          0,
+        ),
+      );
+      addTearDown(client.close);
+      final f = Fixture();
+      addTearDown(f.host.dispose);
+      final uri = Uri.parse(
+        'ws://127.0.0.1:${collector.boundPort}?app=notes&device=phone',
+      );
+
+      Future<void> visit(String protocol, List<String> messages) async {
+        final peer = RpcPeerEndpoint(
+          transport: await RpcWebSocketCallerTransport.connect(
+            uri,
+            protocols: [protocol],
+          ),
+        );
+        final session = f.host.serve(agent, peer);
+        peer.start();
+        try {
+          await _until(() async => (await client.hosts()).length == 1);
+          if (messages.isNotEmpty) {
+            await peer.unary<LogBatch, LogBatch>(
+              serviceName: 'CollectorLogs',
+              methodName: 'append',
+              request: LogBatch({
+                'first': 1,
+                'records': [
+                  for (final message in messages)
+                    LogEvent(
+                      scope: 'sync',
+                      level: RpcLogLevel.info,
+                      message: message,
+                    ).toJson(),
+                ],
+              }),
+              requestCodec: LogBatch.codec,
+              responseCodec: LogBatch.codec,
+            );
+          } else {
+            // In v1 only the separate log connection registers a log source.
+            expect(
+              await client.call('rpc_log_sources'),
+              isNot(contains('phone [notes]')),
+            );
+          }
+        } finally {
+          session.dispose();
+          await peer.close();
+        }
+        await _until(() async => (await client.hosts()).isEmpty);
+      }
+
+      await visit('parlance.host.v1', []);
+      await visit('parlance.host.v2', ['first batch']);
+      await visit('parlance.host.v2', ['first batch', 'next batch']);
+      final logs = await client.call('rpc_log_get_logs');
+      expect(logs, contains('Found 2 records'));
+      expect(logs, contains('first batch'));
+      expect(logs, contains('next batch'));
     },
   );
 

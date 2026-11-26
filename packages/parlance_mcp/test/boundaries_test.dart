@@ -13,6 +13,7 @@ void main() {
         'lib/src/collector.dart',
         'lib/src/log_tools.dart',
         'lib/src/log_ingress.dart',
+        'lib/src/host_logs.dart',
         'lib/src/journal_feed.dart',
       }.contains(e.path)) {
         continue;

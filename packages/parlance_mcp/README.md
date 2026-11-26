@@ -51,8 +51,14 @@ final diagnostics = CollectorHost(
 await diagnostics.close();
 ```
 
-The connector retries the outgoing connection and attaches a log output with
-the same device label shown by `hosts`. Use a dedicated principal with the
+Since 0.5.0, the host shares one WebSocket for logs, inspection and optional
+journal pages. Upgrade the collector first. It also accepts 0.4.x hosts and
+standalone log clients. Pass the app's log controller directly; closing the
+connector detaches its output immediately. While reconnecting, it buffers up
+to 2,000 records or approximately 8 MiB, evicting the oldest first. A single
+larger record is kept if it fits in an RPC message. The collector
+remembers acknowledgements for the most recent 2,048 sending instances.
+Use a dedicated principal with the
 host's intended access. A reverse proxy must forward WebSocket upgrades and
 the `Sec-WebSocket-Protocol` header on the configured path.
 

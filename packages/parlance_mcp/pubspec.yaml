@@ -1,6 +1,6 @@
 name: parlance_mcp
 description: "Inspect running Parlance apps, discover their tools, and query their rpc_dart logs through one MCP collector."
-version: 0.4.1
+version: 0.5.0
 resolution: workspace
 repository: https://github.com/nogipx/parlance
 issue_tracker: https://github.com/nogipx/parlance/issues

@@ -30,6 +30,7 @@ final class Collector {
   final String bind;
   final int port;
   final _logSessions = <int, LogCollectorSession>{};
+  final _logCursors = <(String, String), int>{};
   final _buffer = LogCollectorMcpBuffer();
   late final McpSocketServer agents;
   HttpServer? _hosts;
@@ -73,9 +74,10 @@ final class Collector {
     }
     final socket = await WebSocketTransformer.upgrade(
       request,
-      protocolSelector: (offered) => offered.contains(collectorHostProtocol)
-          ? collectorHostProtocol
-          : null,
+      protocolSelector: (offered) => [
+        collectorHostProtocol,
+        separateLogHostProtocol,
+      ].where(offered.contains).firstOrNull,
       compression: CompressionOptions.compressionOff,
     );
     if (_stopping) {
@@ -85,7 +87,8 @@ final class Collector {
     _connections.add(socket);
     try {
       final id = ++_next;
-      if (socket.protocol == collectorHostProtocol) {
+      if (socket.protocol == collectorHostProtocol ||
+          socket.protocol == separateLogHostProtocol) {
         if (app == null ||
             app.trim().isEmpty ||
             device == null ||
@@ -96,14 +99,23 @@ final class Collector {
           );
           return;
         }
-        await _serveHost(
-          socket,
-          'h$id',
-          app,
-          device,
-          commands,
-          request.uri.queryParameters['journal'] == 'true',
-        );
+        final logs = socket.protocol == collectorHostProtocol
+            ? LogCollectorSession(id: id, deviceName: device, app: app)
+            : null;
+        if (logs != null) _logSessions[id] = logs;
+        try {
+          await _serveHost(
+            socket,
+            'h$id',
+            app,
+            device,
+            commands,
+            request.uri.queryParameters['journal'] == 'true',
+            logs,
+          );
+        } finally {
+          _logSessions.remove(id);
+        }
       } else {
         final peer = RpcResponderEndpoint(
           transport: RpcWebSocketResponderTransport(
@@ -132,6 +144,7 @@ final class Collector {
     String device,
     bool commands,
     bool journal,
+    LogCollectorSession? logs,
   ) async {
     final peer = RpcPeerEndpoint(
       transport: RpcWebSocketResponderTransport(rpcWebSocketChannel(socket)),
@@ -139,6 +152,11 @@ final class Collector {
     RemoteParticipant? participant;
     StreamSubscription<void>? changes;
     try {
+      if (logs != null) {
+        peer.registerServiceContract(
+          HostLogIngress(logs, _buffer, _logCursors),
+        );
+      }
       peer.start();
       var expired = false;
       final observer = participant = await RemoteParticipant.joinEndpoint(peer)

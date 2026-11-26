@@ -4,12 +4,12 @@ library;
 import 'dart:async';
 
 import 'package:parlance/app.dart';
-import 'package:parlance/tools.dart' show HostRegistry;
+import 'package:parlance/tools.dart' show HostRegistry, newId;
 import 'package:rpc_dart/rpc_dart.dart';
-import 'package:rpc_dart_log/rpc_dart_log.dart';
 import 'package:rpc_dart_websocket/rpc_dart_websocket.dart';
 import 'src/collector_protocol.dart';
 import 'src/journal_feed.dart';
+import 'src/host_logs.dart';
 
 /// Keeps a diagnostic session connected until [close]. The host applies the
 /// access declarations for the diagnostic principal to each new session.
@@ -35,10 +35,6 @@ final class CollectorHost {
         'Expected a WebSocket URL and nonempty app and device labels',
       );
     }
-    _output = LogCollectorOutput(
-      uri: address,
-      device: DeviceInfo(name: device, app: app),
-    );
     _logs.addOutput(_output);
     final journal = shareJournal ? JournalFeed(host.registry.journal) : null;
     final uri = address.replace(
@@ -47,7 +43,7 @@ final class CollectorHost {
         'journal': (journal != null).toString(),
         'commandTools': commandTools.toString(),
         'app': app,
-        'device': '$device/${_output.sessionId}',
+        'device': '$device/${newId().substring(0, 12)}',
       },
     );
     _done = _connect(host, principal, uri, journal).whenComplete(() async {
@@ -58,7 +54,7 @@ final class CollectorHost {
   }
 
   final LogController _logs;
-  late final LogCollectorOutput _output;
+  final _output = HostLogs();
   final _cancel = RpcCancellationToken();
   late final Future<void> _done;
   IRemoteSession? _session;
@@ -88,11 +84,12 @@ final class CollectorHost {
         final session = _session = host.serve(principal, peer);
         peer.start();
         seconds = 1;
-        await session.ended;
+        await Future.any<void>([session.ended, _output.sendOn(peer)]);
       } on Object catch (error) {
         if (error is StateError || error is ArgumentError) rethrow;
         // The next attempt also covers a collector that has not started yet.
       } finally {
+        _output.disconnect();
         _session?.dispose();
         _session = null;
         await peer?.close();
@@ -111,6 +108,8 @@ final class CollectorHost {
 
   /// Stops retries, withdraws the session and releases the connection.
   Future<void> close() {
+    _logs.removeOutput(_output);
+    _output.dispose();
     _cancel.cancel();
     _session?.dispose();
     _retry?.cancel();
