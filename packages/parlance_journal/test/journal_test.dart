@@ -366,7 +366,6 @@ call house/intercom.say by visitor/gate.7 -> done
 
   test('the days asked for, exported as one file a visitor reads as it '
       'reads the days', () async {
-    File('${dir.path}/journal-2026-10-26.jsonl').writeAsStringSync('old\n');
     final s = House();
     final w = JournalWriter(s.r.journal, dir: dir);
     await s.intercom('irc:1');
@@ -380,6 +379,11 @@ call house/intercom.say by visitor/gate.7 -> done
     final day = DateTime.parse(
       '${today.uri.pathSegments.last.substring(8, 18)}T12:00:00Z',
     );
+    final yesterday = day
+        .subtract(const Duration(days: 1))
+        .toIso8601String()
+        .substring(0, 10);
+    File('${dir.path}/journal-$yesterday.jsonl').writeAsStringSync('old\n');
     final n = await JournalReader(dir).export(out, since: day);
     expect(n, 15);
     expect(
