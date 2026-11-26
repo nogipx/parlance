@@ -6,3 +6,6 @@
 library;
 
 export 'src/socket_server.dart';
+export 'src/collector.dart' show Collector;
+export 'src/collector_lan.dart' show CollectorLan;
+export 'src/local_collector.dart' show LocalCollector;

@@ -9,7 +9,16 @@ List<McpTool> logTools(
     name: 'rpc_log_sources',
     description:
         'Connected devices, scope statistics, recent errors, trace prefixes and buffer cursor.',
-    run: (_) async => McpResult(buffer.sources(sessions.toList())),
+    run: (_) async => McpResult(
+      buffer.sources(sessions.toList()),
+      structuredContent: {
+        'cursor': buffer.cursor,
+        'devices': [
+          for (final session in sessions)
+            {'device': session.label, 'app': session.app},
+        ],
+      },
+    ),
   ),
   McpTool(
     name: 'rpc_log_get_logs',

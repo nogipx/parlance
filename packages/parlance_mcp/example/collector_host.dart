@@ -14,6 +14,7 @@ Future<void> main() async {
   final diagnostics = CollectorHost(
     host: host,
     logs: logs,
+    shareJournal: true,
     principal: const Principal('diagnostics'),
     app: 'Notes',
     device: 'example',

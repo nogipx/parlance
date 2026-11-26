@@ -22,6 +22,10 @@ parlance-mcp --socket "$HOME/.parlance/mcp.sock"
 ```
 
 Configure the agent's stdio MCP command once as `nc -U /absolute/path/to/.parlance/mcp.sock`.
+Desktop tools can import `package:parlance_mcp/io.dart` and use
+`LocalCollector.open(socketPath)` to attach to the same service or start it
+on loopback. Its `socket` speaks the same MCP protocol. Calling `close()`
+stops the service only when this connection started it.
 The collector stays running when an agent exits. Both Parlance hosts and
 existing `rpc_dart_log` clients use `ws://127.0.0.1:9500` by default.
 Use `--port` to change it. For a phone on a trusted network, set
@@ -61,6 +65,14 @@ memory until eviction or collector shutdown.
 
 Set `commandTools: true` on a host to expose its `call` tool and individual
 commands permitted for its principal. Other hosts keep their own settings.
+
+With `shareJournal: true`, the host also shares its registry-wide execution
+journal with local collector clients. Entries use the journal's metadata-only
+format (word names, actors, keys, causal links, timing and outcomes).
+The host retains up to 1,024 recent entries and 1 MiB while the connector is
+active. The collector advertises `journal: true` in `hosts`. Read the
+prefixed `journal` tool, then pass the returned `cursor` as `after` for the
+next page. `dropped` reports skipped entries and `more` indicates a backlog.
 
 To try it from a checkout, run `dart run example/collector_host.dart` in the
 package directory while the collector is running. In the agent, list `hosts`,

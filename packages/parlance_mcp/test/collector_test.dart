@@ -10,7 +10,7 @@ import 'package:rpc_dart/logger.dart';
 import 'package:rpc_dart_log/rpc_dart_log.dart';
 import 'package:test/test.dart';
 
-import '../bin/src/collector.dart';
+import 'package:parlance_mcp/io.dart';
 import 'fixture.dart';
 
 final class _Agent {
@@ -68,6 +68,22 @@ Future<void> _until(Future<bool> Function() check) async {
 }
 
 void main() {
+  test(
+    'a second console attaches without stopping the shared collector',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('console');
+      addTearDown(() => dir.delete(recursive: true));
+      final path = '${dir.path}/local.sock';
+      final owner = await LocalCollector.open(path, port: 0);
+      final peer = await LocalCollector.open(path, port: 0);
+      await peer.close();
+      final first = _Agent(owner.socket);
+      expect(await first.hosts(), isEmpty);
+      await owner.close();
+      expect(await FileSystemEntity.type(path), FileSystemEntityType.notFound);
+    },
+  );
+
   test(
     'host reconnects to a restarted collector without a new adapter',
     () async {
@@ -139,8 +155,15 @@ void main() {
 
     final client = await connectAgent();
     expect(await client.hosts(), isEmpty);
-    final address = Uri.parse(
-      'ws://127.0.0.1:${collector.boundPort}/diagnostics?project=notes',
+    final lan = await CollectorLan.start(
+      InternetAddress.loopbackIPv4,
+      collectorPort: collector.boundPort,
+      plainPort: 0,
+    );
+    addTearDown(lan.close);
+    final address = lan.android.replace(
+      path: '/diagnostics',
+      queryParameters: {'project': 'notes'},
     );
     final plainOutput = LogCollectorOutput(
       uri: address,
@@ -171,6 +194,7 @@ void main() {
         app: 'notes',
         device: device,
         commandTools: commands,
+        shareJournal: device == 'desktop',
         logs: logs,
       );
       addTearDown(connection.close);
@@ -195,6 +219,7 @@ void main() {
         (t) => (t as Map)['name'],
       );
       expect(names, isNot(contains('${prefix}_call')));
+      expect(names, isNot(contains('${prefix}_journal')));
       return names.contains('${prefix}_read') &&
           names.contains("${desktop['prefix']}_read");
     });
@@ -216,6 +241,33 @@ void main() {
       },
     });
     expect(called['result']['isError'], false);
+    expect(desktop['journal'], true);
+    final journalTool = "${desktop['prefix']}_journal";
+    final page =
+        jsonDecode(await client.call(journalTool)) as Map<String, dynamic>;
+    final rows = (page['lines'] as List<dynamic>)
+        .cast<String>()
+        .map((line) => jsonDecode(line) as Map<String, dynamic>)
+        .toList();
+    final callRows = rows.where((r) => r['command'] == 'host/house/house.show');
+    expect(
+      callRows.map((r) => r['kind']),
+      containsAllInOrder(['start', 'end']),
+    );
+    expect(
+      callRows.every((r) => r['payloads'] == false && !r.containsKey('params')),
+      true,
+    );
+    expect(
+      rows
+          .where((r) => r['kind'] == 'write')
+          .every((r) => !r.containsKey('value')),
+      true,
+    );
+    final next =
+        jsonDecode(await client.call(journalTool, {'after': page['cursor']}))
+            as Map<String, dynamic>;
+    expect(next['lines'], isEmpty);
     expect(
       jsonDecode(await client.call("${desktop['prefix']}_read", args)),
       'break',
