@@ -116,7 +116,7 @@ final class McpSession {
     required this.output,
     required this.tools,
     this.name = 'parlance',
-    this.version = '0.1.0',
+    this.version = '0.4.0',
     this.instructions,
     this.log,
   }) {

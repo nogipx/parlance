@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Breaking: the executable now starts a collector. Replace `--connect` with an outbound `CollectorHost` in each app and point the agent at the collector's Unix socket.
+- Inspect multiple hosts and query their buffered logs from one MCP connection on macOS or Linux. Hosts can opt in to command tools for their served principal.
+- Connect Dart hosts with `CollectorHost`. It streams their logs, reconnects after a disconnect, and associates each live host with its log source.
+- Requires Dart 3.10.1 or later.
+
 ## 0.3.0
 
 - Require parlance 0.4.0 and its current RPC contract.

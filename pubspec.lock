@@ -629,14 +629,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.4.0"
-  rpc_dart_socket:
+  rpc_dart_log:
     dependency: transitive
     description:
-      name: rpc_dart_socket
-      sha256: "49409a950f2aba3bc9b824aa9f74b85ffd26ba0726d3e18614d65a4349c57f15"
+      name: rpc_dart_log
+      sha256: e67573bd2635512a28bc9bb541bef5b22a7915c3a143173c66627f937c016e88
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.4.1"
+  rpc_dart_websocket:
+    dependency: transitive
+    description:
+      name: rpc_dart_websocket
+      sha256: "62b4422c892fe3b599e55271646b6c911140a6a2c2e8ed79c72b72b62249452f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   shelf:
     dependency: transitive
     description:

@@ -17,10 +17,14 @@ final class McpSocketServer {
     this.instructions,
     this.log,
     this.onSessions,
+    this.replaceExisting = true,
   });
 
-  /// The socket's path; a file left there is replaced.
+  /// The socket's path.
   final String path;
+
+  /// Whether to remove an existing file before binding the socket.
+  final bool replaceExisting;
 
   /// The tools there are now, as each session asks for them.
   final FutureOr<List<McpTool>> Function() tools;
@@ -44,7 +48,7 @@ final class McpSocketServer {
   Future<void> start() async {
     if (_server != null) throw StateError('already listening on $path');
     final file = File(path);
-    if (file.existsSync()) file.deleteSync();
+    if (replaceExisting && file.existsSync()) file.deleteSync();
     final server = _server = await ServerSocket.bind(
       InternetAddress(path, type: InternetAddressType.unix),
       0,
@@ -100,12 +104,16 @@ final class McpSocketServer {
 
   /// Ends every session and removes the socket.
   Future<void> stop() async {
+    final server = _server;
+    if (server == null) return;
     for (final s in [..._sessions.keys]) {
       _close(s);
     }
-    await _server?.close();
     _server = null;
-    final file = File(path);
-    if (file.existsSync()) file.deleteSync();
+    await server.close();
+    if (FileSystemEntity.typeSync(path, followLinks: false) ==
+        FileSystemEntityType.unixDomainSock) {
+      File(path).deleteSync();
+    }
   }
 }

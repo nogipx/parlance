@@ -35,8 +35,6 @@ dev_dependencies:
 #   dependency_overrides:
 #     rpc_dart:
 #       path: ../rpc_dart/packages/core/rpc_dart
-#     rpc_dart_socket:
-#       path: ../rpc_dart/packages/transport/rpc_dart_socket
 #     rpc_dart_generator:
 #       path: ../rpc_dart/packages/core/rpc_dart_generator
 # Never publish with those in place: the dry run only hints at them, and the

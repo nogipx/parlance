@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 /// The tools work on a participant, here or across a connection, so they
-/// know no transport; only the binary does.
+/// know no transport. The outbound host connector owns its WebSocket.
 void main() {
-  test('the library does not import rpc_dart', () {
+  test('only the collector host adapter imports an RPC transport', () {
     for (final e in Directory('lib').listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
+      if (e.path == 'lib/collector_host.dart') continue;
       final imports = RegExp(
         r'''^import '([^']+)';''',
         multiLine: true,

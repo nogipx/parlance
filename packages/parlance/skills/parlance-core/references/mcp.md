@@ -29,7 +29,7 @@ They answer the same here and across a connection, and say so where they cannot:
 
 The session asks for the tools once and again after `toolsChanged()` (or when asking failed), and answers each message when it is done: a long call holds no other back.
 
-`parlance-mcp --connect unix:/path | tcp://host/port [--command-tools]` (the package's binary, which alone takes `rpc_dart_socket`) is an agent's participant across a connection as a stdio server: it joins the host, and joins again after a drop. Started before the host, it lists no tools, and tells the agent they changed once it joins; after a drop it keeps the tools it listed, and what they do answers that the host is not reachable now.
+`parlance-mcp --socket <path>` starts a collector. Each app uses `CollectorHost` to serve its chosen principal over an outbound WebSocket and stream its logs. An agent uses `nc -U <path>` as its stdio command. The `hosts` tool lists live session prefixes. The collector advertises each host's inspection tools and, when that host enables `commandTools`, its permitted commands. Disconnect removes its tools. Buffered logs remain available through `rpc_log_sources` and `rpc_log_get_logs`.
 
 **On this machine.** `package:parlance_mcp/io.dart` holds `McpSocketServer(path:, tools:, name:, instructions:, log:, onSessions:)`. It serves agents on a Unix socket readable by its owner alone (`start` fails rather than serve one it could not make so), opening a session per connection, and its `toolsChanged()` reaches every session. It is apart from `parlance_mcp.dart` because it needs `dart:io`.
 

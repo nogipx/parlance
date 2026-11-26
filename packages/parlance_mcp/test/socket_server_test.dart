@@ -62,6 +62,18 @@ void main() {
   });
   tearDown(() => dir.deleteSync(recursive: true));
 
+  test('stopping after a refused bind preserves the existing file', () async {
+    final file = File(path)..writeAsStringSync('occupied');
+    final server = McpSocketServer(
+      path: path,
+      tools: () => [],
+      replaceExisting: false,
+    );
+    await expectLater(server.start(), throwsA(isA<SocketException>()));
+    await server.stop();
+    expect(file.readAsStringSync(), 'occupied');
+  });
+
   test('agents connect, list the tools, and hear when they change', () async {
     var tools = [_tool('one')];
     final counts = <int>[];

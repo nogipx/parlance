@@ -1,6 +1,6 @@
 name: parlance_mcp
-description: "A host's parlance for agents over stdio, reached over a Unix socket or TCP."
-version: 0.3.0
+description: "Inspect running Parlance apps, discover their tools, and query their rpc_dart logs through one MCP collector."
+version: 0.4.0
 resolution: workspace
 repository: https://github.com/nogipx/parlance
 issue_tracker: https://github.com/nogipx/parlance/issues
@@ -9,13 +9,14 @@ topics:
   - agents
 
 environment:
-  sdk: ">=3.10.0 <4.0.0"
+  sdk: ">=3.10.1 <4.0.0"
 
 dependencies:
   parlance: ^0.4.0
   rpc_dart: ^7.2.0
-  # The transport to a host; parlance's libraries do not need it.
-  rpc_dart_socket: ^0.2.0
+  rpc_dart_log: ^0.4.1
+  rpc_dart_websocket: ^0.6.0
+  args: ^2.6.0
 
 executables:
   parlance-mcp: parlance_mcp
