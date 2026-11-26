@@ -14,7 +14,7 @@ Skills, no packages outside the pub workspace.
 - `packages/parlance_journal`, `packages/parlance_links`,
   `packages/parlance_mcp` — the reader of a host's journal, reactions as
   data, and the MCP server (`parlance-mcp`).
-- `apps/journal_viewer`, `examples/guests/*` — `publish_to: none`.
+- `apps/parlance_console`, `examples/guests/*` — `publish_to: none`.
 
 ## Publishing
 

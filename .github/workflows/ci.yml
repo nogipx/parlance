@@ -34,7 +34,7 @@ jobs:
       - name: Public API vs the latest compatible release tag
         run: melos run frozen
 
-  # Dart tests across the workspace. journal_viewer is a Flutter app and has
+  # Dart tests across the workspace. parlance_console is a Flutter app and has
   # its own job; it needs `flutter test`.
   test:
     name: "Tests"
@@ -49,9 +49,9 @@ jobs:
       - name: Run tests
         run: melos run test
 
-  # journal_viewer is a Flutter app: its tests need `flutter test` (dart:ui).
+  # parlance_console is a Flutter app: its tests need `flutter test` (dart:ui).
   viewer:
-    name: "journal_viewer (Flutter)"
+    name: "parlance_console (Flutter)"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: lint
@@ -60,7 +60,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Resolve workspace
         run: fvm dart pub get
-      - name: Run journal_viewer tests
+      - name: Run parlance_console tests
         run: melos run test:viewer
 
   # Validate that the publishable packages stay publishable. Catches

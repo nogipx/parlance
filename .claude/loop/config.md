@@ -163,7 +163,7 @@ view/remote: packages/parlance/lib/src/remote/participant.dart, packages/parlanc
   throughput under load (memory, registry, remote, realtime, big_doc). Not
   wired into CI; the load/long-livedness area has never been measured by
   running (backlog B-1).
-- `fvm flutter analyze` and `fvm flutter build web` in `apps/journal_viewer`
+- `fvm flutter analyze` and `fvm flutter build web` in `apps/parlance_console`
   — the only UI (web + macOS), outside the library gate.
 - wasm/JS guests (design mentions guest wasm): no build target exists in this
   repository.
@@ -185,7 +185,7 @@ Worth a round now, in this order:
 
 ## Out of scope
 
-- The journal viewer app's UI behaviour and looks (`apps/journal_viewer`) —
+- The journal viewer app's UI behaviour and looks (`apps/parlance_console`) —
   gate it with flutter tooling, not this loop.
 - Examples (`examples/guests`) as teaching material — only their compiled
   correctness matters.

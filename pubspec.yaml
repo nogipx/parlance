@@ -11,7 +11,7 @@ workspace:
   - packages/parlance_links
   - packages/parlance_journal
   - packages/parlance_mcp
-  - apps/journal_viewer
+  - apps/parlance_console
   - examples/guests/host_words
   - examples/guests/notes_words
   - examples/guests/notes_guest
@@ -56,7 +56,7 @@ melos:
 
     test:
       description: Run dart tests across packages that have a test/ dir.
-      # journal_viewer is a Flutter app: its test needs `flutter test`
+      # parlance_console is a Flutter app: its test needs `flutter test`
       # (dart:ui), so it is excluded here and has test:viewer.
       run: fvm dart test
       exec:
@@ -64,13 +64,13 @@ melos:
         failFast: false
       packageFilters:
         dirExists: test
-        ignore: [journal_viewer]
+        ignore: [parlance_console]
 
     test:viewer:
-      description: Run the journal_viewer Flutter tests (outside `dart test`).
+      description: Run the parlance_console Flutter tests (outside `dart test`).
       run: |
         set -e
-        cd apps/journal_viewer
+        cd apps/parlance_console
         fvm flutter test
 
     # Compatibility within the current release line: one minor for 0.x,
