@@ -32,7 +32,8 @@ Future<void> main(List<String> args) async {
       for (final signal in [ProcessSignal.sigint, ProcessSignal.sigterm])
         signal.watch().listen((_) => window.kill()),
     ];
-    final errors = stderr.addStream(window.stderr);
+    // The collector also writes to stderr while the window is running.
+    final errors = window.stderr.forEach(stderr.add);
     var connected = true;
     final requests = utf8.decoder
         .bind(window.stdout)
